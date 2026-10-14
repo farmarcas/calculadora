@@ -15,7 +15,9 @@
       "Bash(docker volume inspect *)",
       "Bash(docker compose *)",
       "Bash(docker-compose *)",
-      "Bash(open -a Docker)"
+      "Bash(open -a Docker)",
+      "Bash(scripts/validar-frontend.sh*)",
+      "Bash(./scripts/validar-frontend.sh*)"
     ],
     "ask": [
       "Bash(docker run *)",

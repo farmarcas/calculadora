@@ -22,3 +22,77 @@ model User {
 
   @@map("users")
 }
+
+// Escala (M4) — cadastro por planilha. Um único grupo por enquanto (sem group_id).
+model Loja {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  codigo    String
+  nome      String
+  cnpj      String?
+  uf        String?
+  marca     String?
+  // Horário de funcionamento: { semana: {abre, fecha}, sabado: {...}, domingo: {...} }
+  horarios  Json?
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  funcionarios Funcionario[]
+
+  @@map("lojas")
+}
+
+model Funcionario {
+  id            String    @id @default(uuid(7)) @db.Uuid
+  matricula     String
+  nome          String
+  cpf           String?
+  lojaId        String    @map("loja_id") @db.Uuid
+  cargo         String?
+  // Farmacêutico, Atendimento, Caixa, Apoio, Perfumaria; nulo = fora do cálculo de escala.
+  funcaoEscala  String?   @map("funcao_escala")
+  cargaSemanalH Int?      @map("carga_semanal_h")
+  regime        String?
+  deletedAt     DateTime? @map("deleted_at") @db.Timestamptz(3)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  loja Loja @relation(fields: [lojaId], references: [id])
+
+  @@index([lojaId])
+  @@map("funcionarios")
+}
+
+enum ImportacaoStatus {
+  AGUARDANDO_CONFIRMACAO @map("aguardando_confirmacao")
+  CONFIRMADA             @map("confirmada")
+
+  @@map("importacao_status")
+}
+
+// Planilha recebida: guarda as linhas lidas até a pessoa confirmar o mapeamento.
+model ImportacaoCadastro {
+  id            String           @id @default(uuid(7)) @db.Uuid
+  arquivo       String
+  status        ImportacaoStatus @default(AGUARDANDO_CONFIRMACAO)
+  abas          Json
+  mapeamento    Json?
+  resumo        Json?
+  criadoEm      DateTime         @default(now()) @map("criado_em") @db.Timestamptz(3)
+  confirmadoEm  DateTime?        @map("confirmado_em") @db.Timestamptz(3)
+
+  @@map("importacoes_cadastro")
+}
+
+model Auditoria {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  acao      String
+  perfil    String
+  alvoTipo  String   @map("alvo_tipo")
+  alvoId    String?  @map("alvo_id")
+  detalhe   Json?
+  criadoEm  DateTime @default(now()) @map("criado_em") @db.Timestamptz(3)
+
+  @@index([alvoTipo, alvoId])
+  @@map("auditoria")
+}

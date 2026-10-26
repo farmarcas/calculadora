@@ -1,0 +1,18 @@
+@import "@fontsource/inter/400.css";
+@import "@fontsource/inter/500.css";
+@import "@fontsource/inter/700.css";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --system-500: #006ff7; --system-600: #074ac6; --system-700: #00389e;
+  --system-200: #89c9ff; --system-100: #c7e4ff; --system-050: #e4f2ff;
+  --ink-900: #061938; --ink-700: #42526e; --ink-500: #6b7a90; --ink-300: #c9d1db;
+  --border-subtle: #e5e8eb; --surface-subtle: #f0f3f6; --surface-card: #fff; --surface-page: #fafbfc;
+  --error-500: #df0028; --error-600: #b0001f; --error-050: #fde7ea;
+  --success-500: #31c072; --success-600: #1b7c4a; --success-050: #e6f8ee;
+  --attention-050: #fff6e0; --attention-700: #8a5a00;
+}
+
+body { margin: 0; background: var(--surface-page); color: var(--ink-900); font-family: Inter, system-ui, sans-serif; font-size: 14px; }

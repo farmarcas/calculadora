@@ -284,4 +284,94 @@ describe('simulações (rotas)', () => {
       expect(await prisma.auditoria.count({ where: { acao: 'simulacao.exportada' } })).toBe(1);
     });
   });
+
+  describe('vagas e desligamentos simulados', () => {
+    const put = (id: string, body: object) =>
+      request(app).put(`/api/v1/simulacoes/${id}`).set(admin).send(body);
+
+    it('adiciona vaga, avisa quando não tem turnos e não mexe no cadastro', async () => {
+      const sim = (await criar()).body;
+      const antes = await prisma.funcionario.count();
+      const r = await put(sim.id, { vagas: [{ funcao: 'Atendimento', cargaH: 24 }] });
+      expect(r.status).toBe(200);
+      const vaga = r.body.quadro.find((p: { vaga?: boolean }) => p.vaga);
+      expect(vaga).toMatchObject({
+        matricula: 'VAGA-1',
+        nome: 'Vaga 1',
+        funcao: 'Atendimento',
+        cargaH: 24,
+      });
+      expect(
+        r.body.avaliacao.avisos.some((a: { regra: string }) => a.regra === 'vaga-sem-turnos'),
+      ).toBe(true);
+      expect(await prisma.funcionario.count()).toBe(antes);
+
+      const turnos = [
+        ...r.body.turnos,
+        {
+          matricula: 'VAGA-1',
+          dia: 0,
+          entrada: 8,
+          saida: 14,
+          iniIntervalo: null,
+          fimIntervalo: null,
+        },
+      ];
+      const c = await put(sim.id, { turnos });
+      expect(
+        c.body.avaliacao.avisos.some((a: { regra: string }) => a.regra === 'vaga-sem-turnos'),
+      ).toBe(false);
+
+      const rem = await put(sim.id, { vagas: [] });
+      expect(rem.body.quadro.some((p: { vaga?: boolean }) => p.vaga)).toBe(false);
+      expect(rem.body.turnos.some((t: { matricula: string }) => t.matricula === 'VAGA-1')).toBe(
+        false,
+      );
+    });
+
+    it('desligamento simulado tira a pessoa da cobertura e pode ser desfeito', async () => {
+      const sim = (await criar()).body;
+      const d = await put(sim.id, { desligados: ['F1'] });
+      expect(d.body.quadro.find((p: { matricula: string }) => p.matricula === 'F1').desligado).toBe(
+        true,
+      );
+      expect(
+        d.body.avaliacao.erros.some((e: { regra: string }) => e.regra === 'farmaceutico'),
+      ).toBe(true);
+      const u = await put(sim.id, { desligados: [] });
+      expect(u.body.avaliacao.erros).toEqual([]);
+    });
+
+    it('recusa vaga com carga inválida, vaga inexistente e desligar uma vaga', async () => {
+      const sim = (await criar()).body;
+      expect((await put(sim.id, { vagas: [{ funcao: 'Caixa', cargaH: 2 }] })).status).toBe(400);
+      expect(
+        (await put(sim.id, { vagas: [{ matricula: 'VAGA-7', funcao: 'Caixa', cargaH: 20 }] }))
+          .status,
+      ).toBe(400);
+      await put(sim.id, { vagas: [{ funcao: 'Caixa', cargaH: 20 }] });
+      expect((await put(sim.id, { desligados: ['VAGA-1'] })).status).toBe(400);
+    });
+
+    it('vagas ficam congeladas na gravada e vêm junto no clone', async () => {
+      const sim = (await criar()).body;
+      await put(sim.id, { vagas: [{ funcao: 'Apoio', cargaH: 16 }] });
+      await request(app).post(`/api/v1/simulacoes/${sim.id}/gravar`).set(admin);
+      expect((await put(sim.id, { vagas: [] })).status).toBe(409);
+      const c = (await request(app).post(`/api/v1/simulacoes/${sim.id}/clonar`).set(admin)).body;
+      expect(c.quadro.some((p: { vaga?: boolean }) => p.vaga)).toBe(true);
+    });
+
+    it('cria já com as contratações que o diagnóstico sugere', async () => {
+      await request(app)
+        .put(`/api/v1/lojas/${lojaId}/configuracao`)
+        .set(admin)
+        .send({ minimos: { Caixa: 1 } });
+      const r = await criar({ nome: 'Com vagas', regra: 'r40', comVagasSugeridas: true });
+      expect(r.status).toBe(201);
+      const vagas = r.body.quadro.filter((p: { vaga?: boolean }) => p.vaga);
+      expect(vagas).toHaveLength(2);
+      expect(vagas.every((v: { funcao: string }) => v.funcao === 'Caixa')).toBe(true);
+    });
+  });
 });

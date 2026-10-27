@@ -1,7 +1,15 @@
 import type { DiaAberto } from '../regras/capacidade.js';
 import { tetoEfetivo, type Regra } from '../regras/perfis.js';
 
-export type PessoaSim = { matricula: string; nome: string; funcao: string | null; cargaH: number };
+export type PessoaSim = {
+  matricula: string;
+  nome: string;
+  funcao: string | null;
+  cargaH: number;
+  // Vaga simulada: nunca existe no cadastro. Desligado: pessoa do cadastro fora desta simulação.
+  vaga?: boolean;
+  desligado?: boolean;
+};
 export type TurnoSim = {
   matricula: string;
   dia: number; // 0 = segunda
@@ -56,6 +64,15 @@ const presente = (t: TurnoSim, h: number) =>
     t.fimIntervalo > h + EPS
   );
 
+// Quem conta na simulação: tira os desligados simulados e os turnos deles.
+export const ativos = <T extends { matricula: string }>(quadro: PessoaSim[], turnos: T[]) => {
+  const fora = new Set(quadro.filter((p) => p.desligado).map((p) => p.matricula));
+  return {
+    quadro: quadro.filter((p) => !p.desligado),
+    turnos: turnos.filter((t) => !fora.has(t.matricula)),
+  };
+};
+
 export const avaliarSimulacao = (a: {
   regra: Regra;
   dias: DiaAberto[];
@@ -63,7 +80,8 @@ export const avaliarSimulacao = (a: {
   quadro: PessoaSim[];
   turnos: TurnoSim[];
 }) => {
-  const { regra, dias, minimos, quadro, turnos } = a;
+  const { regra, dias, minimos } = a;
+  const { quadro, turnos } = ativos(a.quadro, a.turnos);
   const achados: Achado[] = [];
   const erro = (r: string, texto: string, extra: Partial<Achado> = {}) =>
     achados.push({ tipo: 'erro', regra: r, texto, ...extra });
@@ -137,6 +155,10 @@ export const avaliarSimulacao = (a: {
           { matricula: p.matricula, dia: d },
         );
     }
+    if (p.vaga && meus.length === 0)
+      aviso('vaga-sem-turnos', `${p.nome} (${p.funcao}) não tem turnos: custa e não cobre nada.`, {
+        matricula: p.matricula,
+      });
     return { matricula: p.matricula, horas, dias: diasTrab.size, limiteH: arred(limite) };
   });
 

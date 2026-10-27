@@ -14,6 +14,7 @@ export default function EscalaPage({ perfil }) {
   const [diag, setDiag] = useState(null);
   const [erro, setErro] = useState(null);
   const [enviando, setEnviando] = useState(false);
+  const [abrirSim, setAbrirSim] = useState(null);
 
   useEffect(() => {
     api("/lojas?pageSize=100")
@@ -85,9 +86,9 @@ export default function EscalaPage({ perfil }) {
       </div>
 
       {!diag && !erro && aba !== "grade" && <p className="text-sm text-ink-500">Carregando…</p>}
-      {diag && aba === "diagnostico" && <Diagnostico diag={diag} podeEscrever={podeEscrever} onEnviar={() => setEnviando(true)} />}
+      {diag && aba === "diagnostico" && <Diagnostico diag={diag} podeEscrever={podeEscrever} onEnviar={() => setEnviando(true)} onSimular={(id) => { setAbrirSim(id); setAba("grade"); }} />}
       {diag && aba === "configuracao" && <Configuracao diag={diag} podeEscrever={podeEscrever} lojaId={lojaId} onSalvo={setDiag} />}
-      {aba === "grade" && <GradeTab lojaId={lojaId} perfil={perfil} podeEscrever={podeEscrever} />}
+      {aba === "grade" && <GradeTab lojaId={lojaId} perfil={perfil} podeEscrever={podeEscrever} abrirId={abrirSim} />}
       {enviando && <EnviarPlanilhas onClose={() => setEnviando(false)} onConcluido={carregar} />}
     </>
   );

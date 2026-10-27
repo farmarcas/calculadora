@@ -52,7 +52,7 @@ function Nova({ lojaId, lista, onClose, onCriada }) {
   );
 }
 
-export default function GradeTab({ lojaId, perfil, podeEscrever }) {
+export default function GradeTab({ lojaId, perfil, podeEscrever, abrirId }) {
   const [lista, setLista] = useState([]);
   const [descartadas, setDescartadas] = useState(false);
   const [aberta, setAberta] = useState(null);
@@ -80,6 +80,9 @@ export default function GradeTab({ lojaId, perfil, podeEscrever }) {
   useEffect(() => {
     carregar();
   }, [carregar]);
+  useEffect(() => {
+    if (abrirId) setAberta(abrirId);
+  }, [abrirId]);
 
   if (comparando)
     return (

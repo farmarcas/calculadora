@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { api } from "../../api/client.js";
 import { Aviso, Botao, Cartao, Ficha } from "../../components/ui/index.jsx";
 
 const TH = "text-left text-[11px] font-bold uppercase tracking-wide text-ink-500 px-6 py-3";
@@ -84,8 +85,18 @@ function Verificacao({ regras }) {
   );
 }
 
-function Contratacoes({ regras }) {
+function Contratacoes({ regras, podeEscrever, onSimular }) {
   const [id, setId] = useState("r42");
+  const [erro, setErro] = useState(null);
+  const simular = async () => {
+    setErro(null);
+    try {
+      const s = await api(`/lojas/${regras[0].lojaId}/simulacoes`, { method: "POST", body: { nome: `Contratar para ${regra.nome}`, regra: id, origem: "escala_atual", comVagasSugeridas: true } });
+      onSimular(s.id);
+    } catch (e) {
+      setErro(e.message);
+    }
+  };
   const regra = regras.find((r) => r.id === id);
   const faltas = regra.funcoes.filter((f) => f.falta);
   return (
@@ -121,6 +132,12 @@ function Contratacoes({ regras }) {
             ))}
           </tbody>
         </table>
+      )}
+      {faltas.length > 0 && podeEscrever && (
+        <div className="px-6 py-3 border-t border-line flex flex-wrap items-center gap-3">
+          <Botao tipo="secundario" onClick={simular}>Simular esta contratação</Botao>
+          {erro && <Aviso>{erro}</Aviso>}
+        </div>
       )}
       <p className="m-0 px-6 py-3 text-xs text-ink-500 border-t border-line">Contratação simulada não cria funcionário. Valores das regras ainda sem validação jurídica.</p>
     </Cartao>
@@ -188,7 +205,7 @@ function Vendas({ vendas }) {
   );
 }
 
-export default function Diagnostico({ diag, podeEscrever, onEnviar }) {
+export default function Diagnostico({ diag, podeEscrever, onEnviar, onSimular }) {
   if (diag.status === "pendente")
     return (
       <>
@@ -242,7 +259,7 @@ export default function Diagnostico({ diag, podeEscrever, onEnviar }) {
       </Cartao>
 
       <Verificacao regras={diag.regras} />
-      <Contratacoes regras={diag.regras} />
+      <Contratacoes regras={diag.regras.map((r) => ({ ...r, lojaId: diag.loja.id }))} podeEscrever={podeEscrever} onSimular={onSimular} />
       <Cobertura cob={diag.cobertura} />
       <Vendas vendas={diag.vendas} />
 

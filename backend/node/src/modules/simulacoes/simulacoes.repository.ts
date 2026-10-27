@@ -136,11 +136,18 @@ export const simulacoesRepository = {
     return rows.map((r) => ({ ...r, status: doBanco[r.status] }));
   },
 
-  async atualizarRascunho(id: string, d: { nome?: string; regra?: string; turnos?: TurnoSim[] }) {
+  async atualizarRascunho(
+    id: string,
+    d: { nome?: string; regra?: string; turnos?: TurnoSim[]; quadro?: PessoaSim[] },
+  ) {
     await prisma.$transaction(async (tx) => {
       await tx.simulacao.update({
         where: { id },
-        data: { ...(d.nome ? { nome: d.nome } : {}), ...(d.regra ? { regra: d.regra } : {}) },
+        data: {
+          ...(d.nome ? { nome: d.nome } : {}),
+          ...(d.regra ? { regra: d.regra } : {}),
+          ...(d.quadro ? { quadro: d.quadro as unknown as Prisma.InputJsonValue } : {}),
+        },
       });
       if (d.turnos) {
         await tx.simulacaoTurno.deleteMany({ where: { simulacaoId: id } });

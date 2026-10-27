@@ -8,6 +8,7 @@ import { FUNCOES_PADRAO_MINIMO, regraPara, type RegraId } from '../regras/perfis
 import { calcularIndicadores, sintese } from './comparar.js';
 import { gerarExcelEscala } from './exportar.js';
 import { avaliarSimulacao, type PessoaSim, type TurnoSim } from './avaliar.js';
+import { aplicarVagasEDesligados, vagasSugeridas, type VagaEntrada } from './vagas.js';
 import type {
   Premissas,
   SimulacaoRegistro,
@@ -191,10 +192,10 @@ export const makeSimulacoesService = (
 
     async criar(
       lojaId: string,
-      b: { nome: string; regra: RegraId; origem: string },
+      b: { nome: string; regra: RegraId; origem: string; comVagasSugeridas?: boolean },
       perfil: string,
     ) {
-      await loja(lojaId);
+      const l = await loja(lojaId);
       let base: { quadro: PessoaSim[]; turnos: TurnoSim[] };
       let origemId: string | null = null;
       if (b.origem === 'escala_atual') base = await doEscalaAtual(lojaId);
@@ -210,6 +211,18 @@ export const makeSimulacoesService = (
         if (o.lojaId !== lojaId) throw new ValidationError('A simulação de origem é de outra loja');
         base = { quadro: o.quadro, turnos: o.turnos };
         origemId = o.id;
+      }
+      if (b.comVagasSugeridas) {
+        if (b.origem !== 'escala_atual')
+          throw new ValidationError('As contratações sugeridas só valem a partir da escala atual.');
+        const regra = regraPara(b.regra, l.convencao8h24);
+        const sugeridas = vagasSugeridas(
+          regra,
+          diasAbertos(l.horarios),
+          { ...FUNCOES_PADRAO_MINIMO, ...(l.minimos ?? {}) },
+          base.quadro,
+        );
+        base = { ...base, ...aplicarVagasEDesligados(base.quadro, base.turnos, sugeridas) };
       }
       const s = await repo.criar({
         lojaId,
@@ -231,7 +244,13 @@ export const makeSimulacoesService = (
 
     async editar(
       id: string,
-      b: { nome?: string; regra?: RegraId; turnos?: TurnoSim[] },
+      b: {
+        nome?: string;
+        regra?: RegraId;
+        turnos?: TurnoSim[];
+        vagas?: VagaEntrada[];
+        desligados?: string[];
+      },
       perfil: string,
     ) {
       const s = await simulacao(id);
@@ -240,8 +259,39 @@ export const makeSimulacoesService = (
           'Simulação gravada não se edita: clone para ajustar.',
           'SIMULACAO_NAO_EDITAVEL',
         );
-      if (b.turnos) validarTurnos(s, b.turnos);
-      await repo.atualizarRascunho(id, b);
+      let quadro: PessoaSim[] | undefined;
+      let turnos = b.turnos;
+      if (b.vagas || b.desligados) {
+        const r = aplicarVagasEDesligados(s.quadro, b.turnos ?? s.turnos, b.vagas, b.desligados);
+        quadro = r.quadro;
+        turnos = r.turnos;
+        if (r.adicionadas.length)
+          await auditar({
+            acao: 'simulacao.vaga-adicionada',
+            perfil,
+            alvoTipo: 'simulacao',
+            alvoId: id,
+            detalhe: { vagas: r.adicionadas },
+          });
+        if (r.removidas.length)
+          await auditar({
+            acao: 'simulacao.vaga-removida',
+            perfil,
+            alvoTipo: 'simulacao',
+            alvoId: id,
+            detalhe: { vagas: r.removidas },
+          });
+        if (b.desligados)
+          await auditar({
+            acao: 'simulacao.desligamento',
+            perfil,
+            alvoTipo: 'simulacao',
+            alvoId: id,
+            detalhe: { total: b.desligados.length },
+          });
+      }
+      if (turnos) validarTurnos({ ...s, quadro: quadro ?? s.quadro }, turnos);
+      await repo.atualizarRascunho(id, { nome: b.nome, regra: b.regra, turnos, quadro });
       if (b.turnos)
         await auditar({ acao: 'simulacao.ajustada', perfil, alvoTipo: 'simulacao', alvoId: id });
       return detalhe(await simulacao(id));

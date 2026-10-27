@@ -6,24 +6,24 @@ Formato: `[ID] [P] [US] descrição com caminho`. [P] = pode ir em paralelo. Cam
 
 ## Phase 1: Setup
 
-- [ ] T001 Criar o branch de trabalho a partir do estado atual e conferir o ambiente de pé (`docker compose ps` saudável, `npm test` verde)
+- [x] T001 Criar o branch de trabalho a partir do estado atual e conferir o ambiente de pé (`docker compose ps` saudável, `npm test` verde)
 
 ## Phase 2: Fundação
 
-- [ ] T002 Migration: coluna `custos` (JSON, nula) em `lojas`, em `prisma/schema.prisma` e `prisma/migrations/`
-- [ ] T003 [P] Ampliar o tipo de pessoa da simulação (`vaga`, `desligado`) em `src/modules/simulacoes/avaliar.ts` e nos tipos do repositório
+- [x] T002 Migration: coluna `custos` (JSON, nula) em `lojas`, em `prisma/schema.prisma` e `prisma/migrations/`
+- [x] T003 [P] Ampliar o tipo de pessoa da simulação (`vaga`, `desligado`) em `src/modules/simulacoes/avaliar.ts` e nos tipos do repositório
 
 ## Phase 3: US1 — Vagas e desligamentos simulados (P1) 🎯 MVP
 
 **Teste independente**: adicionar vaga de Atendimento de 24h num rascunho, dar turnos, ver a cobertura mudar e o cadastro intacto.
 
-- [ ] T004 [US1] Teste + avaliação ignorando desligados (e seus turnos), vaga valendo como pessoa com limite = carga da vaga, aviso de vaga sem turnos, em `src/modules/simulacoes/avaliar.ts` e `avaliar.test.ts`
-- [ ] T005 [US1] Schema Zod: `vagas` (função, carga 4–44h em passos de 4, máx. 20) e `desligados` em `src/modules/simulacoes/simulacoes.schemas.ts`
-- [ ] T006 [US1] Service: montar o quadro com vagas numeradas (`VAGA-n`) e desligados, apagar turnos de vaga removida, só em rascunho, com auditoria, em `src/modules/simulacoes/simulacoes.service.ts`
-- [ ] T007 [US1] Teste de integração: adicionar/remover vaga, desligar, cadastro sem alteração, congelar ao gravar, em `src/modules/simulacoes/simulacoes.routes.integration.test.ts`
-- [ ] T008 [P] [US1] Painel de vagas e desligamentos na simulação (adicionar, remover, desligar/desfazer) em `src/features/grade/Vagas.jsx` e `Simulacao.jsx`
-- [ ] T009 [US1] Grade e tabela da semana mostrando vagas ("Vaga 1 · Atendimento") e desligados esmaecidos em `src/features/grade/Grade.jsx` e `Simulacao.jsx`
-- [ ] T010 [US1] Atalho "simular esta contratação": `comVagasSugeridas` na criação (service + schema) e botão no diagnóstico, em `src/modules/simulacoes/` e `src/features/diagnostico/Diagnostico.jsx`
+- [x] T004 [US1] Teste + avaliação ignorando desligados (e seus turnos), vaga valendo como pessoa com limite = carga da vaga, aviso de vaga sem turnos, em `src/modules/simulacoes/avaliar.ts` e `avaliar.test.ts`
+- [x] T005 [US1] Schema Zod: `vagas` (função, carga inteira de 4 a 44h, máx. 20) e `desligados` em `src/modules/simulacoes/simulacoes.schemas.ts`
+- [x] T006 [US1] Service: montar o quadro com vagas numeradas (`VAGA-n`) e desligados, apagar turnos de vaga removida, só em rascunho, com auditoria, em `src/modules/simulacoes/simulacoes.service.ts`
+- [x] T007 [US1] Teste de integração: adicionar/remover vaga, desligar, cadastro sem alteração, congelar ao gravar, em `src/modules/simulacoes/simulacoes.routes.integration.test.ts`
+- [x] T008 [P] [US1] Painel de vagas e desligamentos na simulação (adicionar, remover, desligar/desfazer) em `src/features/grade/Vagas.jsx` e `Simulacao.jsx`
+- [x] T009 [US1] Grade e tabela da semana mostrando vagas ("Vaga 1 · Atendimento") e desligados esmaecidos em `src/features/grade/Grade.jsx` e `Simulacao.jsx`
+- [x] T010 [US1] Atalho "simular esta contratação": `comVagasSugeridas` na criação (service + schema) e botão no diagnóstico, em `src/modules/simulacoes/` e `src/features/diagnostico/Diagnostico.jsx`
 
 **Checkpoint**: dá para testar "e se eu contratar?" sem custo ainda.
 

@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { api } from "../../api/client.js";
 import { Aviso, Botao, Cartao, entrada } from "../../components/ui/index.jsx";
+import Custos from "./Custos.jsx";
 
 const FUNCOES = ["Farmacêutico", "Atendimento", "Caixa", "Apoio", "Perfumaria"];
 
-export default function Configuracao({ diag, podeEscrever, lojaId, onSalvo }) {
+export default function Configuracao({ diag, podeEscrever, lojaId, onSalvo, perfil }) {
   const [conv, setConv] = useState(diag.config.convencao8h24);
   const [min, setMin] = useState(diag.config.minimos);
   const [erro, setErro] = useState(null);
@@ -58,6 +59,7 @@ export default function Configuracao({ diag, podeEscrever, lojaId, onSalvo }) {
         ))}
       </Cartao>
       {podeEscrever && <div><Botao onClick={salvar}>Salvar configuração</Botao></div>}
+      {perfil === "TENANT_ADMIN" && <Custos lojaId={lojaId} />}
     </div>
   );
 }

@@ -65,6 +65,7 @@ export const sintese = (
   i: Indicadores,
   ref: Indicadores | null,
   refNome: string | null,
+  extra: { custoDiff?: number | null; vagas?: number } = {},
 ): string => {
   const partes: string[] = [];
   if (i.erros > 0) partes.push(`tem ${i.erros} erro(s) nas regras e ainda não pode ser aprovada`);
@@ -81,6 +82,15 @@ export const sintese = (
   } else {
     partes.push(`cobre ${i.coberturaPct}% das horas exigidas`);
   }
+  if (extra.custoDiff) {
+    const v = Math.abs(extra.custoDiff).toLocaleString('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+      maximumFractionDigits: 0,
+    });
+    partes.push(`custa ${v} ${extra.custoDiff > 0 ? 'a mais' : 'a menos'} por mês frente à em uso`);
+  }
+  if (extra.vagas) partes.push(`exige contratar ${extra.vagas} vaga(s)`);
   if (i.horasFalta > 0) partes.push(`faltam ${i.horasFalta}h-pessoa por semana`);
   return `${nome} ${partes.join('; ')}.`;
 };

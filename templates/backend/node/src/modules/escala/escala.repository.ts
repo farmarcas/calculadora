@@ -122,6 +122,7 @@ export const escalaRepository = {
       horarios: l.horarios as LojaDiag['horarios'],
       convencao8h24: l.convencao8h24,
       minimos: l.minimos as LojaDiag['minimos'],
+      custos: l.custos as unknown as LojaDiag['custos'],
     };
   },
 

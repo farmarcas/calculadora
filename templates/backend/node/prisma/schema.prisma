@@ -36,6 +36,8 @@ model Loja {
   // Configuração do diagnóstico: convenção que permite 8h24/dia e mínimo de pessoas por função.
   convencao8h24 Boolean   @default(false) @map("convencao_8h24")
   minimos       Json?
+  // Salário médio por função, encargos e regime tributário. Só o dono do grupo vê. Sem valor padrão.
+  custos        Json?
   deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
   createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)

@@ -1,5 +1,6 @@
 import { passa, verificarRegra, type DiaAberto, type LinhaFuncao } from '../regras/capacidade.js';
 import { FUNCOES_PADRAO_MINIMO, REGRA_IDS, regraPara, type RegraId } from '../regras/perfis.js';
+import type { Custos } from '../custos/custos.schemas.js';
 import { cobertura, type TurnoPessoa } from './cobertura.js';
 import { lerHora } from './interpretar.js';
 import { resumirVendas, type VendaLinha } from './vendas.js';
@@ -12,6 +13,8 @@ export type LojaDiag = {
   horarios: { semana?: Horario; sabado?: Horario; domingo?: Horario } | null;
   convencao8h24: boolean;
   minimos: Record<string, number> | null;
+  // Só para o cálculo de custo (visível apenas ao dono); nunca sai no diagnóstico.
+  custos?: Custos | null;
 };
 export type TurnoDiag = Omit<TurnoPessoa, 'funcao'> & {
   matricula: string;

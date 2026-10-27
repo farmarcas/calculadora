@@ -374,4 +374,109 @@ describe('simulações (rotas)', () => {
       expect(vagas.every((v: { funcao: string }) => v.funcao === 'Caixa')).toBe(true);
     });
   });
+
+  describe('custo na comparação', () => {
+    const custos = { salarioMedio: { Farmacêutico: 8000, Atendimento: 2000 }, encargosPct: 50 };
+    const salvarCustos = (c: object = custos) =>
+      request(app).put(`/api/v1/lojas/${lojaId}/custos`).set(admin).send(c);
+    const gravada = async (nome: string, corpo: object = {}) => {
+      const sim = (await criar({ nome, regra: 'r40' })).body;
+      if (Object.keys(corpo).length)
+        await request(app).put(`/api/v1/simulacoes/${sim.id}`).set(admin).send(corpo);
+      const g = await request(app).post(`/api/v1/simulacoes/${sim.id}/gravar`).set(admin);
+      expect(g.status).toBe(200);
+      return g.body;
+    };
+    const comparar = (ids: string[], h: Record<string, string> = admin) =>
+      request(app)
+        .get(`/api/v1/lojas/${lojaId}/simulacoes/comparar?ids=${ids.join(',')}`)
+        .set(h);
+
+    it('o dono vê custo mensal, anual e a diferença frente à em uso; a síntese cita custo e vaga', async () => {
+      await salvarCustos();
+      const a = await gravada('Plano A');
+      const b = await gravada('Plano B com vaga', {
+        vagas: [{ funcao: 'Farmacêutico', cargaH: 24 }],
+      });
+      await request(app).post(`/api/v1/simulacoes/${a.id}/aprovar`).set(admin).send({});
+
+      const r = await comparar([a.id, b.id]);
+      expect(r.status).toBe(200);
+      const [ra, rb] = r.body.simulacoes;
+      // A: 2 farmacêuticos × 8.000 × 1,5 = 24.000
+      expect(ra.custo).toMatchObject({
+        informado: true,
+        mensal: 24000,
+        anual: 288000,
+        diferencaMensalFrenteEmUso: null,
+      });
+      // B: + vaga de 24h = 8.000 × 24 × 5 ÷ 200 × 1,5 = 7.200
+      expect(rb.custo).toMatchObject({
+        mensal: 31200,
+        anual: 374400,
+        diferencaMensalFrenteEmUso: 7200,
+      });
+      expect(rb.sintese).toContain('a mais por mês');
+      expect(rb.sintese).toContain('exige contratar 1 vaga(s)');
+      expect(rb.custo.memoria.some((m: string) => m.includes('Vaga 1'))).toBe(true);
+    });
+
+    it('quem não é dono não recebe nenhum valor de custo, nem na comparação nem na simulação', async () => {
+      await salvarCustos();
+      const a = await gravada('Plano A');
+      const b = await gravada('Plano B');
+      for (const h of [{ 'X-Perfil': 'SCHEDULE_MANAGER' }, { 'X-Perfil': 'SCHEDULE_VIEWER' }]) {
+        const r = await comparar([a.id, b.id], h);
+        expect(r.status).toBe(200);
+        expect(JSON.stringify(r.body)).not.toMatch(/custo|24000|mensal/);
+        expect(
+          (await request(app).get(`/api/v1/simulacoes/${a.id}`).set(h)).body.custo,
+        ).toBeUndefined();
+      }
+    });
+
+    it('simulação gravada antes de informar os custos passa a mostrar o valor quando a loja informa', async () => {
+      const a = await gravada('Plano A');
+      await salvarCustos();
+      expect(
+        (await request(app).get(`/api/v1/simulacoes/${a.id}`).set(admin)).body.custo.mensal,
+      ).toBe(24000);
+    });
+
+    it('sem custos informados mostra só o aviso, sem total', async () => {
+      const a = await gravada('Plano A');
+      const b = await gravada('Plano B');
+      const r = await comparar([a.id, b.id]);
+      expect(r.body.simulacoes[0].custo).toEqual({
+        informado: false,
+        diferencaMensalFrenteEmUso: null,
+      });
+    });
+
+    it('função sem salário informado: avisa qual falta e não soma parcial', async () => {
+      await salvarCustos({ salarioMedio: { Atendimento: 2000 }, encargosPct: 50 });
+      const a = await gravada('Plano A');
+      const b = await gravada('Plano B');
+      const c = (await comparar([a.id, b.id])).body.simulacoes[0].custo;
+      expect(c).toMatchObject({
+        informado: true,
+        faltamInformar: ['Farmacêutico'],
+        mensal: null,
+        anual: null,
+      });
+    });
+
+    it('a simulação gravada usa o retrato dos custos de quando foi gravada', async () => {
+      await salvarCustos();
+      const a = await gravada('Plano A');
+      await salvarCustos({
+        salarioMedio: { Farmacêutico: 20000, Atendimento: 2000 },
+        encargosPct: 50,
+      });
+      const d = (await request(app).get(`/api/v1/simulacoes/${a.id}`).set(admin)).body;
+      expect(d.custo.mensal).toBe(24000);
+      const novo = (await criar({ nome: 'Rascunho novo', regra: 'r40' })).body;
+      expect(novo.custo.mensal).toBe(60000); // rascunho usa os custos de hoje
+    });
+  });
 });

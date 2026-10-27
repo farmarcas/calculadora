@@ -8,6 +8,8 @@ import { FUNCOES_PADRAO_MINIMO, regraPara, type RegraId } from '../regras/perfis
 import { calcularIndicadores, sintese } from './comparar.js';
 import { gerarExcelEscala } from './exportar.js';
 import { avaliarSimulacao, type PessoaSim, type TurnoSim } from './avaliar.js';
+import { aplicarVagasEDesligados, vagasSugeridas, type VagaEntrada } from './vagas.js';
+import { calcularCusto } from '../custos/custo.js';
 import type {
   Premissas,
   SimulacaoRegistro,
@@ -47,6 +49,7 @@ export const makeSimulacoesService = (
       horarios: l.horarios,
       minimos: { ...FUNCOES_PADRAO_MINIMO, ...(l.minimos ?? {}) },
       convencao8h24: l.convencao8h24,
+      custos: l.custos ?? null,
       regra: s.regra,
     };
     const regra = regraPara(s.regra as RegraId, p.convencao8h24);
@@ -97,7 +100,7 @@ export const makeSimulacoesService = (
     return motivos;
   };
 
-  const detalhe = async (s: SimulacaoRegistro) => {
+  const detalhe = async (s: SimulacaoRegistro, perfil?: string) => {
     const l = await loja(s.lojaId);
     const { c, avaliacao } = avaliar(s, l);
     const motivosDesatualizada = await desatualizacao(s, l);
@@ -129,6 +132,17 @@ export const makeSimulacoesService = (
       quadro: s.quadro,
       turnos: s.turnos,
       avaliacao,
+      // Custo só sai para o dono do grupo: para os outros o campo nem existe.
+      ...(perfil === 'TENANT_ADMIN'
+        ? {
+            custo: calcularCusto({
+              regra: s.regra as RegraId,
+              quadro: s.quadro,
+              // Retrato do momento de gravar; sem valores nele, vale o que a loja informou depois.
+              custos: c.premissas.custos ?? l.custos ?? null,
+            }),
+          }
+        : {}),
     };
   };
 
@@ -185,16 +199,16 @@ export const makeSimulacoesService = (
       };
     },
 
-    async obter(id: string) {
-      return detalhe(await simulacao(id));
+    async obter(id: string, perfil: string) {
+      return detalhe(await simulacao(id), perfil);
     },
 
     async criar(
       lojaId: string,
-      b: { nome: string; regra: RegraId; origem: string },
+      b: { nome: string; regra: RegraId; origem: string; comVagasSugeridas?: boolean },
       perfil: string,
     ) {
-      await loja(lojaId);
+      const l = await loja(lojaId);
       let base: { quadro: PessoaSim[]; turnos: TurnoSim[] };
       let origemId: string | null = null;
       if (b.origem === 'escala_atual') base = await doEscalaAtual(lojaId);
@@ -211,6 +225,18 @@ export const makeSimulacoesService = (
         base = { quadro: o.quadro, turnos: o.turnos };
         origemId = o.id;
       }
+      if (b.comVagasSugeridas) {
+        if (b.origem !== 'escala_atual')
+          throw new ValidationError('As contratações sugeridas só valem a partir da escala atual.');
+        const regra = regraPara(b.regra, l.convencao8h24);
+        const sugeridas = vagasSugeridas(
+          regra,
+          diasAbertos(l.horarios),
+          { ...FUNCOES_PADRAO_MINIMO, ...(l.minimos ?? {}) },
+          base.quadro,
+        );
+        base = { ...base, ...aplicarVagasEDesligados(base.quadro, base.turnos, sugeridas) };
+      }
       const s = await repo.criar({
         lojaId,
         nome: b.nome,
@@ -226,12 +252,18 @@ export const makeSimulacoesService = (
         alvoId: s.id,
         detalhe: { origem: b.origem },
       });
-      return detalhe(s);
+      return detalhe(s, perfil);
     },
 
     async editar(
       id: string,
-      b: { nome?: string; regra?: RegraId; turnos?: TurnoSim[] },
+      b: {
+        nome?: string;
+        regra?: RegraId;
+        turnos?: TurnoSim[];
+        vagas?: VagaEntrada[];
+        desligados?: string[];
+      },
       perfil: string,
     ) {
       const s = await simulacao(id);
@@ -240,11 +272,42 @@ export const makeSimulacoesService = (
           'Simulação gravada não se edita: clone para ajustar.',
           'SIMULACAO_NAO_EDITAVEL',
         );
-      if (b.turnos) validarTurnos(s, b.turnos);
-      await repo.atualizarRascunho(id, b);
+      let quadro: PessoaSim[] | undefined;
+      let turnos = b.turnos;
+      if (b.vagas || b.desligados) {
+        const r = aplicarVagasEDesligados(s.quadro, b.turnos ?? s.turnos, b.vagas, b.desligados);
+        quadro = r.quadro;
+        turnos = r.turnos;
+        if (r.adicionadas.length)
+          await auditar({
+            acao: 'simulacao.vaga-adicionada',
+            perfil,
+            alvoTipo: 'simulacao',
+            alvoId: id,
+            detalhe: { vagas: r.adicionadas },
+          });
+        if (r.removidas.length)
+          await auditar({
+            acao: 'simulacao.vaga-removida',
+            perfil,
+            alvoTipo: 'simulacao',
+            alvoId: id,
+            detalhe: { vagas: r.removidas },
+          });
+        if (b.desligados)
+          await auditar({
+            acao: 'simulacao.desligamento',
+            perfil,
+            alvoTipo: 'simulacao',
+            alvoId: id,
+            detalhe: { total: b.desligados.length },
+          });
+      }
+      if (turnos) validarTurnos({ ...s, quadro: quadro ?? s.quadro }, turnos);
+      await repo.atualizarRascunho(id, { nome: b.nome, regra: b.regra, turnos, quadro });
       if (b.turnos)
         await auditar({ acao: 'simulacao.ajustada', perfil, alvoTipo: 'simulacao', alvoId: id });
-      return detalhe(await simulacao(id));
+      return detalhe(await simulacao(id), perfil);
     },
 
     async gravar(id: string, perfil: string) {
@@ -264,7 +327,7 @@ export const makeSimulacoesService = (
         { erros: 0, avisos: avaliacao.avisos.length, porPessoa: avaliacao.porPessoa },
       );
       await auditar({ acao: 'simulacao.gravada', perfil, alvoTipo: 'simulacao', alvoId: id });
-      return detalhe(await simulacao(id));
+      return detalhe(await simulacao(id), perfil);
     },
 
     async aprovar(id: string, vigenciaInicio: string | undefined, perfil: string) {
@@ -293,11 +356,11 @@ export const makeSimulacoesService = (
           substituiu: anterior?.id ?? null,
         },
       });
-      return detalhe(await simulacao(id));
+      return detalhe(await simulacao(id), perfil);
     },
 
     // Compara 2 a 3 simulações da mesma loja; a em uso entra sempre como referência.
-    async comparar(lojaId: string, ids: string[]) {
+    async comparar(lojaId: string, ids: string[], perfil: string) {
       const l = await loja(lojaId);
       const lista = await Promise.all(ids.map((i) => simulacao(i)));
       if (lista.some((x) => x.lojaId !== lojaId))
@@ -321,23 +384,46 @@ export const makeSimulacoesService = (
         };
       });
       const ref = calculadas.find((c) => c.sim.id === emUso?.id) ?? null;
+      const dono = perfil === 'TENANT_ADMIN';
+      const custoDe = (x: SimulacaoRegistro) =>
+        calcularCusto({
+          regra: x.regra as RegraId,
+          quadro: x.quadro,
+          custos: contexto(x, l).premissas.custos ?? l.custos ?? null,
+        });
+      const custoRef = dono && ref ? custoDe(ref.sim) : null;
+      const mensalRef = custoRef && custoRef.informado ? custoRef.mensal : null;
+
       return {
         referenciaId: ref?.sim.id ?? null,
-        simulacoes: calculadas.map(({ sim, ind }) => ({
-          id: sim.id,
-          nome: sim.nome,
-          status: sim.status,
-          regra: regraPara(sim.regra as RegraId, false).nome,
-          referencia: sim.id === ref?.sim.id,
-          podeAprovar: sim.status === 'gravada' && ind.erros === 0,
-          indicadores: ind,
-          sintese: sintese(
-            sim.nome,
-            ind,
-            ref && ref.sim.id !== sim.id ? ref.ind : null,
-            ref?.sim.nome ?? null,
-          ),
-        })),
+        simulacoes: calculadas.map(({ sim, ind }) => {
+          const c = dono ? custoDe(sim) : null;
+          const mensal = c && c.informado ? c.mensal : null;
+          const diff =
+            mensal !== null && mensalRef !== null && sim.id !== ref?.sim.id
+              ? Math.round((mensal - mensalRef) * 100) / 100
+              : null;
+          const vagas = sim.quadro.filter((p) => p.vaga && !p.desligado).length;
+          return {
+            id: sim.id,
+            nome: sim.nome,
+            status: sim.status,
+            regra: regraPara(sim.regra as RegraId, false).nome,
+            referencia: sim.id === ref?.sim.id,
+            podeAprovar: sim.status === 'gravada' && ind.erros === 0,
+            indicadores: ind,
+            vagas,
+            sintese: sintese(
+              sim.nome,
+              ind,
+              ref && ref.sim.id !== sim.id ? ref.ind : null,
+              ref?.sim.nome ?? null,
+              { custoDiff: diff, vagas },
+            ),
+            // Só o dono recebe este bloco.
+            ...(c ? { custo: { ...c, diferencaMensalFrenteEmUso: diff } } : {}),
+          };
+        }),
       };
     },
 
@@ -377,10 +463,10 @@ export const makeSimulacoesService = (
       const s = await simulacao(id);
       if (s.status === 'em_uso')
         throw new ConflictError('A simulação em uso não pode ser descartada.', 'SIMULACAO_EM_USO');
-      if (s.status === 'descartada') return detalhe(s);
+      if (s.status === 'descartada') return detalhe(s, perfil);
       await repo.mudarStatus(id, 'descartada');
       await auditar({ acao: 'simulacao.descartada', perfil, alvoTipo: 'simulacao', alvoId: id });
-      return detalhe(await simulacao(id));
+      return detalhe(await simulacao(id), perfil);
     },
 
     async clonar(id: string, perfil: string) {
@@ -401,7 +487,7 @@ export const makeSimulacoesService = (
         alvoId: s.id,
         detalhe: { origem: o.id },
       });
-      return detalhe(s);
+      return detalhe(s, perfil);
     },
   };
 };

@@ -1,5 +1,6 @@
 import type { Prisma } from '../../generated/prisma/client.js';
 import { prisma } from '../../shared/database/prisma.js';
+import type { Custos } from '../custos/custos.schemas.js';
 import type { PessoaSim, TurnoSim } from './avaliar.js';
 
 export type SimulacaoStatus = 'rascunho' | 'gravada' | 'em_uso' | 'substituida' | 'descartada';
@@ -22,6 +23,8 @@ export type Premissas = {
   horarios: unknown;
   minimos: Record<string, number>;
   convencao8h24: boolean;
+  // Custos da loja no momento de gravar: a simulação gravada sempre usa este retrato.
+  custos?: Custos | null;
   regra: string;
 };
 

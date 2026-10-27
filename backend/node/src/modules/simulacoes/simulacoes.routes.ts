@@ -48,7 +48,7 @@ export const simulacoesRouter = () => {
     res.status(201).json(await s.criar(params.id, body, perfilDe(res)));
   });
   r.get('/simulacoes/:id', validate(S.porIdReq), async (_req, res) =>
-    res.json(await s.obter(v<typeof S.porIdReq>(res).params.id)),
+    res.json(await s.obter(v<typeof S.porIdReq>(res).params.id, perfilDe(res))),
   );
   r.put('/simulacoes/:id', escrita, validate(S.editarReq), async (_req, res) => {
     const { params, body } = v<typeof S.editarReq>(res);
@@ -69,7 +69,7 @@ export const simulacoesRouter = () => {
   );
   r.get('/lojas/:id/simulacoes/comparar', validate(S.compararReq), async (_req, res) => {
     const { params, query } = v<typeof S.compararReq>(res);
-    res.json(await s.comparar(params.id, query.ids));
+    res.json(await s.comparar(params.id, query.ids, perfilDe(res)));
   });
   r.get('/simulacoes/:id/exportar.xlsx', validate(S.porIdReq), async (_req, res) => {
     const { buffer, nome } = await s.exportar(v<typeof S.porIdReq>(res).params.id, perfilDe(res));

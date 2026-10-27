@@ -141,6 +141,13 @@ export default function Simulacao({ id, perfil, podeEscrever, onMudou, onAbrir }
         </Aviso>
       )}
       <p className="m-0 text-xs text-ink-500">{sim.regraInfo.descricao}. Valores das regras ainda sem validação jurídica.</p>
+      {sim.custo && (
+        <p className="m-0 text-sm">
+          <strong>Custo estimado:</strong>{" "}
+          {!sim.custo.informado ? "informe os custos na Configuração para ver o valor" : sim.custo.mensal === null ? `falta o salário médio de ${sim.custo.faltamInformar.join(", ")}` : `${sim.custo.mensal.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 })} por mês · ${sim.custo.anual.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 })} por ano`}
+          <span className="text-xs text-ink-500"> (estimativa gerencial)</span>
+        </p>
+      )}
 
       <div id="area-impressao">
       <p className="hidden print:block m-0 mb-2 text-sm">{sim.nome} · {sim.regraInfo.nome} · {rotulo}</p>

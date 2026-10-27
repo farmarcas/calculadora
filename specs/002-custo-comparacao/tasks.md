@@ -31,25 +31,25 @@ Formato: `[ID] [P] [US] descrição com caminho`. [P] = pode ir em paralelo. Cam
 
 **Teste independente**: o dono informa os valores e eles ficam salvos; o gestor não vê nem edita.
 
-- [ ] T011 [US2] Schema Zod e rotas `GET/PUT /lojas/:id/custos` só `TENANT_ADMIN`, com auditoria sem valores, em `src/modules/custos/`
-- [ ] T012 [US2] Teste de integração: dono salva e lê, gestor e consulta recebem 403, valores inválidos recusados, em `src/modules/custos/custos.routes.integration.test.ts`
-- [ ] T013 [P] [US2] Card "Custos" na Configuração, visível só para o dono (salário médio por função, encargos, regime) em `src/features/diagnostico/Configuracao.jsx` e `src/features/diagnostico/Custos.jsx`
+- [x] T011 [US2] Schema Zod e rotas `GET/PUT /lojas/:id/custos` só `TENANT_ADMIN`, com auditoria sem valores, em `src/modules/custos/`
+- [x] T012 [US2] Teste de integração: dono salva e lê, gestor e consulta recebem 403, valores inválidos recusados, em `src/modules/custos/custos.routes.integration.test.ts`
+- [x] T013 [P] [US2] Card "Custos" na Configuração, visível só para o dono (salário médio por função, encargos, regime) em `src/features/diagnostico/Configuracao.jsx` e `src/features/diagnostico/Custos.jsx`
 
 ## Phase 5: US3 — Custo na comparação (P3)
 
 **Teste independente**: comparar uma simulação sem vaga com outra com vaga de 24h e conferir a diferença com a conta manual.
 
-- [ ] T014 [US3] Teste + conta pura do custo (pessoa do cadastro, vaga proporcional pelo divisor 220/210/200, encargos, funções sem salário) em `src/modules/custos/custo.ts` e `custo.test.ts`
-- [ ] T015 [US3] Congelar os custos nas premissas ao gravar e usar o snapshot nas gravadas, em `src/modules/simulacoes/simulacoes.service.ts`
-- [ ] T016 [US3] Comparação: bloco `custo` (mensal, anual, por função, diferença frente à em uso, memória) só para `TENANT_ADMIN`, e síntese citando custo e vagas, em `src/modules/simulacoes/comparar.ts` e o service
-- [ ] T017 [US3] Teste de integração: valores conferem com a conta manual, bloco ausente para quem não é dono, aviso quando custos não informados, em `src/modules/simulacoes/simulacoes.routes.integration.test.ts`
-- [ ] T018 [P] [US3] Linhas de custo e aviso "informe os custos" na tela de comparação, com "como foi calculado" e rótulo de estimativa gerencial, em `src/features/grade/Comparar.jsx`
+- [x] T014 [US3] Teste + conta pura do custo (pessoa do cadastro, vaga proporcional pelo divisor 220/210/200, encargos, funções sem salário) em `src/modules/custos/custo.ts` e `custo.test.ts`
+- [x] T015 [US3] Congelar os custos nas premissas ao gravar e usar o snapshot nas gravadas, em `src/modules/simulacoes/simulacoes.service.ts`
+- [x] T016 [US3] Comparação: bloco `custo` (mensal, anual, por função, diferença frente à em uso, memória) só para `TENANT_ADMIN`, e síntese citando custo e vagas, em `src/modules/simulacoes/comparar.ts` e o service
+- [x] T017 [US3] Teste de integração: valores conferem com a conta manual, bloco ausente para quem não é dono, aviso quando custos não informados, em `src/modules/simulacoes/simulacoes.routes.integration.test.ts`
+- [x] T018 [P] [US3] Linhas de custo e aviso "informe os custos" na tela de comparação, com "como foi calculado" e rótulo de estimativa gerencial, em `src/features/grade/Comparar.jsx`
 
 ## Phase 6: Fechamento
 
-- [ ] T019 Rodar `quickstart.md` de ponta a ponta com o ambiente de pé; `npm test`, `npm run test:integration`, `npm run lint`, builds da API e da tela
-- [ ] T020 [P] Sincronizar `templates/` (`scripts/sync-templates.sh`), atualizar o README e a seção de pendências conhecidas
-- [ ] T021 Marcar as tarefas concluídas, commitar e abrir a pull request
+- [x] T019 Rodar `quickstart.md` de ponta a ponta com o ambiente de pé; `npm test`, `npm run test:integration`, `npm run lint`, builds da API e da tela
+- [x] T020 [P] Sincronizar `templates/` (`scripts/sync-templates.sh`), atualizar o README e a seção de pendências conhecidas
+- [x] T021 Marcar as tarefas concluídas, commitar e abrir a pull request
 
 ## Dependências
 

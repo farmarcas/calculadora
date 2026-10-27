@@ -89,7 +89,7 @@ export default function EscalaPage({ perfil }) {
       {!diag && !erro && aba !== "grade" && aba !== "gerenciar" && <p className="text-sm text-ink-500">Carregando…</p>}
       {diag && aba === "diagnostico" && <Diagnostico diag={diag} podeEscrever={podeEscrever} onEnviar={() => setEnviando(true)} onSimular={(id) => { setAbrirSim(id); setAba("grade"); }} />}
       {diag && aba === "configuracao" && <Configuracao diag={diag} podeEscrever={podeEscrever} lojaId={lojaId} onSalvo={setDiag} perfil={perfil} />}
-      {aba === "gerenciar" && <GerenciarTab lojaId={lojaId} perfil={perfil} />}
+      {aba === "gerenciar" && <GerenciarTab lojaId={lojaId} perfil={perfil} onAbrirSimulacao={(id) => { setAbrirSim(id); setAba("grade"); }} />}
       {aba === "grade" && <GradeTab lojaId={lojaId} perfil={perfil} podeEscrever={podeEscrever} abrirId={abrirSim} />}
       {enviando && <EnviarPlanilhas onClose={() => setEnviando(false)} onConcluido={carregar} />}
     </>

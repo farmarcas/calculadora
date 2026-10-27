@@ -20,7 +20,10 @@ const planilha = async (
 
 describe('cadastros (rotas)', () => {
   beforeEach(async () => {
+    await prisma.batida.deleteMany();
+    await prisma.importacaoPonto.deleteMany();
     await prisma.simulacao.deleteMany();
+    await prisma.carga.deleteMany();
     await prisma.funcionario.deleteMany();
     await prisma.loja.deleteMany();
     await prisma.importacaoCadastro.deleteMany();

@@ -42,3 +42,20 @@ export const apuracaoReq = z.object({
   params: id,
   query: z.object({ de: dataIso.optional(), ate: dataIso.optional() }).strict(),
 });
+
+export const limitesReq = z.object({
+  body: vazio.default({}),
+  params: id,
+  query: vazio.default({}),
+});
+export const salvarLimitesReq = z.object({
+  body: z
+    .object({
+      horaExtraPct: z.number().min(0).max(100),
+      semanasSeguidas: z.number().int().min(1).max(8),
+      aderenciaMinPct: z.number().min(0).max(100),
+    })
+    .strict(),
+  params: id,
+  query: vazio.default({}),
+});

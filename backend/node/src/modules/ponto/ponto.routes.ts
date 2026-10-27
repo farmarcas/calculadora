@@ -109,5 +109,22 @@ export const pontoRouter = () => {
     res.send(buffer);
   });
 
+  // Painel e limites. O painel é agregado (todos os perfis); quem edita os limites é o dono.
+  r.get('/lojas/:id/gerenciar/painel', validate(S.limitesReq), async (_req, res) => {
+    res.json(await apuracao.painel(v<typeof S.limitesReq>(res).params.id));
+  });
+  r.get('/lojas/:id/gerenciar/limites', gestao, validate(S.limitesReq), async (_req, res) => {
+    res.json(await apuracao.limites(v<typeof S.limitesReq>(res).params.id));
+  });
+  r.put(
+    '/lojas/:id/gerenciar/limites',
+    exigirPerfil('TENANT_ADMIN'),
+    validate(S.salvarLimitesReq),
+    async (_req, res) => {
+      const { params, body } = v<typeof S.salvarLimitesReq>(res);
+      res.json(await apuracao.gravarLimites(params.id, body, perfilDe(res)));
+    },
+  );
+
   return r;
 };

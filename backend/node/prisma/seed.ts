@@ -1,6 +1,11 @@
 // Dados FICTÍCIOS para conhecer a Escala (nenhuma pessoa ou loja real). Uso: npm run seed
 // Só roda se ainda não houver lojas cadastradas, para nunca misturar com dados da pessoa.
 import { prisma } from '../src/shared/database/prisma.js';
+import {
+  CNPJ_EXEMPLO_MASCARADO,
+  VIGENCIA_EXEMPLO,
+  cpfDeExemplo,
+} from '../src/modules/ponto/exemplo.js';
 
 const FUNCIONARIOS: [string, string, string, string, string, number][] = [
   ['F001', 'Ana Souza', '001', 'Farmacêutica', 'Farmacêutico', 40],
@@ -46,7 +51,13 @@ const main = async () => {
   }
   const semana = { abre: '08:00', fecha: '22:00' };
   const l1 = await prisma.loja.create({
-    data: { codigo: '001', nome: 'Farmácia Centro (exemplo)', uf: 'SP', horarios: { semana } },
+    data: {
+      codigo: '001',
+      nome: 'Farmácia Centro (exemplo)',
+      uf: 'SP',
+      cnpj: CNPJ_EXEMPLO_MASCARADO,
+      horarios: { semana },
+    },
   });
   const l2 = await prisma.loja.create({
     data: {
@@ -62,7 +73,15 @@ const main = async () => {
   ]);
   for (const [matricula, nome, loja, cargo, funcaoEscala, cargaSemanalH] of FUNCIONARIOS)
     await prisma.funcionario.create({
-      data: { matricula, nome, cargo, funcaoEscala, cargaSemanalH, lojaId: lojaId.get(loja)! },
+      data: {
+        matricula,
+        nome,
+        cargo,
+        funcaoEscala,
+        cargaSemanalH,
+        cpf: cpfDeExemplo(matricula),
+        lojaId: lojaId.get(loja)!,
+      },
     });
 
   const nomes = new Map(FUNCIONARIOS.map((f) => [f[0], f] as const));
@@ -91,6 +110,48 @@ const main = async () => {
     },
   });
 
+  // Simulação EM USO (já aprovada) para a loja 001, igual à escala atual: é o que o Gerenciar compara com o ponto.
+  const quadro = TURNOS.map(([m]) => ({
+    matricula: m,
+    nome: nomes.get(m)![1],
+    funcao: nomes.get(m)![4],
+    cargaH: 40,
+  }));
+  await prisma.simulacao.create({
+    data: {
+      lojaId: l1.id,
+      nome: 'Escala atual aprovada (exemplo)',
+      status: 'EM_USO',
+      regra: 'r40',
+      autor: 'TENANT_ADMIN',
+      quadro,
+      premissas: {
+        horarios: { semana },
+        minimos: { Farmacêutico: 1, Atendimento: 1, Caixa: 1, Apoio: 0, Perfumaria: 0 },
+        convencao8h24: false,
+        custos: null,
+        regra: 'r40',
+      },
+      resultado: { erros: 0, avisos: 0 },
+      gravadaEm: new Date(),
+      aprovadaPor: 'TENANT_ADMIN',
+      aprovadaEm: new Date(),
+      vigenciaInicio: new Date(`${VIGENCIA_EXEMPLO}T00:00:00.000Z`),
+      turnos: {
+        create: TURNOS.flatMap(([m, entrada, saida, ini, fim]) =>
+          [0, 1, 2, 3, 4].map((dia) => ({
+            matricula: m,
+            dia,
+            entrada,
+            saida,
+            iniIntervalo: ini,
+            fimIntervalo: fim,
+          })),
+        ),
+      },
+    },
+  });
+
   const vendas = [];
   for (let d = 1; d <= 21; d++)
     for (const [hora, peso] of Object.entries(PESO_HORA))
@@ -115,7 +176,7 @@ const main = async () => {
     },
   });
   process.stdout.write(
-    'Dados de exemplo criados: 2 lojas, 8 funcionários, escala atual e vendas da loja 001.\n',
+    'Dados de exemplo criados: 2 lojas, 8 funcionários (com CPF fictício), escala atual, simulação em uso e vendas da loja 001.\n',
   );
 };
 

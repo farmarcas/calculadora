@@ -54,4 +54,16 @@ export const apuracaoRepository = {
       },
     });
   },
+
+  async limites(lojaId: string) {
+    const l = await prisma.loja.findFirst({
+      where: { id: lojaId, deletedAt: null },
+      select: { alertas: true },
+    });
+    return { existe: !!l, alertas: (l?.alertas ?? null) as Partial<Record<string, number>> | null };
+  },
+
+  async gravarLimites(lojaId: string, alertas: Record<string, number>) {
+    await prisma.loja.update({ where: { id: lojaId }, data: { alertas } });
+  },
 };

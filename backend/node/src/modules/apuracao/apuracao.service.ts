@@ -7,7 +7,8 @@ import { FUNCOES_PADRAO_MINIMO } from '../regras/perfis.js';
 import type { SimulacoesRepository } from '../simulacoes/simulacoes.repository.js';
 import type { ApuracaoRepository } from './apuracao.repository.js';
 import { gerarExcelApuracao } from './exportar.js';
-import { apurarPeriodo, datas } from './periodo.js';
+import { avaliarAlertas, LIMITES_PADRAO, type Limites, type Semana } from './alertas.js';
+import { apurarPeriodo, datas, diaDaSemana } from './periodo.js';
 
 const somarDias = (data: string, n: number) => {
   const [a, m, d] = data.split('-').map(Number) as [number, number, number];
@@ -55,8 +56,96 @@ export const makeApuracaoService = (
     return { r, loja: c.loja, simulacao: { id: c.emUso.id, nome: c.emUso.nome } };
   };
 
+  const limitesDa = async (lojaId: string): Promise<Limites> => {
+    const { existe, alertas } = await repo.limites(lojaId);
+    if (!existe) throw new NotFoundError('Loja não encontrada', 'LOJA_NAO_ENCONTRADA');
+    return { ...LIMITES_PADRAO, ...(alertas ?? {}) } as Limites;
+  };
+
+  // Semanas (segunda a domingo) do ponto importado, da mais antiga à mais recente.
+  const semanas = async (lojaId: string, quantas = 8): Promise<Semana[]> => {
+    const cobertos = await repo.periodosCobertos(lojaId);
+    const fim = cobertos.reduce((m, p) => (p.fim > m ? p.fim : m), '0000-00-00');
+    if (fim === '0000-00-00') return [];
+    const segundaDoFim = somarDias(fim, -diaDaSemana(fim));
+    const lista: Semana[] = [];
+    for (let k = quantas - 1; k >= 0; k--) {
+      const inicio = somarDias(segundaDoFim, -7 * k);
+      const ate = somarDias(inicio, 6);
+      if (!cobertos.some((p) => p.fim >= inicio && p.inicio <= ate)) continue;
+      const { r } = await calcular(lojaId, inicio, ate);
+      if (r.periodo.diasApurados === 0) continue;
+      lista.push({
+        inicio,
+        fim: ate,
+        aderenciaPct: r.loja.aderenciaPct,
+        horaExtraH: r.loja.horaExtraH,
+        horasPlanejadas: r.loja.horasPlanejadas,
+        faltas: r.loja.faltas,
+      });
+    }
+    return lista;
+  };
+
   return {
     calcular,
+    semanas,
+    limites: limitesDa,
+    async gravarLimites(lojaId: string, l: Limites, perfil: string) {
+      await limitesDa(lojaId);
+      await repo.gravarLimites(lojaId, l);
+      await auditar({
+        acao: 'gerenciar.limites',
+        perfil,
+        alvoTipo: 'loja',
+        alvoId: lojaId,
+        detalhe: l,
+      });
+      return l;
+    },
+    // Motivos de "desatualizada" que vêm do ponto (hora extra recorrente, aderência baixa).
+    async motivosDoPonto(lojaId: string): Promise<string[]> {
+      const emUso = await simulacoes.emUso(lojaId);
+      if (!emUso) return [];
+      const lista = await semanas(lojaId);
+      return avaliarAlertas(lista, await limitesDa(lojaId)).map((a) => a.texto);
+    },
+    async painel(lojaId: string) {
+      const limites = await limitesDa(lojaId);
+      if (!(await simulacoes.emUso(lojaId)))
+        return {
+          semSimulacaoEmUso: true as const,
+          mensagem:
+            'Esta loja só tem planejamento: aprove uma simulação e importe o ponto (AFD) para gerenciar.',
+          limites,
+        };
+      const { r, simulacao, emUso } = await (async () => {
+        const c = await calcular(lojaId);
+        return { r: c.r, simulacao: c.simulacao, emUso: await simulacoes.emUso(lojaId) };
+      })();
+      const lista = await semanas(lojaId);
+      const ultima = await repo.ultimaImportacao(lojaId);
+      return {
+        rotulo: r.rotulo,
+        simulacao: {
+          ...simulacao,
+          vigenciaInicio: emUso?.vigenciaInicio?.toISOString().slice(0, 10) ?? null,
+        },
+        ultimaImportacao: ultima && {
+          arquivo: ultima.arquivo,
+          status: ultima.status.toLowerCase(),
+          enviadaEm: ultima.criadoEm,
+        },
+        pendenciasAbertas: await repo.pendentesAbertas(lojaId),
+        periodo: r.periodo,
+        aderenciaPct: r.loja.aderenciaPct,
+        horaExtraH: r.loja.horaExtraH,
+        faltas: r.loja.faltas,
+        tendencia: lista,
+        alertas: avaliarAlertas(lista, limites),
+        limites,
+      };
+    },
     // Visão por pessoa e por dia: só dono e gestor.
     async porPessoa(lojaId: string, de?: string, ate?: string) {
       const { r, simulacao } = await calcular(lojaId, de, ate);

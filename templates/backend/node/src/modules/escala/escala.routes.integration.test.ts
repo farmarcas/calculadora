@@ -16,6 +16,8 @@ describe('escala (rotas)', () => {
   let lojaId: string;
 
   beforeEach(async () => {
+    await prisma.batida.deleteMany();
+    await prisma.importacaoPonto.deleteMany();
     await prisma.simulacao.deleteMany();
     await prisma.carga.deleteMany();
     await prisma.funcionario.deleteMany();

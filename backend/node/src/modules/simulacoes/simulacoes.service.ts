@@ -31,6 +31,8 @@ export const makeSimulacoesService = (
   lojas: EscalaRepository,
   cadastro: Cadastro,
   auditar: Auditor,
+  // Motivos de "desatualizada" que vêm do ponto (hora extra recorrente e aderência baixa).
+  alertasPonto: (lojaId: string) => Promise<string[]> = async () => [],
 ) => {
   const loja = async (id: string): Promise<LojaDiag> => {
     const l = await lojas.lojaParaDiagnostico(id);
@@ -97,6 +99,7 @@ export const makeSimulacoesService = (
       motivos.push('O mínimo de pessoas por função mudou.');
     if (l.convencao8h24 !== s.premissas.convencao8h24)
       motivos.push('A convenção coletiva (8h24 por dia) mudou.');
+    motivos.push(...(await alertasPonto(s.lojaId)));
     return motivos;
   };
 

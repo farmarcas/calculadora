@@ -72,7 +72,7 @@ export default function EscalaPage({ perfil }) {
       {erro && <Aviso>{erro}</Aviso>}
 
       <div className="flex gap-6 border-b border-line" role="tablist">
-        {[["diagnostico", "Diagnóstico"], ["grade", "Simulações"], ...(perfil !== "SCHEDULE_VIEWER" ? [["gerenciar", "Gerenciar"]] : []), ["configuracao", "Configuração"]].map(([id, r]) => (
+        {[["diagnostico", "Diagnóstico"], ["grade", "Simulações"], ["gerenciar", "Gerenciar"], ["configuracao", "Configuração"]].map(([id, r]) => (
           <button
             key={id}
             role="tab"
@@ -89,7 +89,7 @@ export default function EscalaPage({ perfil }) {
       {!diag && !erro && aba !== "grade" && aba !== "gerenciar" && <p className="text-sm text-ink-500">Carregando…</p>}
       {diag && aba === "diagnostico" && <Diagnostico diag={diag} podeEscrever={podeEscrever} onEnviar={() => setEnviando(true)} onSimular={(id) => { setAbrirSim(id); setAba("grade"); }} />}
       {diag && aba === "configuracao" && <Configuracao diag={diag} podeEscrever={podeEscrever} lojaId={lojaId} onSalvo={setDiag} perfil={perfil} />}
-      {aba === "gerenciar" && perfil !== "SCHEDULE_VIEWER" && <GerenciarTab lojaId={lojaId} />}
+      {aba === "gerenciar" && <GerenciarTab lojaId={lojaId} perfil={perfil} />}
       {aba === "grade" && <GradeTab lojaId={lojaId} perfil={perfil} podeEscrever={podeEscrever} abrirId={abrirSim} />}
       {enviando && <EnviarPlanilhas onClose={() => setEnviando(false)} onConcluido={carregar} />}
     </>

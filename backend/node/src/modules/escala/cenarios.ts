@@ -1,6 +1,6 @@
 import { passa, verificarRegra, type DiaAberto, type LinhaFuncao } from '../regras/capacidade.js';
 import { regraPara, type RegraId } from '../regras/perfis.js';
-import { calcularCusto } from '../custos/custo.js';
+import { calcularCusto, DIVISOR } from '../custos/custo.js';
 import type { Custos } from '../custos/custos.schemas.js';
 import type { PessoaSim } from '../simulacoes/avaliar.js';
 import { vendasPorDiaEHora, type VendaDiaHora, type VendaLinha } from './vendas.js';
@@ -57,12 +57,31 @@ export type CenarioEconomia = {
   aviso: string | null;
 };
 
+export type CenarioEquilibrio = {
+  // Preenchido quando faltam dados; os demais campos ficam zerados.
+  indisponivel: { motivo: 'custos' | 'vendas'; texto: string } | null;
+  coincideComManter: boolean;
+  foco: string;
+  direcionamento: string;
+  horasReduzir: number;
+  horasSemana: number;
+  horarioSemana: DiaCenario[];
+  cortes: Corte[];
+  contratacoes: Contratacao[];
+  pessoasContratar: number;
+  ociosidadePct: number;
+  margemCortadaMes: number | null;
+  custoAdicionalMensal?: number | null;
+  acrescimoPct?: number | null;
+};
+
 export type CenariosRegra = {
   regra: { id: RegraId; nome: string };
   atual: { horasSemana: number; pessoas: number; folhaMensal?: number | null };
   vendasBase: { dias: number } | null;
   manter: CenarioManter;
   economia: CenarioEconomia;
+  equilibrio: CenarioEquilibrio;
 };
 
 export type EntradaCenarios = {
@@ -187,6 +206,37 @@ const brl = (n: number) =>
 
 export type Fatia = { dia: number; de: number; ate: number; venda: number; margem: number };
 
+type Cand = Fatia & { fim: boolean };
+
+// Pontas que podem ser cortadas: a última e a primeira hora de cada dia aberto, com a venda e a
+// margem médias dela (fração da hora quando o horário não é redondo).
+export const candidatas = (atuais: DiaAberto[], vb: VendaDiaHora | null): Cand[] => {
+  const valor = (m: number[][] | undefined, dia: number, h: number, len: number) =>
+    (m?.[dia]?.[h] ?? 0) * len;
+  return atuais.flatMap((d) => {
+    const iniFim = Math.max(d.abre, Number.isInteger(d.fecha) ? d.fecha - 1 : Math.floor(d.fecha));
+    const fimIni = Math.min(d.fecha, Number.isInteger(d.abre) ? d.abre + 1 : Math.ceil(d.abre));
+    const mk = (de: number, ate: number, fim: boolean): Cand => ({
+      dia: d.dia,
+      de,
+      ate,
+      fim,
+      venda: valor(vb?.venda, d.dia, Math.floor(de), ate - de),
+      margem: valor(vb?.margem, d.dia, Math.floor(de), ate - de),
+    });
+    return iniFim <= d.abre
+      ? [mk(d.abre, d.fecha, true)]
+      : [mk(iniFim, d.fecha, true), mk(d.abre, fimIni, false)];
+  });
+};
+
+export const aplicarCorte = (atuais: DiaAberto[], c: Cand): DiaAberto[] =>
+  atuais.flatMap((d) => {
+    if (d.dia !== c.dia) return [d];
+    const novo = c.fim ? { ...d, fecha: c.de } : { ...d, abre: c.ate };
+    return novo.fecha > novo.abre ? [novo] : [];
+  });
+
 // Corta, uma hora por vez, a ponta (começo ou fim de um dia) que menos vende, até o quadro atual
 // cobrir o que sobrou. Empate: fim do dia antes do começo; depois o dia mais tarde na semana.
 export const cortarPontas = (
@@ -198,36 +248,12 @@ export const cortarPontas = (
 ) => {
   let atuais = dias.map((d) => ({ ...d }));
   const fatias: Fatia[] = [];
-  const valor = (m: number[][] | undefined, dia: number, h: number, len: number) =>
-    (m?.[dia]?.[h] ?? 0) * len;
   while (atuais.length > 0 && !passa(verificarRegra(regra, atuais, minimos, pessoas))) {
-    type Cand = Fatia & { fim: boolean };
-    const cands: Cand[] = atuais.flatMap((d) => {
-      const iniFim = Math.max(
-        d.abre,
-        Number.isInteger(d.fecha) ? d.fecha - 1 : Math.floor(d.fecha),
-      );
-      const fimIni = Math.min(d.fecha, Number.isInteger(d.abre) ? d.abre + 1 : Math.ceil(d.abre));
-      const mk = (de: number, ate: number, fim: boolean): Cand => ({
-        dia: d.dia,
-        de,
-        ate,
-        fim,
-        venda: valor(vb?.venda, d.dia, Math.floor(de), ate - de),
-        margem: valor(vb?.margem, d.dia, Math.floor(de), ate - de),
-      });
-      return iniFim <= d.abre
-        ? [mk(d.abre, d.fecha, true)]
-        : [mk(iniFim, d.fecha, true), mk(d.abre, fimIni, false)];
-    });
-    cands.sort((a, b) => a.venda - b.venda || Number(b.fim) - Number(a.fim) || b.dia - a.dia);
-    const c = cands[0]!;
+    const c = candidatas(atuais, vb).sort(
+      (x, y) => x.venda - y.venda || Number(y.fim) - Number(x.fim) || y.dia - x.dia,
+    )[0]!;
     fatias.push({ dia: c.dia, de: c.de, ate: c.ate, venda: c.venda, margem: c.margem });
-    atuais = atuais.flatMap((d) => {
-      if (d.dia !== c.dia) return [d];
-      const novo = c.fim ? { ...d, fecha: c.de } : { ...d, abre: c.ate };
-      return novo.fecha > novo.abre ? [novo] : [];
-    });
+    atuais = aplicarCorte(atuais, c);
   }
   // Devolve o que o corte levou a mais: tenta repor, da maior venda para a menor, cada fatia
   // colada na faixa aberta do dia, enquanto o quadro continuar cobrindo.
@@ -343,11 +369,143 @@ const montarEconomia = (e: EntradaCenarios, linhas: LinhaFuncao[]): CenarioEcono
   };
 };
 
+// Custo mensal de cobrir 1 hora semanal da loja: cada função obrigatória, o mínimo de pessoas,
+// salário × encargos × 5 ÷ divisor da regra. Nulo se faltar o salário de alguma função obrigatória.
+export const custoMensalDaHora = (
+  regraId: RegraId,
+  minimos: Record<string, number>,
+  custos: Custos | null,
+): { custo: number | null; faltam: string[] } => {
+  const obrigatorias = Object.entries(minimos).filter(([, n]) => n > 0);
+  const faltam = obrigatorias
+    .filter(([f]) => !custos?.salarioMedio[f as keyof Custos['salarioMedio']])
+    .map(([f]) => f);
+  if (!custos || faltam.length > 0) return { custo: null, faltam };
+  const fator = 1 + custos.encargosPct / 100;
+  const custo = obrigatorias.reduce(
+    (t, [f, n]) =>
+      t +
+      (n * custos.salarioMedio[f as keyof Custos['salarioMedio']]! * fator * 5) / DIVISOR[regraId],
+    0,
+  );
+  return { custo, faltam: [] };
+};
+
+// Corta as pontas cuja margem mensal é menor que o custo mensal de cobri-las (a de menor margem
+// primeiro), reavaliando as novas pontas a cada corte.
+export const cortarQueNaoSePagam = (dias: DiaAberto[], vb: VendaDiaHora, custoHora: number) => {
+  let atuais = dias.map((d) => ({ ...d }));
+  const fatias: Fatia[] = [];
+  for (;;) {
+    const c = candidatas(atuais, vb)
+      .filter((x) => x.margem * SEMANAS_NO_MES < custoHora * (x.ate - x.de))
+      .sort((x, y) => x.margem - y.margem || Number(y.fim) - Number(x.fim) || y.dia - x.dia)[0];
+    if (!c) return { dias: atuais, fatias };
+    fatias.push({ dia: c.dia, de: c.de, ate: c.ate, venda: c.venda, margem: c.margem });
+    atuais = aplicarCorte(atuais, c);
+  }
+};
+
+const montarEquilibrio = (
+  e: EntradaCenarios,
+  folha: number | null,
+  custoManter: number | null,
+): CenarioEquilibrio => {
+  const regra = regraPara(e.regraId, e.convencao8h24);
+  const vb = vendasPorDiaEHora(e.vendas);
+  const vazio = {
+    coincideComManter: false,
+    horasReduzir: 0,
+    horasSemana: horasDaSemana(e.dias),
+    horarioSemana: horarioDaSemana(e.dias),
+    cortes: [] as Corte[],
+    contratacoes: [] as Contratacao[],
+    pessoasContratar: 0,
+    ociosidadePct: 0,
+    margemCortadaMes: null,
+  };
+  const foco = 'Equilibrar contratação e venda perdida';
+  const { custo: custoHora, faltam } = custoMensalDaHora(e.regraId, e.minimos, e.custos);
+  const indisponivel = (motivo: 'custos' | 'vendas', texto: string): CenarioEquilibrio => ({
+    ...vazio,
+    indisponivel: { motivo, texto },
+    foco,
+    direcionamento: texto,
+    ...(e.dono ? { custoAdicionalMensal: null, acrescimoPct: null } : {}),
+  });
+  if (!vb)
+    return indisponivel(
+      'vendas',
+      'Importe a base comercial da loja para comparar a venda perdida com o custo de cobrir cada hora.',
+    );
+  if (custoHora === null)
+    return indisponivel(
+      'custos',
+      e.dono
+        ? `Informe o salário médio de ${faltam.length ? faltam.join(', ') : 'cada função obrigatória'} nos custos da loja para calcular este cenário.`
+        : 'Os custos da loja ainda não foram informados pelo dono do grupo, então este cenário não pode ser calculado.',
+    );
+
+  const calcular = (dias: DiaAberto[]) => {
+    const linhas = verificarRegra(regra, dias, e.minimos, e.pessoas);
+    const cs = contratacoesDe(linhas);
+    return { linhas, cs, custo: custoDasVagas(e.regraId, cs, linhas, e.custos) };
+  };
+  let { dias, fatias } = cortarQueNaoSePagam(e.dias, vb, custoHora);
+  let { linhas, cs, custo } = calcular(dias);
+  const margemCortada = (fs: Fatia[]) =>
+    arred(fs.reduce((t, f) => t + f.margem, 0) * SEMANAS_NO_MES);
+  // Fechar horas só vale se a folha economizada supera a margem perdida; senão, mantém tudo.
+  let naoCompensa = false;
+  if (
+    fatias.length > 0 &&
+    custo !== null &&
+    custoManter !== null &&
+    custo + margemCortada(fatias) >= custoManter
+  ) {
+    naoCompensa = true;
+    dias = e.dias;
+    fatias = [];
+    ({ linhas, cs, custo } = calcular(dias));
+  }
+  const margemMes = margemCortada(fatias);
+  const horasSemana = horasDaSemana(dias);
+  const horasReduzir = arred(horasDaSemana(e.dias) - horasSemana);
+  const resultado: CenarioEquilibrio = {
+    indisponivel: null,
+    coincideComManter: fatias.length === 0,
+    foco,
+    direcionamento: '',
+    horasReduzir,
+    horasSemana,
+    horarioSemana: horarioDaSemana(dias),
+    cortes: juntarFatias(fatias, true),
+    contratacoes: cs,
+    pessoasContratar: cs.reduce((s, c) => s + c.pessoas, 0),
+    ociosidadePct: ociosidadeTotal(linhas, cs),
+    margemCortadaMes: margemMes,
+  };
+  if (e.dono) {
+    resultado.custoAdicionalMensal = custo;
+    resultado.acrescimoPct =
+      custo !== null && folha !== null && folha > 0 ? pct((custo / folha) * 100) : null;
+  }
+  const lista = listaContratacoes(cs);
+  resultado.direcionamento = naoCompensa
+    ? 'Fechar horas não compensa: a margem que se perde é maior que a folha que se economiza. O equilíbrio é manter todos os horários, como no Cenário 1.'
+    : resultado.coincideComManter
+      ? 'Nenhuma hora vende menos do que custa cobrir: o equilíbrio é o mesmo do Cenário 1, mantendo todos os horários.'
+      : `Feche ${horasReduzir}h por semana, onde a margem não paga a cobertura (${brl(margemMes)} por mês), ${cs.length ? `e contrate ${lista}` : 'sem precisar contratar'}. Faz sentido quando quer conter a folha sem abrir mão das horas que realmente vendem.`;
+  return resultado;
+};
+
 export const montarCenarios = (e: EntradaCenarios): CenariosRegra => {
   const regra = regraPara(e.regraId, e.convencao8h24);
   const linhas = verificarRegra(regra, e.dias, e.minimos, e.pessoas);
   const vb = vendasPorDiaEHora(e.vendas);
   const folha = e.dono ? folhaAtual(e.pessoas, e.custos) : null;
+  const manter = montarManter(e, linhas, folha);
+  const custoManter = custoDasVagas(e.regraId, contratacoesDe(linhas), linhas, e.custos);
   return {
     regra: { id: regra.id, nome: regra.nome },
     atual: {
@@ -356,7 +514,8 @@ export const montarCenarios = (e: EntradaCenarios): CenariosRegra => {
       ...(e.dono ? { folhaMensal: folha } : {}),
     },
     vendasBase: vb ? { dias: vb.dias } : null,
-    manter: montarManter(e, linhas, folha),
+    manter,
     economia: montarEconomia(e, linhas),
+    equilibrio: montarEquilibrio(e, folha, custoManter),
   };
 };

@@ -140,6 +140,75 @@ function Economia({ c }) {
   );
 }
 
+function Equilibrio({ c }) {
+  const q = c.equilibrio;
+  const dono = q.custoAdicionalMensal !== undefined;
+  return (
+    <Cartao titulo="Cenário 3 · Equilíbrio" subtitulo={q.foco}>
+      <div className="px-6 py-4 flex flex-col gap-4">
+        {q.indisponivel ? (
+          <Aviso tom="atencao">{q.indisponivel.texto}</Aviso>
+        ) : (
+          <>
+            <p className="m-0 text-sm text-ink-700">{q.direcionamento}</p>
+            <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
+              <Numero rotulo="Fechar" valor={`${q.horasReduzir}h`} legenda={q.coincideComManter ? "nenhuma hora a fechar" : "por semana, onde não se paga"} />
+              <Numero rotulo="Contratar" valor={q.pessoasContratar} legenda={q.pessoasContratar === 1 ? "pessoa" : q.pessoasContratar === 0 ? "nada a contratar" : "pessoas"} />
+              <Numero rotulo="Margem perdida" valor={brl(q.margemCortadaMes)} legenda="por mês (estimativa)" />
+              {dono && (
+                <Numero
+                  rotulo="Custo adicional"
+                  valor={q.custoAdicionalMensal === null ? "—" : brl(q.custoAdicionalMensal)}
+                  legenda={q.acrescimoPct == null ? "por mês" : `por mês · +${pct(q.acrescimoPct)} sobre a folha atual`}
+                />
+              )}
+            </div>
+            {q.cortes.length > 0 && (
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse text-sm min-w-[480px]">
+                  <thead><tr><th className={TH}>Dia</th><th className={TH}>Deixa de abrir</th><th className={TH}>Margem por semana</th></tr></thead>
+                  <tbody>
+                    {q.cortes.map((x) => (
+                      <tr key={`${x.dia}${x.de}`}>
+                        <td className={TD}>{NOMES_DIA[x.dia]}</td>
+                        <td className={TD}>{x.de}–{x.ate}</td>
+                        <td className={TD}>{brl(x.margem)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {q.contratacoes.length > 0 && (
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse text-sm min-w-[480px]">
+                  <thead><tr><th className={TH}>Cargo</th><th className={TH}>Contratar</th><th className={TH}>Ociosidade</th></tr></thead>
+                  <tbody>
+                    {q.contratacoes.map((x) => (
+                      <tr key={x.funcao}>
+                        <td className={TD}>{x.funcao}</td>
+                        <td className={TD}>
+                          <strong>{x.pessoas}</strong> {x.pessoas === 1 ? "pessoa" : "pessoas"}
+                          {x.parcialH && <span className="text-ink-500"> · parcial de {x.parcialH}h</span>}
+                        </td>
+                        <td className={TD}>{pct(x.ociosidadePct)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <div>
+              <div className="mb-1 text-[11px] font-bold uppercase tracking-wide text-ink-500">Horário da loja · {q.horasSemana}h por semana</div>
+              <HorarioSemana dias={q.horarioSemana} />
+            </div>
+          </>
+        )}
+      </div>
+    </Cartao>
+  );
+}
+
 // Os cenários da regra escolhida no quadro central (42h ou 40h): a troca é só mudar `regraId` no pai.
 export default function Cenarios({ cenarios }) {
   if (!cenarios) return null;
@@ -151,6 +220,7 @@ export default function Cenarios({ cenarios }) {
       </div>
       <Manter c={cenarios} atual={cenarios.atual} />
       <Economia c={cenarios} />
+      <Equilibrio c={cenarios} />
     </section>
   );
 }

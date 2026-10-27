@@ -309,4 +309,60 @@ describe('escala (rotas)', () => {
     // o cenário de economia não traz custo para ninguém
     expect(JSON.stringify(com)).not.toContain('custoAdicional');
   });
+
+  it('cenário 3: avisa o que falta e, completo, só o dono vê o custo', async () => {
+    await request(app)
+      .post('/api/v1/cargas/escala')
+      .set(admin)
+      .attach(
+        'arquivo',
+        await xlsx(escalaCab, [
+          ['001', 'F1', 'Ana', 'Farmacêutica', 'Seg a Sáb', '08:00', '', '', '17:00', '44'],
+        ]),
+        'e.xlsx',
+      );
+    await request(app)
+      .put(`/api/v1/lojas/${lojaId}/configuracao`)
+      .set(admin)
+      .send({ minimos: { Atendimento: 0, Caixa: 0 } });
+    const url = `/api/v1/lojas/${lojaId}/diagnostico`;
+    const eq = async (h: Record<string, string> = admin) =>
+      (await request(app).get(url).set(h)).body.cenarios.r40.equilibrio;
+
+    expect((await eq()).indisponivel.motivo).toBe('vendas');
+
+    await request(app)
+      .post('/api/v1/cargas/base')
+      .set(admin)
+      .attach(
+        'arquivo',
+        await xlsx(
+          ['Data', 'Hora', 'Cod_Loja', 'Venda_Liquida_RS', 'Clientes_Atendidos'],
+          [
+            ['01/09/2026', '10', '001', '1.200,00', '40'],
+            ['01/09/2026', '19', '001', '100,00', '5'],
+          ],
+        ),
+        'b.xlsx',
+      );
+    expect((await eq()).indisponivel.motivo).toBe('custos');
+
+    await request(app)
+      .put(`/api/v1/lojas/${lojaId}/custos`)
+      .set(admin)
+      .send({ salarioMedio: { Farmacêutico: 8000 }, encargosPct: 40 });
+    const dono = await eq();
+    expect(dono.indisponivel).toBeNull();
+    expect(dono.horasSemana + dono.horasReduzir).toBe(66);
+    expect(typeof dono.custoAdicionalMensal).toBe('number');
+    expect(typeof dono.acrescimoPct).toBe('number');
+
+    for (const h of [{ 'X-Perfil': 'SCHEDULE_MANAGER' }, { 'X-Perfil': 'SCHEDULE_VIEWER' }]) {
+      const r = await eq(h);
+      expect(r.indisponivel).toBeNull();
+      expect(r.cortes).toEqual(dono.cortes);
+      expect('custoAdicionalMensal' in r).toBe(false);
+      expect('acrescimoPct' in r).toBe(false);
+    }
+  });
 });

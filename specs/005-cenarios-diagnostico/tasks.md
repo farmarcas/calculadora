@@ -40,11 +40,11 @@ Formato: `[ID] [P] [US] descrição com caminho`. Caminhos do backend relativos 
 
 **Teste independente**: com custos e vendas, só são cortadas as horas cuja margem mensal é menor que o custo mensal de cobri-las; o restante vira contratação.
 
-- [ ] T015 [US3] Teste + custo mensal de cobrir uma hora (soma, por função obrigatória, de mínimo × salário × (1 + encargos) × 5 ÷ divisor) e margem mensal por hora, em `src/modules/escala/cenarios.ts` e `cenarios.test.ts`
-- [ ] T016 [US3] Cenário 3: corta as pontas que não se pagam (de menor margem, reavaliando as novas pontas) e contrata para o que ainda falta, com ociosidade, custo adicional, margem perdida e `coincideComManter`, em `src/modules/escala/cenarios.ts`
-- [ ] T017 [US3] Indisponibilidade explicada: sem custos de todas as funções obrigatórias ou sem base comercial, devolve o motivo e o texto, sem número parcial, com testes, em `src/modules/escala/cenarios.ts` e `cenarios.test.ts`
-- [ ] T018 [US3] Teste de integração do Cenário 3 pela rota (completo, sem custos, sem vendas, perfil sem permissão de custo), em `src/modules/escala/escala.routes.integration.test.ts`
-- [ ] T019 [P] [US3] Cartão do Cenário 3 (cortes, contratações, margem perdida, custo para o dono e a mensagem do que falta), em `src/features/diagnostico/Cenarios.jsx`
+- [X] T015 [US3] Teste + custo mensal de cobrir uma hora (soma, por função obrigatória, de mínimo × salário × (1 + encargos) × 5 ÷ divisor) e margem mensal por hora, em `src/modules/escala/cenarios.ts` e `cenarios.test.ts`
+- [X] T016 [US3] Cenário 3: corta as pontas que não se pagam (de menor margem, reavaliando as novas pontas) e contrata para o que ainda falta, com ociosidade, custo adicional, margem perdida e `coincideComManter`, em `src/modules/escala/cenarios.ts`
+- [X] T017 [US3] Indisponibilidade explicada: sem custos de todas as funções obrigatórias ou sem base comercial, devolve o motivo e o texto, sem número parcial, com testes, em `src/modules/escala/cenarios.ts` e `cenarios.test.ts`
+- [X] T018 [US3] Teste de integração do Cenário 3 pela rota (completo, sem custos, sem vendas, perfil sem permissão de custo), em `src/modules/escala/escala.routes.integration.test.ts`
+- [X] T019 [P] [US3] Cartão do Cenário 3 (cortes, contratações, margem perdida, custo para o dono e a mensagem do que falta), em `src/features/diagnostico/Cenarios.jsx`
 
 ## Phase 6: US4 — Direcionamento claro (P4)
 

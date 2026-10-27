@@ -87,3 +87,100 @@ describe('Cenário 1 — manter horários', () => {
     expect(montarCenarios(base()).vendasBase).toBeNull();
   });
 });
+
+describe('Cenário 2 — foco em economia', () => {
+  const so = (extra: Partial<EntradaCenarios> = {}) =>
+    base({
+      minimos: { Farmacêutico: 1 },
+      pessoas: [{ funcao: 'Farmacêutico', cargaH: 40 }],
+      ...extra,
+    });
+  const sab = (c: EntradaCenarios) => montarCenarios(c).economia;
+
+  it('sem base comercial corta o fim do dia, do dia mais tarde para o mais cedo, e não estima venda', () => {
+    // 84h abertas e 12 turnos para 1 farmacêutico de 40h (5 turnos): só passa com Seg e Ter inteiras e Qua até 16h
+    const e = sab(so());
+    expect(e.viavel).toBe(true);
+    expect(e.horasReduzir).toBe(48);
+    expect(e.horasSemana).toBe(36);
+    expect(e.horarioSemana.map((d) => d.aberto)).toEqual([
+      true,
+      true,
+      true,
+      false,
+      false,
+      false,
+      false,
+    ]);
+    expect(e.horarioSemana[2]).toMatchObject({ abre: '08:00', fecha: '16:00' });
+    expect(e.cortes).toEqual([
+      { dia: 2, de: '16:00', ate: '22:00', venda: null, margem: null },
+      { dia: 3, de: '08:00', ate: '22:00', venda: null, margem: null },
+      { dia: 4, de: '08:00', ate: '22:00', venda: null, margem: null },
+      { dia: 5, de: '08:00', ate: '22:00', venda: null, margem: null },
+    ]);
+    expect(e.vendaCortadaMes).toBeNull();
+    expect(e.direcionamento).toContain('Sem base comercial');
+  });
+
+  // Segunda a sexta, 8h às 17h: 1 farmacêutico de 40h precisa de 1 hora a menos em cada dia.
+  const semana = [0, 1, 2, 3, 4].map((dia) => ({ dia, abre: 8, fecha: 17 }));
+  const vendas = [0, 1, 2, 3, 4].flatMap((d) =>
+    Array.from({ length: 9 }, (_, i) => {
+      const hora = 8 + i;
+      const venda = hora === 16 ? 100 : d === 1 && hora === 8 ? 50 : 200;
+      return {
+        data: `2026-03-0${2 + d}`,
+        hora,
+        venda,
+        margem: venda * 0.3,
+        clientes: 1,
+        unidades: 1,
+      };
+    }),
+  );
+
+  it('corta as horas que menos vendem e confere o valor cortado com as médias', () => {
+    const e = sab(so({ dias: semana, vendas }));
+    expect(e.horasReduzir).toBe(5);
+    // terça perde a primeira hora (50); nos outros dias, a última (100)
+    expect(e.cortes).toEqual([
+      { dia: 0, de: '16:00', ate: '17:00', venda: 100, margem: 30 },
+      { dia: 1, de: '08:00', ate: '09:00', venda: 50, margem: 15 },
+      { dia: 2, de: '16:00', ate: '17:00', venda: 100, margem: 30 },
+      { dia: 3, de: '16:00', ate: '17:00', venda: 100, margem: 30 },
+      { dia: 4, de: '16:00', ate: '17:00', venda: 100, margem: 30 },
+    ]);
+    expect(e.vendaCortadaSemana).toBe(450);
+    expect(e.vendaCortadaMes).toBe(1950); // 450 × 52 ÷ 12
+    expect(e.margemCortadaMes).toBe(585);
+    expect(e.aviso).toContain('5 dias');
+  });
+
+  it('loja 24 horas: corta o fim do domingo até caber', () => {
+    const dias24 = Array.from({ length: 7 }, (_, dia) => ({ dia, abre: 0, fecha: 24 }));
+    const e = sab(
+      so({
+        dias: dias24,
+        pessoas: Array.from({ length: 4 }, () => ({ funcao: 'Farmacêutico', cargaH: 40 })),
+      }),
+    );
+    expect(e.horasReduzir).toBe(8);
+    expect(e.cortes).toEqual([{ dia: 6, de: '16:00', ate: '24:00', venda: null, margem: null }]);
+  });
+
+  it('quadro que já cobre tudo não reduz nada', () => {
+    const e = sab(
+      so({ pessoas: Array.from({ length: 4 }, () => ({ funcao: 'Farmacêutico', cargaH: 40 })) }),
+    );
+    expect(e).toMatchObject({ viavel: true, horasReduzir: 0, cortes: [] });
+    expect(e.direcionamento).toContain('não é preciso reduzir');
+  });
+
+  it('função obrigatória sem ninguém no quadro: não há solução cortando horário', () => {
+    const e = sab(so({ pessoas: [{ funcao: 'Atendimento', cargaH: 40 }] }));
+    expect(e.viavel).toBe(false);
+    expect(e.motivoInviavel).toContain('Farmacêutico');
+    expect(e.cortes).toEqual([]);
+  });
+});

@@ -1,4 +1,4 @@
-import { Cartao } from "../../components/ui/index.jsx";
+import { Aviso, Cartao } from "../../components/ui/index.jsx";
 
 const brl = (v) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
 const pct = (v) => `${String(v).replace(".", ",")}%`;
@@ -85,6 +85,61 @@ function Manter({ c, atual }) {
   );
 }
 
+function Economia({ c }) {
+  const e = c.economia;
+  const sem = e.vendaCortadaMes === null;
+  return (
+    <Cartao titulo="Cenário 2 · Foco em economia" subtitulo={e.foco}>
+      <div className="px-6 py-4 flex flex-col gap-4">
+        <p className="m-0 text-sm text-ink-700">{e.direcionamento}</p>
+        {!e.viavel ? (
+          <Aviso tom="atencao">{e.motivoInviavel}</Aviso>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
+              <Numero rotulo="Reduzir" valor={`${e.horasReduzir}h`} legenda="por semana, com a equipe atual" />
+              <Numero rotulo="Horário da loja" valor={`${e.horasSemana}h`} legenda={`por semana · hoje ${c.atual.horasSemana}h`} />
+              <Numero
+                rotulo="Venda cortada"
+                valor={sem ? "—" : brl(e.vendaCortadaMes)}
+                legenda={sem ? "sem base comercial para estimar" : "por mês (estimativa)"}
+              />
+              <Numero
+                rotulo="Margem cortada"
+                valor={sem ? "—" : brl(e.margemCortadaMes)}
+                legenda={sem ? "sem base comercial para estimar" : "por mês (estimativa)"}
+              />
+            </div>
+            {e.cortes.length > 0 && (
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse text-sm min-w-[480px]">
+                  <thead>
+                    <tr><th className={TH}>Dia</th><th className={TH}>Deixa de abrir</th><th className={TH}>Venda por semana</th></tr>
+                  </thead>
+                  <tbody>
+                    {e.cortes.map((x) => (
+                      <tr key={`${x.dia}${x.de}`}>
+                        <td className={TD}>{NOMES_DIA[x.dia]}</td>
+                        <td className={TD}>{x.de}–{x.ate}</td>
+                        <td className={TD}>{x.venda === null ? "—" : brl(x.venda)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <div>
+              <div className="mb-1 text-[11px] font-bold uppercase tracking-wide text-ink-500">Novo horário</div>
+              <HorarioSemana dias={e.horarioSemana} />
+            </div>
+            {e.aviso && <Aviso tom="atencao">{e.aviso}</Aviso>}
+          </>
+        )}
+      </div>
+    </Cartao>
+  );
+}
+
 // Os cenários da regra escolhida no quadro central (42h ou 40h): a troca é só mudar `regraId` no pai.
 export default function Cenarios({ cenarios }) {
   if (!cenarios) return null;
@@ -95,6 +150,7 @@ export default function Cenarios({ cenarios }) {
         <p className="mt-1 mb-0 text-sm text-ink-500">Estimativas para decidir o caminho. Nada aqui altera o cadastro nem cria funcionário.</p>
       </div>
       <Manter c={cenarios} atual={cenarios.atual} />
+      <Economia c={cenarios} />
     </section>
   );
 }

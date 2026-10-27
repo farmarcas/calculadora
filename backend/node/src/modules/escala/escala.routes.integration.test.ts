@@ -266,4 +266,47 @@ describe('escala (rotas)', () => {
     expect(cobre.contratacoes).toEqual([]);
     expect(cobre.custoAdicionalMensal).toBe(0);
   });
+
+  it('cenário 2: reduz o horário até a equipe cobrir, com e sem base comercial', async () => {
+    await request(app)
+      .post('/api/v1/cargas/escala')
+      .set(admin)
+      .attach(
+        'arquivo',
+        await xlsx(escalaCab, [
+          ['001', 'F1', 'Ana', 'Farmacêutica', 'Seg a Sáb', '08:00', '', '', '17:00', '44'],
+        ]),
+        'e.xlsx',
+      );
+    await request(app)
+      .put(`/api/v1/lojas/${lojaId}/configuracao`)
+      .set(admin)
+      .send({ minimos: { Atendimento: 0, Caixa: 0 } });
+    const url = `/api/v1/lojas/${lojaId}/diagnostico`;
+
+    // sem base: corta o fim do dia e não estima venda
+    const sem = (await request(app).get(url).set(admin)).body.cenarios.r40.economia;
+    expect(sem.viavel).toBe(true);
+    expect(sem.horasReduzir).toBeGreaterThan(0);
+    expect(sem.horasSemana + sem.horasReduzir).toBe(66);
+    expect(sem.horasSemana).toBeLessThanOrEqual(40); // 1 farmacêutica de 40h
+    expect(sem.vendaCortadaMes).toBeNull();
+    expect(sem.cortes[0].venda).toBeNull();
+
+    // com base: estima a venda cortada
+    const base = await xlsx(
+      ['Data', 'Hora', 'Cod_Loja', 'Venda_Liquida_RS', 'Clientes_Atendidos'],
+      [
+        ['01/09/2026', '18', '001', '1.200,00', '40'],
+        ['01/09/2026', '19', '001', '600,00', '20'],
+      ],
+    );
+    await request(app).post('/api/v1/cargas/base').set(admin).attach('arquivo', base, 'b.xlsx');
+    const com = (await request(app).get(url).set(admin)).body.cenarios.r40.economia;
+    expect(typeof com.vendaCortadaSemana).toBe('number');
+    expect(com.vendaCortadaMes).toBeCloseTo((com.vendaCortadaSemana * 52) / 12, 1);
+    expect(com.aviso).toContain('1 dias');
+    // o cenário de economia não traz custo para ninguém
+    expect(JSON.stringify(com)).not.toContain('custoAdicional');
+  });
 });

@@ -30,11 +30,11 @@ Formato: `[ID] [P] [US] descrição com caminho`. Caminhos do backend relativos 
 
 **Teste independente**: reduzir o horário até a equipe atual cobrir tudo e conferir que os cortes são os de menor venda e que o valor cortado confere com a soma das médias.
 
-- [ ] T010 [US2] Teste + corte guloso nas pontas de cada dia (menor venda primeiro; empate: fim do dia antes do começo; para quando nenhuma função falta nas horas e nos turnos), com detecção de função obrigatória sem ninguém no quadro, em `src/modules/escala/cenarios.ts` e `cenarios.test.ts`
-- [ ] T011 [US2] Resultado do Cenário 2: horas a reduzir, novo horário dia a dia (dia fechado quando tudo é cortado), cortes por dia, venda e margem cortadas por semana e por mês (nulas sem base) e o aviso de poucos dias de venda, em `src/modules/escala/cenarios.ts`
-- [ ] T012 [US2] Casos de borda com testes: loja 24 horas, dia inteiro cortado, quadro que já cobre tudo (nada a reduzir), sem base comercial (corta o fim do dia, sem estimar), sem farmacêutico (sem solução explicada), em `src/modules/escala/cenarios.test.ts`
-- [ ] T013 [US2] Teste de integração do Cenário 2 pela rota (com base comercial e sem), em `src/modules/escala/escala.routes.integration.test.ts`
-- [ ] T014 [P] [US2] Cartão do Cenário 2: horas a reduzir, horário semanal resultante, vendas e margem cortadas, avisos, em `src/features/diagnostico/Cenarios.jsx`
+- [X] T010 [US2] Teste + corte guloso nas pontas de cada dia (menor venda primeiro; empate: fim do dia antes do começo; para quando nenhuma função falta nas horas e nos turnos), com detecção de função obrigatória sem ninguém no quadro, em `src/modules/escala/cenarios.ts` e `cenarios.test.ts`
+- [X] T011 [US2] Resultado do Cenário 2: horas a reduzir, novo horário dia a dia (dia fechado quando tudo é cortado), cortes por dia, venda e margem cortadas por semana e por mês (nulas sem base) e o aviso de poucos dias de venda, em `src/modules/escala/cenarios.ts`
+- [X] T012 [US2] Casos de borda com testes: loja 24 horas, dia inteiro cortado, quadro que já cobre tudo (nada a reduzir), sem base comercial (corta o fim do dia, sem estimar), sem farmacêutico (sem solução explicada), em `src/modules/escala/cenarios.test.ts`
+- [X] T013 [US2] Teste de integração do Cenário 2 pela rota (com base comercial e sem), em `src/modules/escala/escala.routes.integration.test.ts`
+- [X] T014 [P] [US2] Cartão do Cenário 2: horas a reduzir, horário semanal resultante, vendas e margem cortadas, avisos, em `src/features/diagnostico/Cenarios.jsx`
 
 ## Phase 5: US3 — Cenário 3, equilíbrio (P3)
 

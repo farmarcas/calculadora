@@ -1,6 +1,7 @@
 # Validação ponta a ponta
 
 1. `docker compose up -d --build --wait` e abrir http://localhost:3000.
+1a. Opcional: `docker compose exec api npm run seed` cria dados fictícios (2 lojas, 8 funcionários, escala atual e vendas da loja 001).
 2. Cadastros: baixar o modelo, preencher com 2 lojas e 6 funcionários fictícios, importar, confirmar.
 3. Importar planilha com colunas renomeadas: conferir a sugestão de correspondência e confirmar.
 4. Reenviar a mesma planilha: nenhum registro duplicado.

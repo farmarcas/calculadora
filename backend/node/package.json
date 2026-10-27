@@ -13,7 +13,8 @@
     "lint": "eslint . && prettier --check .",
     "test": "vitest run",
     "test:integration": "DATABASE_URL=\"$TEST_DATABASE_URL\" NODE_ENV=test prisma migrate deploy && vitest run --config vitest.integration.config.ts",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.10.0",

@@ -66,9 +66,9 @@ Formato: `[ID] [P] [US] descrição com caminho`. [P] = pode ir em paralelo.
 
 ## Phase 7: Fechamento
 
-- [ ] T033 [P] Dados fictícios de exemplo (seed) em `backend/node/prisma/seed.ts`
+- [x] T033 [P] Dados fictícios de exemplo (seed) em `backend/node/prisma/seed.ts`
 - [ ] T034 Rodar `quickstart.md` de ponta a ponta com o ambiente de pé (`docker compose ps` saudável) e rodar `npm test`, `npm run test:integration`, `npm run lint`
-- [ ] T035 [P] Atualizar `README.md` com a nova funcionalidade
+- [x] T035 [P] Atualizar `README.md` com a nova funcionalidade
 
 ## Dependências
 

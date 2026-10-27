@@ -79,6 +79,17 @@ Cada pasta traz um **guia** (as regras daquela tecnologia) e **skills** (o passo
 
 ---
 
+## 📅 Escala (módulo M4)
+
+Primeira funcionalidade construída sobre o Golden Path: cadastro por planilha, diagnóstico da escala frente às regras de 42h e 40h (EC 141/2026), grade da semana, simulações, comparação e aprovação. Especificação, plano e tarefas em [specs/001-escala](specs/001-escala/).
+
+- **Cadastros:** baixe a planilha modelo, preencha e importe. Planilhas fora do modelo também funcionam: o sistema sugere o que entendeu de cada coluna e só grava depois da sua confirmação.
+- **Escala:** envie a escala atual e as vendas por hora, veja o diagnóstico, monte simulações arrastando os turnos, compare até 3 e aprove a que fica em uso (só o dono do grupo aprova).
+- **Dados de exemplo (fictícios):** `docker compose exec api npm run seed` (só roda se ainda não houver lojas).
+- **Pendências conhecidas:** valores das regras 42h/40h sem validação jurídica; sem login real (há um seletor de papel de demonstração); custo ainda fora da comparação; ponto (AFD) e apuração planejado × realizado ficam para a próxima entrega.
+
+---
+
 ## 🛡️ Regras que protegem você
 
 As regras ficam na [constituição do projeto](.specify/memory/constitution.md). As principais:

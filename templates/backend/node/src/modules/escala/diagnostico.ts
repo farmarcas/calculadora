@@ -4,6 +4,7 @@ import { faixasDaSemana, normalizarHorarios, type HorariosSemana } from '../cada
 import type { Custos } from '../custos/custos.schemas.js';
 import { cobertura, type TurnoPessoa } from './cobertura.js';
 import { montarCenarios } from './cenarios.js';
+import { montarExtras, type ExtrasRegra } from './cenarios-extras.js';
 import { resumirVendas, type VendaLinha } from './vendas.js';
 
 export type LojaDiag = {
@@ -244,9 +245,8 @@ export const montarDiagnostico = (a: {
     cobertura: cob,
     vendas: resumoVendas,
     cenarios: Object.fromEntries(
-      (['r42', 'r40'] as const).map((regraId) => [
-        regraId,
-        montarCenarios({
+      (['r42', 'r40'] as const).map((regraId) => {
+        const entrada = {
           regraId,
           convencao8h24: loja.convencao8h24,
           dias,
@@ -255,9 +255,11 @@ export const montarDiagnostico = (a: {
           vendas,
           custos: loja.custos ?? null,
           dono: a.dono === true,
-        }),
-      ]),
-    ) as Record<'r42' | 'r40', ReturnType<typeof montarCenarios>>,
+        };
+        const cenarios = montarCenarios(entrada);
+        return [regraId, { ...cenarios, ...montarExtras(entrada, cenarios) }];
+      }),
+    ) as Record<'r42' | 'r40', ReturnType<typeof montarCenarios> & ExtrasRegra>,
     pontosAtencao: atencao,
     colaboradores: turnos.map((t) => ({
       matricula: t.matricula,

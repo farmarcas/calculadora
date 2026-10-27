@@ -370,4 +370,67 @@ describe('escala (rotas)', () => {
       expect('impactoMensal' in todos.manter).toBe(false);
     }
   });
+
+  it('cenário 4: estende o horário com a sobra da equipe; custo só para o dono', async () => {
+    await request(app)
+      .post('/api/v1/cargas/escala')
+      .set(admin)
+      .attach(
+        'arquivo',
+        await xlsx(escalaCab, [
+          ['001', 'F1', 'Ana', 'Farmacêutica', 'Seg a Sáb', '08:00', '', '', '17:00', '44'],
+          ['001', 'F2', 'Bia', 'Farmacêutica', 'Seg a Sex', '12:00', '', '', '20:00', '40'],
+          ['001', 'F3', 'Cris', 'Farmacêutica', 'Seg a Sex', '08:00', '', '', '16:00', '40'],
+        ]),
+        'e.xlsx',
+      );
+    await request(app)
+      .put(`/api/v1/lojas/${lojaId}/configuracao`)
+      .set(admin)
+      .send({ minimos: { Atendimento: 0, Caixa: 0 } });
+    await request(app)
+      .put(`/api/v1/lojas/${lojaId}/custos`)
+      .set(admin)
+      .send({ salarioMedio: { Farmacêutico: 8000 }, encargosPct: 40 });
+    const url = `/api/v1/lojas/${lojaId}/diagnostico`;
+    const est = async (h: Record<string, string> = admin) =>
+      (await request(app).get(url).set(h)).body.cenarios.r40.estender;
+
+    // sem base comercial: horas possíveis pela capacidade, sem valor
+    const sem = await est();
+    expect(sem.disponivel).toBe(true);
+    expect(sem.horasEstender).toBeGreaterThan(0);
+    expect(sem.horasSemana).toBe(66 + sem.horasEstender);
+    expect(sem.margemRefMes).toBeNull();
+    expect(sem.custoAdicionalMensal).toBe(0); // equipe já cobre o horário
+    expect(sem.impactoMensal).toBeNull();
+
+    // com base comercial: margem de referência e impacto líquido para o dono
+    await request(app)
+      .post('/api/v1/cargas/base')
+      .set(admin)
+      .attach(
+        'arquivo',
+        await xlsx(
+          ['Data', 'Hora', 'Cod_Loja', 'Venda_Liquida_RS', 'Margem_Bruta_RS', 'Clientes_Atendidos'],
+          [
+            ['01/09/2026', '8', '001', '400,00', '100,00', '10'],
+            ['01/09/2026', '19', '001', '800,00', '200,00', '20'],
+          ],
+        ),
+        'b.xlsx',
+      );
+    const com = await est();
+    expect(com.disponivel).toBe(true);
+    expect(typeof com.margemRefMes).toBe('number');
+    expect(com.impactoMensal).toBe(-com.margemRefMes);
+    expect(com.aviso).toContain('referência');
+
+    for (const h of [{ 'X-Perfil': 'SCHEDULE_MANAGER' }, { 'X-Perfil': 'SCHEDULE_VIEWER' }]) {
+      const r = await est(h);
+      expect(r.extensoes).toEqual(com.extensoes);
+      expect('custoAdicionalMensal' in r).toBe(false);
+      expect('impactoMensal' in r).toBe(false);
+    }
+  });
 });

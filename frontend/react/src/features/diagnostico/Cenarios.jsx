@@ -31,10 +31,10 @@ function HorarioSemana({ dias }) {
 const Selo = ({ ativo }) => (ativo ? <Ficha tom="ok">Menor impacto financeiro</Ficha> : null);
 
 // Só o dono recebe `impactoMensal`: custo adicional + margem perdida, por mês.
-const Impacto = ({ valor }) =>
+const Impacto = ({ valor, detalhe = "custo adicional + margem perdida" }) =>
   valor == null ? null : (
     <p className="m-0 text-xs text-ink-500">
-      Impacto financeiro estimado: <strong className="text-ink-700">{brl(valor)}</strong> por mês (custo adicional + margem perdida).
+      Impacto financeiro estimado: <strong className="text-ink-700">{brl(valor)}</strong> por mês ({detalhe}).
     </p>
   );
 
@@ -222,6 +222,64 @@ function Equilibrio({ c }) {
   );
 }
 
+function Estender({ c }) {
+  const e = c.estender;
+  if (!e) return null;
+  const dono = e.custoAdicionalMensal !== undefined;
+  const sem = e.margemRefMes === null;
+  return (
+    <Cartao titulo="Cenário 4 · Estender horário" subtitulo={e.foco}>
+      <div className="px-6 py-4 flex flex-col gap-4">
+        {!e.disponivel ? (
+          <Aviso tom="atencao">{e.motivoIndisponivel}</Aviso>
+        ) : (
+          <>
+            <p className="m-0 text-sm text-ink-700">{e.direcionamento}</p>
+            <Impacto valor={e.impactoMensal} detalhe="custo adicional − margem de referência" />
+            <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
+              <Numero rotulo="Estender" valor={`${e.horasEstender}h`} legenda="por semana, sem contratar a mais" />
+              <Numero rotulo="Horário da loja" valor={`${e.horasSemana}h`} legenda={`por semana · hoje ${c.atual.horasSemana}h`} />
+              <Numero
+                rotulo="Margem de referência"
+                valor={sem ? "—" : brl(e.margemRefMes)}
+                legenda={sem ? "sem base comercial para estimar" : "por mês (referência, não previsão)"}
+              />
+              {dono && (
+                <Numero
+                  rotulo="Custo adicional"
+                  valor={e.custoAdicionalMensal === null ? "—" : brl(e.custoAdicionalMensal)}
+                  legenda="por mês · o mesmo do Cenário 1"
+                />
+              )}
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-sm min-w-[480px]">
+                <thead>
+                  <tr><th className={TH}>Dia</th><th className={TH}>Passa a abrir</th><th className={TH}>Venda de referência por semana</th></tr>
+                </thead>
+                <tbody>
+                  {e.extensoes.map((x) => (
+                    <tr key={`${x.dia}${x.de}`}>
+                      <td className={TD}>{NOMES_DIA[x.dia]}</td>
+                      <td className={TD}>{x.de}–{x.ate}</td>
+                      <td className={TD}>{x.vendaRef === null ? "—" : brl(x.vendaRef)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div>
+              <div className="mb-1 text-[11px] font-bold uppercase tracking-wide text-ink-500">Novo horário</div>
+              <HorarioSemana dias={e.horarioSemana} />
+            </div>
+            {e.aviso && <Aviso tom="atencao">{e.aviso}</Aviso>}
+          </>
+        )}
+      </div>
+    </Cartao>
+  );
+}
+
 const NOME_CENARIO = { manter: "Cenário 1 · Manter horários", economia: "Cenário 2 · Foco em economia", equilibrio: "Cenário 3 · Equilíbrio" };
 
 // Só o dono vê: o caminho de menor impacto, ou o que falta para poder indicá-lo.
@@ -258,6 +316,7 @@ export default function Cenarios({ cenarios }) {
       <Manter c={cenarios} atual={cenarios.atual} />
       <Economia c={cenarios} />
       <Equilibrio c={cenarios} />
+      <Estender c={cenarios} />
     </section>
   );
 }

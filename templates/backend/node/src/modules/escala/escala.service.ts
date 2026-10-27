@@ -177,6 +177,7 @@ export const makeEscalaService = (repo: EscalaRepository, auditar: Auditor) => {
         turnos: escala?.turnos ?? [],
         base: base?.meta ?? null,
         vendas: base?.vendas ?? [],
+        dono: perfil === 'TENANT_ADMIN',
       });
       // Folha mensal atual: custo, então só o dono do grupo recebe (o campo nem existe para os outros).
       if (perfil !== 'TENANT_ADMIN' || diag.status === 'pendente') return diag;

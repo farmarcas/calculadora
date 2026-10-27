@@ -16,6 +16,8 @@ export type LinhaFuncao = {
   okH: boolean;
   okT: boolean;
   falta: boolean;
+  faltaH: number; // horas que faltam (maior entre o saldo de horas e o de turnos)
+  cargaCheiaH: number; // jornada cheia de uma pessoa nesta regra
   contratar: number;
   parcialH: number | null;
   memoria: string;
@@ -76,6 +78,8 @@ export const verificarRegra = (
       okH: saldoH >= 0,
       okT: saldoT >= 0,
       falta: saldoH < 0 || saldoT < 0,
+      faltaH: arred(faltaH),
+      cargaCheiaH: arred(porPessoa),
       contratar,
       parcialH,
       memoria:

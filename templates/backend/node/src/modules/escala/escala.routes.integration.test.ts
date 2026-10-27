@@ -198,4 +198,72 @@ describe('escala (rotas)', () => {
     }
     expect(dono.numeros).toMatchObject({ colaboradoresNoCalculo: 1 });
   });
+
+  it('cenário 1: contratação por cargo, custo só para o dono e quadro que já cobre tudo', async () => {
+    await request(app)
+      .post('/api/v1/cargas/escala')
+      .set(admin)
+      .attach(
+        'arquivo',
+        await xlsx(escalaCab, [
+          ['001', 'F1', 'Ana', 'Farmacêutica', 'Seg a Sáb', '08:00', '', '', '17:00', '44'],
+        ]),
+        'e.xlsx',
+      );
+    const url = `/api/v1/lojas/${lojaId}/diagnostico`;
+    const config = `/api/v1/lojas/${lojaId}/configuracao`;
+    await request(app)
+      .put(config)
+      .set(admin)
+      .send({ minimos: { Atendimento: 0, Caixa: 0 } });
+    await request(app)
+      .put(`/api/v1/lojas/${lojaId}/custos`)
+      .set(admin)
+      .send({ salarioMedio: { Farmacêutico: 8000 }, encargosPct: 40 });
+
+    // 66h abertas na semana, 1 farmacêutica de 40h: faltam 48h → 2 pessoas (80h), 40% de sobra
+    const dono = (await request(app).get(url).set(admin)).body.cenarios;
+    expect(Object.keys(dono)).toEqual(['r42', 'r40']);
+    expect(dono.r40.manter.contratacoes).toEqual([
+      {
+        funcao: 'Farmacêutico',
+        pessoas: 2,
+        parcialH: null,
+        horasContratadas: 80,
+        ociosidadePct: 40,
+      },
+    ]);
+    expect(dono.r40.manter.horasSemana).toBe(66);
+    expect(dono.r40.manter.horarioSemana[6].aberto).toBe(false);
+    // 2 vagas × 8000 × 40 × 5 ÷ 200 × 1,4 = 22400; folha atual 8000 × 1,4 = 11200
+    expect(dono.r40.manter.custoAdicionalMensal).toBe(22400);
+    expect(dono.r40.manter.acrescimoPct).toBe(200);
+    expect(dono.r40.atual).toMatchObject({ horasSemana: 66, pessoas: 1, folhaMensal: 11200 });
+    expect(dono.r40.vendasBase).toBeNull();
+
+    for (const h of [{ 'X-Perfil': 'SCHEDULE_MANAGER' }, { 'X-Perfil': 'SCHEDULE_VIEWER' }]) {
+      const r = (await request(app).get(url).set(h)).body;
+      expect(r.cenarios.r40.manter.contratacoes[0].pessoas).toBe(2);
+      expect('custoAdicionalMensal' in r.cenarios.r40.manter).toBe(false);
+      expect('folhaMensal' in r.cenarios.r40.atual).toBe(false);
+      expect(JSON.stringify(r)).not.toContain('22400');
+    }
+
+    // com três farmacêuticas (120h, 15 turnos) o quadro já cobre as 66h da loja
+    await request(app)
+      .post('/api/v1/cargas/escala')
+      .set(admin)
+      .attach(
+        'arquivo',
+        await xlsx(escalaCab, [
+          ['001', 'F1', 'Ana', 'Farmacêutica', 'Seg a Sáb', '08:00', '', '', '17:00', '44'],
+          ['001', 'F2', 'Bia', 'Farmacêutica', 'Seg a Sex', '12:00', '', '', '20:00', '40'],
+          ['001', 'F3', 'Cris', 'Farmacêutica', 'Seg a Sex', '08:00', '', '', '16:00', '40'],
+        ]),
+        'e2.xlsx',
+      );
+    const cobre = (await request(app).get(url).set(admin)).body.cenarios.r40.manter;
+    expect(cobre.contratacoes).toEqual([]);
+    expect(cobre.custoAdicionalMensal).toBe(0);
+  });
 });

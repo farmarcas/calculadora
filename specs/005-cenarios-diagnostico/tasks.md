@@ -6,23 +6,23 @@ Formato: `[ID] [P] [US] descrição com caminho`. Caminhos do backend relativos 
 
 ## Phase 1: Setup
 
-- [ ] T001 Conferir o branch `feat/escala-cenarios`, o ambiente de pé (`docker compose ps` saudável) e os testes atuais verdes (`npm test`, `npm run test:integration`)
+- [X] T001 Conferir o branch `feat/escala-cenarios`, o ambiente de pé (`docker compose ps` saudável) e os testes atuais verdes (`npm test`, `npm run test:integration`)
 
 ## Phase 2: Fundação (bloqueia as histórias)
 
-- [ ] T002 [P] `LinhaFuncao` passa a expor `faltaH` (horas que faltam por função) e `cargaCheiaH` (jornada cheia da regra), com teste, em `src/modules/regras/capacidade.ts` e `capacidade.test.ts`
-- [ ] T003 [P] Teste + venda e margem médias por dia da semana e hora (divide pelo número de datas daquele dia da semana; hora sem linha vale zero; devolve também o total de dias usados) em `src/modules/escala/vendas.ts` e `vendas.test.ts`
-- [ ] T004 Estrutura dos cenários: tipos da resposta, entrada comum (dias abertos, quadro, mínimos, regra, vendas, custos, se é dono) e montagem do `cenarios` por regra em `src/modules/escala/cenarios.ts`
+- [X] T002 [P] `LinhaFuncao` passa a expor `faltaH` (horas que faltam por função) e `cargaCheiaH` (jornada cheia da regra), com teste, em `src/modules/regras/capacidade.ts` e `capacidade.test.ts`
+- [X] T003 [P] Teste + venda e margem médias por dia da semana e hora (divide pelo número de datas daquele dia da semana; hora sem linha vale zero; devolve também o total de dias usados) em `src/modules/escala/vendas.ts` e `vendas.test.ts`
+- [X] T004 Estrutura dos cenários: tipos da resposta, entrada comum (dias abertos, quadro, mínimos, regra, vendas, custos, se é dono) e montagem do `cenarios` por regra em `src/modules/escala/cenarios.ts`
 
 ## Phase 3: US1 — Cenário 1, manter os horários (P1) 🎯 MVP
 
 **Teste independente**: com a escala da loja de exemplo, listar a contratação por cargo e conferir custo adicional, % e ociosidade contra a conta manual, em 42h e 40h.
 
-- [ ] T005 [US1] Teste + Cenário 1: contratações por cargo (parcial quando basta uma pessoa), horas contratadas, ociosidade por função e total, horário semanal, equipe e impactos frente à atual, em `src/modules/escala/cenarios.ts` e `cenarios.test.ts`
-- [ ] T006 [US1] Custo adicional e % de acréscimo sobre a folha atual (mesma conta das vagas), só quando o chamador é o dono e há custos; sem custos, nulo, em `src/modules/escala/cenarios.ts`
-- [ ] T007 [US1] O diagnóstico entrega `cenarios` para `r42` e `r40`, recebendo se quem pede é o dono, em `src/modules/escala/diagnostico.ts` e `escala.service.ts`
-- [ ] T008 [US1] Teste de integração: a rota devolve os cenários das duas regras, quadro que já cobre tudo diz que não há contratação, e dono/gestor/consulta recebem o que cabe a cada um, em `src/modules/escala/escala.routes.integration.test.ts`
-- [ ] T009 [P] [US1] Cartão do Cenário 1 seguindo o seletor 42h/40h do quadro central (contratação por cargo, ociosidade, horário total, impactos em números grandes) em `src/features/diagnostico/Cenarios.jsx` e `Diagnostico.jsx`
+- [X] T005 [US1] Teste + Cenário 1: contratações por cargo (parcial quando basta uma pessoa), horas contratadas, ociosidade por função e total, horário semanal, equipe e impactos frente à atual, em `src/modules/escala/cenarios.ts` e `cenarios.test.ts`
+- [X] T006 [US1] Custo adicional e % de acréscimo sobre a folha atual (mesma conta das vagas), só quando o chamador é o dono e há custos; sem custos, nulo, em `src/modules/escala/cenarios.ts`
+- [X] T007 [US1] O diagnóstico entrega `cenarios` para `r42` e `r40`, recebendo se quem pede é o dono, em `src/modules/escala/diagnostico.ts` e `escala.service.ts`
+- [X] T008 [US1] Teste de integração: a rota devolve os cenários das duas regras, quadro que já cobre tudo diz que não há contratação, e dono/gestor/consulta recebem o que cabe a cada um, em `src/modules/escala/escala.routes.integration.test.ts`
+- [X] T009 [P] [US1] Cartão do Cenário 1 seguindo o seletor 42h/40h do quadro central (contratação por cargo, ociosidade, horário total, impactos em números grandes) em `src/features/diagnostico/Cenarios.jsx` e `Diagnostico.jsx`
 
 **Checkpoint**: o primeiro cenário já responde "e se eu mantiver os horários?".
 

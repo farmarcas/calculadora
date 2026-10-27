@@ -25,7 +25,14 @@ describe('verificarRegra', () => {
   it('falta na regra de 40h e sugere contratação parcial', () => {
     const linhas = verificarRegra(regraPara('r40', false), dias, { Farmacêutico: 1 }, quadro);
     expect(passa(linhas)).toBe(false);
-    expect(linhas[0]).toMatchObject({ capacidadeH: 80, saldoH: -4, contratar: 1, parcialH: 16 });
+    expect(linhas[0]).toMatchObject({
+      capacidadeH: 80,
+      saldoH: -4,
+      contratar: 1,
+      parcialH: 16,
+      faltaH: 16, // o turno que falta (2 × 8h) pesa mais que as 4h de saldo
+      cargaCheiaH: 40,
+    });
   });
 
   it('42h sem convenção vale 40h; com convenção as horas passam, mas faltam turnos', () => {

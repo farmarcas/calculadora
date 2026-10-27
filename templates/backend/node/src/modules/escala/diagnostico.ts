@@ -3,6 +3,7 @@ import { FUNCOES_PADRAO_MINIMO, REGRA_IDS, regraPara, type RegraId } from '../re
 import { faixasDaSemana, normalizarHorarios, type HorariosSemana } from '../cadastros/horarios.js';
 import type { Custos } from '../custos/custos.schemas.js';
 import { cobertura, type TurnoPessoa } from './cobertura.js';
+import { montarCenarios } from './cenarios.js';
 import { resumirVendas, type VendaLinha } from './vendas.js';
 
 export type LojaDiag = {
@@ -61,6 +62,8 @@ export const montarDiagnostico = (a: {
   turnos: TurnoDiag[];
   base: CargaMeta | null;
   vendas: VendaLinha[];
+  // Só o dono recebe valores de custo nos cenários.
+  dono?: boolean;
 }) => {
   const { loja, escala, turnos, base, vendas } = a;
   const dias = diasAbertos(loja.horarios);
@@ -240,6 +243,21 @@ export const montarDiagnostico = (a: {
     regras,
     cobertura: cob,
     vendas: resumoVendas,
+    cenarios: Object.fromEntries(
+      (['r42', 'r40'] as const).map((regraId) => [
+        regraId,
+        montarCenarios({
+          regraId,
+          convencao8h24: loja.convencao8h24,
+          dias,
+          minimos,
+          pessoas,
+          vendas,
+          custos: loja.custos ?? null,
+          dono: a.dono === true,
+        }),
+      ]),
+    ) as Record<'r42' | 'r40', ReturnType<typeof montarCenarios>>,
     pontosAtencao: atencao,
     colaboradores: turnos.map((t) => ({
       matricula: t.matricula,

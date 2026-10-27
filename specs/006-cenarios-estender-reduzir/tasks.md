@@ -31,11 +31,11 @@ Formato: `[ID] [P] [US] descrição com caminho`. Caminhos do backend relativos 
 
 **Teste independente**: com mais gente do que o horário pede, tirar o excedente indicado mantém a cobertura e tirar mais uma pessoa de qualquer cargo a quebra.
 
-- [ ] T011 [US2] Teste + excedente por cargo: só funções com mínimo > 0 que hoje passam; remove a pessoa de menor carga enquanto a linha da função continuar sem falta; cargo em falta ou justo não tem excedente, em `src/modules/escala/cenarios-extras.ts` e `cenarios-extras.test.ts`
-- [ ] T012 [US2] Teste + economia por cargo e total (excedente × salário médio × (1 + encargos)) e % sobre a folha atual; cargo sem salário deixa o total nulo (sem número parcial); sem custos só as pessoas; só o dono recebe valores, em `src/modules/escala/cenarios-extras.ts`
-- [ ] T013 [US2] Casos de borda com testes: função obrigatória com uma só pessoa nunca sobra, nenhum excedente, regra de 42h × 40h mudando o excedente, cargos sem mínimo ficam de fora, falta em um cargo e sobra em outro (aviso), em `src/modules/escala/cenarios-extras.test.ts`
-- [ ] T014 [US2] Teste de integração: a rota devolve `reduzir` nas duas regras e os perfis sem permissão não recebem economia, em `src/modules/escala/escala.routes.integration.test.ts`
-- [ ] T015 [P] [US2] Cartão do Cenário 5 (excedente por cargo, economia só para o dono, aviso de capacidade excedente e de validação trabalhista) em `src/features/diagnostico/Cenarios.jsx`
+- [X] T011 [US2] Teste + excedente por cargo: só funções com mínimo > 0 que hoje passam; remove a pessoa de menor carga enquanto a linha da função continuar sem falta; cargo em falta ou justo não tem excedente, em `src/modules/escala/cenarios-extras.ts` e `cenarios-extras.test.ts`
+- [X] T012 [US2] Teste + economia por cargo e total (excedente × salário médio × (1 + encargos)) e % sobre a folha atual; cargo sem salário deixa o total nulo (sem número parcial); sem custos só as pessoas; só o dono recebe valores, em `src/modules/escala/cenarios-extras.ts`
+- [X] T013 [US2] Casos de borda com testes: função obrigatória com uma só pessoa nunca sobra, nenhum excedente, regra de 42h × 40h mudando o excedente, cargos sem mínimo ficam de fora, falta em um cargo e sobra em outro (aviso), em `src/modules/escala/cenarios-extras.test.ts`
+- [X] T014 [US2] Teste de integração: a rota devolve `reduzir` nas duas regras e os perfis sem permissão não recebem economia, em `src/modules/escala/escala.routes.integration.test.ts`
+- [X] T015 [P] [US2] Cartão do Cenário 5 (excedente por cargo, economia só para o dono, aviso de capacidade excedente e de validação trabalhista) em `src/features/diagnostico/Cenarios.jsx`
 
 ## Phase 5: US3 — Encaixe (P3)
 

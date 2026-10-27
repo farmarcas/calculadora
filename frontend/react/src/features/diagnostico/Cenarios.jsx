@@ -280,6 +280,69 @@ function Estender({ c }) {
   );
 }
 
+function Reduzir({ c }) {
+  const q = c.reduzir;
+  if (!q) return null;
+  const dono = q.economiaMensal !== undefined;
+  return (
+    <Cartao titulo="Cenário 5 · Reduzir equipe" subtitulo={q.foco}>
+      <div className="px-6 py-4 flex flex-col gap-4">
+        <p className="m-0 text-sm text-ink-700">{q.direcionamento}</p>
+        {q.temExcedente && <Impacto valor={q.impactoMensal} detalhe="economia de folha" />}
+        {q.temExcedente && (
+          <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
+            <Numero
+              rotulo="Pessoas a mais"
+              valor={q.pessoasExcedentes}
+              legenda="além do que o horário atual exige"
+            />
+            {dono && (
+              <Numero
+                rotulo="Economia de folha"
+                valor={q.economiaMensal === null ? "—" : brl(q.economiaMensal)}
+                legenda={
+                  q.economiaMensal === null
+                    ? "informe os salários médios em Custos"
+                    : q.economiaPct === null
+                      ? "por mês"
+                      : `por mês · ${pct(q.economiaPct)} da folha atual`
+                }
+              />
+            )}
+          </div>
+        )}
+        {q.cargos.length > 0 && (
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse text-sm min-w-[480px]">
+              <thead>
+                <tr>
+                  <th className={TH}>Cargo</th>
+                  <th className={TH}>Hoje</th>
+                  <th className={TH}>Necessárias</th>
+                  <th className={TH}>A mais</th>
+                  {dono && <th className={TH}>Economia por mês</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {q.cargos.map((x) => (
+                  <tr key={x.funcao}>
+                    <td className={TD}>{x.funcao}</td>
+                    <td className={TD}>{x.pessoasHoje}</td>
+                    <td className={TD}>{x.pessoasNecessarias}</td>
+                    <td className={TD}>{x.excedente > 0 ? <strong>{x.excedente}</strong> : 0}</td>
+                    {dono && <td className={TD}>{x.excedente === 0 ? "—" : x.economiaMensal === null ? "—" : brl(x.economiaMensal)}</td>}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {q.aviso && <Aviso tom="atencao">{q.aviso}</Aviso>}
+      </div>
+    </Cartao>
+  );
+}
+
 const NOME_CENARIO = { manter: "Cenário 1 · Manter horários", economia: "Cenário 2 · Foco em economia", equilibrio: "Cenário 3 · Equilíbrio" };
 
 // Só o dono vê: o caminho de menor impacto, ou o que falta para poder indicá-lo.
@@ -317,6 +380,7 @@ export default function Cenarios({ cenarios }) {
       <Economia c={cenarios} />
       <Equilibrio c={cenarios} />
       <Estender c={cenarios} />
+      <Reduzir c={cenarios} />
     </section>
   );
 }

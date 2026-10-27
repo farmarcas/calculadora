@@ -179,3 +179,109 @@ describe('Cenário 4 — estender horário', () => {
     expect(r.margemRefMes).toBe(671.67);
   });
 });
+
+describe('Cenário 5 — reduzir equipe', () => {
+  const caixa = (cargaH: number) => ({ funcao: 'Caixa', cargaH });
+  const reduzir = (extra: Partial<EntradaCenarios> = {}) => {
+    const e = entrada({
+      minimos: { Farmacêutico: 1, Caixa: 1 },
+      // quatro farmacêuticos de 40h e dois caixas (40h e 16h) para 40h e 5 turnos por semana
+      pessoas: [farm(40), farm(40), farm(40), farm(40), caixa(40), caixa(16)],
+      custos: { salarioMedio: { Farmacêutico: 10000, Caixa: 2500 }, encargosPct: 0 },
+      ...extra,
+    });
+    return { e, r: montarExtras(e, montarCenarios(e)).reduzir };
+  };
+
+  it('conta o excedente por cargo, tirando primeiro quem tem menor carga', () => {
+    const { r } = reduzir();
+    // um farmacêutico de 40h já cobre 40h e 5 turnos: sobram 3. Um caixa de 40h cobre: sobra o de 16h.
+    expect(r.temExcedente).toBe(true);
+    expect(r.cargos).toMatchObject([
+      { funcao: 'Farmacêutico', pessoasHoje: 4, pessoasNecessarias: 1, excedente: 3 },
+      { funcao: 'Caixa', pessoasHoje: 2, pessoasNecessarias: 1, excedente: 1 },
+    ]);
+    expect(r.pessoasExcedentes).toBe(4);
+    expect(r.aviso).toContain('validação trabalhista');
+    expect(r.direcionamento).toContain('não uma recomendação');
+  });
+
+  it('economia de folha por cargo, total e % sobre a folha atual (só dono)', () => {
+    const { r } = reduzir();
+    expect(r.cargos.map((x) => x.economiaMensal)).toEqual([30000, 2500]);
+    expect(r.economiaMensal).toBe(32500);
+    // folha atual: 4 × 10000 + 2 × 2500 = 45000
+    expect(r.economiaPct).toBe(72.2);
+    expect(r.impactoMensal).toBe(-32500);
+  });
+
+  it('retirar o excedente mantém a cobertura e retirar mais uma pessoa a quebra', () => {
+    const { e, r } = reduzir();
+    const regra = regraPara('r40', false);
+    const ficam = (funcao: string, n: number) => [
+      ...e.pessoas.filter((p) => p.funcao !== funcao),
+      ...e.pessoas.filter((p) => p.funcao === funcao).slice(0, n),
+    ];
+    for (const x of r.cargos) {
+      const ok = verificarRegra(regra, e.dias, e.minimos, ficam(x.funcao, x.pessoasNecessarias));
+      const menos = verificarRegra(
+        regra,
+        e.dias,
+        e.minimos,
+        ficam(x.funcao, x.pessoasNecessarias - 1),
+      );
+      expect(ok.find((l) => l.funcao === x.funcao)!.falta).toBe(false);
+      expect(menos.find((l) => l.funcao === x.funcao)!.falta).toBe(true);
+    }
+  });
+
+  it('cargo em falta ou justo não tem excedente; avisa a falta', () => {
+    const { r } = reduzir({
+      // um farmacêutico de 40h (justo) e um caixa de 16h (falta)
+      pessoas: [farm(40), caixa(16)],
+    });
+    expect(r.temExcedente).toBe(false);
+    expect(r.cargos.map((x) => x.excedente)).toEqual([0, 0]);
+    expect(r.direcionamento).toContain('Não há gente sobrando');
+    expect(r.aviso).toContain('Falta gente em Caixa');
+    expect(r.economiaMensal).toBe(0);
+  });
+
+  it('cargos sem mínimo ficam de fora', () => {
+    const { r } = reduzir({
+      pessoas: [
+        farm(40),
+        farm(40),
+        { funcao: 'Apoio', cargaH: 40 },
+        { funcao: 'Apoio', cargaH: 40 },
+      ],
+      minimos: { Farmacêutico: 1, Apoio: 0 },
+    });
+    expect(r.cargos.map((x) => x.funcao)).toEqual(['Farmacêutico']);
+    expect(r.pessoasExcedentes).toBe(1);
+  });
+
+  it('sem salário de um cargo com excedente, o total fica nulo; sem custos, só pessoas', () => {
+    const faltaSalario = reduzir({
+      custos: { salarioMedio: { Farmacêutico: 10000 }, encargosPct: 0 },
+    }).r;
+    expect(faltaSalario.cargos[0]!.economiaMensal).toBe(30000);
+    expect(faltaSalario.cargos[1]!.economiaMensal).toBeNull();
+    expect(faltaSalario.economiaMensal).toBeNull();
+    expect(faltaSalario.economiaPct).toBeNull();
+    expect(faltaSalario.pessoasExcedentes).toBe(4);
+
+    const semCustos = reduzir({ custos: null }).r;
+    expect(semCustos.economiaMensal).toBeNull();
+    expect(semCustos.pessoasExcedentes).toBe(4);
+  });
+
+  it('quem não é dono vê só pessoas, sem economia nem impacto', () => {
+    const { r } = reduzir({ dono: false });
+    expect('economiaMensal' in r).toBe(false);
+    expect('economiaPct' in r).toBe(false);
+    expect('impactoMensal' in r).toBe(false);
+    expect('economiaMensal' in r.cargos[0]!).toBe(false);
+    expect(r.pessoasExcedentes).toBe(4);
+  });
+});

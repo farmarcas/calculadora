@@ -37,7 +37,29 @@ export type CenarioEstender = {
   impactoMensal?: number | null;
 };
 
-export type ExtrasRegra = { estender: CenarioEstender };
+export type CargoReduzir = {
+  funcao: string;
+  pessoasHoje: number;
+  pessoasNecessarias: number;
+  excedente: number;
+  // Só para o dono; nulo quando falta o salário médio do cargo.
+  economiaMensal?: number | null;
+};
+
+export type CenarioReduzir = {
+  temExcedente: boolean;
+  foco: string;
+  direcionamento: string;
+  cargos: CargoReduzir[];
+  pessoasExcedentes: number;
+  aviso: string | null;
+  // Só para o dono.
+  economiaMensal?: number | null;
+  economiaPct?: number | null;
+  impactoMensal?: number | null;
+};
+
+export type ExtrasRegra = { estender: CenarioEstender; reduzir: CenarioReduzir };
 
 const SEMANAS_NO_MES = 52 / 12;
 const MAX_POR_PONTA = 2;
@@ -262,6 +284,91 @@ const montarEstender = (e: EntradaCenarios, c: CenariosRegra): CenarioEstender =
   return r;
 };
 
+const pct = (n: number) => Math.round(n * 10) / 10;
+
+// Cenário 5: por cargo com mínimo obrigatório que hoje cobre o horário, quantas pessoas excedem o
+// necessário. Retira, uma a uma, a de menor carga enquanto a função continuar sem falta.
+const montarReduzir = (e: EntradaCenarios, c: CenariosRegra): CenarioReduzir => {
+  const regra = regraPara(e.regraId, e.convencao8h24);
+  const linhaDe = (pessoas: EntradaCenarios['pessoas'], funcao: string) =>
+    verificarRegra(regra, e.dias, e.minimos, pessoas).find((l) => l.funcao === funcao);
+  const funcoes = [...new Set(e.pessoas.map((p) => p.funcao))].filter(
+    (f) => (e.minimos[f] ?? 0) > 0,
+  );
+
+  const emFalta: string[] = [];
+  const cargos: CargoReduzir[] = funcoes.map((funcao) => {
+    const doCargo = e.pessoas
+      .map((p, i) => ({ ...p, i }))
+      .filter((p) => p.funcao === funcao)
+      .sort((a, b) => a.cargaH - b.cargaH || a.i - b.i);
+    let excedente = 0;
+    if (linhaDe(e.pessoas, funcao)?.falta) emFalta.push(funcao);
+    else {
+      const fora = new Set<number>();
+      for (const p of doCargo) {
+        fora.add(p.i);
+        const resto = e.pessoas.filter((_, i) => !fora.has(i));
+        const l = linhaDe(resto, funcao);
+        if (!l || l.falta) break;
+        excedente++;
+      }
+    }
+    return {
+      funcao,
+      pessoasHoje: doCargo.length,
+      pessoasNecessarias: doCargo.length - excedente,
+      excedente,
+    };
+  });
+
+  const pessoasExcedentes = cargos.reduce((t, x) => t + x.excedente, 0);
+  const temExcedente = pessoasExcedentes > 0;
+  const r: CenarioReduzir = {
+    temExcedente,
+    foco: 'Ajustar a equipe ao horário atual',
+    direcionamento: '',
+    cargos,
+    pessoasExcedentes,
+    aviso: null,
+  };
+
+  if (e.dono) {
+    const fator = 1 + (e.custos?.encargosPct ?? 0) / 100;
+    for (const x of cargos) {
+      const sal =
+        e.custos?.salarioMedio[x.funcao as keyof NonNullable<typeof e.custos>['salarioMedio']];
+      x.economiaMensal = e.custos && sal ? arred(x.excedente * sal * fator) : null;
+    }
+    const comExcedente = cargos.filter((x) => x.excedente > 0);
+    const total =
+      !e.custos || comExcedente.some((x) => x.economiaMensal === null)
+        ? null
+        : arred(comExcedente.reduce((t, x) => t + (x.economiaMensal ?? 0), 0));
+    r.economiaMensal = total;
+    const folha = c.atual.folhaMensal ?? null;
+    r.economiaPct = total !== null && folha ? pct((total / folha) * 100) : null;
+    r.impactoMensal = total === null ? null : -total;
+  }
+
+  const lista = cargos
+    .filter((x) => x.excedente > 0)
+    .map((x) => `${x.excedente} ${x.funcao}`)
+    .join(', ');
+  r.direcionamento = temExcedente
+    ? `Na regra de ${regra.nome}, o horário atual precisa de ${pessoasExcedentes === 1 ? '1 pessoa' : `${pessoasExcedentes} pessoas`} a menos do que a equipe tem (${lista}).${r.economiaMensal != null ? ` Isso representa cerca de ${brl(r.economiaMensal)} de folha por mês.` : ''} É uma sobra de capacidade para a gestão avaliar, não uma recomendação.`
+    : 'Não há gente sobrando: cada cargo está no limite do que o horário atual exige, ou em falta.';
+  const avisos: string[] = [];
+  if (temExcedente)
+    avisos.push(
+      'Capacidade excedente para decisão da gestão: depende de validação trabalhista e do contrato de cada pessoa.',
+    );
+  if (emFalta.length) avisos.push(`Falta gente em ${emFalta.join(', ')}: veja o Cenário 1.`);
+  r.aviso = avisos.length ? avisos.join(' ') : null;
+  return r;
+};
+
 export const montarExtras = (e: EntradaCenarios, c: CenariosRegra): ExtrasRegra => ({
   estender: montarEstender(e, c),
+  reduzir: montarReduzir(e, c),
 });

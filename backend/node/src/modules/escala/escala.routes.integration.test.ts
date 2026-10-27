@@ -433,4 +433,58 @@ describe('escala (rotas)', () => {
       expect('impactoMensal' in r).toBe(false);
     }
   });
+
+  it('cenário 5: mostra a sobra de gente por cargo; economia só para o dono', async () => {
+    await request(app)
+      .post('/api/v1/cargas/escala')
+      .set(admin)
+      .attach(
+        'arquivo',
+        await xlsx(escalaCab, [
+          ['001', 'F1', 'Ana', 'Farmacêutica', 'Seg a Sáb', '08:00', '', '', '17:00', '44'],
+          ['001', 'F2', 'Bia', 'Farmacêutica', 'Seg a Sex', '12:00', '', '', '20:00', '40'],
+          ['001', 'F3', 'Cris', 'Farmacêutica', 'Seg a Sex', '08:00', '', '', '16:00', '40'],
+          ['001', 'F4', 'Dani', 'Farmacêutica', 'Seg a Sex', '10:00', '', '', '18:00', '40'],
+        ]),
+        'e.xlsx',
+      );
+    await request(app)
+      .put(`/api/v1/lojas/${lojaId}/configuracao`)
+      .set(admin)
+      .send({ minimos: { Atendimento: 0, Caixa: 0 } });
+    await request(app)
+      .put(`/api/v1/lojas/${lojaId}/custos`)
+      .set(admin)
+      .send({ salarioMedio: { Farmacêutico: 8000 }, encargosPct: 40 });
+    const url = `/api/v1/lojas/${lojaId}/diagnostico`;
+    const red = async (h: Record<string, string> = admin) =>
+      (await request(app).get(url).set(h)).body.cenarios.r40.reduzir;
+
+    // 66h e 11 turnos na semana: três farmacêuticas de 40h (120h, 15 turnos) bastam, duas não (10 turnos)
+    const dono = await red();
+    expect(dono.temExcedente).toBe(true);
+    expect(dono.cargos).toEqual([
+      {
+        funcao: 'Farmacêutico',
+        pessoasHoje: 4,
+        pessoasNecessarias: 3,
+        excedente: 1,
+        economiaMensal: 11200,
+      },
+    ]);
+    expect(dono.pessoasExcedentes).toBe(1);
+    expect(dono.economiaMensal).toBe(11200);
+    expect(dono.economiaPct).toBe(25); // folha atual: 4 × 8000 × 1,4 = 44800
+    expect(dono.aviso).toContain('validação trabalhista');
+
+    for (const h of [{ 'X-Perfil': 'SCHEDULE_MANAGER' }, { 'X-Perfil': 'SCHEDULE_VIEWER' }]) {
+      const r = await red(h);
+      expect(r.cargos).toEqual([
+        { funcao: 'Farmacêutico', pessoasHoje: 4, pessoasNecessarias: 3, excedente: 1 },
+      ]);
+      expect('economiaMensal' in r).toBe(false);
+      expect('economiaPct' in r).toBe(false);
+      expect('impactoMensal' in r).toBe(false);
+    }
+  });
 });

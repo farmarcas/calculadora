@@ -38,6 +38,9 @@ export type SimulacaoRegistro = {
   resultado: unknown;
   criadaEm: Date;
   gravadaEm: Date | null;
+  aprovadaPor: string | null;
+  aprovadaEm: Date | null;
+  vigenciaInicio: Date | null;
   turnos: TurnoSim[];
 };
 
@@ -56,6 +59,9 @@ const mapear = (s: Linha): SimulacaoRegistro => ({
   resultado: s.resultado,
   criadaEm: s.criadaEm,
   gravadaEm: s.gravadaEm,
+  aprovadaPor: s.aprovadaPor,
+  aprovadaEm: s.aprovadaEm,
+  vigenciaInicio: s.vigenciaInicio,
   turnos: s.turnos.map((t) => ({
     matricula: t.matricula,
     dia: t.dia,
@@ -121,6 +127,9 @@ export const simulacoesRepository = {
         autor: true,
         criadaEm: true,
         gravadaEm: true,
+        aprovadaPor: true,
+        aprovadaEm: true,
+        vigenciaInicio: true,
         resultado: true,
       },
     });
@@ -156,5 +165,27 @@ export const simulacoesRepository = {
 
   async mudarStatus(id: string, status: SimulacaoStatus) {
     await prisma.simulacao.update({ where: { id }, data: { status: paraBanco[status] } });
+  },
+
+  // Aprovar: a anterior em uso vira substituída e esta passa a valer (uma em uso por loja).
+  async aprovar(id: string, lojaId: string, perfil: string, vigenciaInicio: Date) {
+    await prisma.$transaction(async (tx) => {
+      await tx.simulacao.updateMany({
+        where: { lojaId, status: 'EM_USO' },
+        data: { status: 'SUBSTITUIDA', substituidaEm: new Date() },
+      });
+      await tx.simulacao.update({
+        where: { id },
+        data: { status: 'EM_USO', aprovadaPor: perfil, aprovadaEm: new Date(), vigenciaInicio },
+      });
+    });
+  },
+
+  async emUso(lojaId: string) {
+    const s = await prisma.simulacao.findFirst({
+      where: { lojaId, status: 'EM_USO' },
+      include: { turnos: true },
+    });
+    return s ? mapear(s) : null;
   },
 };

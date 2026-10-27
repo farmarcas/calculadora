@@ -199,6 +199,10 @@ model Simulacao {
   resultado  Json?
   criadaEm   DateTime        @default(now()) @map("criada_em") @db.Timestamptz(3)
   gravadaEm  DateTime?       @map("gravada_em") @db.Timestamptz(3)
+  aprovadaPor     String?   @map("aprovada_por")
+  aprovadaEm      DateTime? @map("aprovada_em") @db.Timestamptz(3)
+  vigenciaInicio  DateTime? @map("vigencia_inicio") @db.Date
+  substituidaEm   DateTime? @map("substituida_em") @db.Timestamptz(3)
   atualizadaEm DateTime      @updatedAt @map("atualizada_em") @db.Timestamptz(3)
 
   loja   Loja              @relation(fields: [lojaId], references: [id])

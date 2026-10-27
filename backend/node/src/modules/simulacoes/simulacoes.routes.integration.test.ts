@@ -32,6 +32,7 @@ describe('simulações (rotas)', () => {
   let lojaId: string;
 
   beforeEach(async () => {
+    await prisma.auditoria.deleteMany();
     await prisma.simulacao.deleteMany();
     await prisma.carga.deleteMany();
     await prisma.funcionario.deleteMany();
@@ -181,5 +182,106 @@ describe('simulações (rotas)', () => {
     expect(v.body.avaliacao.erros.some((x: { regra: string }) => x.regra === 'farmaceutico')).toBe(
       true,
     );
+  });
+
+  describe('aprovar, comparar e exportar', () => {
+    const gravada = async (nome: string) => {
+      const sim = (await criar({ nome, regra: 'r40' })).body;
+      const g = await request(app).post(`/api/v1/simulacoes/${sim.id}/gravar`).set(admin);
+      expect(g.status).toBe(200);
+      return g.body;
+    };
+
+    it('só o dono aprova, só gravada, e a anterior vira substituída (uma em uso por loja)', async () => {
+      const a = await gravada('Plano A');
+      const b = await gravada('Plano B');
+      const gestor = { 'X-Perfil': 'SCHEDULE_MANAGER' };
+      expect(
+        (await request(app).post(`/api/v1/simulacoes/${a.id}/aprovar`).set(gestor).send({})).status,
+      ).toBe(403);
+
+      const rascunho = (await criar({ nome: 'Rascunho', regra: 'r40' })).body;
+      expect(
+        (await request(app).post(`/api/v1/simulacoes/${rascunho.id}/aprovar`).set(admin).send({}))
+          .status,
+      ).toBe(409);
+
+      const ok = await request(app)
+        .post(`/api/v1/simulacoes/${a.id}/aprovar`)
+        .set(admin)
+        .send({ vigenciaInicio: '2026-12-15' });
+      expect(ok.status).toBe(200);
+      expect(ok.body).toMatchObject({
+        status: 'em_uso',
+        aprovadaPor: 'TENANT_ADMIN',
+        desatualizada: false,
+      });
+      expect(ok.body.vigenciaInicio).toContain('2026-12-15');
+
+      await request(app).post(`/api/v1/simulacoes/${b.id}/aprovar`).set(admin).send({});
+      const lista = (await request(app).get(`/api/v1/lojas/${lojaId}/simulacoes`)).body.data;
+      expect(lista.find((x: { id: string }) => x.id === a.id).status).toBe('substituida');
+      expect(lista.find((x: { id: string }) => x.id === b.id).status).toBe('em_uso');
+      expect(lista.find((x: { id: string }) => x.id === b.id).vigenciaInicio).toContain('20');
+      expect(
+        (await request(app).post(`/api/v1/simulacoes/${b.id}/descartar`).set(admin)).status,
+      ).toBe(409);
+      expect(await prisma.auditoria.count({ where: { acao: 'simulacao.aprovada' } })).toBe(2);
+    });
+
+    it('compara 2 a 3 simulações e inclui a em uso como referência', async () => {
+      const a = await gravada('Plano A');
+      const b = await gravada('Plano B');
+      const c = (await criar({ nome: 'Plano C', regra: 'r40' })).body;
+      await request(app).post(`/api/v1/simulacoes/${a.id}/aprovar`).set(admin).send({});
+
+      const r = await request(app).get(
+        `/api/v1/lojas/${lojaId}/simulacoes/comparar?ids=${b.id},${c.id}`,
+      );
+      expect(r.status).toBe(200);
+      expect(r.body.simulacoes).toHaveLength(3);
+      expect(r.body.simulacoes[0]).toMatchObject({ id: a.id, referencia: true });
+      expect(r.body.simulacoes[1].sintese).toContain('simulação em uso (Plano A)');
+      expect(r.body.simulacoes[1].indicadores).toMatchObject({ erros: 0, coberturaPct: 100 });
+
+      expect(
+        (await request(app).get(`/api/v1/lojas/${lojaId}/simulacoes/comparar?ids=${b.id}`)).status,
+      ).toBe(400);
+    });
+
+    it('avisa que a em uso ficou desatualizada quando o quadro muda no cadastro', async () => {
+      const a = await gravada('Plano A');
+      await request(app).post(`/api/v1/simulacoes/${a.id}/aprovar`).set(admin).send({});
+      await request(app)
+        .post('/api/v1/funcionarios')
+        .set(admin)
+        .send({ matricula: 'N1', nome: 'Novo', lojaId, funcaoEscala: 'Caixa', cargaSemanalH: 40 });
+      const d = (await request(app).get(`/api/v1/simulacoes/${a.id}`)).body;
+      expect(d.desatualizada).toBe(true);
+      expect(d.motivosDesatualizada[0]).toContain('Novo');
+      expect(d.status).toBe('em_uso'); // nada muda sozinho
+      const lista = (await request(app).get(`/api/v1/lojas/${lojaId}/simulacoes`)).body.data;
+      expect(lista[0].desatualizada).toBe(true);
+    });
+
+    it('exporta o Excel da escala e registra na auditoria', async () => {
+      const a = await gravada('Plano A');
+      const r = await request(app)
+        .get(`/api/v1/simulacoes/${a.id}/exportar.xlsx`)
+        .buffer()
+        .parse((res, cb) => {
+          const ch: Buffer[] = [];
+          res.on('data', (d: Buffer) => ch.push(d));
+          res.on('end', () => cb(null, Buffer.concat(ch)));
+        });
+      expect(r.status).toBe(200);
+      const wb = new ExcelJS.Workbook();
+      await wb.xlsx.load(r.body as ArrayBuffer);
+      const ws = wb.getWorksheet('Escala')!;
+      expect(String(ws.getCell('A1').value)).toContain('Plano A');
+      expect(ws.getRow(5).getCell(1).value).toBe('Ana');
+      expect(ws.getRow(5).getCell(3).value).toContain('08:00–14:00');
+      expect(await prisma.auditoria.count({ where: { acao: 'simulacao.exportada' } })).toBe(1);
+    });
   });
 });

@@ -59,10 +59,10 @@ Formato: `[ID] [P] [US] descrição com caminho`. [P] = pode ir em paralelo.
 
 **Teste independente**: gravar duas simulações, comparar, aprovar uma; a em uso anterior vira substituída.
 
-- [ ] T029 [US4] Teste + regra de aprovação (zero erros, só perfil autorizado, uma em uso, vigência, substituição) em `src/modules/simulacoes/aprovacao.ts`
-- [ ] T030 [US4] Rotas `aprovar` e `comparar` + exportação `.xlsx` da escala + auditoria + teste de integração em `src/modules/simulacoes/`
-- [ ] T031 [P] [US4] Tela de comparação lado a lado (2–3 simulações, com a em uso como referência) em `frontend/react/src/features/simulacoes/Comparar.jsx`
-- [ ] T032 [US4] Botão aprovar por perfil, aviso "simulação desatualizada" e visão de impressão em `frontend/react/src/features/simulacoes/`
+- [x] T029 [US4] Teste + regra de aprovação (zero erros, só perfil autorizado, uma em uso, vigência, substituição) em `src/modules/simulacoes/aprovacao.ts`
+- [x] T030 [US4] Rotas `aprovar` e `comparar` + exportação `.xlsx` da escala + auditoria + teste de integração em `src/modules/simulacoes/`
+- [x] T031 [P] [US4] Tela de comparação lado a lado (2–3 simulações, com a em uso como referência) em `frontend/react/src/features/simulacoes/Comparar.jsx`
+- [x] T032 [US4] Botão aprovar por perfil, aviso "simulação desatualizada" e visão de impressão em `frontend/react/src/features/simulacoes/`
 
 ## Phase 7: Fechamento
 

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../../api/client.js";
 import { Aviso, Botao, Campo, Cartao, Ficha, Modal, entrada } from "../../components/ui/index.jsx";
+import Aprovar from "./Aprovar.jsx";
+import Comparar from "./Comparar.jsx";
 import Simulacao from "./Simulacao.jsx";
 
 const STATUS = { rascunho: ["atencao", "Rascunho"], gravada: ["ok", "Gravada"], em_uso: ["ok", "Em uso"], substituida: ["neutro", "Substituída"], descartada: ["neutro", "Descartada"] };
@@ -50,12 +52,15 @@ function Nova({ lojaId, lista, onClose, onCriada }) {
   );
 }
 
-export default function GradeTab({ lojaId, podeEscrever }) {
+export default function GradeTab({ lojaId, perfil, podeEscrever }) {
   const [lista, setLista] = useState([]);
   const [descartadas, setDescartadas] = useState(false);
   const [aberta, setAberta] = useState(null);
   const [nova, setNova] = useState(false);
   const [erro, setErro] = useState(null);
+  const [marcadas, setMarcadas] = useState([]);
+  const [comparando, setComparando] = useState(false);
+  const [aprovando, setAprovando] = useState(null);
 
   const carregar = useCallback(async () => {
     try {
@@ -67,16 +72,28 @@ export default function GradeTab({ lojaId, podeEscrever }) {
 
   useEffect(() => {
     setAberta(null);
+    setMarcadas([]);
+    setComparando(false);
   }, [lojaId]);
+
+  const alternar = (id) => setMarcadas((m) => (m.includes(id) ? m.filter((x) => x !== id) : m.length < 3 ? [...m, id] : m));
   useEffect(() => {
     carregar();
   }, [carregar]);
+
+  if (comparando)
+    return (
+      <>
+        <Comparar lojaId={lojaId} ids={marcadas} podeAprovar={perfil === "TENANT_ADMIN"} onVoltar={() => { setComparando(false); carregar(); }} onAprovar={setAprovando} />
+        {aprovando && <Aprovar id={aprovando} onClose={() => setAprovando(null)} onAprovada={() => { setAprovando(null); setComparando(false); setMarcadas([]); carregar(); }} />}
+      </>
+    );
 
   if (aberta)
     return (
       <div className="flex flex-col gap-4">
         <div><Botao tipo="texto" onClick={() => { setAberta(null); carregar(); }}>← Voltar às simulações</Botao></div>
-        <Simulacao id={aberta} podeEscrever={podeEscrever} onMudou={carregar} onAbrir={setAberta} />
+        <Simulacao id={aberta} perfil={perfil} podeEscrever={podeEscrever} onMudou={carregar} onAbrir={setAberta} />
       </div>
     );
 
@@ -89,6 +106,7 @@ export default function GradeTab({ lojaId, podeEscrever }) {
         acoes={
           <>
             <label className="flex items-center gap-2 text-xs text-ink-500"><input type="checkbox" checked={descartadas} onChange={(e) => setDescartadas(e.target.checked)} /> Mostrar descartadas</label>
+            <Botao tipo="secundario" disabled={marcadas.length < 2} onClick={() => setComparando(true)} title="Marque de 2 a 3 simulações">Comparar ({marcadas.length})</Botao>
             {podeEscrever && <Botao onClick={() => setNova(true)}>Nova simulação</Botao>}
           </>
         }
@@ -98,16 +116,21 @@ export default function GradeTab({ lojaId, podeEscrever }) {
         ) : (
           <table className="w-full border-collapse text-sm">
             <thead>
-              <tr>{["Nome", "Regra", "Situação", "Criada por", "Criada em", ""].map((h) => <th key={h} className="text-left text-[11px] font-bold uppercase tracking-wide text-ink-500 px-6 py-3">{h}</th>)}</tr>
+              <tr>{["", "Nome", "Regra", "Situação", "Criada por", "Criada em", ""].map((h) => <th key={h} className="text-left text-[11px] font-bold uppercase tracking-wide text-ink-500 px-6 py-3">{h}</th>)}</tr>
             </thead>
             <tbody>
               {lista.map((s) => {
                 const [tom, r] = STATUS[s.status];
                 return (
                   <tr key={s.id} className="border-t border-line">
-                    <td className="px-6 py-3 font-medium">{s.nome}</td>
+                    <td className="pl-6 py-3">
+                      {s.status !== "descartada" && s.status !== "substituida" && (
+                        <input type="checkbox" aria-label={`Comparar ${s.nome}`} checked={marcadas.includes(s.id)} onChange={() => alternar(s.id)} />
+                      )}
+                    </td>
+                    <td className="px-6 py-3 font-medium">{s.nome}{s.status === "em_uso" && s.vigenciaInicio && <div className="text-xs font-normal text-ink-500">Em uso desde {s.vigenciaInicio.split("T")[0].split("-").reverse().join("/")}</div>}</td>
                     <td className="px-6 py-3">{REGRAS[s.regra]}</td>
-                    <td className="px-6 py-3"><Ficha tom={tom}>{r}</Ficha></td>
+                    <td className="px-6 py-3"><Ficha tom={tom}>{r}</Ficha>{s.desatualizada && <> <Ficha tom="atencao">Desatualizada</Ficha></>}</td>
                     <td className="px-6 py-3">{s.autor}</td>
                     <td className="px-6 py-3">{new Date(s.criadaEm).toLocaleDateString("pt-BR")}</td>
                     <td className="px-6 py-3 text-right"><Botao tipo="texto" onClick={() => setAberta(s.id)}>Abrir</Botao></td>

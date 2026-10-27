@@ -16,3 +16,11 @@
 }
 
 body { margin: 0; background: var(--surface-page); color: var(--ink-900); font-family: Inter, system-ui, sans-serif; font-size: 14px; }
+
+/* Impressão da escala para o mural: só a área marcada aparece. */
+@media print {
+  body * { visibility: hidden; }
+  #area-impressao, #area-impressao * { visibility: visible; }
+  #area-impressao { position: absolute; inset: 0; padding: 16px; background: #fff; }
+  .nao-imprimir { display: none !important; }
+}

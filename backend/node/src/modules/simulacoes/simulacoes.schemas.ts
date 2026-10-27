@@ -61,3 +61,33 @@ export const editarReq = req(
     .refine((b) => Object.keys(b).length > 0, { message: 'Informe ao menos um campo' }),
   id,
 );
+
+export const aprovarReq = req(
+  z
+    .object({
+      vigenciaInicio: z
+        .string()
+        .regex(/^\d{4}-\d{2}-\d{2}$/)
+        .optional(),
+    })
+    .strict()
+    .default({}),
+  id,
+);
+export const compararReq = req(
+  vazio.default({}),
+  id,
+  z
+    .object({
+      ids: z
+        .string()
+        .transform((v) => v.split(',').filter(Boolean))
+        .pipe(
+          z
+            .array(z.string().uuid())
+            .min(2, 'Escolha de 2 a 3 simulações')
+            .max(3, 'Escolha de 2 a 3 simulações'),
+        ),
+    })
+    .strict(),
+);

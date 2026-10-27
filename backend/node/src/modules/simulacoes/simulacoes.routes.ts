@@ -27,6 +27,12 @@ const cadastro = {
       cargaH: r.cargaSemanalH ?? 44,
     }));
   },
+  async situacaoPessoas(matriculas: string[]) {
+    const rows = await prisma.funcionario.findMany({ where: { matricula: { in: matriculas } } });
+    return new Map(
+      rows.map((r) => [r.matricula, { lojaId: r.lojaId, ativo: r.deletedAt === null }]),
+    );
+  },
 };
 
 export const simulacoesRouter = () => {
@@ -51,6 +57,29 @@ export const simulacoesRouter = () => {
   r.post('/simulacoes/:id/gravar', escrita, validate(S.porIdReq), async (_req, res) =>
     res.json(await s.gravar(v<typeof S.porIdReq>(res).params.id, perfilDe(res))),
   );
+  // Quem aprova: só o dono do grupo (M-D4: gestor de escala não aprova por padrão).
+  r.post(
+    '/simulacoes/:id/aprovar',
+    exigirPerfil('TENANT_ADMIN'),
+    validate(S.aprovarReq),
+    async (_req, res) => {
+      const { params, body } = v<typeof S.aprovarReq>(res);
+      res.json(await s.aprovar(params.id, body.vigenciaInicio, perfilDe(res)));
+    },
+  );
+  r.get('/lojas/:id/simulacoes/comparar', validate(S.compararReq), async (_req, res) => {
+    const { params, query } = v<typeof S.compararReq>(res);
+    res.json(await s.comparar(params.id, query.ids));
+  });
+  r.get('/simulacoes/:id/exportar.xlsx', validate(S.porIdReq), async (_req, res) => {
+    const { buffer, nome } = await s.exportar(v<typeof S.porIdReq>(res).params.id, perfilDe(res));
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    res.setHeader('Content-Disposition', `attachment; filename="${nome}"`);
+    res.send(buffer);
+  });
   r.post('/simulacoes/:id/descartar', escrita, validate(S.porIdReq), async (_req, res) =>
     res.json(await s.descartar(v<typeof S.porIdReq>(res).params.id, perfilDe(res))),
   );

@@ -17,8 +17,8 @@ Perfil de demonstração no cabeçalho `X-Perfil`.
 ## Simulações
 - `POST /lojas/:id/simulacoes` (origem: escala atual, vazia ou id de outra simulação) · `GET /lojas/:id/simulacoes[?descartadas=1]` histórico
 - `GET /simulacoes/:id` · `PUT /simulacoes/:id` (nome, regra, turnos; só rascunho; devolve a avaliação recalculada com cobertura, erros e avisos)
-- `POST /simulacoes/:id/gravar|descartar|clonar` (gravar exige zero erros) · `aprovar` fica para a etapa 4
-- `GET /lojas/:id/simulacoes/comparar?ids=a,b,c`
+- `POST /simulacoes/:id/gravar|descartar|clonar` (gravar exige zero erros) · `POST /simulacoes/:id/aprovar` (só TENANT_ADMIN; exige gravada e zero erros; a anterior em uso vira substituída)
+- `GET /lojas/:id/simulacoes/comparar?ids=a,b,c` (2 a 3; a em uso entra como referência)
 - `GET /simulacoes/:id/exportar.xlsx`
 
 ## Saúde

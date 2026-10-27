@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api } from "../../api/client.js";
+import { api, baixarArquivo } from "../../api/client.js";
 import { Aviso, Botao, Cartao, Ficha, entrada } from "../../components/ui/index.jsx";
+import Aprovar from "./Aprovar.jsx";
 import Grade from "./Grade.jsx";
 import { NOMES_DIA, hhmm, horasLiquidas, lerHhmm } from "./tempo.js";
 
@@ -8,13 +9,14 @@ const STATUS = { rascunho: ["atencao", "Rascunho"], gravada: ["ok", "Gravada"], 
 const REGRAS = [["atual", "44h (atual)"], ["r42", "42h"], ["r40", "40h"]];
 const TH = "text-left text-[11px] font-bold uppercase tracking-wide text-ink-500 px-4 py-2";
 
-export default function Simulacao({ id, podeEscrever, onMudou, onAbrir }) {
+export default function Simulacao({ id, perfil, podeEscrever, onMudou, onAbrir }) {
   const [sim, setSim] = useState(null);
   const [turnos, setTurnos] = useState([]);
   const [dia, setDia] = useState(0);
   const [sel, setSel] = useState(null);
   const [erro, setErro] = useState(null);
   const [salvando, setSalvando] = useState(false);
+  const [aprovando, setAprovando] = useState(false);
   const seq = useRef(0);
   const timer = useRef(null);
 
@@ -102,7 +104,8 @@ export default function Simulacao({ id, podeEscrever, onMudou, onAbrir }) {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      {aprovando && <Aprovar id={id} onClose={() => setAprovando(false)} onAprovada={() => { setAprovando(false); api(`/simulacoes/${id}`).then(aplicar); onMudou(); }} />}
+      <div className="flex flex-wrap items-center justify-between gap-3 nao-imprimir">
         <div className="flex items-center gap-3">
           <h2 className="m-0 text-lg font-bold">{sim.nome}</h2>
           <Ficha tom={tom}>{rotulo}</Ficha>
@@ -117,14 +120,29 @@ export default function Simulacao({ id, podeEscrever, onMudou, onAbrir }) {
           </label>
           {podeEscrever && <Botao tipo="secundario" onClick={() => acao("clonar")}>Clonar</Botao>}
           {editavel && <Botao tipo="perigo" onClick={() => window.confirm("Descartar esta simulação?") && acao("descartar")}>Descartar</Botao>}
+          <Botao tipo="secundario" onClick={() => baixarArquivo(`/simulacoes/${id}/exportar.xlsx`, `escala-${sim.nome}.xlsx`)}>Exportar Excel</Botao>
+          <Botao tipo="secundario" onClick={() => window.print()}>Imprimir</Botao>
+          {perfil === "TENANT_ADMIN" && sim.status === "gravada" && <Botao onClick={() => setAprovando(true)}>Aprovar</Botao>}
           {editavel && <Botao onClick={() => acao("gravar")} disabled={!sim.avaliacao.podeGravar} title={sim.avaliacao.podeGravar ? "" : "Corrija os erros antes de gravar"}>Gravar</Botao>}
         </div>
       </div>
 
       {erro && <Aviso>{erro}</Aviso>}
       {!sim.editavel && <Aviso tom="neutro">Simulação {rotulo.toLowerCase()}: não se edita. Clone para ajustar.</Aviso>}
+      {sim.status === "em_uso" && (
+        <Aviso tom="ok">
+          Em uso desde {sim.vigenciaInicio?.split("T")[0].split("-").reverse().join("/")} · aprovada por {sim.aprovadaPor === "TENANT_ADMIN" ? "dono do grupo" : sim.aprovadaPor}.
+        </Aviso>
+      )}
+      {sim.desatualizada && (
+        <Aviso tom="atencao">
+          Simulação em uso desatualizada: {sim.motivosDesatualizada.join(" ")} Clone, ajuste e aprove a nova. Nada foi alterado automaticamente.
+        </Aviso>
+      )}
       <p className="m-0 text-xs text-ink-500">{sim.regraInfo.descricao}. Valores das regras ainda sem validação jurídica.</p>
 
+      <div id="area-impressao">
+      <p className="hidden print:block m-0 mb-2 text-sm">{sim.nome} · {sim.regraInfo.nome} · {rotulo}</p>
       <Cartao titulo="Escala da semana" subtitulo="Entrada–saída de cada pessoa · clique num dia para ajustar na grade">
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-sm min-w-[720px]">
@@ -161,6 +179,7 @@ export default function Simulacao({ id, podeEscrever, onMudou, onAbrir }) {
           </table>
         </div>
       </Cartao>
+      </div>
 
       <Cartao
         titulo={`Escala por hora · ${NOMES_DIA[dia]}`}

@@ -50,10 +50,10 @@ Formato: `[ID] [P] [US] descrição com caminho`. Caminhos do backend relativos 
 
 **Teste independente**: com dados completos, o destaque cai no cenário de menor soma de custo adicional e margem perdida.
 
-- [ ] T020 [US4] Teste + frases de direcionamento e foco por cenário, montadas com os números do cenário, em `src/modules/escala/cenarios.ts` e `cenarios.test.ts`
-- [ ] T021 [US4] Teste + destaque do menor impacto financeiro mensal (só dono, só com os três calculáveis; Cenário 2 sem solução fica de fora; empate: o que contrata menos), em `src/modules/escala/cenarios.ts` e `cenarios.test.ts`
-- [ ] T022 [US4] Teste de integração do destaque e de que gestor e consulta não recebem destaque nem valores de custo, em `src/modules/escala/escala.routes.integration.test.ts`
-- [ ] T023 [P] [US4] Tela: frase de direcionamento, selo "Menor impacto financeiro", avisos de dado faltando e troca 42h/40h sem recarregar, em `src/features/diagnostico/Cenarios.jsx`
+- [X] T020 [US4] Teste + frases de direcionamento e foco por cenário, montadas com os números do cenário, em `src/modules/escala/cenarios.ts` e `cenarios.test.ts`
+- [X] T021 [US4] Teste + destaque do menor impacto financeiro mensal (só dono, só com os três calculáveis; Cenário 2 sem solução fica de fora; empate: o que contrata menos), em `src/modules/escala/cenarios.ts` e `cenarios.test.ts`
+- [X] T022 [US4] Teste de integração do destaque e de que gestor e consulta não recebem destaque nem valores de custo, em `src/modules/escala/escala.routes.integration.test.ts`
+- [X] T023 [P] [US4] Tela: frase de direcionamento, selo "Menor impacto financeiro", avisos de dado faltando e troca 42h/40h sem recarregar, em `src/features/diagnostico/Cenarios.jsx`
 
 ## Phase 7: Fechamento
 

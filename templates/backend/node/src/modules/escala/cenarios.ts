@@ -21,6 +21,8 @@ export type Contratacao = {
 };
 
 export type CenarioManter = {
+  // Só para o dono: custo adicional + margem perdida, por mês (nulo se faltar dado).
+  impactoMensal?: number | null;
   foco: string;
   direcionamento: string;
   horarioSemana: DiaCenario[];
@@ -43,6 +45,7 @@ export type Corte = {
 };
 
 export type CenarioEconomia = {
+  impactoMensal?: number | null;
   viavel: boolean;
   motivoInviavel: string | null;
   foco: string;
@@ -58,6 +61,7 @@ export type CenarioEconomia = {
 };
 
 export type CenarioEquilibrio = {
+  impactoMensal?: number | null;
   // Preenchido quando faltam dados; os demais campos ficam zerados.
   indisponivel: { motivo: 'custos' | 'vendas'; texto: string } | null;
   coincideComManter: boolean;
@@ -82,6 +86,8 @@ export type CenariosRegra = {
   manter: CenarioManter;
   economia: CenarioEconomia;
   equilibrio: CenarioEquilibrio;
+  // Só para o dono: o cenário de menor impacto financeiro mensal, ou nulo se faltar dado.
+  destaque?: 'manter' | 'economia' | 'equilibrio' | null;
 };
 
 export type EntradaCenarios = {
@@ -328,6 +334,8 @@ const montarEconomia = (e: EntradaCenarios, linhas: LinhaFuncao[]): CenarioEcono
   if (passa(linhas))
     return {
       ...base,
+      // Nada a cortar: sem venda perdida (zero), desde que haja base para afirmar isso.
+      ...(vb ? { vendaCortadaSemana: 0, vendaCortadaMes: 0, margemCortadaMes: 0 } : {}),
       viavel: true,
       motivoInviavel: null,
       direcionamento: `A equipe atual já cobre todos os horários na regra de ${regra.nome}: não é preciso reduzir nada.`,
@@ -506,7 +514,9 @@ export const montarCenarios = (e: EntradaCenarios): CenariosRegra => {
   const folha = e.dono ? folhaAtual(e.pessoas, e.custos) : null;
   const manter = montarManter(e, linhas, folha);
   const custoManter = custoDasVagas(e.regraId, contratacoesDe(linhas), linhas, e.custos);
-  return {
+  const economia = montarEconomia(e, linhas);
+  const equilibrio = montarEquilibrio(e, folha, custoManter);
+  const r: CenariosRegra = {
     regra: { id: regra.id, nome: regra.nome },
     atual: {
       horasSemana: horasDaSemana(e.dias),
@@ -515,7 +525,39 @@ export const montarCenarios = (e: EntradaCenarios): CenariosRegra => {
     },
     vendasBase: vb ? { dias: vb.dias } : null,
     manter,
-    economia: montarEconomia(e, linhas),
-    equilibrio: montarEquilibrio(e, folha, custoManter),
+    economia,
+    equilibrio,
   };
+  if (e.dono) destacar(r);
+  return r;
+};
+
+// Impacto mensal = custo adicional + margem perdida. O destaque exige os custos e a base comercial
+// (Cenários 1 e 3 calculáveis); o Cenário 2 sem solução fica de fora da comparação.
+// Empate: o que contrata menos; depois a ordem 1, 3, 2.
+export const destacar = (r: CenariosRegra) => {
+  const { manter, economia, equilibrio } = r;
+  manter.impactoMensal = manter.custoAdicionalMensal ?? null;
+  economia.impactoMensal =
+    economia.viavel && economia.margemCortadaMes !== null ? economia.margemCortadaMes : null;
+  equilibrio.impactoMensal =
+    equilibrio.indisponivel === null &&
+    equilibrio.custoAdicionalMensal != null &&
+    equilibrio.margemCortadaMes !== null
+      ? arred(equilibrio.custoAdicionalMensal + equilibrio.margemCortadaMes)
+      : null;
+  r.destaque = null;
+  if (manter.impactoMensal === null || equilibrio.impactoMensal === null) return;
+  const lista = [
+    { id: 'manter' as const, impacto: manter.impactoMensal, pessoas: manter.pessoasContratar },
+    {
+      id: 'equilibrio' as const,
+      impacto: equilibrio.impactoMensal,
+      pessoas: equilibrio.pessoasContratar,
+    },
+    ...(economia.impactoMensal !== null
+      ? [{ id: 'economia' as const, impacto: economia.impactoMensal, pessoas: 0 }]
+      : []),
+  ];
+  r.destaque = lista.sort((a, b) => a.impacto - b.impacto || a.pessoas - b.pessoas)[0]!.id;
 };

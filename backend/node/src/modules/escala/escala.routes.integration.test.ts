@@ -356,6 +356,8 @@ describe('escala (rotas)', () => {
     expect(dono.horasSemana + dono.horasReduzir).toBe(66);
     expect(typeof dono.custoAdicionalMensal).toBe('number');
     expect(typeof dono.acrescimoPct).toBe('number');
+    const cenDono = (await request(app).get(url).set(admin)).body.cenarios.r40;
+    expect(['manter', 'economia', 'equilibrio']).toContain(cenDono.destaque);
 
     for (const h of [{ 'X-Perfil': 'SCHEDULE_MANAGER' }, { 'X-Perfil': 'SCHEDULE_VIEWER' }]) {
       const r = await eq(h);
@@ -363,6 +365,9 @@ describe('escala (rotas)', () => {
       expect(r.cortes).toEqual(dono.cortes);
       expect('custoAdicionalMensal' in r).toBe(false);
       expect('acrescimoPct' in r).toBe(false);
+      const todos = (await request(app).get(url).set(h)).body.cenarios.r40;
+      expect('destaque' in todos).toBe(false);
+      expect('impactoMensal' in todos.manter).toBe(false);
     }
   });
 });

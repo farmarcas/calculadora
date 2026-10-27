@@ -1,4 +1,4 @@
-import { Aviso, Cartao } from "../../components/ui/index.jsx";
+import { Aviso, Cartao, Ficha } from "../../components/ui/index.jsx";
 
 const brl = (v) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
 const pct = (v) => `${String(v).replace(".", ",")}%`;
@@ -28,13 +28,24 @@ function HorarioSemana({ dias }) {
   );
 }
 
+const Selo = ({ ativo }) => (ativo ? <Ficha tom="ok">Menor impacto financeiro</Ficha> : null);
+
+// Só o dono recebe `impactoMensal`: custo adicional + margem perdida, por mês.
+const Impacto = ({ valor }) =>
+  valor == null ? null : (
+    <p className="m-0 text-xs text-ink-500">
+      Impacto financeiro estimado: <strong className="text-ink-700">{brl(valor)}</strong> por mês (custo adicional + margem perdida).
+    </p>
+  );
+
 function Manter({ c, atual }) {
   const m = c.manter;
   const dono = m.custoAdicionalMensal !== undefined;
   return (
-    <Cartao titulo="Cenário 1 · Manter horários" subtitulo={m.foco}>
+    <Cartao titulo="Cenário 1 · Manter horários" subtitulo={m.foco} acoes={<Selo ativo={c.destaque === "manter"} />}>
       <div className="px-6 py-4 flex flex-col gap-4">
         <p className="m-0 text-sm text-ink-700">{m.direcionamento}</p>
+        <Impacto valor={m.impactoMensal} />
         <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
           <Numero
             rotulo="Contratar"
@@ -89,9 +100,10 @@ function Economia({ c }) {
   const e = c.economia;
   const sem = e.vendaCortadaMes === null;
   return (
-    <Cartao titulo="Cenário 2 · Foco em economia" subtitulo={e.foco}>
+    <Cartao titulo="Cenário 2 · Foco em economia" subtitulo={e.foco} acoes={<Selo ativo={c.destaque === "economia"} />}>
       <div className="px-6 py-4 flex flex-col gap-4">
         <p className="m-0 text-sm text-ink-700">{e.direcionamento}</p>
+        <Impacto valor={e.impactoMensal} />
         {!e.viavel ? (
           <Aviso tom="atencao">{e.motivoInviavel}</Aviso>
         ) : (
@@ -144,13 +156,14 @@ function Equilibrio({ c }) {
   const q = c.equilibrio;
   const dono = q.custoAdicionalMensal !== undefined;
   return (
-    <Cartao titulo="Cenário 3 · Equilíbrio" subtitulo={q.foco}>
+    <Cartao titulo="Cenário 3 · Equilíbrio" subtitulo={q.foco} acoes={<Selo ativo={c.destaque === "equilibrio"} />}>
       <div className="px-6 py-4 flex flex-col gap-4">
         {q.indisponivel ? (
           <Aviso tom="atencao">{q.indisponivel.texto}</Aviso>
         ) : (
           <>
             <p className="m-0 text-sm text-ink-700">{q.direcionamento}</p>
+            <Impacto valor={q.impactoMensal} />
             <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
               <Numero rotulo="Fechar" valor={`${q.horasReduzir}h`} legenda={q.coincideComManter ? "nenhuma hora a fechar" : "por semana, onde não se paga"} />
               <Numero rotulo="Contratar" valor={q.pessoasContratar} legenda={q.pessoasContratar === 1 ? "pessoa" : q.pessoasContratar === 0 ? "nada a contratar" : "pessoas"} />
@@ -209,6 +222,29 @@ function Equilibrio({ c }) {
   );
 }
 
+const NOME_CENARIO = { manter: "Cenário 1 · Manter horários", economia: "Cenário 2 · Foco em economia", equilibrio: "Cenário 3 · Equilíbrio" };
+
+// Só o dono vê: o caminho de menor impacto, ou o que falta para poder indicá-lo.
+function Recomendacao({ c }) {
+  if (c.destaque === undefined) return null;
+  if (c.destaque) {
+    const impacto = c[c.destaque].impactoMensal;
+    return (
+      <Aviso tom="ok">
+        <strong>Menor impacto financeiro: {NOME_CENARIO[c.destaque]}</strong> ({brl(impacto)} por mês, somando custo adicional e margem perdida).
+      </Aviso>
+    );
+  }
+  const falta = [];
+  if (c.manter.custoAdicionalMensal === null) falta.push("informe os salários médios nos custos da loja");
+  if (!c.vendasBase) falta.push("importe a base comercial");
+  return (
+    <Aviso tom="atencao">
+      Para indicar o caminho de menor impacto financeiro, {falta.length ? falta.join(" e ") : "faltam dados para comparar os três cenários"}.
+    </Aviso>
+  );
+}
+
 // Os cenários da regra escolhida no quadro central (42h ou 40h): a troca é só mudar `regraId` no pai.
 export default function Cenarios({ cenarios }) {
   if (!cenarios) return null;
@@ -218,6 +254,7 @@ export default function Cenarios({ cenarios }) {
         <h2 className="m-0 text-base font-bold">Cenários para a regra de {cenarios.regra.nome}</h2>
         <p className="mt-1 mb-0 text-sm text-ink-500">Estimativas para decidir o caminho. Nada aqui altera o cadastro nem cria funcionário.</p>
       </div>
+      <Recomendacao c={cenarios} />
       <Manter c={cenarios} atual={cenarios.atual} />
       <Economia c={cenarios} />
       <Equilibrio c={cenarios} />

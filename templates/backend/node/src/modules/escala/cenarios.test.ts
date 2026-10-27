@@ -275,3 +275,70 @@ describe('Cenário 3 — equilíbrio', () => {
     expect(eq({ custos: null, dono: false }).indisponivel?.texto).toContain('dono do grupo');
   });
 });
+
+describe('Direcionamento — destaque de menor impacto financeiro', () => {
+  const semana = [0, 1, 2, 3, 4].map((dia) => ({ dia, abre: 8, fecha: 17 }));
+  const vendas = [0, 1, 2, 3, 4].flatMap((d) =>
+    Array.from({ length: 9 }, (_, i) => {
+      const hora = 8 + i;
+      const venda = hora === 16 ? 100 : d === 1 && hora === 8 ? 50 : 200;
+      return {
+        data: `2026-03-0${2 + d}`,
+        hora,
+        venda,
+        margem: venda * 0.3,
+        clientes: 1,
+        unidades: 1,
+      };
+    }),
+  );
+  const com = (extra: Partial<EntradaCenarios> = {}) =>
+    montarCenarios(
+      base({
+        minimos: { Farmacêutico: 1 },
+        pessoas: [{ funcao: 'Farmacêutico', cargaH: 40 }],
+        dias: semana,
+        vendas,
+        ...extra,
+      }),
+    );
+
+  it('escolhe o menor entre custo adicional e margem perdida', () => {
+    const r = com();
+    // Cenário 1: 1 farmacêutico de 40h = 10000; Cenário 2: margem perdida 585; Cenário 3: 0 + 715
+    expect(r.manter.impactoMensal).toBe(10000);
+    expect(r.economia.impactoMensal).toBe(585);
+    expect(r.equilibrio.impactoMensal).toBe(715);
+    expect(r.destaque).toBe('economia');
+  });
+
+  it('empate no impacto: vence o que contrata menos, depois a ordem 1, 3, 2', () => {
+    const r = com({
+      pessoas: Array.from({ length: 4 }, () => ({ funcao: 'Farmacêutico', cargaH: 40 })),
+    });
+    expect(r.manter.impactoMensal).toBe(0);
+    expect(r.economia.impactoMensal).toBe(0);
+    expect(r.equilibrio.impactoMensal).toBe(0);
+    expect(r.destaque).toBe('manter');
+  });
+
+  it('Cenário 2 sem solução fica de fora da comparação', () => {
+    const r = com({ pessoas: [{ funcao: 'Atendimento', cargaH: 40 }] });
+    expect(r.economia.viavel).toBe(false);
+    expect(r.economia.impactoMensal).toBeNull();
+    expect(['manter', 'equilibrio']).toContain(r.destaque);
+  });
+
+  it('sem custos ou sem base comercial não há destaque', () => {
+    expect(com({ custos: null }).destaque).toBeNull();
+    expect(com({ vendas: [] }).destaque).toBeNull();
+  });
+
+  it('quem não é dono não recebe destaque nem impactos', () => {
+    const r = com({ dono: false });
+    expect('destaque' in r).toBe(false);
+    expect('impactoMensal' in r.manter).toBe(false);
+    expect('impactoMensal' in r.economia).toBe(false);
+    expect('impactoMensal' in r.equilibrio).toBe(false);
+  });
+});

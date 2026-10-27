@@ -35,7 +35,7 @@ describe('processarLinhas', () => {
       mapa,
     );
     expect(r.lojas).toHaveLength(1);
-    expect(r.lojas[0]?.horarios?.semana).toEqual({ abre: '08:00', fecha: '22:00' });
+    expect(r.lojas[0]?.horarios?.dias[0]).toEqual({ aberta: true, abre: '08:00', fecha: '22:00' });
     expect(r.funcionarios).toHaveLength(1);
     expect(r.funcionarios[0]?.funcaoEscala).toBe('Farmacêutico');
     expect(r.erros.map((e) => e.motivo)).toEqual([

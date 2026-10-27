@@ -1,4 +1,5 @@
 import { FUNCOES_ESCALA } from '../planilhas/campos.js';
+import { normalizarHorarios, type HorariosSemana } from './horarios.js';
 
 export type FuncaoEscala = (typeof FUNCOES_ESCALA)[number];
 import type { Aba } from '../planilhas/leitor.js';
@@ -12,7 +13,7 @@ export type LojaInput = {
   cnpj?: string;
   uf?: string;
   marca?: string;
-  horarios?: { semana?: Horario; sabado?: Horario; domingo?: Horario };
+  horarios?: HorariosSemana;
 };
 export type FuncionarioInput = {
   matricula: string;
@@ -78,7 +79,7 @@ export const processarLinhas = (abas: Aba[], mapa: Mapeamento): Processado => {
       if (!codigo) return erro('Código da loja vazio');
       if (!nome) return erro('Nome da loja vazio');
       if (vistosLoja.has(codigo)) return erro(`Código ${codigo} repetido na planilha`);
-      const hs: LojaInput['horarios'] = {};
+      const hs: { semana?: Horario; sabado?: Horario; domingo?: Horario } = {};
       for (const [dia, a, f] of [
         ['semana', 'abre_semana', 'fecha_semana'],
         ['sabado', 'abre_sabado', 'fecha_sabado'],
@@ -95,7 +96,7 @@ export const processarLinhas = (abas: Aba[], mapa: Mapeamento): Processado => {
         cnpj: celula(l, mapa.lojas!, 'cnpj') || undefined,
         uf: celula(l, mapa.lojas!, 'uf').toUpperCase() || undefined,
         marca: celula(l, mapa.lojas!, 'marca') || undefined,
-        horarios: Object.keys(hs).length ? hs : undefined,
+        horarios: Object.keys(hs).length ? (normalizarHorarios(hs) ?? undefined) : undefined,
       });
     });
   }

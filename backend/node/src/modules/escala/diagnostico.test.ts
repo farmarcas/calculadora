@@ -1,14 +1,16 @@
 import { describe, expect, it } from 'vitest';
+import { normalizarHorarios } from '../cadastros/horarios.js';
 import { montarDiagnostico, type TurnoDiag } from './diagnostico.js';
 
 const loja = {
   id: 'l1',
   codigo: '001',
   nome: 'Centro',
-  horarios: {
+  // Formato antigo, convertido como o repositório faz ao ler: o teste cobre a conversão também.
+  horarios: normalizarHorarios({
     semana: { abre: '08:00', fecha: '20:00' },
     sabado: { abre: '08:00', fecha: '14:00' },
-  },
+  }),
   convencao8h24: false,
   minimos: { Atendimento: 0, Caixa: 0 },
 };

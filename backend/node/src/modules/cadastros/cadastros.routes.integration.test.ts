@@ -121,4 +121,119 @@ describe('cadastros (rotas)', () => {
     );
     expect((await request(app).delete(`/api/v1/lojas/${c.body.id}`).set(admin)).status).toBe(204);
   });
+
+  describe('horário da loja por dia da semana', () => {
+    const dia = (abre: string, fecha: string) => ({ aberta: true, abre, fecha });
+    const semanaCompleta = {
+      versao: 2,
+      dias: [
+        dia('08:00', '22:00'),
+        dia('08:00', '22:00'),
+        dia('08:00', '22:00'),
+        dia('08:00', '22:00'),
+        dia('08:00', '22:00'),
+        dia('08:00', '20:00'),
+        { aberta: false },
+      ],
+    };
+
+    it('guarda os sete dias como informados e devolve o mesmo ao reabrir', async () => {
+      const c = await request(app)
+        .post('/api/v1/lojas')
+        .set(admin)
+        .send({ codigo: '010', nome: 'Semana', horarios: semanaCompleta });
+      expect(c.status).toBe(201);
+      expect(c.body.horarios.dias).toHaveLength(7);
+      expect(c.body.horarios.dias[5]).toEqual({ aberta: true, abre: '08:00', fecha: '20:00' });
+      expect(c.body.horarios.dias[6]).toEqual({ aberta: false });
+      const lida = (await request(app).get('/api/v1/lojas').set(admin)).body.data.find(
+        (l: { codigo: string }) => l.codigo === '010',
+      );
+      expect(lida.horarios).toEqual(c.body.horarios);
+    });
+
+    it('loja 24 horas: sete dias de 00:00 a 24:00, e um dia pode ser ajustado depois', async () => {
+      const h24 = { aberta: true, h24: true };
+      const c = await request(app)
+        .post('/api/v1/lojas')
+        .set(admin)
+        .send({
+          codigo: '024',
+          nome: 'Vinte e quatro',
+          horarios: { versao: 2, dias: Array.from({ length: 7 }, () => h24) },
+        });
+      expect(c.status).toBe(201);
+      expect(
+        c.body.horarios.dias.every(
+          (d: { h24: boolean; abre: string; fecha: string }) =>
+            d.h24 && d.abre === '00:00' && d.fecha === '24:00',
+        ),
+      ).toBe(true);
+      const dias = [...c.body.horarios.dias];
+      dias[6] = { aberta: false };
+      const e = await request(app)
+        .patch(`/api/v1/lojas/${c.body.id}`)
+        .set(admin)
+        .send({ horarios: { versao: 2, dias } });
+      expect(e.body.horarios.dias[6]).toEqual({ aberta: false });
+      expect(e.body.horarios.dias[0].h24).toBe(true);
+    });
+
+    it('o formato antigo continua aceito e sai como o novo; loja antiga lida do banco também', async () => {
+      const c = await request(app)
+        .post('/api/v1/lojas')
+        .set(admin)
+        .send({
+          codigo: '011',
+          nome: 'Antiga',
+          horarios: {
+            semana: { abre: '08:00', fecha: '22:00' },
+            domingo: { abre: '09:00', fecha: '13:00' },
+          },
+        });
+      expect(c.status).toBe(201);
+      expect(c.body.horarios.dias.map((d: { aberta: boolean }) => d.aberta)).toEqual([
+        true,
+        true,
+        true,
+        true,
+        true,
+        false,
+        true,
+      ]);
+      // gravada direto no banco no formato antigo (como as lojas de antes desta mudança)
+      await prisma.loja.update({
+        where: { id: c.body.id },
+        data: { horarios: { semana: { abre: '07:00', fecha: '19:00' } } },
+      });
+      const lida = (await request(app).get('/api/v1/lojas').set(admin)).body.data.find(
+        (l: { codigo: string }) => l.codigo === '011',
+      );
+      expect(lida.horarios.dias[0]).toEqual({ aberta: true, abre: '07:00', fecha: '19:00' });
+      expect(lida.horarios.dias[6]).toEqual({ aberta: false });
+    });
+
+    it('recusa fechamento antes da abertura, dia aberto sem horário e semana com dias a menos', async () => {
+      const post = (horarios: object) =>
+        request(app)
+          .post('/api/v1/lojas')
+          .set(admin)
+          .send({ codigo: '012', nome: 'Erro', horarios });
+      const ruim = {
+        ...semanaCompleta,
+        dias: [dia('22:00', '08:00'), ...semanaCompleta.dias.slice(1)],
+      };
+      const r = await post(ruim);
+      expect(r.status).toBe(400);
+      expect(JSON.stringify(r.body.error.details)).toContain(
+        'Seg: o fechamento (08:00) precisa ser depois da abertura (22:00)',
+      );
+      expect(
+        (await post({ versao: 2, dias: [{ aberta: true }, ...semanaCompleta.dias.slice(1)] }))
+          .status,
+      ).toBe(400);
+      expect((await post({ versao: 2, dias: semanaCompleta.dias.slice(0, 6) })).status).toBe(400);
+      expect((await post({})).status).toBe(400);
+    });
+  });
 });

@@ -6,23 +6,23 @@ Formato: `[ID] [P] [US] descrição com caminho`. Caminhos do backend relativos 
 
 ## Phase 1: Setup
 
-- [ ] T001 Conferir o branch `feat/escala-horario-semana`, o ambiente de pé (`docker compose ps` saudável) e os testes atuais verdes (`npm test`, `npm run test:integration`)
+- [x] T001 Conferir o branch `feat/escala-horario-semana`, o ambiente de pé (`docker compose ps` saudável) e os testes atuais verdes (`npm test`, `npm run test:integration`)
 
 ## Phase 2: Fundação (bloqueia as histórias)
 
-- [ ] T002 Teste + conversor do horário: formato novo (7 dias, aberta/fechada/24h), leitura do formato antigo (semana → segunda a sexta), validação (`abre < fecha`, `24:00`), 24h implica 00:00–24:00, em `src/modules/cadastros/horarios.ts` e `horarios.test.ts`
-- [ ] T003 [P] `diasAbertos` lê o formato novo (e o antigo, via conversor), inclusive 24 horas (`abre 0`, `fecha 24`), e o tipo `LojaDiag.horarios` passa ao formato novo, em `src/modules/escala/diagnostico.ts` (e `diagnostico.test.ts`)
-- [ ] T004 Repositórios devolvem sempre o formato novo: normalizar na leitura em `src/modules/cadastros/cadastros.repository.ts` e `src/modules/escala/escala.repository.ts`
+- [x] T002 Teste + conversor do horário: formato novo (7 dias, aberta/fechada/24h), leitura do formato antigo (semana → segunda a sexta), validação (`abre < fecha`, `24:00`), 24h implica 00:00–24:00, em `src/modules/cadastros/horarios.ts` e `horarios.test.ts`
+- [x] T003 [P] `diasAbertos` lê o formato novo (e o antigo, via conversor), inclusive 24 horas (`abre 0`, `fecha 24`), e o tipo `LojaDiag.horarios` passa ao formato novo, em `src/modules/escala/diagnostico.ts` (e `diagnostico.test.ts`)
+- [x] T004 Repositórios devolvem sempre o formato novo: normalizar na leitura em `src/modules/cadastros/cadastros.repository.ts` e `src/modules/escala/escala.repository.ts`
 
 ## Phase 3: US1 — Cadastrar a semana inteira (P1) 🎯 MVP
 
 **Teste independente**: cadastrar loja aberta de segunda a domingo (domingo mais curto) e uma loja 24h, reabrir e conferir.
 
-- [ ] T005 [US1] Schema Zod de `horarios` aceitando o formato novo e o antigo, gravando sempre o novo, com mensagens de erro claras, em `src/modules/cadastros/cadastros.schemas.ts` e service
-- [ ] T006 [US1] Teste de integração das rotas de loja: criar e editar com os sete dias, dia fechado, 24h, fechamento antes da abertura recusado, loja antiga lida como nova, em `src/modules/cadastros/cadastros.routes.integration.test.ts`
-- [ ] T007 [P] [US1] Resumo legível do horário (agrupa dias iguais: "Seg a sáb 08:00–22:00 · Dom fechada", "Todos os dias 24h") com teste, em `src/features/cadastros/horarios.js`
-- [ ] T008 [US1] Componente `HorarioSemana`: sete linhas (aberta/fechada, abre, fecha, 24h), atalho "Loja 24 horas" e atalho "copiar para os outros dias", em `src/features/cadastros/HorarioSemana.jsx`
-- [ ] T009 [US1] Formulário de loja usa `HorarioSemana` (e validação na tela), e a tabela de lojas mostra o resumo, em `src/features/cadastros/FormLoja.jsx` e `CadastrosPage.jsx`
+- [x] T005 [US1] Schema Zod de `horarios` aceitando o formato novo e o antigo, gravando sempre o novo, com mensagens de erro claras, em `src/modules/cadastros/cadastros.schemas.ts` e service
+- [x] T006 [US1] Teste de integração das rotas de loja: criar e editar com os sete dias, dia fechado, 24h, fechamento antes da abertura recusado, loja antiga lida como nova, em `src/modules/cadastros/cadastros.routes.integration.test.ts`
+- [x] T007 [P] [US1] Resumo legível do horário (agrupa dias iguais: "Seg a sáb 08:00–22:00 · Dom fechada", "Todos os dias 24h") com teste — feito no servidor (`resumoHorarios` em `src/modules/cadastros/horarios.ts`, a API devolve `horariosResumo`), porque a tela não tem corredor de testes
+- [x] T008 [US1] Componente `HorarioSemana`: sete linhas (aberta/fechada, abre, fecha, 24h), atalho "Loja 24 horas" e atalho "copiar para os outros dias", em `src/features/cadastros/HorarioSemana.jsx`
+- [x] T009 [US1] Formulário de loja usa `HorarioSemana` (e validação na tela), e a tabela de lojas mostra o resumo, em `src/features/cadastros/FormLoja.jsx` e `CadastrosPage.jsx`
 
 **Checkpoint**: a semana inteira e a loja 24h já podem ser cadastradas à mão.
 

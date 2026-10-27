@@ -39,7 +39,7 @@ export const makeApuracaoService = (
   const calcular = async (lojaId: string, de?: string, ate?: string) => {
     const c = await contexto(lojaId, de, ate);
     const p = c.emUso.premissas;
-    const horarios = (p?.horarios ?? c.loja.horarios) as LojaDiag['horarios'];
+    const horarios = p?.horarios ?? c.loja.horarios;
     const minimos = p?.minimos ?? { ...FUNCOES_PADRAO_MINIMO, ...(c.loja.minimos ?? {}) };
     const batidas = await repo.batidas(lojaId, c.de, c.ate);
     const r = apurarPeriodo({

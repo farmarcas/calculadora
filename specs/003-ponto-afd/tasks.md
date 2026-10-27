@@ -6,7 +6,7 @@ Formato: `[ID] [P] [US] descrição com caminho`. Caminhos do backend relativos 
 
 ## Phase 1: Setup
 
-- [ ] T001 **Conferir o layout do AFD** com o texto oficial da Portaria MTP 671/2021 (e, se houver, um arquivo real de um associado): campos, posições, fuso, verificador. Registrar a tabela de campos em `specs/003-ponto-afd/layout-afd.md`
+- [x] T001 **Conferir o layout do AFD** com o texto oficial da Portaria MTP 671/2021 (e, se houver, um arquivo real de um associado): campos, posições, fuso, verificador. Registrar a tabela de campos em `specs/003-ponto-afd/layout-afd.md`
 - [ ] T002 [P] Migration: tabelas `importacoes_ponto` e `batidas` (índice único loja + CPF + data + minuto) e coluna `alertas` em `lojas`, em `prisma/schema.prisma` e `prisma/migrations/`
 - [ ] T003 [P] Middleware/permissão do Gerenciar (exige simulação em uso; erro `SEM_SIMULACAO_EM_USO`) em `src/modules/ponto/`
 

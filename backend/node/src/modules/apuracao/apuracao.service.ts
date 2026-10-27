@@ -1,7 +1,7 @@
 import type { Auditor } from '../../shared/auditoria/auditoria.js';
 import { ConflictError } from '../../shared/errors/conflict-error.js';
 import { NotFoundError } from '../../shared/errors/not-found-error.js';
-import { diasAbertos, type LojaDiag } from '../escala/diagnostico.js';
+import { diasAbertos } from '../escala/diagnostico.js';
 import type { EscalaRepository } from '../escala/escala.repository.js';
 import { FUNCOES_PADRAO_MINIMO } from '../regras/perfis.js';
 import type { SimulacoesRepository } from '../simulacoes/simulacoes.repository.js';

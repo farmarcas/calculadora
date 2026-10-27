@@ -56,7 +56,7 @@ export default function Grade({ quadro, turnos, dia, aberto, editavel, seleciona
 
   return (
     <div className="overflow-x-auto" aria-label="Grade do dia">
-      <div className="min-w-[760px]">
+      <div style={{ minWidth: Math.max(760, LARGURA_ROTULO + horas.length * 36) }}>
         <div className="flex border-b border-line bg-surface-page text-[11px] text-ink-500">
           <div style={{ width: LARGURA_ROTULO }} className="shrink-0 px-4 py-2 font-bold uppercase tracking-wide">Pessoa</div>
           <div className="flex-1 flex">

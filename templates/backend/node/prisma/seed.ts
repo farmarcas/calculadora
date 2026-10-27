@@ -49,14 +49,28 @@ const main = async () => {
     process.stdout.write(`Já existem lojas cadastradas: seed ignorado (nada foi alterado).\n`);
     return;
   }
-  const semana = { abre: '08:00', fecha: '22:00' };
+  // Horário no formato por dia (segunda a domingo): a loja 001 abre de segunda a sexta; a 002, também aos sábados.
+  const dia = (abre: string, fecha: string) => ({ aberta: true, abre, fecha });
+  const fechado = { aberta: false };
+  const semana = {
+    versao: 2,
+    dias: [
+      dia('08:00', '22:00'),
+      dia('08:00', '22:00'),
+      dia('08:00', '22:00'),
+      dia('08:00', '22:00'),
+      dia('08:00', '22:00'),
+      fechado,
+      fechado,
+    ],
+  };
   const l1 = await prisma.loja.create({
     data: {
       codigo: '001',
       nome: 'Farmácia Centro (exemplo)',
       uf: 'SP',
       cnpj: CNPJ_EXEMPLO_MASCARADO,
-      horarios: { semana },
+      horarios: semana,
     },
   });
   const l2 = await prisma.loja.create({
@@ -64,7 +78,18 @@ const main = async () => {
       codigo: '002',
       nome: 'Farmácia Norte (exemplo)',
       uf: 'RJ',
-      horarios: { semana: { abre: '08:00', fecha: '20:00' } },
+      horarios: {
+        versao: 2,
+        dias: [
+          dia('08:00', '20:00'),
+          dia('08:00', '20:00'),
+          dia('08:00', '20:00'),
+          dia('08:00', '20:00'),
+          dia('08:00', '20:00'),
+          dia('08:00', '14:00'),
+          fechado,
+        ],
+      },
     },
   });
   const lojaId = new Map([
@@ -126,7 +151,7 @@ const main = async () => {
       autor: 'TENANT_ADMIN',
       quadro,
       premissas: {
-        horarios: { semana },
+        horarios: semana,
         minimos: { Farmacêutico: 1, Atendimento: 1, Caixa: 1, Apoio: 0, Perfumaria: 0 },
         convencao8h24: false,
         custos: null,

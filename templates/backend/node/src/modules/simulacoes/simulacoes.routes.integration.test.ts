@@ -481,4 +481,79 @@ describe('simulações (rotas)', () => {
       expect(novo.custo.mensal).toBe(60000); // rascunho usa os custos de hoje
     });
   });
+
+  describe('horário por dia da semana nas simulações', () => {
+    const dias = (domingo: object) => ({
+      versao: 2,
+      dias: [0, 1, 2, 3, 4]
+        .map(() => ({ aberta: true, abre: '08:00', fecha: '20:00' }))
+        .concat([{ aberta: false } as never, domingo as never]),
+    });
+    const patchHorarios = (horarios: object) =>
+      request(app).patch(`/api/v1/lojas/${lojaId}`).set(admin).send({ horarios });
+
+    it('domingo aberto entra nos dias da simulação e na avaliação; fechado não exige nada', async () => {
+      const fechada = (await criar()).body;
+      expect(fechada.diasAbertos.map((d: { dia: number }) => d.dia)).toEqual([0, 1, 2, 3, 4]);
+      expect(fechada.avaliacao.erros).toEqual([]);
+
+      await patchHorarios(dias({ aberta: true, abre: '09:00', fecha: '13:00' }));
+      const aberta = (await criar({ nome: 'Com domingo', regra: 'r40' })).body;
+      expect(aberta.diasAbertos.map((d: { dia: number }) => d.dia)).toEqual([0, 1, 2, 3, 4, 6]);
+      expect(aberta.diasAbertos[5]).toEqual({ dia: 6, abre: 9, fecha: 13 });
+      // ninguém foi escalado no domingo: farmacêutico exigido das 09h às 13h
+      expect(aberta.avaliacao.erros.map((e: { texto: string }) => e.texto)).toContain(
+        'Sem farmacêutico em Dom 09:00–13:00: a lei exige farmacêutico em todo o horário de funcionamento.',
+      );
+    });
+
+    it('loja 24 horas: a grade e a cobertura vão de 00h a 24h', async () => {
+      await patchHorarios({
+        versao: 2,
+        dias: Array.from({ length: 7 }, () => ({ aberta: true, h24: true })),
+      });
+      const sim = (await criar()).body;
+      expect(sim.diasAbertos).toHaveLength(7);
+      expect(
+        sim.diasAbertos.every(
+          (d: { abre: number; fecha: number }) => d.abre === 0 && d.fecha === 24,
+        ),
+      ).toBe(true);
+      expect(sim.avaliacao.cobertura['6'][0].porHora).toHaveLength(24);
+    });
+
+    it('simulação gravada mantém o horário de quando foi gravada, mesmo que a loja mude depois', async () => {
+      const g = (await criar()).body;
+      await request(app).post(`/api/v1/simulacoes/${g.id}/gravar`).set(admin);
+      await patchHorarios(dias({ aberta: true, abre: '09:00', fecha: '18:00' }));
+      const depois = (await request(app).get(`/api/v1/simulacoes/${g.id}`).set(admin)).body;
+      expect(depois.diasAbertos.map((d: { dia: number }) => d.dia)).toEqual([0, 1, 2, 3, 4]);
+      expect(depois.avaliacao.erros).toEqual([]);
+    });
+
+    it('"desatualizada": só mudar o formato não dispara; mudar o horário da loja dispara', async () => {
+      const g = (await criar()).body;
+      await request(app).post(`/api/v1/simulacoes/${g.id}/gravar`).set(admin);
+      await request(app).post(`/api/v1/simulacoes/${g.id}/aprovar`).set(admin).send({});
+      // simulação aprovada antes da mudança: horário congelado no formato antigo
+      const sim = await prisma.simulacao.findUniqueOrThrow({ where: { id: g.id } });
+      const premissas = sim.premissas as { horarios: unknown };
+      await prisma.simulacao.update({
+        where: { id: g.id },
+        data: {
+          premissas: { ...premissas, horarios: { semana: { abre: '08:00', fecha: '20:00' } } },
+        },
+      });
+      const mesmaCoisa = (await request(app).get(`/api/v1/simulacoes/${g.id}`).set(admin)).body;
+      expect(mesmaCoisa.motivosDesatualizada.join(' ')).not.toContain('horário');
+
+      await patchHorarios(dias({ aberta: true, abre: '09:00', fecha: '13:00' }));
+      const mudou = (await request(app).get(`/api/v1/simulacoes/${g.id}`).set(admin)).body;
+      expect(mudou.desatualizada).toBe(true);
+      expect(mudou.motivosDesatualizada.join(' ')).toContain(
+        'O horário de funcionamento da loja mudou.',
+      );
+      expect(mudou.status).toBe('em_uso'); // nada muda sozinho
+    });
+  });
 });

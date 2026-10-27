@@ -1,4 +1,5 @@
 import { prisma } from '../../shared/database/prisma.js';
+import { normalizarHorarios } from '../cadastros/horarios.js';
 import type { CargaMeta, LojaDiag, TurnoDiag } from './diagnostico.js';
 import type { CadastroPessoa, TurnoLinha } from './interpretar.js';
 import type { VendaLinha } from './vendas.js';
@@ -119,7 +120,7 @@ export const escalaRepository = {
       id: l.id,
       codigo: l.codigo,
       nome: l.nome,
-      horarios: l.horarios as LojaDiag['horarios'],
+      horarios: normalizarHorarios(l.horarios),
       convencao8h24: l.convencao8h24,
       minimos: l.minimos as LojaDiag['minimos'],
       custos: l.custos as unknown as LojaDiag['custos'],

@@ -3,7 +3,6 @@ import { FUNCOES_PADRAO_MINIMO, REGRA_IDS, regraPara, type RegraId } from '../re
 import { faixasDaSemana, normalizarHorarios, type HorariosSemana } from '../cadastros/horarios.js';
 import type { Custos } from '../custos/custos.schemas.js';
 import { cobertura, type TurnoPessoa } from './cobertura.js';
-import { lerHora } from './interpretar.js';
 import { resumirVendas, type VendaLinha } from './vendas.js';
 
 export type LojaDiag = {

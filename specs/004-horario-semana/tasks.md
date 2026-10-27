@@ -41,18 +41,18 @@ Formato: `[ID] [P] [US] descrição com caminho`. Caminhos do backend relativos 
 
 **Teste independente**: a mesma escala numa loja aberta de segunda a sexta e noutra aberta aos domingos: a segunda exige mais horas e mostra o domingo na grade.
 
-- [ ] T016 [US3] Teste do diagnóstico por dia: necessidade de horas e turnos contando sete dias, domingo fechado sem exigência, loja 24h com cobertura de 00h a 24h e farmacêutico nas 24h, conferido contra a conta manual, em `src/modules/escala/diagnostico.test.ts` e `src/modules/regras/capacidade.test.ts`
-- [ ] T017 [US3] Teste de integração do diagnóstico e das simulações: domingo aparece em `diasAbertos` e na avaliação, simulação gravada antes mantém o horário congelado (formato antigo lido), em `src/modules/escala/escala.routes.integration.test.ts` e `src/modules/simulacoes/simulacoes.routes.integration.test.ts`
-- [ ] T018 [US3] "Desatualizada" compara horários já convertidos (converter o formato não dispara alarme; mudar o horário dispara), em `src/modules/simulacoes/simulacoes.service.ts` e teste de integração
-- [ ] T019 [P] [US3] Apuração do ponto e calendário planejado usando o horário por dia (domingo e 24h) com teste, em `src/modules/apuracao/apuracao.service.ts` e `periodo.test.ts`
-- [ ] T020 [P] [US3] Conferir na tela: aba Diagnóstico, grade das simulações (domingo aparece, dias fechados não) e cobertura de 24h legível, ajustando o que precisar, em `src/features/diagnostico/` e `src/features/grade/`
+- [x] T016 [US3] Teste do diagnóstico por dia: necessidade de horas e turnos contando sete dias, domingo fechado sem exigência, loja 24h com cobertura de 00h a 24h e farmacêutico nas 24h, conferido contra a conta manual, em `src/modules/escala/diagnostico.test.ts` e `src/modules/regras/capacidade.test.ts`
+- [x] T017 [US3] Teste de integração do diagnóstico e das simulações: domingo aparece em `diasAbertos` e na avaliação, simulação gravada antes mantém o horário congelado (formato antigo lido), em `src/modules/escala/escala.routes.integration.test.ts` e `src/modules/simulacoes/simulacoes.routes.integration.test.ts`
+- [x] T018 [US3] "Desatualizada" compara horários já convertidos (converter o formato não dispara alarme; mudar o horário dispara), em `src/modules/simulacoes/simulacoes.service.ts` e teste de integração
+- [x] T019 [P] [US3] Apuração do ponto e calendário planejado usando o horário por dia (domingo e 24h) com teste, em `src/modules/apuracao/apuracao.service.ts` e `periodo.test.ts`
+- [x] T020 [P] [US3] Conferir na tela: aba Diagnóstico, grade das simulações (domingo aparece, dias fechados não) e cobertura de 24h legível, ajustando o que precisar, em `src/features/diagnostico/` e `src/features/grade/`
 
 ## Phase 6: Fechamento
 
-- [ ] T021 [P] Seed e dados de exemplo no formato novo (sem quebrar o formato antigo) em `prisma/seed.ts` e `src/modules/ponto/ponto.fixtures.ts`
-- [ ] T022 Rodar `quickstart.md` de ponta a ponta com o ambiente de pé; `npm test`, `npm run test:integration`, `npm run lint`, builds da API e da tela
-- [ ] T023 [P] Sincronizar `templates/`, atualizar o README e a lista de pendências conhecidas (turno que atravessa a meia-noite, feriados e horários por data)
-- [ ] T024 Marcar as tarefas concluídas, commitar e enviar o branch
+- [x] T021 [P] Seed e dados de exemplo no formato novo (sem quebrar o formato antigo) em `prisma/seed.ts` e `src/modules/ponto/ponto.fixtures.ts`
+- [x] T022 Rodar `quickstart.md` de ponta a ponta com o ambiente de pé; `npm test`, `npm run test:integration`, `npm run lint`, builds da API e da tela
+- [x] T023 [P] Sincronizar `templates/`, atualizar o README e a lista de pendências conhecidas (turno que atravessa a meia-noite, feriados e horários por data)
+- [x] T024 Marcar as tarefas concluídas, commitar e enviar o branch
 
 ## Dependências
 

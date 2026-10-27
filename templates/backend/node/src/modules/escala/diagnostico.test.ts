@@ -80,4 +80,33 @@ describe('montarDiagnostico', () => {
     if (r.status === 'pendente') throw new Error('esperava diagnóstico');
     expect(r.cobertura.funcoes[0]!.porHora.filter((c) => c.ok === false).length).toBe(0);
   });
+
+  it('entrega os números grandes: resumo por regra e pontos de atenção', () => {
+    const r = montarDiagnostico({
+      loja,
+      escala: { ...meta, linhasRejeitadas: 2 },
+      turnos: [
+        farm('F1', 8, 14, [0, 1, 2, 3, 4, 5], 44),
+        farm('F2', 14, 20, [0, 1, 2, 3, 4], 44),
+        { ...farm('G', 8, 12, [0], 40), funcao: null },
+      ],
+      base: null,
+      vendas: [],
+    });
+    if (r.status === 'pendente') throw new Error('esperava diagnóstico');
+    expect(r.numeros).toEqual({
+      colaboradoresNoCalculo: 2,
+      faixasSemFarmaceutico: 0,
+      faixasAbaixoDoMinimo: 0,
+      maiorVendaDescoberta: null, // sem base comercial
+      foraDoCalculo: 1,
+      linhasRejeitadas: 2,
+    });
+    const r40 = r.regras.find((x) => x.id === 'r40')!;
+    expect(r40.resumo).toMatchObject({
+      turnosEmFalta: expect.any(Number),
+      contratar: expect.any(Number),
+    });
+    expect(r.regras.find((x) => x.id === 'atual')!.resumo.turnosEmFalta).toBe(0);
+  });
 });

@@ -131,6 +131,12 @@ export const montarDiagnostico = (a: {
       descricao: regra.descricao,
       passa: passa(funcoes),
       funcoes,
+      // Números grandes do quadro central.
+      resumo: {
+        turnosEmFalta: funcoes.reduce((t, f) => t + Math.max(0, -f.saldoT), 0),
+        saldoHoras: Math.round(funcoes.reduce((t, f) => t + f.saldoH, 0) * 100) / 100,
+        contratar: funcoes.reduce((t, f) => t + f.contratar, 0),
+      },
     };
   });
   const [atual, r42, r40] = regras as [
@@ -218,9 +224,31 @@ export const montarDiagnostico = (a: {
     return { funcao, pessoas: doF.length, cargaTotalH: doF.reduce((s, t) => s + t.cargaH, 0) };
   });
 
+  // Pontos de atenção em números: cada um vira um "big number" no quadro central.
+  const abaixoDoMinimo = (nome: string) =>
+    cob.funcoes
+      .filter((f) => (nome === 'Farmacêutico' ? f.funcao === nome : f.funcao !== 'Farmacêutico'))
+      .reduce((t, f) => t + f.porHora.filter((c) => c.ok === false).length, 0);
+  const numeros = {
+    colaboradoresNoCalculo: noCalculo.length,
+    faixasSemFarmaceutico: abaixoDoMinimo('Farmacêutico'),
+    faixasAbaixoDoMinimo: abaixoDoMinimo('outras'),
+    // Nulo quando não há base comercial: não dá para saber onde está a maior venda.
+    maiorVendaDescoberta: resumoVendas
+      ? resumoVendas.top.filter((t) =>
+          cob.funcoes.some(
+            (f) => f.minimo > 0 && f.porHora.find((c) => c.hora === t.hora)?.ok === false,
+          ),
+        ).length
+      : null,
+    foraDoCalculo: turnos.filter((t) => !t.funcao).length,
+    linhasRejeitadas: escala.linhasRejeitadas,
+  };
+
   return {
     loja: lojaInfo,
     status,
+    numeros,
     fontes,
     config,
     quadro,

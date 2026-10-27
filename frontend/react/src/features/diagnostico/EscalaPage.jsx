@@ -34,7 +34,7 @@ export default function EscalaPage({ perfil }) {
     } catch (e) {
       setErro(e.message);
     }
-  }, [lojaId]);
+  }, [lojaId, perfil]); // trocar o papel recarrega: os dados mudam conforme quem olha
 
   useEffect(() => {
     setDiag(null);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { deduzirFuncao, processarLinhas } from './processar.js';
+import { deduzirFuncao, interpretarHorarioLoja, processarLinhas } from './processar.js';
 
 const mapa = {
   lojas: { aba: 'L', colunas: { codigo: 0, nome: 1, abre_semana: 2, fecha_semana: 3 } },
@@ -50,5 +50,83 @@ describe('processarLinhas', () => {
     expect(deduzirFuncao(undefined, 'Balconista')).toBe('Atendimento');
     expect(deduzirFuncao('Caixa', undefined)).toBe('Caixa');
     expect(deduzirFuncao(undefined, 'Gerente')).toBeNull();
+  });
+});
+
+const cel = (valores: Record<string, string>) => (chave: string) => valores[chave] ?? '';
+
+describe('interpretarHorarioLoja', () => {
+  it('sem nenhum horário informado não mexe no que a loja já tem', () => {
+    expect(interpretarHorarioLoja(cel({}))).toEqual({});
+    expect(interpretarHorarioLoja(cel({ loja_24h: 'Não' }))).toEqual({});
+  });
+
+  it('horário por dia: dia sem horário é fechado, "Fechada" também', () => {
+    const r = interpretarHorarioLoja(
+      cel({
+        abre_seg: '08:00',
+        fecha_seg: '22:00',
+        abre_ter: '8:00',
+        fecha_ter: '22:00',
+        abre_sab: '08:00',
+        fecha_sab: '20:00',
+        abre_dom: 'Fechada',
+        fecha_dom: 'Fechada',
+      }),
+    );
+    const d = r.horarios!.dias;
+    expect(d[0]).toEqual({ aberta: true, abre: '08:00', fecha: '22:00' });
+    expect(d[1]).toEqual({ aberta: true, abre: '08:00', fecha: '22:00' });
+    expect(d[2]).toEqual({ aberta: false }); // quarta sem horário
+    expect(d[5]).toEqual({ aberta: true, abre: '08:00', fecha: '20:00' });
+    expect(d[6]).toEqual({ aberta: false });
+  });
+
+  it('24h na abertura vale 24 horas no dia; "Loja 24h = Sim" vale para os sete dias e vence as colunas', () => {
+    expect(interpretarHorarioLoja(cel({ abre_dom: '24h' })).horarios!.dias[6]).toMatchObject({
+      aberta: true,
+      h24: true,
+    });
+    const l = interpretarHorarioLoja(
+      cel({ loja_24h: 'Sim', abre_seg: '08:00', fecha_seg: '22:00' }),
+    ).horarios!;
+    expect(l.dias.every((x) => x.h24)).toBe(true);
+  });
+
+  it('colunas antigas: semana vale segunda a sexta; a coluna do dia manda', () => {
+    const r = interpretarHorarioLoja(
+      cel({
+        abre_semana: '08:00',
+        fecha_semana: '22:00',
+        abre_sex: '08:00',
+        fecha_sex: '18:00',
+        abre_sab: '09:00',
+        fecha_sab: '13:00',
+      }),
+    );
+    const d = r.horarios!.dias;
+    expect([d[0]!.fecha, d[4]!.fecha, d[5]!.fecha, d[6]!.aberta]).toEqual([
+      '22:00',
+      '18:00',
+      '13:00',
+      false,
+    ]);
+  });
+
+  it('fechamento 00:00 vira meia-noite', () => {
+    expect(
+      interpretarHorarioLoja(cel({ abre_seg: '08:00', fecha_seg: '00:00' })).horarios!.dias[0]!
+        .fecha,
+    ).toBe('24:00');
+  });
+
+  it('horário inválido, incompleto ou com fechamento antes da abertura rejeita a linha', () => {
+    expect(interpretarHorarioLoja(cel({ abre_seg: 'cedo', fecha_seg: '22:00' })).erro).toContain(
+      'Horário de segunda inválido',
+    );
+    expect(interpretarHorarioLoja(cel({ abre_ter: '08:00' })).erro).toContain('terça');
+    expect(interpretarHorarioLoja(cel({ abre_qua: '22:00', fecha_qua: '08:00' })).erro).toContain(
+      'Qua: o fechamento (08:00) precisa ser depois da abertura (22:00)',
+    );
   });
 });

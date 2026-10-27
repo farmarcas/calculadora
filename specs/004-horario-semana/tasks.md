@@ -30,12 +30,12 @@ Formato: `[ID] [P] [US] descrição com caminho`. Caminhos do backend relativos 
 
 **Teste independente**: importar a planilha nova (domingo fechado e loja 24h) e depois uma com as colunas antigas.
 
-- [ ] T010 [US2] Campos da planilha de lojas: `Seg_Abre … Dom_Fecha` e `Loja_24h`, com sinônimos por dia e conteúdo HH:MM, mantendo os campos antigos como opcionais, em `src/modules/planilhas/campos.ts`
-- [ ] T011 [US2] Modelo baixado com as colunas por dia e `Loja_24h` (e a aba de instruções explicando "Fechada" e "24h") em `src/modules/planilhas/modelo.ts`
-- [ ] T012 [US2] Teste + processamento das linhas: dia sem horário = fechado, célula "Fechada", "24h" na abertura, `Loja_24h = Sim`, colunas antigas preenchendo segunda a sexta/sábado/domingo, coluna por dia com prioridade, horário inválido rejeitando a linha, em `src/modules/cadastros/processar.ts` e `processar.test.ts`
-- [ ] T013 [US2] Teste da inferência: planilha do modelo novo reconhecida por completo e planilha antiga reconhecida como hoje, em `src/modules/planilhas/inferencia.test.ts`
-- [ ] T014 [US2] Teste de integração da importação (modelo novo com domingo fechado e loja 24h; modelo antigo; linha inválida), em `src/modules/cadastros/cadastros.routes.integration.test.ts`
-- [ ] T015 [P] [US2] Tela de importação: os novos campos aparecem na correspondência de colunas com os rótulos certos (sem mudança de fluxo), conferir em `src/features/cadastros/ImportarPlanilha.jsx`
+- [x] T010 [US2] Campos da planilha de lojas: `Seg_Abre … Dom_Fecha` e `Loja_24h`, com sinônimos por dia e conteúdo HH:MM, mantendo os campos antigos como opcionais, em `src/modules/planilhas/campos.ts`
+- [x] T011 [US2] Modelo baixado com as colunas por dia e `Loja_24h` (e a aba de instruções explicando "Fechada" e "24h") em `src/modules/planilhas/modelo.ts`
+- [x] T012 [US2] Teste + processamento das linhas: dia sem horário = fechado, célula "Fechada", "24h" na abertura, `Loja_24h = Sim`, colunas antigas preenchendo segunda a sexta/sábado/domingo, coluna por dia com prioridade, horário inválido rejeitando a linha, em `src/modules/cadastros/processar.ts` e `processar.test.ts`
+- [x] T013 [US2] Teste da inferência: planilha do modelo novo reconhecida por completo e planilha antiga reconhecida como hoje, em `src/modules/planilhas/inferencia.test.ts`
+- [x] T014 [US2] Teste de integração da importação (modelo novo com domingo fechado e loja 24h; modelo antigo; linha inválida), em `src/modules/cadastros/cadastros.routes.integration.test.ts`
+- [x] T015 [P] [US2] Tela de importação: os novos campos aparecem na correspondência de colunas com os rótulos certos (sem mudança de fluxo), conferir em `src/features/cadastros/ImportarPlanilha.jsx`
 
 ## Phase 5: US3 — O horário real em todo o sistema (P3)
 

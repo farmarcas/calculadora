@@ -213,6 +213,109 @@ describe('cadastros (rotas)', () => {
       expect(lida.horarios.dias[6]).toEqual({ aberta: false });
     });
 
+    it('importa a planilha do modelo novo: domingo fechado, loja 24h e planilha antiga', async () => {
+      const wb = new ExcelJS.Workbook();
+      wb.addWorksheet('Lojas').addRows([
+        [
+          'Código da loja',
+          'Nome da loja',
+          'Loja 24 horas (Sim/Não)',
+          'Abre segunda',
+          'Fecha segunda',
+          'Abre sábado',
+          'Fecha sábado',
+          'Abre domingo',
+          'Fecha domingo',
+        ],
+        [
+          '020',
+          'Com domingo fechado',
+          'Não',
+          '08:00',
+          '22:00',
+          '08:00',
+          '20:00',
+          'Fechada',
+          'Fechada',
+        ],
+        ['021', 'Vinte e quatro', 'Sim', '', '', '', '', '', ''],
+        ['022', 'Horário ruim', 'Não', 'cedo', '22:00', '', '', '', ''],
+      ]);
+      const arq = Buffer.from(await wb.xlsx.writeBuffer());
+      const prev = await request(app)
+        .post('/api/v1/importacoes/cadastro')
+        .set(admin)
+        .attach('arquivo', arq, 'lojas.xlsx');
+      expect(prev.status).toBe(201);
+      expect(prev.body.mapeamento.lojas.colunas).toMatchObject({
+        loja_24h: 2,
+        abre_seg: 3,
+        abre_dom: 7,
+      });
+      const ok = await request(app)
+        .post(`/api/v1/importacoes/cadastro/${prev.body.id}/confirmar`)
+        .set(admin)
+        .send({ mapeamento: prev.body.mapeamento });
+      expect(ok.body.lojas).toEqual({ novos: 2, atualizados: 0 });
+      expect(ok.body.erros[0].motivo).toContain('Horário de segunda inválido');
+
+      const lojas = (await request(app).get('/api/v1/lojas?pageSize=50').set(admin)).body.data;
+      const l20 = lojas.find((l: { codigo: string }) => l.codigo === '020');
+      expect(l20.horariosResumo).toBe(
+        'Seg 08:00–22:00 · Ter a sex fechada · Sáb 08:00–20:00 · Dom fechada',
+      );
+      expect(lojas.find((l: { codigo: string }) => l.codigo === '021').horariosResumo).toBe(
+        'Todos os dias 24h',
+      );
+
+      // Reimportar sem horário não apaga o que a loja já tem
+      const sem = new ExcelJS.Workbook();
+      sem.addWorksheet('Lojas').addRows([
+        ['Código da loja', 'Nome da loja'],
+        ['020', 'Renomeada'],
+      ]);
+      const p2 = await request(app)
+        .post('/api/v1/importacoes/cadastro')
+        .set(admin)
+        .attach('arquivo', Buffer.from(await sem.xlsx.writeBuffer()), 'l2.xlsx');
+      await request(app)
+        .post(`/api/v1/importacoes/cadastro/${p2.body.id}/confirmar`)
+        .set(admin)
+        .send({ mapeamento: p2.body.mapeamento });
+      const depois = (
+        await request(app).get('/api/v1/lojas?pageSize=50').set(admin)
+      ).body.data.find((l: { codigo: string }) => l.codigo === '020');
+      expect(depois.nome).toBe('Renomeada');
+      expect(depois.horariosResumo).toContain('Sáb 08:00–20:00');
+    });
+
+    it('importa planilha com as colunas antigas (semana, sábado, domingo)', async () => {
+      const wb = new ExcelJS.Workbook();
+      wb.addWorksheet('Filiais').addRows([
+        [
+          'Cód_Loja',
+          'Razão Social',
+          'Abre semana',
+          'Fecha semana',
+          'Abertura Sábado',
+          'Fechamento Sábado',
+        ],
+        ['030', 'Antiga', '08:00', '22:00', '09:00', '13:00'],
+      ]);
+      const prev = await request(app)
+        .post('/api/v1/importacoes/cadastro')
+        .set(admin)
+        .attach('arquivo', Buffer.from(await wb.xlsx.writeBuffer()), 'a.xlsx');
+      await request(app)
+        .post(`/api/v1/importacoes/cadastro/${prev.body.id}/confirmar`)
+        .set(admin)
+        .send({ mapeamento: prev.body.mapeamento });
+      const l = (await request(app).get('/api/v1/lojas?pageSize=50').set(admin)).body.data.find(
+        (x: { codigo: string }) => x.codigo === '030',
+      );
+      expect(l.horariosResumo).toBe('Seg a sex 08:00–22:00 · Sáb 09:00–13:00 · Dom fechada');
+    });
+
     it('recusa fechamento antes da abertura, dia aberto sem horário e semana com dias a menos', async () => {
       const post = (horarios: object) =>
         request(app)

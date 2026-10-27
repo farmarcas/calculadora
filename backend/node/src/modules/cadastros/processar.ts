@@ -1,5 +1,12 @@
 import { FUNCOES_ESCALA } from '../planilhas/campos.js';
-import { normalizarHorarios, type HorariosSemana } from './horarios.js';
+import {
+  DIA_24H,
+  DIA_FECHADO,
+  semana24h,
+  validarHorarios,
+  type DiaHorario,
+  type HorariosSemana,
+} from './horarios.js';
 
 export type FuncaoEscala = (typeof FUNCOES_ESCALA)[number];
 import type { Aba } from '../planilhas/leitor.js';
@@ -32,8 +39,6 @@ export type Processado = {
   erros: ErroLinha[];
 };
 
-const reHora = /^\d{1,2}:\d{2}$/;
-
 export const deduzirFuncao = (
   funcaoEscala: string | undefined,
   cargo: string | undefined,
@@ -57,10 +62,61 @@ const celula = (linha: string[], m: MapeamentoAba, campo: string): string => {
   return i == null ? '' : (linha[i] ?? '').trim();
 };
 
-const horario = (abre: string, fecha: string): Horario | undefined | 'invalido' => {
-  if (!abre && !fecha) return undefined;
-  if (!reHora.test(abre) || !reHora.test(fecha)) return 'invalido';
-  return { abre: abre.padStart(5, '0'), fecha: fecha.padStart(5, '0') };
+const CHAVES_DIA = ['seg', 'ter', 'qua', 'qui', 'sex', 'sab', 'dom'];
+const NOMES_DIA = ['segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado', 'domingo'];
+const MARCA_FECHADA = /^(fechad[oa]|nao|não|x|-|folga|sem expediente)$/i;
+const MARCA_24H = /^24\s?h(oras?|s)?$/i;
+const SIM = /^(sim|s|x|true|1|yes)$/i;
+
+const horaTxt = (t: string): string | null => {
+  const m = /^(\d{1,2})(?::(\d{2}))?(?::\d{2})?$/.exec(t.trim());
+  if (!m) return null;
+  const h = Number(m[1]);
+  const min = Number(m[2] ?? 0);
+  if (h > 24 || min > 59 || (h === 24 && min > 0)) return null;
+  return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
+};
+
+// Horário da loja numa linha da planilha. Sem nenhuma informação de horário: devolve vazio (não mexe no que a loja já tem).
+// Dia sem horário ou "Fechada" = fechado; "24h" = aberto 24 horas; "Loja 24h = Sim" vale para os sete dias.
+export const interpretarHorarioLoja = (
+  cel: (chave: string) => string,
+): { horarios?: HorariosSemana; erro?: string } => {
+  if (SIM.test(cel('loja_24h').trim())) return { horarios: semana24h() };
+  const dias: DiaHorario[] = [];
+  let algum = false;
+  for (let i = 0; i < 7; i++) {
+    const k = CHAVES_DIA[i]!;
+    let abre = cel(`abre_${k}`).trim();
+    let fecha = cel(`fecha_${k}`).trim();
+    // Planilhas antigas: uma abertura e um fechamento valem de segunda a sexta (a coluna do dia, se houver, manda).
+    if (i < 5) {
+      if (!abre) abre = cel('abre_semana').trim();
+      if (!fecha) fecha = cel('fecha_semana').trim();
+    }
+    if (!abre && !fecha) {
+      dias.push({ ...DIA_FECHADO });
+      continue;
+    }
+    algum = true;
+    if (MARCA_24H.test(abre) || MARCA_24H.test(fecha)) dias.push({ ...DIA_24H });
+    else if (MARCA_FECHADA.test(abre) || MARCA_FECHADA.test(fecha)) dias.push({ ...DIA_FECHADO });
+    else {
+      const a = horaTxt(abre);
+      let f = horaTxt(fecha);
+      // "Fecha 00:00" costuma querer dizer meia-noite.
+      if (a && f === '00:00' && a !== '00:00') f = '24:00';
+      if (!a || !f)
+        return {
+          erro: `Horário de ${NOMES_DIA[i]} inválido: informe abertura e fechamento (HH:MM), "Fechada" ou "24h"`,
+        };
+      dias.push({ aberta: true, abre: a, fecha: f });
+    }
+  }
+  if (!algum) return {};
+  const horarios: HorariosSemana = { versao: 2, dias };
+  const erros = validarHorarios(horarios);
+  return erros.length ? { erro: erros[0]! } : { horarios };
 };
 
 export const processarLinhas = (abas: Aba[], mapa: Mapeamento): Processado => {
@@ -79,16 +135,8 @@ export const processarLinhas = (abas: Aba[], mapa: Mapeamento): Processado => {
       if (!codigo) return erro('Código da loja vazio');
       if (!nome) return erro('Nome da loja vazio');
       if (vistosLoja.has(codigo)) return erro(`Código ${codigo} repetido na planilha`);
-      const hs: { semana?: Horario; sabado?: Horario; domingo?: Horario } = {};
-      for (const [dia, a, f] of [
-        ['semana', 'abre_semana', 'fecha_semana'],
-        ['sabado', 'abre_sabado', 'fecha_sabado'],
-        ['domingo', 'abre_domingo', 'fecha_domingo'],
-      ] as const) {
-        const h = horario(celula(l, mapa.lojas!, a), celula(l, mapa.lojas!, f));
-        if (h === 'invalido') return erro(`Horário de ${dia} inválido (use HH:MM)`);
-        if (h) hs[dia] = h;
-      }
+      const h = interpretarHorarioLoja((chave) => celula(l, mapa.lojas!, chave));
+      if (h.erro) return erro(h.erro);
       vistosLoja.add(codigo);
       out.lojas.push({
         codigo,
@@ -96,7 +144,7 @@ export const processarLinhas = (abas: Aba[], mapa: Mapeamento): Processado => {
         cnpj: celula(l, mapa.lojas!, 'cnpj') || undefined,
         uf: celula(l, mapa.lojas!, 'uf').toUpperCase() || undefined,
         marca: celula(l, mapa.lojas!, 'marca') || undefined,
-        horarios: Object.keys(hs).length ? (normalizarHorarios(hs) ?? undefined) : undefined,
+        horarios: h.horarios,
       });
     });
   }

@@ -135,10 +135,11 @@ export const makeCadastrosService = (repo: CadastrosRepository, auditar: Auditor
       mapeamento: inf.mapeamento,
       sugestoes: inf.sugestoes,
       campos: {
-        lojas: CAMPOS_LOJA.map(({ chave, rotulo, obrigatorio }) => ({
+        lojas: CAMPOS_LOJA.map(({ chave, rotulo, obrigatorio, legado }) => ({
           chave,
           rotulo,
           obrigatorio,
+          legado: !!legado,
         })),
         funcionarios: CAMPOS_FUNCIONARIO.map(({ chave, rotulo, obrigatorio }) => ({
           chave,

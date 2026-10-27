@@ -102,7 +102,7 @@ function Economia({ c }) {
   return (
     <Cartao titulo="Cenário 2 · Foco em economia" subtitulo={e.foco} acoes={<Selo ativo={c.destaque === "economia"} />}>
       <div className="px-6 py-4 flex flex-col gap-4">
-        <p className="m-0 text-sm text-ink-700">{e.direcionamento}</p>
+        {e.viavel && <p className="m-0 text-sm text-ink-700">{e.direcionamento}</p>}
         <Impacto valor={e.impactoMensal} />
         {!e.viavel ? (
           <Aviso tom="atencao">{e.motivoInviavel}</Aviso>

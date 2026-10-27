@@ -57,10 +57,10 @@ Formato: `[ID] [P] [US] descrição com caminho`. Caminhos do backend relativos 
 
 ## Phase 7: Fechamento
 
-- [ ] T024 [P] Conferir na tela: loja com escala e vendas, loja sem vendas, loja 24 horas e os três perfis; ajustar o que precisar
-- [ ] T025 Rodar `quickstart.md` de ponta a ponta com o ambiente de pé; `npm test`, `npm run test:integration`, `npm run lint` (conferindo o código de saída), builds da API e da tela
-- [ ] T026 [P] Sincronizar `templates/`, atualizar o README e a lista de pendências conhecidas (levar o cenário para uma simulação, cortes no meio do dia)
-- [ ] T027 Marcar as tarefas concluídas, commitar e enviar o branch
+- [X] T024 [P] Conferir na tela: loja com escala e vendas, loja sem vendas, loja 24 horas e os três perfis; ajustar o que precisar
+- [X] T025 Rodar `quickstart.md` de ponta a ponta com o ambiente de pé; `npm test`, `npm run test:integration`, `npm run lint` (conferindo o código de saída), builds da API e da tela
+- [X] T026 [P] Sincronizar `templates/`, atualizar o README e a lista de pendências conhecidas (levar o cenário para uma simulação, cortes no meio do dia)
+- [X] T027 Marcar as tarefas concluídas e commitar (o envio do branch ao GitHub fica por pedido da pessoa)
 
 ## Dependências
 

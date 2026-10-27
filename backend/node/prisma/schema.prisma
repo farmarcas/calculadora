@@ -42,6 +42,7 @@ model Loja {
 
   funcionarios Funcionario[]
   cargas       Carga[]
+  simulacoes   Simulacao[]
 
   @@map("lojas")
 }
@@ -169,4 +170,57 @@ model VendaHora {
 
   @@index([cargaId])
   @@map("vendas_hora")
+}
+
+enum SimulacaoStatus {
+  RASCUNHO    @map("rascunho")
+  GRAVADA     @map("gravada")
+  EM_USO      @map("em_uso")
+  SUBSTITUIDA @map("substituida")
+  DESCARTADA  @map("descartada")
+
+  @@map("simulacao_status")
+}
+
+// Uma loja, uma pergunta e uma resposta. Rascunho é editável; ao gravar, premissas e resultado congelam.
+model Simulacao {
+  id         String          @id @default(uuid(7)) @db.Uuid
+  lojaId     String          @map("loja_id") @db.Uuid
+  nome       String
+  status     SimulacaoStatus @default(RASCUNHO)
+  // atual | r42 | r40
+  regra      String
+  origemId   String?         @map("origem_id") @db.Uuid
+  autor      String
+  // Pessoas da simulação: [{ matricula, nome, funcao, cargaH }]
+  quadro     Json
+  // Horário, mínimos e convenção congelados ao gravar.
+  premissas  Json?
+  resultado  Json?
+  criadaEm   DateTime        @default(now()) @map("criada_em") @db.Timestamptz(3)
+  gravadaEm  DateTime?       @map("gravada_em") @db.Timestamptz(3)
+  atualizadaEm DateTime      @updatedAt @map("atualizada_em") @db.Timestamptz(3)
+
+  loja   Loja              @relation(fields: [lojaId], references: [id])
+  turnos SimulacaoTurno[]
+
+  @@index([lojaId, status])
+  @@map("simulacoes")
+}
+
+// Um turno de uma pessoa num dia (0 = segunda). Horas em decimal (8.25 = 08:15).
+model SimulacaoTurno {
+  id           String  @id @default(uuid(7)) @db.Uuid
+  simulacaoId  String  @map("simulacao_id") @db.Uuid
+  matricula    String
+  dia          Int
+  entrada      Float
+  saida        Float
+  iniIntervalo Float?  @map("ini_intervalo")
+  fimIntervalo Float?  @map("fim_intervalo")
+
+  simulacao Simulacao @relation(fields: [simulacaoId], references: [id], onDelete: Cascade)
+
+  @@index([simulacaoId])
+  @@map("simulacao_turnos")
 }

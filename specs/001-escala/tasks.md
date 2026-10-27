@@ -49,11 +49,11 @@ Formato: `[ID] [P] [US] descrição com caminho`. [P] = pode ir em paralelo.
 
 **Teste independente**: mover um turno, ver o recálculo, gravar e reabrir.
 
-- [ ] T024 [US3] Schema e migration: simulacoes, simulacao_turnos (índice único parcial: uma `em_uso` por loja) em `backend/node/prisma/`
-- [ ] T025 [US3] Teste + serviço de simulações (criar do zero/da em uso/clonar, avaliar, gravar congelando premissas, descartar) em `src/modules/simulacoes/`
-- [ ] T026 [US3] Rotas de simulações (`turnos`, `avaliar`, `gravar`, `descartar`, `clonar`) + teste de integração em `src/modules/simulacoes/simulacoes.routes.ts`
-- [ ] T027 [P] [US3] Componente da grade semanal (arrastar e redimensionar turnos, passo de 15 min) em `frontend/react/src/features/grade/Grade.jsx`
-- [ ] T028 [US3] Tela Escala por hora com recálculo, bloqueios explicados, gravar/clonar/descartar e histórico em `frontend/react/src/features/grade/`
+- [x] T024 [US3] Schema e migration: simulacoes, simulacao_turnos (índice único parcial: uma `em_uso` por loja) em `backend/node/prisma/`
+- [x] T025 [US3] Teste + serviço de simulações (criar do zero/da em uso/clonar, avaliar, gravar congelando premissas, descartar) em `src/modules/simulacoes/`
+- [x] T026 [US3] Rotas de simulações (`turnos`, `avaliar`, `gravar`, `descartar`, `clonar`) + teste de integração em `src/modules/simulacoes/simulacoes.routes.ts`
+- [x] T027 [P] [US3] Componente da grade semanal (arrastar e redimensionar turnos, passo de 15 min) em `frontend/react/src/features/grade/Grade.jsx`
+- [x] T028 [US3] Tela Escala por hora com recálculo, bloqueios explicados, gravar/clonar/descartar e histórico em `frontend/react/src/features/grade/`
 
 ## Phase 6: US4 — Comparar e aprovar (P4)
 

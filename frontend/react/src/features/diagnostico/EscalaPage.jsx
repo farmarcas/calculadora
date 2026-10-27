@@ -4,6 +4,7 @@ import { Aviso, Botao, Cartao, entrada } from "../../components/ui/index.jsx";
 import Configuracao from "./Configuracao.jsx";
 import Diagnostico from "./Diagnostico.jsx";
 import EnviarPlanilhas from "./EnviarPlanilhas.jsx";
+import GradeTab from "../grade/GradeTab.jsx";
 
 export default function EscalaPage({ perfil }) {
   const podeEscrever = perfil !== "SCHEDULE_VIEWER";
@@ -69,7 +70,7 @@ export default function EscalaPage({ perfil }) {
       {erro && <Aviso>{erro}</Aviso>}
 
       <div className="flex gap-6 border-b border-line" role="tablist">
-        {[["diagnostico", "Diagnóstico"], ["configuracao", "Configuração"]].map(([id, r]) => (
+        {[["diagnostico", "Diagnóstico"], ["grade", "Simulações"], ["configuracao", "Configuração"]].map(([id, r]) => (
           <button
             key={id}
             role="tab"
@@ -83,9 +84,10 @@ export default function EscalaPage({ perfil }) {
         ))}
       </div>
 
-      {!diag && !erro && <p className="text-sm text-ink-500">Carregando…</p>}
+      {!diag && !erro && aba !== "grade" && <p className="text-sm text-ink-500">Carregando…</p>}
       {diag && aba === "diagnostico" && <Diagnostico diag={diag} podeEscrever={podeEscrever} onEnviar={() => setEnviando(true)} />}
       {diag && aba === "configuracao" && <Configuracao diag={diag} podeEscrever={podeEscrever} lojaId={lojaId} onSalvo={setDiag} />}
+      {aba === "grade" && <GradeTab lojaId={lojaId} podeEscrever={podeEscrever} />}
       {enviando && <EnviarPlanilhas onClose={() => setEnviando(false)} onConcluido={carregar} />}
     </>
   );

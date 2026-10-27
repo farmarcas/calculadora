@@ -1,0 +1,61 @@
+import { Router, type Response } from 'express';
+import type { z } from 'zod';
+import { prisma } from '../../shared/database/prisma.js';
+import { auditar } from '../../shared/auditoria/auditoria.js';
+import { exigirPerfil, type Perfil } from '../../shared/middlewares/perfil.js';
+import { readValidated, validate } from '../../shared/middlewares/validate.js';
+import { escalaRepository } from '../escala/escala.repository.js';
+import type { PessoaSim } from './avaliar.js';
+import * as S from './simulacoes.schemas.js';
+import { makeSimulacoesService } from './simulacoes.service.js';
+import { simulacoesRepository } from './simulacoes.repository.js';
+
+const escrita = exigirPerfil('TENANT_ADMIN', 'SCHEDULE_MANAGER');
+const perfilDe = (res: Response) => res.locals.perfil as Perfil;
+const v = <T extends z.ZodType>(res: Response) => readValidated<z.infer<T>>(res);
+
+const cadastro = {
+  async funcionariosDaLoja(lojaId: string): Promise<PessoaSim[]> {
+    const rows = await prisma.funcionario.findMany({
+      where: { lojaId, deletedAt: null, funcaoEscala: { not: null } },
+      orderBy: { nome: 'asc' },
+    });
+    return rows.map((r) => ({
+      matricula: r.matricula,
+      nome: r.nome,
+      funcao: r.funcaoEscala,
+      cargaH: r.cargaSemanalH ?? 44,
+    }));
+  },
+};
+
+export const simulacoesRouter = () => {
+  const s = makeSimulacoesService(simulacoesRepository, escalaRepository, cadastro, auditar);
+  const r = Router();
+
+  r.get('/lojas/:id/simulacoes', validate(S.listarReq), async (_req, res) => {
+    const { params, query } = v<typeof S.listarReq>(res);
+    res.json(await s.listar(params.id, query.descartadas === '1'));
+  });
+  r.post('/lojas/:id/simulacoes', escrita, validate(S.criarReq), async (_req, res) => {
+    const { params, body } = v<typeof S.criarReq>(res);
+    res.status(201).json(await s.criar(params.id, body, perfilDe(res)));
+  });
+  r.get('/simulacoes/:id', validate(S.porIdReq), async (_req, res) =>
+    res.json(await s.obter(v<typeof S.porIdReq>(res).params.id)),
+  );
+  r.put('/simulacoes/:id', escrita, validate(S.editarReq), async (_req, res) => {
+    const { params, body } = v<typeof S.editarReq>(res);
+    res.json(await s.editar(params.id, body, perfilDe(res)));
+  });
+  r.post('/simulacoes/:id/gravar', escrita, validate(S.porIdReq), async (_req, res) =>
+    res.json(await s.gravar(v<typeof S.porIdReq>(res).params.id, perfilDe(res))),
+  );
+  r.post('/simulacoes/:id/descartar', escrita, validate(S.porIdReq), async (_req, res) =>
+    res.json(await s.descartar(v<typeof S.porIdReq>(res).params.id, perfilDe(res))),
+  );
+  r.post('/simulacoes/:id/clonar', escrita, validate(S.porIdReq), async (_req, res) =>
+    res.status(201).json(await s.clonar(v<typeof S.porIdReq>(res).params.id, perfilDe(res))),
+  );
+  return r;
+};

@@ -15,9 +15,9 @@ Perfil de demonstração no cabeçalho `X-Perfil`.
 - `GET /lojas/:id/diagnostico` → quadro por função, cobertura por faixa, verificação 42h/40h, déficit, contratações, pontos de atenção
 
 ## Simulações
-- `POST /lojas/:id/simulacoes` (do zero, da em uso ou clonar) · `GET` lista/histórico
-- `PUT /simulacoes/:id/turnos` · `POST /simulacoes/:id/avaliar` → cobertura, erros, avisos
-- `POST /simulacoes/:id/gravar|descartar|clonar|aprovar`
+- `POST /lojas/:id/simulacoes` (origem: escala atual, vazia ou id de outra simulação) · `GET /lojas/:id/simulacoes[?descartadas=1]` histórico
+- `GET /simulacoes/:id` · `PUT /simulacoes/:id` (nome, regra, turnos; só rascunho; devolve a avaliação recalculada com cobertura, erros e avisos)
+- `POST /simulacoes/:id/gravar|descartar|clonar` (gravar exige zero erros) · `aprovar` fica para a etapa 4
 - `GET /lojas/:id/simulacoes/comparar?ids=a,b,c`
 - `GET /simulacoes/:id/exportar.xlsx`
 

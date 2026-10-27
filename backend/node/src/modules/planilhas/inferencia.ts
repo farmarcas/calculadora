@@ -38,7 +38,7 @@ const pontuar = (cabecalho: string, amostra: string[], campo: CampoDef): number 
   return porTitulo;
 };
 
-const mapearColunas = (aba: Aba, campos: CampoDef[]): SugestaoColuna[] => {
+export const mapearColunas = (aba: Aba, campos: CampoDef[]): SugestaoColuna[] => {
   const amostra = (i: number) => aba.linhas.slice(0, 20).map((l) => l[i] ?? '');
   const pares = campos.flatMap((campo) =>
     aba.cabecalhos.map((cab, i) => ({
@@ -119,4 +119,22 @@ export const inferirMapeamento = (abas: Aba[]): Inferencia => {
     },
     sugestoes: { lojas: melhorLoja?.l ?? [], funcionarios: melhorFunc?.f ?? [] },
   };
+};
+
+// Planilha de uma única tabela (escala atual, base comercial): escolhe a aba que melhor casa com os campos.
+export const inferirUmaAba = (abas: Aba[], campos: CampoDef[]) => {
+  const avaliadas = abas.map((aba) => {
+    const sugestoes = mapearColunas(aba, campos);
+    return { aba, sugestoes, nota: notaAba(sugestoes, campos) };
+  });
+  const melhor = avaliadas.sort((a, b) => b.nota - a.nota)[0];
+  if (!melhor) return null;
+  const colunas = Object.fromEntries(melhor.sugestoes.map((s) => [s.campo, s.coluna])) as Record<
+    string,
+    number | null
+  >;
+  const faltam = campos
+    .filter((c) => c.obrigatorio && colunas[c.chave] == null)
+    .map((c) => c.rotulo);
+  return { aba: melhor.aba, colunas, sugestoes: melhor.sugestoes, faltam };
 };

@@ -36,14 +36,14 @@ Formato: `[ID] [P] [US] descrição com caminho`. [P] = pode ir em paralelo.
 
 **Teste independente**: enviar escala e base comercial de exemplo e ver quadro, cobertura, déficit e contratações.
 
-- [ ] T016 [US2] Schema e migration: cargas_escala, turnos_atuais, base_comercial, regras_perfis (+ seed dos perfis atual/42h/40h) em `backend/node/prisma/`
-- [ ] T017 [P] [US2] Teste + motor de regras (horas semanais, folgas, interjornada, intervalo, farmacêutico em todo o horário) em `src/modules/regras/`
-- [ ] T018 [P] [US2] Teste + cálculo de cobertura por faixa e horários de maior venda em `src/modules/escala/cobertura.ts`
-- [ ] T019 [P] [US2] Teste + cálculo de déficit de horas/turnos e contratações por função em `src/modules/escala/deficit.ts`
-- [ ] T020 [US2] Importação da escala atual e da base comercial (modelo, inferência, rejeições, substitui carga anterior com histórico) em `src/modules/escala/`
-- [ ] T021 [US2] Rota `GET /lojas/:id/diagnostico` + teste de integração em `src/modules/escala/escala.routes.ts`
-- [ ] T022 [P] [US2] Tela da loja: abas Situação/Configuração, quadro por função, cobertura, verificação por regra, pontos de atenção em `frontend/react/src/features/diagnostico/`
-- [ ] T023 [US2] Envio das planilhas de escala e base comercial na tela, com lista de linhas rejeitadas em `frontend/react/src/features/diagnostico/Enviar.jsx`
+- [x] T016 [US2] Schema e migration: cargas_escala, turnos_atuais, base_comercial, regras_perfis (+ seed dos perfis atual/42h/40h) em `backend/node/prisma/`
+- [x] T017 [P] [US2] Teste + motor de regras (horas semanais, folgas, interjornada, intervalo, farmacêutico em todo o horário) em `src/modules/regras/`
+- [x] T018 [P] [US2] Teste + cálculo de cobertura por faixa e horários de maior venda em `src/modules/escala/cobertura.ts`
+- [x] T019 [P] [US2] Teste + cálculo de déficit de horas/turnos e contratações por função em `src/modules/escala/deficit.ts`
+- [x] T020 [US2] Importação da escala atual e da base comercial (modelo, inferência, rejeições, substitui carga anterior com histórico) em `src/modules/escala/`
+- [x] T021 [US2] Rota `GET /lojas/:id/diagnostico` + teste de integração em `src/modules/escala/escala.routes.ts`
+- [x] T022 [P] [US2] Tela da loja: abas Situação/Configuração, quadro por função, cobertura, verificação por regra, pontos de atenção em `frontend/react/src/features/diagnostico/`
+- [x] T023 [US2] Envio das planilhas de escala e base comercial na tela, com lista de linhas rejeitadas em `frontend/react/src/features/diagnostico/Enviar.jsx`
 
 ## Phase 5: US3 — Grade da semana e simulações (P3)
 

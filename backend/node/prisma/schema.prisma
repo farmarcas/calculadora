@@ -33,11 +33,15 @@ model Loja {
   marca     String?
   // Horário de funcionamento: { semana: {abre, fecha}, sabado: {...}, domingo: {...} }
   horarios  Json?
+  // Configuração do diagnóstico: convenção que permite 8h24/dia e mínimo de pessoas por função.
+  convencao8h24 Boolean   @default(false) @map("convencao_8h24")
+  minimos       Json?
   deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
   createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   funcionarios Funcionario[]
+  cargas       Carga[]
 
   @@map("lojas")
 }
@@ -95,4 +99,74 @@ model Auditoria {
 
   @@index([alvoTipo, alvoId])
   @@map("auditoria")
+}
+
+enum CargaTipo {
+  ESCALA @map("escala")
+  BASE   @map("base")
+
+  @@map("carga_tipo")
+}
+
+// Arquivo recebido para uma loja. Só a carga ativa vale; as antigas ficam como histórico.
+model Carga {
+  id               String    @id @default(uuid(7)) @db.Uuid
+  lojaId           String    @map("loja_id") @db.Uuid
+  tipo             CargaTipo
+  arquivo          String
+  recebidaEm       DateTime  @default(now()) @map("recebida_em") @db.Timestamptz(3)
+  linhasAceitas    Int       @map("linhas_aceitas")
+  linhasRejeitadas Int       @map("linhas_rejeitadas")
+  periodoInicio    DateTime? @map("periodo_inicio") @db.Date
+  periodoFim       DateTime? @map("periodo_fim") @db.Date
+  ativa            Boolean   @default(true)
+
+  loja   Loja         @relation(fields: [lojaId], references: [id])
+  turnos TurnoAtual[]
+  vendas VendaHora[]
+
+  @@index([lojaId, tipo, ativa])
+  @@map("cargas")
+}
+
+// Escala atual de um colaborador: mesmo turno em cada dia trabalhado. Horas em decimal (8.5 = 08:30).
+model TurnoAtual {
+  id           String  @id @default(uuid(7)) @db.Uuid
+  cargaId      String  @map("carga_id") @db.Uuid
+  matricula    String
+  nome         String
+  funcao       String?
+  tipoEscala   String? @map("tipo_escala")
+  dias         Int[]
+  entrada      Float
+  iniIntervalo Float?  @map("ini_intervalo")
+  fimIntervalo Float?  @map("fim_intervalo")
+  saida        Float
+  cargaH       Float   @map("carga_h")
+  // ok | fora_calculo | erro
+  status       String
+  motivo       String?
+  cadastrado   Boolean
+
+  carga Carga @relation(fields: [cargaId], references: [id], onDelete: Cascade)
+
+  @@index([cargaId])
+  @@map("turnos_atuais")
+}
+
+// Vendas somadas por data e hora da loja.
+model VendaHora {
+  id       String   @id @default(uuid(7)) @db.Uuid
+  cargaId  String   @map("carga_id") @db.Uuid
+  data     DateTime @db.Date
+  hora     Int
+  venda    Float
+  margem   Float
+  clientes Int
+  unidades Int
+
+  carga Carga @relation(fields: [cargaId], references: [id], onDelete: Cascade)
+
+  @@index([cargaId])
+  @@map("vendas_hora")
 }

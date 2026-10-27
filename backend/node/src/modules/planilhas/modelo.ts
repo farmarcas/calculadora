@@ -1,5 +1,12 @@
 import ExcelJS from 'exceljs';
-import { CAMPOS_FUNCIONARIO, CAMPOS_LOJA, FUNCOES_ESCALA, type CampoDef } from './campos.js';
+import {
+  CAMPOS_BASE,
+  CAMPOS_ESCALA,
+  CAMPOS_FUNCIONARIO,
+  CAMPOS_LOJA,
+  FUNCOES_ESCALA,
+  type CampoDef,
+} from './campos.js';
 
 const montarAba = (wb: ExcelJS.Workbook, nome: string, campos: CampoDef[]) => {
   const ws = wb.addWorksheet(nome);
@@ -37,3 +44,28 @@ export const gerarModelo = async (): Promise<Buffer> => {
   ajuda.getColumn(1).width = 110;
   return Buffer.from(await wb.xlsx.writeBuffer());
 };
+
+const modeloSimples = async (nome: string, campos: CampoDef[], dica: string): Promise<Buffer> => {
+  const wb = new ExcelJS.Workbook();
+  montarAba(wb, nome, campos);
+  wb.addWorksheet('Como preencher').addRows([
+    [dica],
+    ['Campos com * são obrigatórios. A linha 2 é só um exemplo: apague ou substitua.'],
+  ]);
+  wb.getWorksheet('Como preencher')!.getColumn(1).width = 110;
+  return Buffer.from(await wb.xlsx.writeBuffer());
+};
+
+export const gerarModeloEscala = () =>
+  modeloSimples(
+    'Escala atual',
+    CAMPOS_ESCALA,
+    'Uma linha por colaborador, com o turno que ele cumpre em cada dia trabalhado. Dias: "Seg a Sáb" ou "Seg,Ter,Qua". Várias lojas podem vir no mesmo arquivo.',
+  );
+
+export const gerarModeloBase = () =>
+  modeloSimples(
+    'Base comercial',
+    CAMPOS_BASE,
+    'Vendas por data e hora (pode haver uma linha por colaborador). Várias lojas podem vir no mesmo arquivo.',
+  );

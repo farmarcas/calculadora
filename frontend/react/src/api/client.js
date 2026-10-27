@@ -33,12 +33,14 @@ export async function api(path, { method = "GET", body, form } = {}) {
   return data;
 }
 
-export async function baixarModelo() {
-  const res = await fetch("/api/v1/planilha-modelo", { headers: { "X-Perfil": perfil } });
+export async function baixarArquivo(caminho, nome) {
+  const res = await fetch(`/api/v1${caminho}`, { headers: { "X-Perfil": perfil } });
   const blob = await res.blob();
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = "modelo-cadastro-escala.xlsx";
+  a.download = nome;
   a.click();
   URL.revokeObjectURL(a.href);
 }
+
+export const baixarModelo = () => baixarArquivo("/planilha-modelo", "modelo-cadastro-escala.xlsx");

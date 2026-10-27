@@ -9,7 +9,9 @@ Perfil de demonstração no cabeçalho `X-Perfil`.
 - `GET|POST|PATCH|DELETE /lojas`, `/funcionarios` (filtro por loja)
 
 ## Escala atual e diagnóstico
-- `POST /lojas/:id/cargas-escala`, `POST /lojas/:id/base-comercial` (arquivo)
+- `GET /planilha-modelo-escala`, `GET /planilha-modelo-base`
+- `POST /cargas/escala`, `POST /cargas/base` (arquivo; várias lojas por arquivo, cada linha vai para a loja do código; entendimento automático das colunas)
+- `GET /lojas/:id/cargas` (histórico) · `PUT /lojas/:id/configuracao` (convenção 8h24, mínimo por função)
 - `GET /lojas/:id/diagnostico` → quadro por função, cobertura por faixa, verificação 42h/40h, déficit, contratações, pontos de atenção
 
 ## Simulações

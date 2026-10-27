@@ -6,6 +6,7 @@ import { errorHandler } from './shared/middlewares/error-handler.js';
 import { requestId } from './shared/middlewares/request-id.js';
 import { lerPerfil } from './shared/middlewares/perfil.js';
 import { cadastrosRouter } from './modules/cadastros/cadastros.routes.js';
+import { escalaRouter } from './modules/escala/escala.routes.js';
 import { usersRouter } from './modules/users/users.routes.js';
 import type { UsersRepository } from './modules/users/users.service.js';
 
@@ -42,7 +43,7 @@ export const createApp = (deps: AppDeps = {}) => {
   });
 
   app.use('/api/v1/users', usersRouter(deps.usersRepository));
-  app.use('/api/v1', lerPerfil, cadastrosRouter());
+  app.use('/api/v1', lerPerfil, cadastrosRouter(), escalaRouter());
 
   app.use((_req, res) => {
     res.status(404).json({

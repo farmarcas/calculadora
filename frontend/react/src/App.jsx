@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { getPerfil, setPerfil } from "./api/client.js";
 import CadastrosPage from "./features/cadastros/CadastrosPage.jsx";
+import EscalaPage from "./features/diagnostico/EscalaPage.jsx";
 
 const PERFIS = {
   TENANT_ADMIN: "Dono do grupo",
@@ -9,14 +10,14 @@ const PERFIS = {
 };
 
 const MENU = [
-  { id: "cadastros", rotulo: "Cadastros", ativo: true },
-  { id: "escala", rotulo: "Escala", ativo: false, nota: "em breve" },
+  { id: "cadastros", rotulo: "Cadastros" },
+  { id: "escala", rotulo: "Escala" },
 ];
 
 export default function App() {
   const [perfil, setP] = useState(getPerfil());
   const [aberto, setAberto] = useState(true);
-  const [tela] = useState("cadastros");
+  const [tela, setTela] = useState("cadastros");
 
   const trocar = (p) => {
     setPerfil(p);
@@ -33,21 +34,22 @@ export default function App() {
         <ul className="list-none m-0 p-2 flex flex-col gap-1">
           {MENU.map((m) => (
             <li key={m.id}>
-              <div
-                className={`rounded-btn px-3 h-9 flex items-center justify-between text-sm ${
-                  tela === m.id ? "bg-system-200 text-ink-900 font-medium" : m.ativo ? "text-ink-700" : "text-ink-300"
+              <button
+                onClick={() => setTela(m.id)}
+                aria-current={tela === m.id ? "page" : undefined}
+                className={`w-full text-left rounded-btn px-3 h-9 flex items-center text-sm ${
+                  tela === m.id ? "bg-system-200 text-ink-900 font-medium" : "text-ink-700 hover:bg-surface-subtle"
                 }`}
               >
                 <span title={m.rotulo}>{aberto ? m.rotulo : m.rotulo[0]}</span>
-                {aberto && m.nota && <span className="text-[10px]">{m.nota}</span>}
-              </div>
+              </button>
             </li>
           ))}
         </ul>
       </nav>
       <div className="flex-1 min-w-0 flex flex-col">
         <header className="h-16 bg-white border-b border-line flex items-center justify-between px-6">
-          <span className="text-ink-500 text-sm">Escala · Cadastros</span>
+          <span className="text-ink-500 text-sm">Escala · {MENU.find((m) => m.id === tela).rotulo}</span>
           <label className="flex items-center gap-2 text-xs text-ink-500">
             Papel de demonstração
             <select
@@ -62,7 +64,7 @@ export default function App() {
           </label>
         </header>
         <main className="p-6 flex flex-col gap-6">
-          <CadastrosPage perfil={perfil} />
+          {tela === "cadastros" ? <CadastrosPage perfil={perfil} /> : <EscalaPage perfil={perfil} />}
         </main>
       </div>
     </div>

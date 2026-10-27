@@ -15,3 +15,9 @@
 
 ## Pontos em aberto técnicos resolvidos
 Nenhum pendente. Catálogo trabalhista e limites de "desatualizada" dependem de decisões do negócio (M-D5, D8) — o plano usa valores padrão editáveis.
+
+## Ajustes feitos na etapa 2
+- Perfis de regra (44h/42h/40h) ficaram em código versionado (`modules/regras/perfis.ts`), não em tabela: são poucos, mudam só com validação jurídica e assim passam por revisão e teste.
+- Escala atual e base comercial usam envio em um passo, com entendimento automático das colunas e relatório do que foi entendido; se faltar coluna obrigatória, o envio é recusado com a lista do que faltou.
+- Mínimo de pessoas por função: padrão Farmacêutico 1, Atendimento 1, Caixa 1, Apoio 0, Perfumaria 0, editável por loja (Farmacêutico nunca abaixo de 1).
+- Necessidade em turnos = pessoas mínimas × ceil(horas do dia ÷ 8) por dia aberto, como no protótipo.

@@ -20,3 +20,8 @@
 - Mexer em ~15 pontos que leem o mínimo: mitigado pela compatibilidade com o formato antigo e pela paridade nos testes que existem (166 + 105 hoje seguem passando).
 - Cenários gulosos (cortes) podem ficar mais lentos: no máximo 168 horas por loja, sem preocupação.
 - Quem já tem simulações salvas: o snapshot antigo continua válido (forma antiga aceita).
+
+## Ajustes feitos na construção (fatia 4)
+- **Simulações salvas leem a tabela atual**, não um retrato dela: a lei vale para a simulação mesmo depois de gravada. Se um dia for preciso congelar, o retrato (`premissas`) ganha um campo.
+- **Rótulos de data:** a fase de 42h passa a mostrar "a partir de 16/12/2026" e a de 40h "01/12/2027", vindos da tabela (antes: "15/12/2026" e "dez/2027" fixos no código). A tela da grade mostra só "transição" e "regra final".
+- **Mesma data de início:** vale a versão criada por último.

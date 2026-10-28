@@ -32,8 +32,8 @@ function Nova({ lojaId, lista, onClose, onCriada }) {
         <Campo rotulo="Regra">
           <select className={entrada} value={regra} onChange={(e) => setRegra(e.target.value)}>
             <option value="atual">44h (regra atual)</option>
-            <option value="r42">42h (a partir de 15/12/2026)</option>
-            <option value="r40">40h (a partir de dez/2027)</option>
+            <option value="r42">42h (transição)</option>
+            <option value="r40">40h (regra final)</option>
           </select>
         </Campo>
         <Campo rotulo="Começar de">

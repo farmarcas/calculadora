@@ -1,7 +1,8 @@
 import { passa, verificarRegra, type DiaAberto, type LinhaFuncao } from '../regras/capacidade.js';
 import { regraPara, type RegraId } from '../regras/perfis.js';
 import { requisitos, type Minimos } from '../regras/requisitos.js';
-import { calcularCusto, DIVISOR } from '../custos/custo.js';
+import { calcularCusto, divisorDe } from '../custos/custo.js';
+import type { TabelaParametros } from '../regras/parametros.js';
 import type { Custos } from '../custos/custos.schemas.js';
 import type { PessoaSim } from '../simulacoes/avaliar.js';
 import { vendasPorDiaEHora, type VendaDiaHora, type VendaLinha } from './vendas.js';
@@ -100,6 +101,8 @@ export type EntradaCenarios = {
   vendas: VendaLinha[];
   // Venda estimada pelo faturamento do cadastro (não é base de dias reais): sem aviso de "poucos dias".
   vendasDoCadastro?: boolean;
+  // Parâmetros legais em uso (jornada, dias, divisor); sem eles valem os de hoje.
+  parametros?: TabelaParametros;
   custos: Custos | null;
   dono: boolean;
 };
@@ -149,6 +152,7 @@ export const custoDasVagas = (
   cs: Contratacao[],
   linhas: LinhaFuncao[],
   custos: Custos | null,
+  parametros?: TabelaParametros,
 ): number | null => {
   if (cs.length === 0) return custos ? 0 : null;
   if (!custos) return null;
@@ -162,18 +166,22 @@ export const custoDasVagas = (
       vaga: true,
     }));
   });
-  const r = calcularCusto({ regra: regraId, quadro, custos });
+  const r = calcularCusto({ regra: regraId, quadro, custos, parametros });
   return r.informado ? r.mensal : null;
 };
 
-export const folhaAtual = (pessoas: EntradaCenarios['pessoas'], custos: Custos | null) => {
+export const folhaAtual = (
+  pessoas: EntradaCenarios['pessoas'],
+  custos: Custos | null,
+  parametros?: TabelaParametros,
+) => {
   const quadro: PessoaSim[] = pessoas.map((p, i) => ({
     matricula: String(i),
     nome: p.funcao,
     funcao: p.funcao,
     cargaH: p.cargaH,
   }));
-  const r = calcularCusto({ regra: 'atual', quadro, custos });
+  const r = calcularCusto({ regra: 'atual', quadro, custos, parametros });
   return r.informado ? r.mensal : null;
 };
 
@@ -185,7 +193,7 @@ const listaContratacoes = (cs: Contratacao[]) =>
     .join(', ');
 
 const montarManter = (e: EntradaCenarios, linhas: LinhaFuncao[], folha: number | null) => {
-  const nomeRegra = regraPara(e.regraId, e.convencao8h24).nome;
+  const nomeRegra = regraPara(e.regraId, e.convencao8h24, e.parametros).nome;
   const cs = contratacoesDe(linhas);
   const pessoasContratar = cs.reduce((s, c) => s + c.pessoas, 0);
   const manter: CenarioManter = {
@@ -201,7 +209,7 @@ const montarManter = (e: EntradaCenarios, linhas: LinhaFuncao[], folha: number |
     ociosidadePct: ociosidadeTotal(linhas, cs),
   };
   if (e.dono) {
-    const custo = custoDasVagas(e.regraId, cs, linhas, e.custos);
+    const custo = custoDasVagas(e.regraId, cs, linhas, e.custos, e.parametros);
     manter.custoAdicionalMensal = custo;
     manter.acrescimoPct =
       custo !== null && folha !== null && folha > 0 ? pct((custo / folha) * 100) : null;
@@ -313,7 +321,7 @@ export const juntarFatias = (fatias: Fatia[], comVendas: boolean): Corte[] => {
 };
 
 const montarEconomia = (e: EntradaCenarios, linhas: LinhaFuncao[]): CenarioEconomia => {
-  const regra = regraPara(e.regraId, e.convencao8h24);
+  const regra = regraPara(e.regraId, e.convencao8h24, e.parametros);
   const vb = vendasPorDiaEHora(e.vendas);
   const base = {
     foco: 'Reduzir horário e manter a equipe atual',
@@ -386,6 +394,7 @@ export const custoMensalDaHora = (
   regraId: RegraId,
   minimos: Record<string, number>,
   custos: Custos | null,
+  parametros?: TabelaParametros,
 ): { custo: number | null; faltam: string[] } => {
   const obrigatorias = Object.entries(minimos).filter(([, n]) => n > 0);
   const faltam = obrigatorias
@@ -396,7 +405,8 @@ export const custoMensalDaHora = (
   const custo = obrigatorias.reduce(
     (t, [f, n]) =>
       t +
-      (n * custos.salarioMedio[f as keyof Custos['salarioMedio']]! * fator * 5) / DIVISOR[regraId],
+      (n * custos.salarioMedio[f as keyof Custos['salarioMedio']]! * fator * 5) /
+        divisorDe(regraId, parametros),
     0,
   );
   return { custo, faltam: [] };
@@ -411,6 +421,7 @@ export const custoMensalDoTrecho = (
   dia: number,
   de: number,
   ate: number,
+  parametros?: TabelaParametros,
 ): { custo: number | null; faltam: string[] } => {
   const req = requisitos(minimos);
   const faltam = req.funcoes.filter(
@@ -428,7 +439,7 @@ export const custoMensalDoTrecho = (
           fator *
           5 *
           parte) /
-        DIVISOR[regraId];
+        divisorDe(regraId, parametros);
   }
   return { custo, faltam: [] };
 };
@@ -460,7 +471,7 @@ const montarEquilibrio = (
   folha: number | null,
   custoManter: number | null,
 ): CenarioEquilibrio => {
-  const regra = regraPara(e.regraId, e.convencao8h24);
+  const regra = regraPara(e.regraId, e.convencao8h24, e.parametros);
   const vb = vendasPorDiaEHora(e.vendas);
   const vazio = {
     coincideComManter: false,
@@ -477,14 +488,15 @@ const montarEquilibrio = (
   // Exigência igual em todas as horas: um valor por hora. Por turno: o custo depende da hora cortada.
   const req = requisitos(e.minimos);
   const { custo: custoUnico, faltam } = req.uniforme
-    ? custoMensalDaHora(e.regraId, req.uniforme, e.custos)
-    : custoMensalDoTrecho(e.regraId, e.minimos, e.custos, 0, 0, 0);
+    ? custoMensalDaHora(e.regraId, req.uniforme, e.custos, e.parametros)
+    : custoMensalDoTrecho(e.regraId, e.minimos, e.custos, 0, 0, 0, e.parametros);
   const custoHora: number | ((dia: number, de: number, ate: number) => number) | null = req.uniforme
     ? custoUnico
     : faltam.length > 0 || !e.custos
       ? null
       : (dia, de, ate) =>
-          custoMensalDoTrecho(e.regraId, e.minimos, e.custos, dia, de, ate).custo ?? 0;
+          custoMensalDoTrecho(e.regraId, e.minimos, e.custos, dia, de, ate, e.parametros).custo ??
+          0;
   const indisponivel = (motivo: 'custos' | 'vendas', texto: string): CenarioEquilibrio => ({
     ...vazio,
     indisponivel: { motivo, texto },
@@ -508,7 +520,7 @@ const montarEquilibrio = (
   const calcular = (dias: DiaAberto[]) => {
     const linhas = verificarRegra(regra, dias, e.minimos, e.pessoas);
     const cs = contratacoesDe(linhas);
-    return { linhas, cs, custo: custoDasVagas(e.regraId, cs, linhas, e.custos) };
+    return { linhas, cs, custo: custoDasVagas(e.regraId, cs, linhas, e.custos, e.parametros) };
   };
   let { dias, fatias } = cortarQueNaoSePagam(e.dias, vb, custoHora);
   let { linhas, cs, custo } = calcular(dias);
@@ -559,12 +571,18 @@ const montarEquilibrio = (
 };
 
 export const montarCenarios = (e: EntradaCenarios): CenariosRegra => {
-  const regra = regraPara(e.regraId, e.convencao8h24);
+  const regra = regraPara(e.regraId, e.convencao8h24, e.parametros);
   const linhas = verificarRegra(regra, e.dias, e.minimos, e.pessoas);
   const vb = vendasPorDiaEHora(e.vendas);
-  const folha = e.dono ? folhaAtual(e.pessoas, e.custos) : null;
+  const folha = e.dono ? folhaAtual(e.pessoas, e.custos, e.parametros) : null;
   const manter = montarManter(e, linhas, folha);
-  const custoManter = custoDasVagas(e.regraId, contratacoesDe(linhas), linhas, e.custos);
+  const custoManter = custoDasVagas(
+    e.regraId,
+    contratacoesDe(linhas),
+    linhas,
+    e.custos,
+    e.parametros,
+  );
   const economia = montarEconomia(e, linhas);
   const equilibrio = montarEquilibrio(e, folha, custoManter);
   const r: CenariosRegra = {

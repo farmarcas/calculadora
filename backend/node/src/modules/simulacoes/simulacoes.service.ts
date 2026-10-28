@@ -8,6 +8,7 @@ import type { EscalaRepository } from '../escala/escala.repository.js';
 import { FUNCOES_PADRAO_MINIMO, regraPara, type RegraId } from '../regras/perfis.js';
 import { minimosIguais } from '../regras/requisitos.js';
 import { exigenciasDaLoja } from '../regras/turnos.js';
+import { PARAMETROS_PADRAO, type TabelaParametros } from '../regras/parametros.js';
 import { calcularIndicadores, sintese } from './comparar.js';
 import { gerarExcelEscala } from './exportar.js';
 import { avaliarSimulacao, type PessoaSim, type TurnoSim } from './avaliar.js';
@@ -37,9 +38,12 @@ export const makeSimulacoesService = (
   // Motivos de "desatualizada" que vêm do ponto (hora extra recorrente e aderência baixa).
   alertasPonto: (lojaId: string) => Promise<string[]> = async () => [],
 ) => {
+  // Parâmetros legais em uso (jornada, dias, divisor), lidos junto com a loja a cada pedido.
+  let tabela: TabelaParametros = PARAMETROS_PADRAO;
   const loja = async (id: string): Promise<LojaDiag> => {
     const l = await lojas.lojaParaDiagnostico(id);
     if (!l) throw new NotFoundError('Loja não encontrada', 'LOJA_NAO_ENCONTRADA');
+    tabela = await lojas.parametrosVigentes();
     return l;
   };
   const simulacao = async (id: string) => {
@@ -57,7 +61,7 @@ export const makeSimulacoesService = (
       custos: l.custos ?? null,
       regra: s.regra,
     };
-    const regra = regraPara(s.regra as RegraId, p.convencao8h24);
+    const regra = regraPara(s.regra as RegraId, p.convencao8h24, tabela);
     const dias = diasAbertos(p.horarios);
     return { premissas: p, regra, dias };
   };
@@ -150,6 +154,7 @@ export const makeSimulacoesService = (
               quadro: s.quadro,
               // Retrato do momento de gravar; sem valores nele, vale o que a loja informou depois.
               custos: c.premissas.custos ?? l.custos ?? null,
+              parametros: tabela,
             }),
           }
         : {}),
@@ -238,7 +243,7 @@ export const makeSimulacoesService = (
       if (b.comVagasSugeridas) {
         if (b.origem !== 'escala_atual')
           throw new ValidationError('As contratações sugeridas só valem a partir da escala atual.');
-        const regra = regraPara(b.regra, l.convencao8h24);
+        const regra = regraPara(b.regra, l.convencao8h24, tabela);
         const sugeridas = vagasSugeridas(
           regra,
           diasAbertos(l.horarios),
@@ -400,6 +405,7 @@ export const makeSimulacoesService = (
           regra: x.regra as RegraId,
           quadro: x.quadro,
           custos: contexto(x, l).premissas.custos ?? l.custos ?? null,
+          parametros: tabela,
         });
       const custoRef = dono && ref ? custoDe(ref.sim) : null;
       const mensalRef = custoRef && custoRef.informado ? custoRef.mensal : null;
@@ -418,7 +424,7 @@ export const makeSimulacoesService = (
             id: sim.id,
             nome: sim.nome,
             status: sim.status,
-            regra: regraPara(sim.regra as RegraId, false).nome,
+            regra: regraPara(sim.regra as RegraId, false, tabela).nome,
             referencia: sim.id === ref?.sim.id,
             podeAprovar: sim.status === 'gravada' && ind.erros === 0,
             indicadores: ind,

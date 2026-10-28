@@ -50,12 +50,12 @@ Regra de ouro: **os testes que já existem não mudam e seguem verdes** (paridad
 
 **Teste independente**: alterar a jornada da fase de 40h, ver o Diagnóstico recalcular, ver a versão antiga no histórico e voltar ao valor anterior; gestor e consulta só veem.
 
-- [ ] T018 Migration `parametros_legais` com a versão inicial (atual: 44 h, 8 h, 6 dias, 220; r42: 16/12/2026, 42 h, 8 h, 8,4 h com convenção, 5 dias, 210; r40: 01/12/2027, 40 h, 8 h, 5 dias, 200) e `schema.prisma`
-- [ ] T019 Teste + `src/modules/regras/parametros.ts`: versão vigente de uma fase (a mais recente com início ≤ hoje; se todas no futuro, a mais antiga), validação dos valores (jornada > 0, horas por dia em (0, 24], dias 1–7, divisor > 0), padrão = valores de hoje
-- [ ] T020 Teste + `src/modules/regras/perfis.ts` e `custos/custo.ts`: `regraPara(id, convenção, tabela = padrão)` e divisor vindo da tabela; todas as chamadas e testes atuais intactos
-- [ ] T021 Teste + `src/modules/parametros/` (rota, serviço, repositório): `GET /parametros-legais` (todos os perfis) e `POST /parametros-legais` (só dono, 403 para os demais), nova versão sem editar a antiga, auditoria `parametros.alterados`
-- [ ] T022 Serviços do Diagnóstico, simulações e apuração carregam a tabela vigente e a passam adiante; teste de integração: alterar a 40h muda o Diagnóstico, voltar restaura, em `escala.routes.integration.test.ts`
-- [ ] T023 [P] Tela `src/features/parametros/ParametrosLegais.jsx` (valores vigentes por fase, histórico, formulário de nova versão só para o dono) e entrada no menu da Escala
+- [X] T018 Migration `parametros_legais` com a versão inicial (atual: 44 h, 8 h, 6 dias, 220; r42: 16/12/2026, 42 h, 8 h, 8,4 h com convenção, 5 dias, 210; r40: 01/12/2027, 40 h, 8 h, 5 dias, 200) e `schema.prisma`
+- [X] T019 Teste + `src/modules/regras/parametros.ts`: versão vigente de uma fase (a mais recente com início ≤ hoje; se todas no futuro, a mais antiga), validação dos valores (jornada > 0, horas por dia em (0, 24], dias 1–7, divisor > 0), padrão = valores de hoje
+- [X] T020 Teste + `src/modules/regras/perfis.ts` e `custos/custo.ts`: `regraPara(id, convenção, tabela = padrão)` e divisor vindo da tabela; todas as chamadas e testes atuais intactos
+- [X] T021 Teste + `src/modules/parametros/` (rota, serviço, repositório): `GET /parametros-legais` (todos os perfis) e `POST /parametros-legais` (só dono, 403 para os demais), nova versão sem editar a antiga, auditoria `parametros.alterados`
+- [X] T022 Serviços do Diagnóstico, simulações e apuração carregam a tabela vigente e a passam adiante; teste de integração: alterar a 40h muda o Diagnóstico, voltar restaura, em `escala.routes.integration.test.ts`
+- [X] T023 [P] Tela `src/features/parametros/ParametrosLegais.jsx` (valores vigentes por fase, histórico, formulário de nova versão só para o dono) e entrada no menu da Escala
 
 **Checkpoint**: a lei pode mudar sem alterar o sistema.
 

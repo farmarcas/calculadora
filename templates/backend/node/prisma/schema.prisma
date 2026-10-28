@@ -315,3 +315,20 @@ model Batida {
   @@index([lojaId, situacao])
   @@map("batidas")
 }
+
+// Parâmetros legais por fase (atual 44h, r42, r40), para todo o grupo. Nunca se edita uma versão: alterar cria outra.
+model ParametroLegal {
+  id                   String   @id @default(uuid(7)) @db.Uuid
+  fase                 String
+  jornadaSemanalH      Float    @map("jornada_semanal_h")
+  horasDiaMax          Float    @map("horas_dia_max")
+  horasDiaMaxConvencao Float?   @map("horas_dia_max_convencao")
+  diasTrabalho         Int      @map("dias_trabalho")
+  divisor              Float
+  vigenciaInicio       DateTime @map("vigencia_inicio") @db.Date
+  criadoPor            String   @map("criado_por")
+  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([fase, vigenciaInicio])
+  @@map("parametros_legais")
+}

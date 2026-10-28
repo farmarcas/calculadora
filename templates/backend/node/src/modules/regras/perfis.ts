@@ -1,4 +1,6 @@
 // Perfis de regra (EC 141/2026). Valores do documento M4 v2.2, ainda SEM validação jurídica (D8).
+import { PARAMETROS_PADRAO, dataBR, type TabelaParametros } from './parametros.js';
+
 export type RegraId = 'atual' | 'r42' | 'r40';
 
 export type Regra = {
@@ -13,37 +15,34 @@ export type Regra = {
 
 export const REGRA_IDS: RegraId[] = ['atual', 'r42', 'r40'];
 
-export const regraPara = (id: RegraId, convencao8h24: boolean): Regra => {
+const horasTxt = (h: number) => {
+  const total = Math.round(h * 60);
+  const min = total % 60;
+  return `${Math.floor(total / 60)}h${min ? String(min).padStart(2, '0') : ''}`;
+};
+
+// A regra de uma fase, a partir da tabela de parâmetros (padrão: os valores de hoje).
+export const regraPara = (
+  id: RegraId,
+  convencao8h24: boolean,
+  tabela: TabelaParametros = PARAMETROS_PADRAO,
+): Regra => {
+  const p = tabela[id];
+  const teto = p.jornadaSemanalH;
+  const comConvencao = id === 'r42' && convencao8h24 && p.horasDiaMaxConvencao !== null;
+  const maxDia = comConvencao ? p.horasDiaMaxConvencao! : p.horasDiaMax;
+  const base = { id, dias: p.diasTrabalho, maxDia, teto };
+  const padrao = `${p.diasTrabalho} dias · até ${horasTxt(maxDia)} por dia · teto ${teto}h`;
   if (id === 'atual')
-    return {
-      id,
-      nome: '44h (regra atual)',
-      vigencia: 'hoje',
-      dias: 6,
-      maxDia: 8,
-      teto: 44,
-      descricao: '6 dias · até 8h por dia · teto 44h',
-    };
-  if (id === 'r42')
-    return {
-      id,
-      nome: '42h',
-      vigencia: '15/12/2026',
-      dias: 5,
-      maxDia: convencao8h24 ? 8.4 : 8,
-      teto: 42,
-      descricao: convencao8h24
-        ? '5 dias · até 8h24 por dia · teto 42h'
-        : 'Sem convenção que permita 8h24: na prática 40h (5 × 8h)',
-    };
+    return { ...base, nome: `${teto}h (regra atual)`, vigencia: 'hoje', descricao: padrao };
   return {
-    id,
-    nome: '40h',
-    vigencia: 'dez/2027',
-    dias: 5,
-    maxDia: 8,
-    teto: 40,
-    descricao: '5 dias · até 8h por dia · teto 40h',
+    ...base,
+    nome: `${teto}h`,
+    vigencia: dataBR(p.vigenciaInicio),
+    descricao:
+      id === 'r42' && p.horasDiaMaxConvencao !== null && !comConvencao
+        ? `Sem convenção que permita ${horasTxt(p.horasDiaMaxConvencao)}: na prática ${Math.min(teto, p.diasTrabalho * p.horasDiaMax)}h (${p.diasTrabalho} × ${horasTxt(p.horasDiaMax)})`
+        : padrao,
   };
 };
 

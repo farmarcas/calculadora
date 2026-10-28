@@ -79,7 +79,7 @@ const RANK: Record<Tipo, number> = { depois: 0, antes: 1, bloco: 2 };
 // Cenário 4: com a equipe do Cenário 1 (atual + vagas), abre mais horas onde a venda de referência
 // compensa, uma hora por vez, enquanto a regra de cobertura continuar passando sem nova contratação.
 const montarEstender = (e: EntradaCenarios, c: CenariosRegra): CenarioEstender => {
-  const regra = regraPara(e.regraId, e.convencao8h24);
+  const regra = regraPara(e.regraId, e.convencao8h24, e.parametros);
   const vb = vendasPorDiaEHora(e.vendas);
   const cheia = tetoEfetivo(regra);
   const vagas = c.manter.contratacoes.flatMap((ct) =>
@@ -290,7 +290,7 @@ const pct = (n: number) => Math.round(n * 10) / 10;
 // Cenário 5: por cargo com mínimo obrigatório que hoje cobre o horário, quantas pessoas excedem o
 // necessário. Retira, uma a uma, a de menor carga enquanto a função continuar sem falta.
 const montarReduzir = (e: EntradaCenarios, c: CenariosRegra): CenarioReduzir => {
-  const regra = regraPara(e.regraId, e.convencao8h24);
+  const regra = regraPara(e.regraId, e.convencao8h24, e.parametros);
   const linhaDe = (pessoas: EntradaCenarios['pessoas'], funcao: string) =>
     verificarRegra(regra, e.dias, e.minimos, pessoas).find((l) => l.funcao === funcao);
   const req = requisitos(e.minimos);

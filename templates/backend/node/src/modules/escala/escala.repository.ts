@@ -1,6 +1,8 @@
 import { Prisma } from '../../generated/prisma/client.js';
 import { prisma } from '../../shared/database/prisma.js';
+import { hojeISO, tabelaVigente, type TabelaParametros } from '../regras/parametros.js';
 import type { TurnosLoja } from '../regras/turnos.js';
+import { parametrosRepository } from '../parametros/parametros.repository.js';
 import { normalizarHorarios } from '../cadastros/horarios.js';
 import type { CargaMeta, LojaDiag, TurnoDiag } from './diagnostico.js';
 import type { CadastroPessoa, TurnoLinha } from './interpretar.js';
@@ -113,6 +115,11 @@ export const escalaRepository = {
         select: { id: true },
       });
     });
+  },
+
+  // Parâmetros legais que valem hoje (a versão vigente de cada fase).
+  async parametrosVigentes(): Promise<TabelaParametros> {
+    return tabelaVigente(await parametrosRepository.listar(), hojeISO());
   },
 
   async lojaParaDiagnostico(id: string): Promise<LojaDiag | null> {

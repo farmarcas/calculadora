@@ -1,9 +1,13 @@
+import { PARAMETROS_PADRAO, type TabelaParametros } from '../regras/parametros.js';
 import type { RegraId } from '../regras/perfis.js';
 import type { PessoaSim } from '../simulacoes/avaliar.js';
 import type { Custos } from './custos.schemas.js';
 
 // Divisor de hora vigente em cada regra (220 → 210 → 200 horas por mês).
+// Os valores de hoje; o divisor em uso vem da tabela de parâmetros legais.
 export const DIVISOR: Record<RegraId, number> = { atual: 220, r42: 210, r40: 200 };
+export const divisorDe = (regra: RegraId, tabela: TabelaParametros = PARAMETROS_PADRAO) =>
+  tabela[regra].divisor;
 
 export type CustoFuncao = { funcao: string; pessoas: number; vagas: number; mensal: number };
 export type CustoSimulacao =
@@ -27,11 +31,12 @@ export const calcularCusto = (a: {
   regra: RegraId;
   quadro: PessoaSim[];
   custos: Custos | null;
+  parametros?: TabelaParametros;
 }): CustoSimulacao => {
   if (!a.custos) return { informado: false };
   const { salarioMedio, encargosPct } = a.custos;
   const fator = 1 + encargosPct / 100;
-  const divisor = DIVISOR[a.regra];
+  const divisor = divisorDe(a.regra, a.parametros);
   const ativos = a.quadro.filter((p) => !p.desligado && p.funcao);
 
   const funcoes = [...new Set(ativos.map((p) => p.funcao!))];

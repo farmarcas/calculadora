@@ -2,6 +2,7 @@ import { useState } from "react";
 import { getPerfil, setPerfil } from "./api/client.js";
 import CadastrosPage from "./features/cadastros/CadastrosPage.jsx";
 import EscalaPage from "./features/diagnostico/EscalaPage.jsx";
+import ParametrosLegais from "./features/parametros/ParametrosLegais.jsx";
 
 const PERFIS = {
   TENANT_ADMIN: "Dono do grupo",
@@ -12,6 +13,7 @@ const PERFIS = {
 const MENU = [
   { id: "cadastros", rotulo: "Cadastros" },
   { id: "escala", rotulo: "Escala" },
+  { id: "parametros", rotulo: "Parâmetros legais" },
 ];
 
 export default function App() {
@@ -64,7 +66,9 @@ export default function App() {
           </label>
         </header>
         <main className="p-6 flex flex-col gap-6">
-          {tela === "cadastros" ? <CadastrosPage perfil={perfil} /> : <EscalaPage perfil={perfil} />}
+          {tela === "cadastros" && <CadastrosPage perfil={perfil} />}
+          {tela === "escala" && <EscalaPage perfil={perfil} />}
+          {tela === "parametros" && <ParametrosLegais perfil={perfil} />}
         </main>
       </div>
     </div>

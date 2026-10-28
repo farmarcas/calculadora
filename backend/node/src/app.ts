@@ -9,6 +9,7 @@ import { cadastrosRouter } from './modules/cadastros/cadastros.routes.js';
 import { escalaRouter } from './modules/escala/escala.routes.js';
 import { simulacoesRouter } from './modules/simulacoes/simulacoes.routes.js';
 import { custosRouter } from './modules/custos/custos.routes.js';
+import { parametrosRouter } from './modules/parametros/parametros.routes.js';
 import { pontoRouter } from './modules/ponto/ponto.routes.js';
 import { usersRouter } from './modules/users/users.routes.js';
 import type { UsersRepository } from './modules/users/users.service.js';
@@ -53,6 +54,7 @@ export const createApp = (deps: AppDeps = {}) => {
     escalaRouter(),
     simulacoesRouter(),
     custosRouter(),
+    parametrosRouter(),
     pontoRouter(),
   );
 

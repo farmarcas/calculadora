@@ -5,6 +5,7 @@ import type { Custos } from '../custos/custos.schemas.js';
 import { cobertura, type TurnoPessoa } from './cobertura.js';
 import { montarCenarios } from './cenarios.js';
 import { montarExtras, type ExtrasRegra } from './cenarios-extras.js';
+import type { TabelaParametros } from '../regras/parametros.js';
 import { montarQuadroTurnos } from './quadro-turnos.js';
 import { avisosDeTurnos, exigenciasDaLoja, type TurnosLoja } from '../regras/turnos.js';
 import type { Faturamento } from '../cadastros/faturamento.js';
@@ -98,6 +99,8 @@ export const montarDiagnostico = (a: {
   dono?: boolean;
   // Funcionários da loja que não entraram na conta (sem horário, sem dias...), com o motivo.
   foraDaConta?: { nome: string; motivo: string }[];
+  // Parâmetros legais vigentes (jornada, dias, divisor); sem eles valem os de hoje.
+  parametros?: TabelaParametros;
 }) => {
   const { loja, escala, turnos, base, vendas } = a;
   const dias = diasAbertos(loja.horarios);
@@ -151,7 +154,7 @@ export const montarDiagnostico = (a: {
   const pessoas = noCalculo.map((t) => ({ funcao: t.funcao!, cargaH: t.cargaH }));
 
   const regras = REGRA_IDS.map((id: RegraId) => {
-    const regra = regraPara(id, loja.convencao8h24);
+    const regra = regraPara(id, loja.convencao8h24, a.parametros);
     const funcoes = verificarRegra(regra, dias, exigencias, pessoas);
     return {
       id,
@@ -300,6 +303,7 @@ export const montarDiagnostico = (a: {
         vendasDoCadastro: origemVendas === 'cadastro',
         custos: loja.custos ?? null,
         dono: a.dono === true,
+        parametros: a.parametros,
       };
       const cenarios = montarCenarios(entrada);
       return [regraId, { ...cenarios, ...montarExtras(entrada, cenarios) }];

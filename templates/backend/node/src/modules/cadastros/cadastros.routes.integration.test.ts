@@ -489,4 +489,120 @@ describe('cadastros (rotas)', () => {
       expect((await enviar(gestor, '051'))?.faturamento).toBeNull();
     });
   });
+  describe('equipe da loja: carga mensal, horário, CPF', () => {
+    const consulta = { 'X-Perfil': 'SCHEDULE_VIEWER' };
+    let lojaId: string;
+    beforeEach(async () => {
+      lojaId = (
+        await request(app)
+          .post('/api/v1/lojas')
+          .set(admin)
+          .send({ codigo: '060', nome: 'Loja Sessenta' })
+      ).body.id;
+    });
+    const novo = (extra: object = {}) =>
+      request(app)
+        .post('/api/v1/funcionarios')
+        .set(admin)
+        .send({ matricula: 'M1', nome: 'Ana Souza', lojaId, funcaoEscala: 'Caixa', ...extra });
+
+    it('guarda carga mensal, horário e dias; a semanal sai da mensal', async () => {
+      const r = await novo({
+        cargaMensalH: 220,
+        entrada: '08:00',
+        saida: '17:30',
+        dias: [4, 0, 1, 2, 3, 3],
+        cpf: '529.982.247-25',
+        cargo: 'Caixa',
+      });
+      expect(r.status).toBe(201);
+      expect(r.body).toMatchObject({
+        cargaMensalH: 220,
+        cargaSemanalH: 44,
+        entrada: '08:00',
+        saida: '17:30',
+        dias: [0, 1, 2, 3, 4],
+      });
+      const lista = (await request(app).get(`/api/v1/funcionarios?lojaId=${lojaId}`).set(admin))
+        .body.data;
+      expect(lista[0]).toMatchObject({ cpf: '529.982.247-25', entrada: '08:00' });
+    });
+
+    it('quem só tem carga semanal mostra a mensal equivalente', async () => {
+      const r = await novo({ cargaSemanalH: 42 });
+      expect(r.body.cargaMensalH).toBe(210);
+    });
+
+    it('recusa CPF inválido e repetido na mesma loja; permite o mesmo CPF em outra loja', async () => {
+      expect((await novo({ cpf: '529.982.247-26' })).status).toBe(400);
+      expect((await novo({ cpf: '529.982.247-25' })).status).toBe(201);
+      const dup = await novo({ matricula: 'M2', cpf: '52998224725' });
+      expect(dup.status).toBe(409);
+      expect(dup.body.error.code).toBe('CPF_DUPLICADO');
+      const outra = (
+        await request(app)
+          .post('/api/v1/lojas')
+          .set(admin)
+          .send({ codigo: '061', nome: 'Loja Outra' })
+      ).body.id;
+      const ok = await request(app)
+        .post('/api/v1/funcionarios')
+        .set(admin)
+        .send({ matricula: 'M3', nome: 'Bia Lima', lojaId: outra, cpf: '529.982.247-25' });
+      expect(ok.status).toBe(201);
+    });
+
+    it('recusa saída igual à entrada, entrada sem saída e horário fora do formato', async () => {
+      expect((await novo({ entrada: '08:00', saida: '08:00' })).status).toBe(400);
+      expect((await novo({ entrada: '08:00' })).status).toBe(400);
+      expect((await novo({ entrada: '8h', saida: '17:00' })).status).toBe(400);
+    });
+
+    it('edita só o horário e remove (exclusão lógica); sai da lista', async () => {
+      const f = await novo({ entrada: '08:00', saida: '17:00', dias: [0, 1] });
+      const ed = await request(app)
+        .patch(`/api/v1/funcionarios/${f.body.id}`)
+        .set(admin)
+        .send({ saida: '18:00' });
+      expect(ed.body).toMatchObject({ entrada: '08:00', saida: '18:00' });
+      expect(
+        (
+          await request(app)
+            .patch(`/api/v1/funcionarios/${f.body.id}`)
+            .set(admin)
+            .send({ saida: '08:00' })
+        ).status,
+      ).toBe(400);
+      expect(
+        (await request(app).delete(`/api/v1/funcionarios/${f.body.id}`).set(admin)).status,
+      ).toBe(204);
+      expect(
+        (await request(app).get(`/api/v1/funcionarios?lojaId=${lojaId}`)).body.meta.total,
+      ).toBe(0);
+      expect(
+        await prisma.funcionario.count({ where: { id: f.body.id, deletedAt: { not: null } } }),
+      ).toBe(1);
+    });
+
+    it('busca por nome ou cargo; consulta vê o CPF mascarado', async () => {
+      await novo({ cargo: 'Farmacêutica Responsável', cpf: '529.982.247-25' });
+      const porCargo = await request(app)
+        .get(`/api/v1/funcionarios?lojaId=${lojaId}&busca=responsavel`)
+        .set(admin);
+      expect(porCargo.body.meta.total).toBe(0);
+      const porCargo2 = await request(app)
+        .get(`/api/v1/funcionarios?lojaId=${lojaId}&busca=Respons`)
+        .set(admin);
+      expect(porCargo2.body.meta.total).toBe(1);
+      const vista = (await request(app).get(`/api/v1/funcionarios?lojaId=${lojaId}`).set(consulta))
+        .body.data[0];
+      expect(vista.cpf).toBe('***.982.247-**');
+      const gestor = (
+        await request(app)
+          .get(`/api/v1/funcionarios?lojaId=${lojaId}`)
+          .set({ 'X-Perfil': 'SCHEDULE_MANAGER' })
+      ).body.data[0];
+      expect(gestor.cpf).toBe('529.982.247-25');
+    });
+  });
 });

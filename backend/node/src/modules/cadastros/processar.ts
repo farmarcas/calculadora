@@ -11,7 +11,9 @@ import {
 export type FuncaoEscala = (typeof FUNCOES_ESCALA)[number];
 import type { Aba } from '../planilhas/leitor.js';
 import type { Mapeamento, MapeamentoAba } from '../planilhas/inferencia.js';
+import { lerDias, lerHora } from '../escala/interpretar.js';
 import { normalizar } from '../planilhas/normalizar.js';
+import { decimalParaHora, semanalDeMensal } from './carga.js';
 import { faturamentoDaLinha, type Faturamento } from './faturamento.js';
 
 // Aceita "Simples Nacional", "Lucro Presumido", "Lucro Real" (e variações); qualquer outra coisa fica em branco.
@@ -43,6 +45,10 @@ export type FuncionarioInput = {
   cargo?: string;
   funcaoEscala: FuncaoEscala | null;
   cargaSemanalH?: number;
+  cargaMensalH?: number;
+  entrada?: string;
+  saida?: string;
+  dias?: number[];
   regime?: string;
 };
 export type ErroLinha = { aba: string; linha: number; motivo: string };
@@ -185,6 +191,23 @@ export const processarLinhas = (abas: Aba[], mapa: Mapeamento): Processado => {
       const carga = cargaTxt ? Math.round(Number(cargaTxt)) : undefined;
       if (cargaTxt && (!Number.isFinite(carga) || carga! <= 0 || carga! > 60))
         return erro('Carga semanal inválida');
+      const mensalTxt = celula(l, m, 'carga_mensal').replace(',', '.');
+      const mensal = mensalTxt ? Math.round(Number(mensalTxt)) : undefined;
+      if (mensalTxt && (!Number.isFinite(mensal) || mensal! <= 0 || mensal! > 260))
+        return erro('Carga mensal inválida');
+      const entradaTxt = celula(l, m, 'entrada');
+      const saidaTxt = celula(l, m, 'saida');
+      const entrada = entradaTxt ? lerHora(entradaTxt) : null;
+      const saida = saidaTxt ? lerHora(saidaTxt) : null;
+      if ((entradaTxt && entrada === null) || (saidaTxt && saida === null))
+        return erro('Horário de entrada ou saída inválido');
+      if ((entrada === null) !== (saida === null))
+        return erro('Informe a entrada e a saída (ou deixe as duas em branco)');
+      if (entrada !== null && entrada === saida)
+        return erro('A saída deve ser diferente da entrada');
+      const diasTxt = celula(l, m, 'dias');
+      const dias = diasTxt ? lerDias(diasTxt) : null;
+      if (diasTxt && !dias) return erro('Dias trabalhados inválidos');
       const cargo = celula(l, m, 'cargo') || undefined;
       vistosMat.add(matricula);
       out.funcionarios.push({
@@ -194,7 +217,11 @@ export const processarLinhas = (abas: Aba[], mapa: Mapeamento): Processado => {
         cpf: celula(l, m, 'cpf') || undefined,
         cargo,
         funcaoEscala: deduzirFuncao(celula(l, m, 'funcao_escala') || undefined, cargo),
-        cargaSemanalH: carga,
+        cargaSemanalH: carga ?? (mensal ? semanalDeMensal(mensal) : undefined),
+        cargaMensalH: mensal,
+        entrada: entrada === null ? undefined : decimalParaHora(entrada),
+        saida: saida === null ? undefined : decimalParaHora(saida!),
+        dias: dias ?? undefined,
         regime: celula(l, m, 'regime') || undefined,
       });
     });

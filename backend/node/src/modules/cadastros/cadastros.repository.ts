@@ -1,4 +1,5 @@
 import { prisma } from '../../shared/database/prisma.js';
+import { decimalParaHora, horaParaDecimal, mensalDeSemanal } from './carga.js';
 import { normalizarHorarios, resumoHorarios } from './horarios.js';
 import type { Aba } from '../planilhas/leitor.js';
 import type {
@@ -29,6 +30,10 @@ const funcSel = {
   cargo: true,
   funcaoEscala: true,
   cargaSemanalH: true,
+  cargaMensalH: true,
+  entrada: true,
+  saida: true,
+  dias: true,
   regime: true,
 } as const;
 
@@ -50,10 +55,26 @@ const comoLoja = (
     horarios: normalizarHorarios(r.horarios) ?? undefined,
     horariosResumo: resumoHorarios(normalizarHorarios(r.horarios)),
   }) as LojaRegistro;
-const comoFunc = (r: Record<string, unknown>) =>
-  Object.fromEntries(
+const comoFunc = (r: Record<string, unknown>) => {
+  const base = Object.fromEntries(
     Object.entries(r).map(([k, v]) => [k, v === null && k !== 'funcaoEscala' ? undefined : v]),
-  ) as unknown as FuncionarioRegistro;
+  );
+  const semanal = r.cargaSemanalH as number | null;
+  return {
+    ...base,
+    // Quem só tem a carga semanal (planilhas antigas) mostra a mensal equivalente.
+    cargaMensalH:
+      (r.cargaMensalH as number | null) ?? (semanal ? mensalDeSemanal(semanal) : undefined),
+    entrada: r.entrada == null ? undefined : decimalParaHora(r.entrada as number),
+    saida: r.saida == null ? undefined : decimalParaHora(r.saida as number),
+  } as unknown as FuncionarioRegistro;
+};
+// API (texto "HH:MM") → banco (horas decimais).
+const paraBanco = <T extends { entrada?: string | null; saida?: string | null }>(i: T) => ({
+  ...i,
+  entrada: i.entrada == null ? i.entrada : horaParaDecimal(i.entrada),
+  saida: i.saida == null ? i.saida : horaParaDecimal(i.saida),
+});
 const limpa = <T extends object>(o: T) =>
   Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined)) as T;
 
@@ -112,6 +133,7 @@ export const cadastrosRepository: CadastrosRepository = {
             OR: [
               { nome: { contains: busca, mode: 'insensitive' as const } },
               { matricula: { contains: busca } },
+              { cargo: { contains: busca, mode: 'insensitive' as const } },
             ],
           }
         : {}),
@@ -128,6 +150,13 @@ export const cadastrosRepository: CadastrosRepository = {
     ]);
     return { data: rows.map(comoFunc), total };
   },
+  async cpfsDaLoja(lojaId) {
+    const rs = await prisma.funcionario.findMany({
+      where: { lojaId, cpf: { not: null }, ...ativo },
+      select: { id: true, cpf: true },
+    });
+    return rs.map((r) => ({ id: r.id, cpf: r.cpf! }));
+  },
   async buscarFuncionario(id) {
     const r = await prisma.funcionario.findFirst({ where: { id, ...ativo }, select: funcSel });
     return r ? comoFunc(r) : null;
@@ -140,11 +169,17 @@ export const cadastrosRepository: CadastrosRepository = {
     return r ? comoFunc(r) : null;
   },
   async criarFuncionario(i) {
-    return comoFunc(await prisma.funcionario.create({ data: limpa(i) as never, select: funcSel }));
+    return comoFunc(
+      await prisma.funcionario.create({ data: limpa(paraBanco(i)) as never, select: funcSel }),
+    );
   },
   async atualizarFuncionario(id, i) {
     return comoFunc(
-      await prisma.funcionario.update({ where: { id }, data: limpa(i) as never, select: funcSel }),
+      await prisma.funcionario.update({
+        where: { id },
+        data: limpa(paraBanco(i)) as never,
+        select: funcSel,
+      }),
     );
   },
   async removerFuncionario(id) {

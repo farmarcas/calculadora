@@ -157,6 +157,36 @@ export const escalaRepository = {
     };
   },
 
+  // Horário atual digitado no cadastro dos funcionários: mesmo turno nos dias trabalhados.
+  // Só vale turno no mesmo dia (saída depois da entrada); virada de dia fica só informativa.
+  async turnosDoCadastro(lojaId: string): Promise<TurnoDiag[]> {
+    const fs = await prisma.funcionario.findMany({
+      where: {
+        lojaId,
+        ...ativo,
+        entrada: { not: null },
+        saida: { not: null },
+        NOT: { dias: { isEmpty: true } },
+      },
+      orderBy: { nome: 'asc' },
+    });
+    return fs
+      .filter((f) => f.saida! > f.entrada!)
+      .map((f) => ({
+        funcao: f.funcaoEscala,
+        matricula: f.matricula,
+        nome: f.nome,
+        dias: f.dias,
+        entrada: f.entrada!,
+        saida: f.saida!,
+        iniIntervalo: null,
+        fimIntervalo: null,
+        cargaH: f.cargaSemanalH ?? Math.round(f.dias.length * (f.saida! - f.entrada!)),
+        status: f.funcaoEscala ? 'ok' : 'fora_calculo',
+        motivo: null,
+      }));
+  },
+
   async baseAtiva(lojaId: string): Promise<{ meta: CargaMeta; vendas: VendaLinha[] } | null> {
     const c = await prisma.carga.findFirst({
       where: { lojaId, tipo: 'BASE', ativa: true },

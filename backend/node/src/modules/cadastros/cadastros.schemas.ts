@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { UFS, validarCnpj } from './documentos.js';
+import { UFS, validarCnpj, validarCpf } from './documentos.js';
 import { faturamentoSchema } from './faturamento.js';
 import { normalizarHorarios, validarHorarios } from './horarios.js';
 
@@ -34,6 +34,8 @@ const horariosEntrada = z.union([horariosNovo, horariosAntigo]).transform((h, ct
 
 export const REGIMES = ['simples', 'presumido', 'real'] as const;
 
+const horaHHMM = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Horário inválido (use HH:MM)');
+
 export const FUNCOES = ['Farmacêutico', 'Atendimento', 'Caixa', 'Apoio', 'Perfumaria'] as const;
 
 export const lojaSchema = z
@@ -67,10 +69,21 @@ export const funcionarioSchema = z
     matricula: z.string().trim().min(1).max(30),
     nome: z.string().trim().min(2).max(120),
     lojaId: z.string().uuid(),
-    cpf: z.string().trim().max(14).optional(),
+    cpf: z
+      .string()
+      .trim()
+      .max(14)
+      .refine((v) => v === '' || validarCpf(v), 'CPF inválido')
+      .optional(),
     cargo: z.string().trim().max(80).optional(),
     funcaoEscala: z.enum(FUNCOES).nullable().optional(),
     cargaSemanalH: z.number().int().min(1).max(60).optional(),
+    // Carga mensal digitada (220 h = 44 h); a semanal é derivada (mensal ÷ 5) quando não vem.
+    cargaMensalH: z.number().int().min(1).max(260).optional(),
+    // Horário atual: o mesmo turno nos dias trabalhados. Entrada e saída vêm juntas (a conferência é no serviço).
+    entrada: horaHHMM.nullable().optional(),
+    saida: horaHHMM.nullable().optional(),
+    dias: z.array(z.number().int().min(0).max(6)).max(7).optional(),
     regime: z.string().trim().max(30).optional(),
   })
   .strict();

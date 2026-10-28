@@ -520,6 +520,48 @@ describe('escala (rotas)', () => {
     expect(base.vendas).not.toBeNull();
   });
 
+  it('o horário digitado no cadastro vira a escala atual quando nada foi importado, e a importada vence', async () => {
+    const url = `/api/v1/lojas/${lojaId}/diagnostico`;
+    const cadastrar = (matricula: string, nome: string, extra: object) =>
+      request(app)
+        .post('/api/v1/funcionarios')
+        .set(admin)
+        .send({
+          matricula,
+          nome,
+          lojaId,
+          funcaoEscala: 'Farmacêutico',
+          cargaMensalH: 220,
+          ...extra,
+        });
+    await cadastrar('C1', 'Ana', { entrada: '08:00', saida: '17:00', dias: [0, 1, 2, 3, 4, 5] });
+    // saída antes da entrada (vira o dia) fica só informativa: não entra na escala
+    await cadastrar('C2', 'Bia', { entrada: '22:00', saida: '06:00', dias: [0, 1] });
+    const sem = (await request(app).get(url).set(admin)).body;
+    expect(sem.status).not.toBe('pendente');
+    expect(sem.colaboradores.map((c: { nome: string }) => c.nome)).toEqual(['Ana']);
+    expect(sem.fontes.escala.arquivo).toBe('Cadastro de funcionários');
+
+    // escala importada para outra pessoa: a do cadastro completa o quadro
+    await request(app)
+      .post('/api/v1/cargas/escala')
+      .set(admin)
+      .attach(
+        'arquivo',
+        await xlsx(escalaCab, [
+          ['001', 'F2', 'Cris', 'Farmacêutica', 'Seg a Sex', '08:00', '', '', '16:00', '40'],
+          ['001', 'C1', 'Ana', 'Farmacêutica', 'Seg a Sex', '09:00', '', '', '18:00', '44'],
+        ]),
+        'e.xlsx',
+      );
+    const com = (await request(app).get(url).set(admin)).body;
+    expect(com.fontes.escala.arquivo).toBe('e.xlsx');
+    const ana = com.colaboradores.filter((c: { nome: string }) => c.nome === 'Ana');
+    expect(ana).toHaveLength(1);
+    expect(ana[0].turno).toContain('09');
+    expect(JSON.stringify(com.pontosAtencao)).toContain('difere da escala importada');
+  });
+
   it('cenário 5: mostra a sobra de gente por cargo; economia só para o dono', async () => {
     await request(app)
       .post('/api/v1/cargas/escala')

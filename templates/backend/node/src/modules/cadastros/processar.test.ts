@@ -145,3 +145,41 @@ describe('interpretarRegime', () => {
     expect(interpretarRegime('')).toBeUndefined();
   });
 });
+
+describe('equipe: carga mensal, horário e dias', () => {
+  const m = {
+    lojas: null,
+    funcionarios: {
+      aba: 'F',
+      colunas: { matricula: 0, nome: 1, loja: 2, carga_mensal: 3, entrada: 4, saida: 5, dias: 6 },
+    },
+  };
+  const rodar = (linha: string[]) =>
+    processarLinhas([{ nome: 'F', cabecalhos: [], linhas: [linha] }], m);
+
+  it('lê carga mensal (e deriva a semanal), entrada, saída e dias', () => {
+    const r = rodar(['F1', 'Ana', '001', '220', '08:00', '17:30', 'Seg a Sex']);
+    expect(r.erros).toEqual([]);
+    expect(r.funcionarios[0]).toMatchObject({
+      cargaMensalH: 220,
+      cargaSemanalH: 44,
+      entrada: '08:00',
+      saida: '17:30',
+      dias: [0, 1, 2, 3, 4],
+    });
+  });
+  it('recusa entrada sem saída, saída igual à entrada e carga fora do limite', () => {
+    expect(rodar(['F1', 'Ana', '001', '', '08:00', '', '']).erros[0]?.motivo).toContain(
+      'entrada e a saída',
+    );
+    expect(rodar(['F1', 'Ana', '001', '', '08:00', '08:00', '']).erros[0]?.motivo).toContain(
+      'diferente',
+    );
+    expect(rodar(['F1', 'Ana', '001', '999', '', '', '']).erros[0]?.motivo).toContain('mensal');
+  });
+  it('linha sem as colunas novas continua válida', () => {
+    const r = rodar(['F1', 'Ana', '001', '', '', '', '']);
+    expect(r.erros).toEqual([]);
+    expect(r.funcionarios[0]?.entrada).toBeUndefined();
+  });
+});

@@ -53,12 +53,12 @@ Segurança do banco: nada de `down -v`, `prisma migrate reset` nem apagar volume
 
 **Teste independente**: abrir uma loja, adicionar dois funcionários completos, reabrir, remover um e ver que sai da lista e da escala.
 
-- [ ] T018 [US3] Teste + schema/serviço de funcionário: `cargaMensalH` (deriva a semanal; quem só tem semanal mostra mensal = semanal × 5), `entrada`, `saida`, `dias`, CPF validado e único por loja (409 `CPF_DUPLICADO`), saída ≠ entrada (422), em `cadastros.schemas.ts` e serviço
-- [ ] T019 [US3] CPF mascarado nas respostas para consulta e fora dos logs, em serviço e rota (+ teste)
-- [ ] T020 [US3] Teste + `escala.service.ts`: funcionário sem turno vindo da carga e com entrada, saída e dias vira turno atual do diagnóstico; carga importada vence, divergência vira aviso
-- [ ] T021 [US3] Planilha: colunas opcionais `Carga_Mensal`, `Entrada`, `Saida`, `Dias`, em `processar.ts` (+ teste); modelo atualizado
-- [ ] T022 [US3] Teste de integração: criar, editar, remover funcionário; CPF repetido e inválido; permissões por perfil; mesmo diagnóstico de antes para quem só tem carga semanal, em `cadastros.routes.integration.test.ts`
-- [ ] T023 [P] [US3] `src/features/cadastros/EquipeLoja.jsx` dentro de `FormLoja.jsx`: lista com busca por nome ou cargo, adicionar/editar/remover ali mesmo, carga mensal com a semanal equivalente e aviso se fora de 42h/40h, entrada/saída e dias
+- [X] T018 [US3] Teste + schema/serviço de funcionário: `cargaMensalH` (deriva a semanal; quem só tem semanal mostra mensal = semanal × 5), `entrada`, `saida`, `dias`, CPF validado e único por loja (409 `CPF_DUPLICADO`), saída ≠ entrada (422), em `cadastros.schemas.ts` e serviço
+- [X] T019 [US3] CPF mascarado nas respostas para consulta e fora dos logs, em serviço e rota (+ teste)
+- [X] T020 [US3] Teste + `escala.service.ts`: funcionário sem turno vindo da carga e com entrada, saída e dias vira turno atual do diagnóstico; carga importada vence, divergência vira aviso
+- [X] T021 [US3] Planilha: colunas opcionais `Carga_Mensal`, `Entrada`, `Saida`, `Dias`, em `processar.ts` (+ teste); modelo atualizado
+- [X] T022 [US3] Teste de integração: criar, editar, remover funcionário; CPF repetido e inválido; permissões por perfil; mesmo diagnóstico de antes para quem só tem carga semanal, em `cadastros.routes.integration.test.ts`
+- [X] T023 [P] [US3] `src/features/cadastros/EquipeLoja.jsx` dentro de `FormLoja.jsx`: lista com busca por nome ou cargo, adicionar/editar/remover ali mesmo, carga mensal com a semanal equivalente e aviso se fora de 42h/40h, entrada/saída e dias
 
 **Checkpoint**: loja e equipe cadastradas no mesmo lugar.
 

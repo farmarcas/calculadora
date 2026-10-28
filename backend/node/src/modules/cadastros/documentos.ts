@@ -28,7 +28,7 @@ export const UFS = [
   'TO',
 ] as const;
 
-const soDigitos = (v: string) => v.replace(/\D/g, '');
+export const soDigitos = (v: string) => v.replace(/\D/g, '');
 
 // Dígito verificador: soma ponderada dos dígitos anteriores, módulo 11.
 const digito = (base: string, pesos: number[]) => {

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { api } from "../../api/client.js";
 import { Aviso, Botao, Campo, Modal, entrada } from "../../components/ui/index.jsx";
 import FaturamentoLoja, { erroDeFaturamento, faturamentoParaApi, faturamentoParaEdicao } from "./FaturamentoLoja.jsx";
+import EquipeLoja from "./EquipeLoja.jsx";
 import HorarioSemana, { erroDeHorario, paraApi, paraEdicao } from "./HorarioSemana.jsx";
 
 const REGIMES = [["", "Não informado"], ["simples", "Simples Nacional"], ["presumido", "Lucro Presumido"], ["real", "Lucro Real"]];
@@ -77,6 +78,11 @@ export default function FormLoja({ registro, perfil, onClose, onSalvo }) {
           <Botao onClick={salvar}>Salvar</Botao>
         </div>
       </form>
+      {registro ? (
+        <div className="mt-4"><EquipeLoja lojaId={registro.id} podeEscrever={perfil !== "SCHEDULE_VIEWER"} /></div>
+      ) : (
+        <p className="m-0 mt-4 text-xs text-ink-500">Salve a loja para cadastrar a equipe dela aqui.</p>
+      )}
     </Modal>
   );
 }

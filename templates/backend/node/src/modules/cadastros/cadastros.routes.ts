@@ -8,6 +8,7 @@ import { readValidated, validate } from '../../shared/middlewares/validate.js';
 import { gerarModelo } from '../planilhas/modelo.js';
 import { AppError } from '../../shared/errors/app-error.js';
 import { cadastrosRepository } from './cadastros.repository.js';
+import { mascararCpf } from './documentos.js';
 import { ocultarFaturamento } from './faturamento.js';
 import * as S from './cadastros.schemas.js';
 import { makeCadastrosService, type CadastrosRepository } from './cadastros.service.js';
@@ -67,9 +68,13 @@ export const cadastrosRouter = (repo: CadastrosRepository = cadastrosRepository)
     res.status(204).send();
   });
 
-  r.get('/funcionarios', validate(S.listarReq), async (_req, res) =>
-    res.json(await s.listarFuncionarios(v<typeof S.listarReq>(res).query)),
-  );
+  // CPF é dado pessoal: quem só consulta o vê mascarado.
+  const cpfPara = <T extends { cpf?: string }>(f: T, perfil: string): T =>
+    perfil === 'SCHEDULE_VIEWER' && f.cpf ? { ...f, cpf: mascararCpf(f.cpf) } : f;
+  r.get('/funcionarios', validate(S.listarReq), async (_req, res) => {
+    const pag = await s.listarFuncionarios(v<typeof S.listarReq>(res).query);
+    res.json({ ...pag, data: pag.data.map((f) => cpfPara(f, perfilDe(res))) });
+  });
   r.post('/funcionarios', escrita, validate(S.criarFuncReq), async (_req, res) =>
     res
       .status(201)

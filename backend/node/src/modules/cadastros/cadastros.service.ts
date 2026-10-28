@@ -6,6 +6,8 @@ import { CAMPOS_FUNCIONARIO, CAMPOS_LOJA } from '../planilhas/campos.js';
 import { inferirMapeamento, type Mapeamento } from '../planilhas/inferencia.js';
 import { lerPlanilha, type Aba } from '../planilhas/leitor.js';
 import type { FuncionarioBody, LojaBody } from './cadastros.schemas.js';
+import { semanalDeMensal } from './carga.js';
+import { soDigitos } from './documentos.js';
 import { processarLinhas, type FuncionarioInput, type LojaInput } from './processar.js';
 
 export type LojaRegistro = LojaBody & { id: string; horariosResumo?: string };
@@ -27,6 +29,7 @@ export type CadastrosRepository = {
   contarFuncionariosDaLoja: (lojaId: string) => Promise<number>;
   listarFuncionarios: (f: Filtro) => Promise<{ data: FuncionarioRegistro[]; total: number }>;
   buscarFuncionario: (id: string) => Promise<FuncionarioRegistro | null>;
+  cpfsDaLoja: (lojaId: string) => Promise<{ id: string; cpf: string }[]>;
   buscarFuncionarioPorMatricula: (m: string) => Promise<FuncionarioRegistro | null>;
   criarFuncionario: (i: FuncionarioBody) => Promise<FuncionarioRegistro>;
   atualizarFuncionario: (id: string, i: Partial<FuncionarioBody>) => Promise<FuncionarioRegistro>;
@@ -46,6 +49,39 @@ const pagina = <T>(r: { data: T[]; total: number }, f: Filtro): Pagina<T> => ({
   data: r.data,
   meta: { page: f.page, pageSize: f.pageSize, total: r.total },
 });
+
+// Regras de funcionário que valem na criação e na edição: carga semanal derivada da mensal,
+// entrada e saída juntas e diferentes, dias sem repetição e CPF único na loja.
+const prepararFuncionario = async <T extends Partial<FuncionarioBody>>(
+  repo: CadastrosRepository,
+  body: T,
+  atual?: FuncionarioRegistro,
+): Promise<T> => {
+  const preparado = { ...body };
+  if (body.cargaMensalH !== undefined && body.cargaSemanalH === undefined)
+    preparado.cargaSemanalH = semanalDeMensal(body.cargaMensalH);
+  if (body.dias) preparado.dias = [...new Set(body.dias)].sort();
+  if (body.entrada !== undefined || body.saida !== undefined) {
+    const entrada = body.entrada === undefined ? atual?.entrada : body.entrada;
+    const saida = body.saida === undefined ? atual?.saida : body.saida;
+    if (!!entrada !== !!saida)
+      throw new ValidationError('Informe a entrada e a saída (ou deixe as duas em branco)');
+    if (entrada && entrada === saida)
+      throw new ValidationError('A saída deve ser diferente da entrada');
+  }
+  if (body.cpf) {
+    const lojaId = body.lojaId ?? atual?.lojaId;
+    const digitos = soDigitos(body.cpf);
+    if (
+      lojaId &&
+      (await repo.cpfsDaLoja(lojaId)).some(
+        (o) => o.id !== atual?.id && soDigitos(o.cpf) === digitos,
+      )
+    )
+      throw new ConflictError('Já existe funcionário com esse CPF nesta loja', 'CPF_DUPLICADO');
+  }
+  return preparado;
+};
 
 export const makeCadastrosService = (repo: CadastrosRepository, auditar: Auditor) => ({
   listarLojas: async (f: Filtro) => pagina(await repo.listarLojas(f), f),
@@ -87,13 +123,13 @@ export const makeCadastrosService = (repo: CadastrosRepository, auditar: Auditor
       throw new ValidationError('Loja de lotação não existe');
     if (await repo.buscarFuncionarioPorMatricula(body.matricula))
       throw new ConflictError('Já existe funcionário com essa matrícula', 'FUNCIONARIO_DUPLICADO');
-    const f = await repo.criarFuncionario(body);
+    const f = await repo.criarFuncionario(await prepararFuncionario(repo, body));
     await auditar({ acao: 'funcionario.criado', perfil, alvoTipo: 'funcionario', alvoId: f.id });
     return f;
   },
   async editarFuncionario(id: string, body: Partial<FuncionarioBody>, perfil: string) {
-    if (!(await repo.buscarFuncionario(id)))
-      throw new NotFoundError('Funcionário não encontrado', 'FUNCIONARIO_NAO_ENCONTRADO');
+    const atual = await repo.buscarFuncionario(id);
+    if (!atual) throw new NotFoundError('Funcionário não encontrado', 'FUNCIONARIO_NAO_ENCONTRADO');
     if (body.lojaId && !(await repo.buscarLoja(body.lojaId)))
       throw new ValidationError('Loja de lotação não existe');
     if (body.matricula) {
@@ -104,7 +140,7 @@ export const makeCadastrosService = (repo: CadastrosRepository, auditar: Auditor
           'FUNCIONARIO_DUPLICADO',
         );
     }
-    const f = await repo.atualizarFuncionario(id, body);
+    const f = await repo.atualizarFuncionario(id, await prepararFuncionario(repo, body, atual));
     await auditar({ acao: 'funcionario.editado', perfil, alvoTipo: 'funcionario', alvoId: id });
     return f;
   },

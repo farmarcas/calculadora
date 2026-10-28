@@ -64,10 +64,10 @@ Segurança do banco: nada de `down -v`, `prisma migrate reset` nem apagar volume
 
 ## Phase 7: Fechamento
 
-- [ ] T024 Permissões ponta a ponta com dono, gestor e consulta (faturamento ausente, CPF mascarado, regime visível), conferido na tela
-- [ ] T025 Conferir que lojas e funcionários já cadastrados continuam com os mesmos resultados no Diagnóstico (comparar loja 001 antes e depois)
-- [ ] T026 README (Cadastros, faturamento como fonte de venda, base opcional, regime, limites da estimativa igual por hora) e `specs/007-.../quickstart.md` conferido
-- [ ] T027 Rodar tudo: `npm test`, `npm run test:integration`, `npm run lint`, `npx tsc --noEmit`, build do `web`, `scripts/sync-templates.sh --check`, `scripts/check-repo.sh`
+- [X] T024 Permissões ponta a ponta com dono, gestor e consulta (faturamento ausente, CPF mascarado, regime visível), conferido na tela
+- [X] T025 Conferir que lojas e funcionários já cadastrados continuam com os mesmos resultados no Diagnóstico (comparar loja 001 antes e depois)
+- [X] T026 README (Cadastros, faturamento como fonte de venda, base opcional, regime, limites da estimativa igual por hora) e `specs/007-.../quickstart.md` conferido
+- [X] T027 Rodar tudo: `npm test`, `npm run test:integration`, `npm run lint`, `npx tsc --noEmit`, build do `web`, `scripts/sync-templates.sh --check`, `scripts/check-repo.sh`
 
 ## Dependências
 

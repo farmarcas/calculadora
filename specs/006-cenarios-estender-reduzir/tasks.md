@@ -39,15 +39,15 @@ Formato: `[ID] [P] [US] descrição com caminho`. Caminhos do backend relativos 
 
 ## Phase 5: US3 — Encaixe (P3)
 
-- [ ] T016 [US3] Frases de direcionamento dos dois cenários (montadas com os números), e garantir que o `destaque` segue só entre `manter`, `economia` e `equilibrio` (teste), em `src/modules/escala/cenarios-extras.ts` e `cenarios.test.ts`
-- [ ] T017 [P] [US3] Tela: os dois cartões abaixo do Cenário 3, avisos de dado faltando e troca 42h/40h sem recarregar, em `src/features/diagnostico/Cenarios.jsx`
+- [X] T016 [US3] Frases de direcionamento dos dois cenários (montadas com os números), e garantir que o `destaque` segue só entre `manter`, `economia` e `equilibrio` (teste), em `src/modules/escala/cenarios-extras.ts` e `cenarios.test.ts`
+- [X] T017 [P] [US3] Tela: os dois cartões abaixo do Cenário 3, avisos de dado faltando e troca 42h/40h sem recarregar, em `src/features/diagnostico/Cenarios.jsx`
 
 ## Phase 6: Fechamento
 
-- [ ] T018 [P] Conferir na tela: loja com sobra de capacidade, loja justa, loja sem vendas e os três perfis; ajustar o que precisar
-- [ ] T019 Rodar `quickstart.md` de ponta a ponta com o ambiente de pé; `npm test`, `npm run test:integration`, `npm run lint` (conferindo o código de saída), builds da API e da tela
-- [ ] T020 [P] Sincronizar `templates/`, atualizar o README e a lista de pendências conhecidas (levar o cenário para uma simulação, folguista, rede de lojas)
-- [ ] T021 Marcar as tarefas concluídas e commitar
+- [X] T018 [P] Conferir na tela: loja com sobra de capacidade, loja justa, loja sem vendas e os três perfis; ajustar o que precisar
+- [X] T019 Rodar `quickstart.md` de ponta a ponta com o ambiente de pé; `npm test`, `npm run test:integration`, `npm run lint` (conferindo o código de saída), builds da API e da tela
+- [X] T020 [P] Sincronizar `templates/`, atualizar o README e a lista de pendências conhecidas (levar o cenário para uma simulação, folguista, rede de lojas)
+- [X] T021 Marcar as tarefas concluídas e commitar
 
 ## Dependências
 

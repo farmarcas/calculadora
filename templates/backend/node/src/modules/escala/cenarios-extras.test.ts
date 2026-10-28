@@ -285,3 +285,29 @@ describe('Cenário 5 — reduzir equipe', () => {
     expect(r.pessoasExcedentes).toBe(4);
   });
 });
+
+describe('Encaixe dos cenários 4 e 5', () => {
+  const vendas = vendasPontas({ 0: [40, 30], 1: [20, 60], 2: [10, 10], 3: [50, 25], 4: [35, 70] });
+
+  it('ficam fora da escolha do selo de menor impacto, que segue entre os cenários 1 a 3', () => {
+    const e = entrada({ vendas });
+    const c = montarCenarios(e);
+    const antes = c.destaque;
+    const extras = montarExtras(e, c);
+    expect(['manter', 'economia', 'equilibrio']).toContain(antes);
+    // o selo não muda com os extras, e os extras não entram no resultado dos três
+    expect(c.destaque).toBe(antes);
+    expect('estender' in c).toBe(false);
+    expect('reduzir' in c).toBe(false);
+    // cada extra tem o próprio impacto (só para o dono)
+    expect(extras.estender.impactoMensal).not.toBeUndefined();
+    expect(extras.reduzir.impactoMensal).not.toBeUndefined();
+  });
+
+  it('todo cenário traz uma frase de direcionamento', () => {
+    const e = entrada({ vendas });
+    const x = montarExtras(e, montarCenarios(e));
+    expect(x.estender.direcionamento.length).toBeGreaterThan(20);
+    expect(x.reduzir.direcionamento.length).toBeGreaterThan(20);
+  });
+});

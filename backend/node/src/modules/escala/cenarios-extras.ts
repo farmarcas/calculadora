@@ -273,7 +273,7 @@ const montarEstender = (e: EntradaCenarios, c: CenariosRegra): CenarioEstender =
     vendaRefMes,
     margemRefMes,
     aviso: comVenda
-      ? `A venda das horas novas é uma referência: usa parte da venda da hora vizinha (50% na primeira hora nova, 25% na segunda), não uma previsão.${vb.dias < 14 ? ` A base tem só ${vb.dias} dias de venda.` : ''}`
+      ? `A venda das horas novas é uma referência: usa parte da venda da hora vizinha (50% na primeira hora nova, 25% na segunda), não uma previsão.${vb.dias < 14 && !e.vendasDoCadastro ? ` A base tem só ${vb.dias} dias de venda.` : ''}`
       : 'Sem base comercial, as horas novas foram escolhidas só pela capacidade da equipe.',
   };
   if (e.dono) {

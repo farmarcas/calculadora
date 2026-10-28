@@ -42,10 +42,10 @@ Segurança do banco: nada de `down -v`, `prisma migrate reset` nem apagar volume
 
 **Teste independente**: loja sem base e com faturamento: os cenários 2, 3 e 4 aparecem com venda estimada e aviso de origem; enviar a base muda a origem; resultados de quem já tem base não mudam.
 
-- [ ] T014 [US4] Teste + `src/modules/escala/vendas-cadastro.ts`: faturamento → `VendaLinha[]` numa semana de referência (cada dia dividido igualmente entre as horas abertas, usando a mesma função de horas abertas do diagnóstico, 24 horas e virada de dia incluídas); só mensal = mensal × 12 ÷ 52 ÷ dias abertos; margem = venda × %; dia fechado sem linhas
-- [ ] T015 [US4] Teste + `diagnostico.ts` e `escala.service.ts`: origem base > cadastro > nenhuma, `origemVendas` na resposta; com origem `cadastro`, `vendas.top` e `maiorVendaDescoberta` nulos e sem o aviso de "horário de maior venda"; gestor/consulta sem valores em reais
-- [ ] T016 [US4] Teste de integração: diagnóstico sem base e com faturamento (cenários 2–4 calculados); com base (base vence); sem nenhum dos dois; resultados atuais inalterados, em `escala.routes.integration.test.ts`
-- [ ] T017 [P] [US4] Textos e origem na tela: "estimativa a partir do faturamento cadastrado (distribuído igualmente nas horas abertas)", "informe o faturamento da loja no Cadastro" no lugar de "envie a base comercial", base marcada como opcional, em `QuadroCentral.jsx`, `Cenarios.jsx` e `EnviarPlanilhas.jsx`
+- [X] T014 [US4] Teste + `src/modules/escala/vendas-cadastro.ts`: faturamento → `VendaLinha[]` numa semana de referência (cada dia dividido igualmente entre as horas abertas, usando a mesma função de horas abertas do diagnóstico, 24 horas e virada de dia incluídas); só mensal = mensal × 12 ÷ 52 ÷ dias abertos; margem = venda × %; dia fechado sem linhas
+- [X] T015 [US4] Teste + `diagnostico.ts` e `escala.service.ts`: origem base > cadastro > nenhuma, `origemVendas` na resposta; com origem `cadastro`, `vendas.top` e `maiorVendaDescoberta` nulos e sem o aviso de "horário de maior venda"; gestor/consulta sem valores em reais
+- [X] T016 [US4] Teste de integração: diagnóstico sem base e com faturamento (cenários 2–4 calculados); com base (base vence); sem nenhum dos dois; resultados atuais inalterados, em `escala.routes.integration.test.ts`
+- [X] T017 [P] [US4] Textos e origem na tela: "estimativa a partir do faturamento cadastrado (distribuído igualmente nas horas abertas)", "informe o faturamento da loja no Cadastro" no lugar de "envie a base comercial", base marcada como opcional, em `QuadroCentral.jsx`, `Cenarios.jsx` e `EnviarPlanilhas.jsx`
 
 **Checkpoint**: o Diagnóstico funciona sem subir a base.
 

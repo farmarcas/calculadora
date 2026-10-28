@@ -92,7 +92,7 @@ export default function EnviarPlanilhas({ onClose, onConcluido }) {
         />
         <Bloco
           titulo="Base comercial"
-          descricao="Vendas por data e hora. Mostra os horários de maior movimento."
+          descricao="Opcional. Vendas por data e hora: mostra os horários de maior movimento e deixa a estimativa dos cenários mais precisa. Sem ela, o Diagnóstico usa o faturamento cadastrado na loja."
           caminho="/cargas/base"
           modelo="/planilha-modelo-base"
           nomeModelo="modelo-base-comercial.xlsx"

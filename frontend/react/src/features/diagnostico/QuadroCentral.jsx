@@ -107,7 +107,7 @@ export default function QuadroCentral({ diag, regraId, onRegra, podeEscrever, on
             <Numero
               rotulo="Maior venda sem cobertura"
               valor={n.maiorVendaDescoberta ?? "—"}
-              legenda={n.maiorVendaDescoberta === null ? "sem base comercial" : "das 3 horas de maior venda"}
+              legenda={n.maiorVendaDescoberta === null ? "precisa da base comercial (hora a hora)" : "das 3 horas de maior venda"}
               tom={n.maiorVendaDescoberta ? "erro" : n.maiorVendaDescoberta === 0 ? "ok" : "neutro"}
             />
             <Numero rotulo="Fora do cálculo" valor={n.foraDoCalculo} legenda="colaboradores sem função de escala" tom={n.foraDoCalculo > 0 ? "atencao" : "ok"} />
@@ -117,7 +117,7 @@ export default function QuadroCentral({ diag, regraId, onRegra, podeEscrever, on
 
         {n.maiorVendaDescoberta === null && podeEscrever && (
           <div className="flex flex-wrap items-center gap-3 text-xs text-ink-500">
-            Sem base comercial, o diagnóstico não vê os horários de maior venda.
+            O diagnóstico só vê os horários de maior venda com a base comercial (opcional).
             <Botao tipo="texto" onClick={onEnviar}>Enviar base comercial</Botao>
           </div>
         )}

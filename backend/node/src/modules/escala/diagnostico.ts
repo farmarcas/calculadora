@@ -5,7 +5,9 @@ import type { Custos } from '../custos/custos.schemas.js';
 import { cobertura, type TurnoPessoa } from './cobertura.js';
 import { montarCenarios } from './cenarios.js';
 import { montarExtras, type ExtrasRegra } from './cenarios-extras.js';
+import type { Faturamento } from '../cadastros/faturamento.js';
 import { resumirVendas, type VendaLinha } from './vendas.js';
+import { vendasDoCadastro } from './vendas-cadastro.js';
 
 export type LojaDiag = {
   id: string;
@@ -17,6 +19,8 @@ export type LojaDiag = {
   minimos: Record<string, number> | null;
   // Só para o cálculo de custo (visível apenas ao dono); nunca sai no diagnóstico.
   custos?: Custos | null;
+  // Faturamento do cadastro: só vira venda do diagnóstico quando não há base comercial.
+  faturamento?: Faturamento | null;
 };
 export type TurnoDiag = Omit<TurnoPessoa, 'funcao'> & {
   matricula: string;
@@ -38,6 +42,29 @@ const hh = (h: number) =>
   `${String(Math.floor(h)).padStart(2, '0')}:${String(Math.round((h % 1) * 60)).padStart(2, '0')}`;
 
 // Dias abertos com a faixa de cada um (24 horas = 0 a 24). Aceita o formato novo e o antigo.
+// Valores de venda e margem que, vindos do faturamento do cadastro, só o dono pode ver.
+const CHAVES_DE_VENDA = new Set([
+  'venda',
+  'margem',
+  'vendaRef',
+  'margemRef',
+  'vendaRefMes',
+  'margemRefMes',
+  'vendaCortadaSemana',
+  'vendaCortadaMes',
+  'margemCortadaMes',
+]);
+const semValoresDeVenda = (v: unknown): unknown =>
+  Array.isArray(v)
+    ? v.map(semValoresDeVenda)
+    : v && typeof v === 'object'
+      ? Object.fromEntries(
+          Object.entries(v)
+            .filter(([k]) => !CHAVES_DE_VENDA.has(k))
+            .map(([k, x]) => [k, semValoresDeVenda(x)]),
+        )
+      : v;
+
 export const diasAbertos = (h: unknown): DiaAberto[] => faixasDaSemana(normalizarHorarios(h));
 
 const resumoDias = (dias: number[]) => {
@@ -139,7 +166,13 @@ export const montarDiagnostico = (a: {
     noCalculo.map((t) => ({ ...t, funcao: t.funcao! })),
     minimos,
   );
-  const resumoVendas = resumirVendas(vendas);
+  // Origem da venda: a base comercial vale; sem ela, o faturamento do cadastro (estimativa); senão nada.
+  const doCadastro = vendas.length === 0 ? vendasDoCadastro(loja.faturamento, dias) : null;
+  const origemVendas =
+    vendas.length > 0 ? ('base' as const) : doCadastro ? ('cadastro' as const) : null;
+  const vendasUsadas = doCadastro?.linhas ?? vendas;
+  // Sem curva por hora (origem cadastro) não existe "horário de maior venda".
+  const resumoVendas = origemVendas === 'base' ? resumirVendas(vendas) : null;
 
   const atencao: { tom: 'erro' | 'atencao'; texto: string }[] = [];
   if (!atual.passa)
@@ -181,10 +214,18 @@ export const montarDiagnostico = (a: {
         tom: 'erro',
         texto: `Horário de maior venda com cobertura abaixo do mínimo: ${fracas.map((t) => hh(t.hora)).join(', ')}.`,
       });
+  } else if (origemVendas === 'cadastro') {
+    atencao.push({
+      tom: 'atencao',
+      texto: doCadastro?.comMargem
+        ? 'Venda estimada pelo faturamento do cadastro, dividido igualmente entre as horas abertas. Envie a base comercial para ver as horas de maior venda.'
+        : 'Venda estimada pelo faturamento do cadastro, dividido igualmente entre as horas abertas. Informe a margem bruta média da loja no Cadastro para estimar o ganho dos cenários.',
+    });
   } else {
     atencao.push({
       tom: 'atencao',
-      texto: 'Sem base comercial: não dá para ver os horários de maior venda.',
+      texto:
+        'Sem venda informada: cadastre o faturamento da loja ou envie a base comercial para ver os horários de maior venda.',
     });
   }
   const fora = turnos.filter((t) => !t.funcao);
@@ -234,6 +275,28 @@ export const montarDiagnostico = (a: {
     linhasRejeitadas: escala.linhasRejeitadas,
   };
 
+  const cenariosPorRegra = Object.fromEntries(
+    (['r42', 'r40'] as const).map((regraId) => {
+      const entrada = {
+        regraId,
+        convencao8h24: loja.convencao8h24,
+        dias,
+        minimos,
+        pessoas,
+        vendas: vendasUsadas,
+        vendasDoCadastro: origemVendas === 'cadastro',
+        custos: loja.custos ?? null,
+        dono: a.dono === true,
+      };
+      const cenarios = montarCenarios(entrada);
+      return [regraId, { ...cenarios, ...montarExtras(entrada, cenarios) }];
+    }),
+  ) as Record<'r42' | 'r40', ReturnType<typeof montarCenarios> & ExtrasRegra>;
+  // Venda estimada pelo faturamento do cadastro é valor em reais: só o dono vê.
+  const cenariosSaida = (
+    a.dono || origemVendas !== 'cadastro' ? cenariosPorRegra : semValoresDeVenda(cenariosPorRegra)
+  ) as typeof cenariosPorRegra;
+
   return {
     loja: lojaInfo,
     status,
@@ -244,22 +307,8 @@ export const montarDiagnostico = (a: {
     regras,
     cobertura: cob,
     vendas: resumoVendas,
-    cenarios: Object.fromEntries(
-      (['r42', 'r40'] as const).map((regraId) => {
-        const entrada = {
-          regraId,
-          convencao8h24: loja.convencao8h24,
-          dias,
-          minimos,
-          pessoas,
-          vendas,
-          custos: loja.custos ?? null,
-          dono: a.dono === true,
-        };
-        const cenarios = montarCenarios(entrada);
-        return [regraId, { ...cenarios, ...montarExtras(entrada, cenarios) }];
-      }),
-    ) as Record<'r42' | 'r40', ReturnType<typeof montarCenarios> & ExtrasRegra>,
+    origemVendas,
+    cenarios: cenariosSaida,
     pontosAtencao: atencao,
     colaboradores: turnos.map((t) => ({
       matricula: t.matricula,

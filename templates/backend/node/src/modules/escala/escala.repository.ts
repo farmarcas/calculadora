@@ -124,6 +124,7 @@ export const escalaRepository = {
       convencao8h24: l.convencao8h24,
       minimos: l.minimos as LojaDiag['minimos'],
       custos: l.custos as unknown as LojaDiag['custos'],
+      faturamento: l.faturamento as unknown as LojaDiag['faturamento'],
     };
   },
 

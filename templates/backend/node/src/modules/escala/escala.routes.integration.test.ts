@@ -434,6 +434,92 @@ describe('escala (rotas)', () => {
     }
   });
 
+  it('sem base comercial, o faturamento do cadastro vira a venda do diagnóstico; a base vence quando enviada', async () => {
+    await request(app)
+      .post('/api/v1/cargas/escala')
+      .set(admin)
+      .attach(
+        'arquivo',
+        await xlsx(escalaCab, [
+          ['001', 'F1', 'Ana', 'Farmacêutica', 'Seg a Sáb', '08:00', '', '', '17:00', '44'],
+          ['001', 'F2', 'Bia', 'Farmacêutica', 'Seg a Sex', '12:00', '', '', '20:00', '40'],
+          ['001', 'F3', 'Cris', 'Farmacêutica', 'Seg a Sex', '08:00', '', '', '16:00', '40'],
+        ]),
+        'e.xlsx',
+      );
+    await request(app)
+      .put(`/api/v1/lojas/${lojaId}/configuracao`)
+      .set(admin)
+      .send({ minimos: { Atendimento: 0, Caixa: 0 } });
+    const url = `/api/v1/lojas/${lojaId}/diagnostico`;
+    const gestor = { 'X-Perfil': 'SCHEDULE_MANAGER' };
+    const consulta = { 'X-Perfil': 'SCHEDULE_VIEWER' };
+
+    // nada informado: sem origem, e o texto manda cadastrar o faturamento
+    const nada = (await request(app).get(url).set(admin)).body;
+    expect(nada.origemVendas).toBeNull();
+    expect(JSON.stringify(nada.pontosAtencao)).toContain('cadastre o faturamento da loja');
+
+    // faturamento no cadastro (loja 08–20 seg a sex, 08–14 sáb), margem de 25%
+    await request(app)
+      .patch(`/api/v1/lojas/${lojaId}`)
+      .set(admin)
+      .send({
+        faturamento: {
+          dias: [12000, 12000, 12000, 12000, 12000, 6000, null],
+          mensal: null,
+          margemPct: 25,
+        },
+      });
+    const dono = (await request(app).get(url).set(admin)).body;
+    expect(dono.origemVendas).toBe('cadastro');
+    expect(dono.vendas).toBeNull();
+    expect(dono.numeros.maiorVendaDescoberta).toBeNull();
+    expect(JSON.stringify(dono.pontosAtencao)).toContain('Venda estimada pelo faturamento');
+    const est = dono.cenarios.r40.estender;
+    expect(est.disponivel).toBe(true);
+    expect(typeof est.margemRefMes).toBe('number');
+    expect(est.aviso).toContain('referência');
+    expect(dono.cenarios.r40.economia.margemCortadaMes).not.toBeUndefined();
+    expect(est.aviso).not.toContain('dias de venda');
+    expect(dono.cenarios.r40.economia.aviso ?? '').not.toContain('dias de venda');
+
+    // gestor e consulta: mesmos cenários, sem nenhum valor de venda ou margem
+    for (const perfil of [gestor, consulta]) {
+      const r = (await request(app).get(url).set(perfil)).body;
+      expect(r.origemVendas).toBe('cadastro');
+      expect(r.cenarios.r40.estender.extensoes.length).toBe(est.extensoes.length);
+      const texto = JSON.stringify(r.cenarios);
+      for (const chave of [
+        'vendaRefMes',
+        'margemRefMes',
+        'vendaCortadaMes',
+        'margemCortadaMes',
+        '"venda"',
+        '"margem"',
+      ]) {
+        expect(texto).not.toContain(chave);
+      }
+      expect(JSON.stringify(r)).not.toContain('faturamento":');
+    }
+
+    // a base comercial enviada passa a valer
+    await request(app)
+      .post('/api/v1/cargas/base')
+      .set(admin)
+      .attach(
+        'arquivo',
+        await xlsx(
+          ['Data', 'Hora', 'Cod_Loja', 'Venda_Liquida_RS', 'Margem_Bruta_RS', 'Clientes_Atendidos'],
+          [['01/09/2026', '8', '001', '400,00', '100,00', '10']],
+        ),
+        'b.xlsx',
+      );
+    const base = (await request(app).get(url).set(admin)).body;
+    expect(base.origemVendas).toBe('base');
+    expect(base.vendas).not.toBeNull();
+  });
+
   it('cenário 5: mostra a sobra de gente por cargo; economia só para o dono', async () => {
     await request(app)
       .post('/api/v1/cargas/escala')

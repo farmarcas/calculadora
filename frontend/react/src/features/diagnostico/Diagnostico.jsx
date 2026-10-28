@@ -185,7 +185,7 @@ export default function Diagnostico({ diag, podeEscrever, onEnviar, onSimular })
     <div className="flex flex-col gap-6">
       <QuadroCentral diag={diag} regraId={regraId} onRegra={setRegraId} podeEscrever={podeEscrever} onEnviar={onEnviar} />
 
-      <Cenarios cenarios={diag.cenarios?.[regraId]} />
+      <Cenarios cenarios={diag.cenarios?.[regraId]} origemVendas={diag.origemVendas} />
 
       <Cartao titulo="Quadro por função" subtitulo="Só entram no cálculo colaboradores com função de escala">
         <table className="w-full border-collapse text-sm">

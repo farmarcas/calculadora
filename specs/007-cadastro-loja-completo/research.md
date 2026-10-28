@@ -19,3 +19,8 @@
 
 - Estimativa igual por hora pode levar os cenários 2 e 3 a cortar sempre a mesma ponta (empate). Mitigação: aviso claro de origem estimada e sugestão de enviar a base para refinar.
 - Planilhas antigas: colunas novas são opcionais; teste com a planilha de hoje.
+
+## Ajustes feitos na construção (etapa 3)
+- **Dia aberto sem valor** (com outros dias informados) usa a média dos informados; o diagnóstico avisa o uso da estimativa.
+- **Valores escondidos de quem não é dono:** com a venda vinda do cadastro, venda e margem dos cenários não saem para gestor e consulta (os cenários em si saem). Com base comercial, nada mudou.
+- **Aviso "poucos dias de venda"** não aparece quando a venda é do cadastro (não são dias reais).

@@ -6,6 +6,10 @@ const NOMES_DIA = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
 const TH = "text-left text-[11px] font-bold uppercase tracking-wide text-ink-500 px-4 py-2";
 const TD = "px-4 py-2 border-t border-line";
 
+// Quando o valor de venda não vem: sem nenhuma fonte, ou escondido de quem não é o dono (venda estimada pelo cadastro).
+const semVenda = (c) =>
+  c._origem === "cadastro" ? "valores de venda só para o dono" : "informe o faturamento da loja no Cadastro ou envie a base comercial";
+
 function Numero({ rotulo, valor, legenda }) {
   return (
     <div className="border border-line rounded-card bg-white px-4 py-3 min-w-0">
@@ -114,12 +118,12 @@ function Economia({ c }) {
               <Numero
                 rotulo="Venda cortada"
                 valor={sem ? "—" : brl(e.vendaCortadaMes)}
-                legenda={sem ? "sem base comercial para estimar" : "por mês (estimativa)"}
+                legenda={sem ? semVenda(c) : "por mês (estimativa)"}
               />
               <Numero
                 rotulo="Margem cortada"
                 valor={sem ? "—" : brl(e.margemCortadaMes)}
-                legenda={sem ? "sem base comercial para estimar" : "por mês (estimativa)"}
+                legenda={sem ? semVenda(c) : "por mês (estimativa)"}
               />
             </div>
             {e.cortes.length > 0 && (
@@ -242,7 +246,7 @@ function Estender({ c }) {
               <Numero
                 rotulo="Margem de referência"
                 valor={sem ? "—" : brl(e.margemRefMes)}
-                legenda={sem ? "sem base comercial para estimar" : "por mês (referência, não previsão)"}
+                legenda={sem ? semVenda(c) : "por mês (referência, não previsão)"}
               />
               {dono && (
                 <Numero
@@ -358,7 +362,7 @@ function Recomendacao({ c }) {
   }
   const falta = [];
   if (c.manter.custoAdicionalMensal === null) falta.push("informe os salários médios nos custos da loja");
-  if (!c.vendasBase) falta.push("importe a base comercial");
+  if (!c.vendasBase) falta.push("informe o faturamento da loja no Cadastro ou importe a base comercial");
   return (
     <Aviso tom="atencao">
       Para indicar o caminho de menor impacto financeiro, {falta.length ? falta.join(" e ") : "faltam dados para comparar os três cenários"}.
@@ -367,13 +371,18 @@ function Recomendacao({ c }) {
 }
 
 // Os cenários da regra escolhida no quadro central (42h ou 40h): a troca é só mudar `regraId` no pai.
-export default function Cenarios({ cenarios }) {
-  if (!cenarios) return null;
+export default function Cenarios({ cenarios: bruto, origemVendas }) {
+  if (!bruto) return null;
+  // A origem da venda segue junto, para cada cartão explicar de onde vem (ou por que falta) o valor.
+  const cenarios = { ...bruto, _origem: origemVendas };
   return (
     <section aria-label="Cenários de decisão" className="flex flex-col gap-4">
       <div>
         <h2 className="m-0 text-base font-bold">Cenários para a regra de {cenarios.regra.nome}</h2>
         <p className="mt-1 mb-0 text-sm text-ink-500">Estimativas para decidir o caminho. Nada aqui altera o cadastro nem cria funcionário.</p>
+        {origemVendas === "cadastro" && (
+          <p className="mt-1 mb-0 text-xs text-ink-500">Venda estimada a partir do faturamento cadastrado, dividido igualmente entre as horas abertas. Enviar a base comercial deixa a estimativa mais precisa.</p>
+        )}
       </div>
       <Recomendacao c={cenarios} />
       <Manter c={cenarios} atual={cenarios.atual} />

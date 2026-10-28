@@ -97,6 +97,8 @@ export type EntradaCenarios = {
   minimos: Record<string, number>;
   pessoas: { funcao: string; cargaH: number }[];
   vendas: VendaLinha[];
+  // Venda estimada pelo faturamento do cadastro (não é base de dias reais): sem aviso de "poucos dias".
+  vendasDoCadastro?: boolean;
   custos: Custos | null;
   dono: boolean;
 };
@@ -371,7 +373,7 @@ const montarEconomia = (e: EntradaCenarios, linhas: LinhaFuncao[]): CenarioEcono
     vendaCortadaMes: vendaMes,
     margemCortadaMes: margemMes,
     aviso:
-      vb && vb.dias < 14
+      vb && vb.dias < 14 && !e.vendasDoCadastro
         ? `A estimativa usa só ${vb.dias} dias de venda: confirme com uma base maior.`
         : null,
   };

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { UFS, validarCnpj } from './documentos.js';
+import { faturamentoSchema } from './faturamento.js';
 import { normalizarHorarios, validarHorarios } from './horarios.js';
 
 const vazio = z.object({}).strict();
@@ -54,6 +55,8 @@ export const lojaSchema = z
       .optional(),
     marca: z.string().trim().max(80).optional(),
     regimeTributario: z.enum(REGIMES).nullable().optional(),
+    // Só o dono grava e vê (a rota recusa os demais).
+    faturamento: faturamentoSchema.nullable().optional(),
     horarios: horariosEntrada.optional(),
   })
   .strict();

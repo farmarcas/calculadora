@@ -163,7 +163,7 @@ export default function CadastrosPage({ perfil }) {
         </div>
       </Cartao>
 
-      {form?.tipo === "loja" && <FormLoja registro={form.registro} onClose={() => setForm(null)} onSalvo={() => { setForm(null); carregar(); }} />}
+      {form?.tipo === "loja" && <FormLoja registro={form.registro} perfil={perfil} onClose={() => setForm(null)} onSalvo={() => { setForm(null); carregar(); }} />}
       {form?.tipo === "funcionario" && <FormFuncionario registro={form.registro} lojas={lojas.data} onClose={() => setForm(null)} onSalvo={() => { setForm(null); carregar(); }} />}
       {importando && <ImportarPlanilha onClose={() => setImportando(false)} onConcluido={carregar} />}
     </>

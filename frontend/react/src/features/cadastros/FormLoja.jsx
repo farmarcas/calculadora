@@ -1,12 +1,14 @@
 import { useState } from "react";
 import { api } from "../../api/client.js";
 import { Aviso, Botao, Campo, Modal, entrada } from "../../components/ui/index.jsx";
+import FaturamentoLoja, { erroDeFaturamento, faturamentoParaApi, faturamentoParaEdicao } from "./FaturamentoLoja.jsx";
 import HorarioSemana, { erroDeHorario, paraApi, paraEdicao } from "./HorarioSemana.jsx";
 
 const REGIMES = [["", "Não informado"], ["simples", "Simples Nacional"], ["presumido", "Lucro Presumido"], ["real", "Lucro Real"]];
 const UFS = ["AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"];
 
-export default function FormLoja({ registro, onClose, onSalvo }) {
+export default function FormLoja({ registro, perfil, onClose, onSalvo }) {
+  const dono = perfil === "TENANT_ADMIN";
   const [v, setV] = useState({
     codigo: registro?.codigo ?? "",
     nome: registro?.nome ?? "",
@@ -17,6 +19,7 @@ export default function FormLoja({ registro, onClose, onSalvo }) {
     regimeTributario: registro?.regimeTributario ?? "",
   });
   const [dias, setDias] = useState(() => paraEdicao(registro?.horarios, !registro));
+  const [fat, setFat] = useState(() => faturamentoParaEdicao(registro?.faturamento));
   const [mexeuNoHorario, setMexeuNoHorario] = useState(false);
   const [erro, setErro] = useState(null);
   const set = (k) => (e) => setV({ ...v, [k]: e.target.value });
@@ -28,7 +31,12 @@ export default function FormLoja({ registro, onClose, onSalvo }) {
     // Em loja já cadastrada, "Não informado" limpa o regime.
     if (v.regimeTributario) body.regimeTributario = v.regimeTributario;
     else if (registro?.regimeTributario) body.regimeTributario = null;
-    const problema = erroDeHorario(dias);
+    const problema = erroDeHorario(dias) ?? (dono ? erroDeFaturamento(fat) : null);
+    if (dono) {
+      const f = faturamentoParaApi(fat);
+      // Só manda quando há algo a gravar ou a limpar.
+      if (f || registro?.faturamento) body.faturamento = f;
+    }
     if (problema) return setErro(problema);
     // Só manda o horário se for loja nova, se já tinha horário ou se a pessoa mexeu nele.
     if (!registro || registro.horarios || mexeuNoHorario) body.horarios = paraApi(dias);
@@ -62,6 +70,7 @@ export default function FormLoja({ registro, onClose, onSalvo }) {
             </select>
           </Campo>
         </div>
+        {dono && <FaturamentoLoja valor={fat} onChange={setFat} />}
         <HorarioSemana dias={dias} onChange={(d) => { setDias(d); setMexeuNoHorario(true); }} />
         <div className="flex justify-end gap-2">
           <Botao tipo="texto" onClick={onClose}>Cancelar</Botao>

@@ -17,6 +17,7 @@ const lojaSel = {
   uf: true,
   marca: true,
   regimeTributario: true,
+  faturamento: true,
   horarios: true,
 } as const;
 const funcSel = {

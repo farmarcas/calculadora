@@ -12,6 +12,7 @@ export type FuncaoEscala = (typeof FUNCOES_ESCALA)[number];
 import type { Aba } from '../planilhas/leitor.js';
 import type { Mapeamento, MapeamentoAba } from '../planilhas/inferencia.js';
 import { normalizar } from '../planilhas/normalizar.js';
+import { faturamentoDaLinha, type Faturamento } from './faturamento.js';
 
 // Aceita "Simples Nacional", "Lucro Presumido", "Lucro Real" (e variações); qualquer outra coisa fica em branco.
 export const interpretarRegime = (texto: string) => {
@@ -31,6 +32,7 @@ export type LojaInput = {
   uf?: string;
   marca?: string;
   regimeTributario?: 'simples' | 'presumido' | 'real';
+  faturamento?: Faturamento;
   horarios?: HorariosSemana;
 };
 export type FuncionarioInput = {
@@ -148,6 +150,8 @@ export const processarLinhas = (abas: Aba[], mapa: Mapeamento): Processado => {
       if (vistosLoja.has(codigo)) return erro(`Código ${codigo} repetido na planilha`);
       const h = interpretarHorarioLoja((chave) => celula(l, mapa.lojas!, chave));
       if (h.erro) return erro(h.erro);
+      const fat = faturamentoDaLinha((chave) => celula(l, mapa.lojas!, chave));
+      if (fat.erro) return erro(fat.erro);
       vistosLoja.add(codigo);
       out.lojas.push({
         codigo,
@@ -157,6 +161,7 @@ export const processarLinhas = (abas: Aba[], mapa: Mapeamento): Processado => {
         uf: celula(l, mapa.lojas!, 'uf').toUpperCase() || undefined,
         marca: celula(l, mapa.lojas!, 'marca') || undefined,
         regimeTributario: interpretarRegime(celula(l, mapa.lojas!, 'regime_tributario')),
+        faturamento: fat.faturamento,
         horarios: h.horarios,
       });
     });

@@ -31,10 +31,10 @@ Segurança do banco: nada de `down -v`, `prisma migrate reset` nem apagar volume
 
 **Teste independente**: preencher sete dias, mensal e margem, salvar, reabrir; gestor e consulta nunca recebem o campo.
 
-- [ ] T010 [US2] Teste + schema do `faturamento` (sete valores ≥ 0 ou nulos, mensal ≥ 0, margem 0–100) e gravação só para `TENANT_ADMIN` (gestor enviando recebe 403; leitura sem o campo para os demais), em `cadastros.schemas.ts` e serviço
-- [ ] T011 [US2] Planilha: colunas opcionais `Fat_Seg`…`Fat_Dom`, `Fat_Mensal`, `Margem_Pct`; só o dono grava via planilha, em `processar.ts` (+ teste)
-- [ ] T012 [US2] Teste de integração: gravar e reler o faturamento como dono; ausência do campo para gestor e consulta, em `cadastros.routes.integration.test.ts`
-- [ ] T013 [P] [US2] `src/features/cadastros/FaturamentoLoja.jsx`: sete dias, mensal, margem %, conferência "soma dos dias × 52/12" sem bloquear; só aparece para o dono; ligado ao `FormLoja.jsx`
+- [X] T010 [US2] Teste + schema do `faturamento` (sete valores ≥ 0 ou nulos, mensal ≥ 0, margem 0–100) e gravação só para `TENANT_ADMIN` (gestor enviando recebe 403; leitura sem o campo para os demais), em `cadastros.schemas.ts` e serviço
+- [X] T011 [US2] Planilha: colunas opcionais `Fat_Seg`…`Fat_Dom`, `Fat_Mensal`, `Margem_Pct`; só o dono grava via planilha, em `processar.ts` (+ teste)
+- [X] T012 [US2] Teste de integração: gravar e reler o faturamento como dono; ausência do campo para gestor e consulta, em `cadastros.routes.integration.test.ts`
+- [X] T013 [P] [US2] `src/features/cadastros/FaturamentoLoja.jsx`: sete dias, mensal, margem %, conferência "soma dos dias × 52/12" sem bloquear; só aparece para o dono; ligado ao `FormLoja.jsx`
 
 **Checkpoint**: a loja guarda o faturamento.
 

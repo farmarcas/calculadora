@@ -64,6 +64,37 @@ export const CAMPOS_HORARIO_DIA: CampoDef[] = DIAS_PLANILHA.flatMap(([k, nome, a
   },
 ]);
 
+const NOMES_DIA = ['segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado', 'domingo'];
+const SIGLAS_DIA = ['seg', 'ter', 'qua', 'qui', 'sex', 'sab', 'dom'];
+// Faturamento médio da loja (só o dono grava; para os demais perfis estas colunas são ignoradas).
+const CAMPOS_FATURAMENTO: CampoDef[] = [
+  ...SIGLAS_DIA.map((s, i) => ({
+    chave: `fat_${s}`,
+    rotulo: `Faturamento médio (${NOMES_DIA[i]})`,
+    obrigatorio: false,
+    exemplo: '12000',
+    sinonimos: [
+      `fat ${s}`,
+      `faturamento ${s}`,
+      `faturamento medio ${NOMES_DIA[i]!.normalize('NFD').replace(/\p{M}/gu, '')}`,
+    ],
+  })),
+  {
+    chave: 'fat_mensal',
+    rotulo: 'Faturamento médio mensal',
+    obrigatorio: false,
+    exemplo: '420000',
+    sinonimos: ['fat mensal', 'faturamento mensal', 'faturamento medio mensal'],
+  },
+  {
+    chave: 'margem_pct',
+    rotulo: 'Margem bruta média (%)',
+    obrigatorio: false,
+    exemplo: '28',
+    sinonimos: ['margem pct', 'margem bruta', 'margem bruta media', 'margem %'],
+  },
+];
+
 export const CAMPOS_LOJA: CampoDef[] = [
   {
     chave: 'codigo',
@@ -135,6 +166,7 @@ export const CAMPOS_LOJA: CampoDef[] = [
     exemplo: 'Simples Nacional',
     sinonimos: ['regime tributario', 'regime', 'tributacao', 'regime_tributario'],
   },
+  ...CAMPOS_FATURAMENTO,
   {
     chave: 'loja_24h',
     rotulo: 'Loja 24 horas (Sim/Não)',

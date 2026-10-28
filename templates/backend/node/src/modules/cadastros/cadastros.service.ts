@@ -183,7 +183,10 @@ export const makeCadastrosService = (repo: CadastrosRepository, auditar: Auditor
     };
 
     const lojaIds = new Map<string, string>();
-    for (const l of proc.lojas as LojaInput[]) {
+    for (const loja of proc.lojas as LojaInput[]) {
+      // Faturamento em planilha só vale quando quem importa é o dono.
+      const { faturamento: _fat, ...semFat } = loja;
+      const l: LojaInput = perfil === 'TENANT_ADMIN' ? loja : semFat;
       const existente = await repo.buscarLojaPorCodigo(l.codigo);
       if (existente) {
         await repo.atualizarLoja(existente.id, l);

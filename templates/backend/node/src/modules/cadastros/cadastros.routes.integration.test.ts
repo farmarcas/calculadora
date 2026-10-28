@@ -406,4 +406,87 @@ describe('cadastros (rotas)', () => {
       expect(l).toMatchObject({ cidade: 'Curitiba', regimeTributario: 'real' });
     });
   });
+  describe('faturamento da loja (só o dono)', () => {
+    const gestor = { 'X-Perfil': 'SCHEDULE_MANAGER' };
+    const consulta = { 'X-Perfil': 'SCHEDULE_VIEWER' };
+    const fat = {
+      dias: [12000, 12000, 12000, 12000, 15000, 18000, null],
+      mensal: 420000,
+      margemPct: 28,
+    };
+
+    it('o dono grava e lê; gestor e consulta nem recebem o campo', async () => {
+      const c = await request(app)
+        .post('/api/v1/lojas')
+        .set(admin)
+        .send({ codigo: '040', nome: 'Loja Quarenta', faturamento: fat });
+      expect(c.status).toBe(201);
+      expect(c.body.faturamento).toEqual(fat);
+      const dono = (await request(app).get('/api/v1/lojas').set(admin)).body.data[0];
+      expect(dono.faturamento).toEqual(fat);
+      for (const perfil of [gestor, consulta]) {
+        const l = (await request(app).get('/api/v1/lojas').set(perfil)).body.data[0];
+        expect(l).not.toHaveProperty('faturamento');
+        expect(JSON.stringify(l)).not.toContain('420000');
+      }
+      const ed = await request(app)
+        .patch(`/api/v1/lojas/${c.body.id}`)
+        .set(gestor)
+        .send({ nome: 'Quarenta Novo' });
+      expect(ed.status).toBe(200);
+      expect(ed.body).not.toHaveProperty('faturamento');
+    });
+
+    it('gestor não consegue gravar faturamento (403) e nada muda', async () => {
+      const c = await request(app)
+        .post('/api/v1/lojas')
+        .set(admin)
+        .send({ codigo: '041', nome: 'Loja Quarenta e Um' });
+      const r = await request(app)
+        .patch(`/api/v1/lojas/${c.body.id}`)
+        .set(gestor)
+        .send({ faturamento: fat });
+      expect(r.status).toBe(403);
+      expect((await prisma.loja.findUnique({ where: { id: c.body.id } }))?.faturamento).toBeNull();
+    });
+
+    it('recusa valor negativo, margem acima de 100 e menos de sete dias', async () => {
+      const post = (f: object) =>
+        request(app)
+          .post('/api/v1/lojas')
+          .set(admin)
+          .send({ codigo: '042', nome: 'Y', faturamento: f });
+      expect((await post({ ...fat, dias: [-5, 1, 1, 1, 1, 1, 1] })).status).toBe(400);
+      expect((await post({ ...fat, margemPct: 150 })).status).toBe(400);
+      expect((await post({ ...fat, dias: [1, 2] })).status).toBe(400);
+    });
+
+    it('importa o faturamento da planilha só quando quem envia é o dono', async () => {
+      const cab = ['Cód_Loja', 'Nome_Loja', 'Fat_Seg', 'Fat_Mensal', 'Margem_Pct'];
+      const enviar = async (perfil: Record<string, string>, codigo: string) => {
+        const buf = await planilha([[codigo, 'Loja P', '10000', '300000', '25']], [], cab);
+        const up = await request(app)
+          .post('/api/v1/importacoes/cadastro')
+          .set(perfil)
+          .attach('arquivo', buf, 'f.xlsx');
+        expect(up.body.mapeamento.lojas.colunas).toMatchObject({
+          fat_seg: 2,
+          fat_mensal: 3,
+          margem_pct: 4,
+        });
+        const ok = await request(app)
+          .post(`/api/v1/importacoes/cadastro/${up.body.id}/confirmar`)
+          .set(perfil)
+          .send({ mapeamento: up.body.mapeamento });
+        expect(ok.status).toBe(200);
+        return prisma.loja.findFirst({ where: { codigo } });
+      };
+      expect((await enviar(admin, '050'))?.faturamento).toEqual({
+        dias: [10000, null, null, null, null, null, null],
+        mensal: 300000,
+        margemPct: 25,
+      });
+      expect((await enviar(gestor, '051'))?.faturamento).toBeNull();
+    });
+  });
 });

@@ -615,4 +615,104 @@ describe('escala (rotas)', () => {
       expect('impactoMensal' in r).toBe(false);
     }
   });
+  describe('turnos da loja e mínimo por turno', () => {
+    const consulta = { 'X-Perfil': 'SCHEDULE_VIEWER' };
+    const turno = (nome: string, inicio: string, fim: string, minimos: Record<string, number>) => ({
+      nome,
+      inicio,
+      fim,
+      minimos: { Farmacêutico: 1, ...minimos },
+    });
+    const tres = [
+      turno('Manhã', '08:00', '14:00', { Atendimento: 1 }),
+      turno('Tarde', '14:00', '18:00', { Atendimento: 3 }),
+      turno('Noite', '18:00', '20:00', { Atendimento: 1 }),
+    ];
+    const configurar = (corpo: object, perfil = admin) =>
+      request(app).put(`/api/v1/lojas/${lojaId}/configuracao`).set(perfil).send(corpo);
+
+    it('grava e devolve os turnos; null volta ao mínimo único', async () => {
+      const r = await configurar({ turnos: tres });
+      expect(r.status).toBe(200);
+      expect(r.body.config.turnos).toHaveLength(3);
+      expect(r.body.config.turnosAvisos).toEqual([]);
+      expect(r.body.config.turnos[1]).toMatchObject({ nome: 'Tarde', minimos: { Atendimento: 3 } });
+      const volta = await configurar({ turnos: null });
+      expect(volta.body.config.turnos).toBeNull();
+    });
+
+    it('recusa sobreposição, buraco, fora do horário, mais de 6 turnos e farmacêutico 0', async () => {
+      const msg = async (turnos: object[]) => {
+        const r = await configurar({ turnos });
+        expect(r.status).toBe(400);
+        return JSON.stringify(r.body);
+      };
+      expect(
+        await msg([turno('A', '08:00', '15:00', {}), turno('B', '14:00', '20:00', {})]),
+      ).toContain('se sobrepõem');
+      expect(
+        await msg([turno('A', '08:00', '13:00', {}), turno('B', '14:00', '20:00', {})]),
+      ).toContain('Falta um turno entre 13:00 e 14:00');
+      expect(await msg([turno('A', '07:00', '20:00', {})])).toContain('antes da abertura');
+      expect(await msg([turno('A', '08:00', '21:00', {})])).toContain('depois do fechamento');
+      expect(
+        await msg(Array.from({ length: 7 }, (_, i) => turno(`T${i}`, '08:00', '09:00', {}))),
+      ).toBeTruthy();
+      expect(await msg([turno('A', '08:00', '20:00', { Farmacêutico: 0 })])).toContain(
+        'farmacêutico é 1',
+      );
+      const nada = await request(app).get(`/api/v1/lojas/${lojaId}/diagnostico`);
+      expect(nada.body.config.turnos).toBeNull();
+    });
+
+    it('consulta não configura turnos', async () => {
+      expect((await configurar({ turnos: tres }, consulta)).status).toBe(403);
+    });
+
+    it('farmacêutico ausente num turno vale 1 (lei)', async () => {
+      const r = await configurar({
+        turnos: [{ nome: 'Dia', inicio: '08:00', fim: '20:00', minimos: { Atendimento: 2 } }],
+      });
+      expect(r.body.config.turnos[0].minimos).toEqual({ Atendimento: 2, Farmacêutico: 1 });
+    });
+
+    it('o Diagnóstico exige o mínimo de cada turno: falta só à tarde; sem turnos volta ao de antes', async () => {
+      await request(app)
+        .post('/api/v1/cargas/escala')
+        .set(admin)
+        .attach(
+          'arquivo',
+          await xlsx(escalaCab, [
+            ['001', 'F1', 'Ana', 'Farmacêutica', 'Seg a Sex', '08:00', '', '', '20:00', '44'],
+            ['001', 'F2', 'Bia', 'Balconista', 'Seg a Sex', '08:00', '', '', '20:00', '44'],
+          ]),
+          'e.xlsx',
+        );
+      const url = `/api/v1/lojas/${lojaId}/diagnostico`;
+      const antes = (await request(app).get(url).set(admin)).body;
+      const comTurnos = (await configurar({ turnos: tres })).body;
+      const atend = (b: typeof antes) =>
+        b.regras
+          .find((r: { id: string }) => r.id === 'r40')
+          .funcoes.find((f: { funcao: string }) => f.funcao === 'Atendimento');
+      expect(atend(comTurnos).minimo).toBe(3);
+      expect(atend(comTurnos).necessidadeH).toBeGreaterThan(atend(antes).necessidadeH);
+      const texto = JSON.stringify(comTurnos.pontosAtencao);
+      expect(texto).toContain('Atendimento abaixo do mínimo (3)');
+      const semTurnos = (await configurar({ turnos: null })).body;
+      expect(atend(semTurnos)).toEqual(atend(antes));
+      expect(JSON.stringify(semTurnos.pontosAtencao)).toBe(JSON.stringify(antes.pontosAtencao));
+    });
+
+    it('mudar o horário da loja avisa que os turnos deixaram de caber, sem apagar nada', async () => {
+      await configurar({ turnos: tres });
+      await request(app)
+        .patch(`/api/v1/lojas/${lojaId}`)
+        .set(admin)
+        .send({ horarios: { semana: { abre: '08:00', fecha: '22:00' } } });
+      const r = (await request(app).get(`/api/v1/lojas/${lojaId}/diagnostico`)).body;
+      expect(r.config.turnos).toHaveLength(3);
+      expect(r.config.turnosAvisos.join(' ')).toContain('Falta um turno entre 20:00 e 22:00');
+    });
+  });
 });

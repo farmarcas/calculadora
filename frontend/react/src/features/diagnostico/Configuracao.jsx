@@ -2,12 +2,14 @@ import { useState } from "react";
 import { api } from "../../api/client.js";
 import { Aviso, Botao, Cartao, entrada } from "../../components/ui/index.jsx";
 import Custos from "./Custos.jsx";
+import TurnosLoja from "./TurnosLoja.jsx";
 
 const FUNCOES = ["Farmacêutico", "Atendimento", "Caixa", "Apoio", "Perfumaria"];
 
 export default function Configuracao({ diag, podeEscrever, lojaId, onSalvo, perfil }) {
   const [conv, setConv] = useState(diag.config.convencao8h24);
   const [min, setMin] = useState(diag.config.minimos);
+  const [turnos, setTurnos] = useState(diag.config.turnos ?? null);
   const [erro, setErro] = useState(null);
   const [ok, setOk] = useState(false);
 
@@ -15,7 +17,7 @@ export default function Configuracao({ diag, podeEscrever, lojaId, onSalvo, perf
     setErro(null);
     setOk(false);
     try {
-      const r = await api(`/lojas/${lojaId}/configuracao`, { method: "PUT", body: { convencao8h24: conv, minimos: min } });
+      const r = await api(`/lojas/${lojaId}/configuracao`, { method: "PUT", body: { convencao8h24: conv, minimos: min, turnos } });
       onSalvo(r);
       setOk(true);
     } catch (e) {
@@ -38,7 +40,8 @@ export default function Configuracao({ diag, podeEscrever, lojaId, onSalvo, perf
           </span>
         </label>
       </Cartao>
-      <Cartao titulo="Mínimo de pessoas por função" subtitulo="Quantas pessoas precisam estar presentes durante todo o horário de funcionamento">
+      <TurnosLoja horarios={diag.loja.horarios} minimosUnicos={min} turnos={turnos} onChange={setTurnos} avisos={diag.config.turnosAvisos} podeEscrever={podeEscrever} />
+      <Cartao titulo="Mínimo de pessoas por função" subtitulo={turnos ? "Mínimo único do dia inteiro: só vale para a hora fora de qualquer turno. Os mínimos dos turnos estão no quadro acima." : "Quantas pessoas precisam estar presentes durante todo o horário de funcionamento"}>
         {FUNCOES.map((f) => (
           <div key={f} className="flex items-center justify-between gap-4 px-6 py-3 border-t border-line first:border-0">
             <div>

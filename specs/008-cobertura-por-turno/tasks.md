@@ -27,11 +27,11 @@ Regra de ouro: **os testes que já existem não mudam e seguem verdes** (paridad
 
 **Teste independente**: definir três turnos com mínimos diferentes, reabrir e conferir; turnos com buraco ou sobreposição são recusados; loja antiga abre igual.
 
-- [ ] T009 Migration `lojas.turnos` (Json, nula) e `schema.prisma`; gerar o client
-- [ ] T010 Teste + `src/modules/regras/turnos.ts`: validar turnos (1 a 6, sem sobreposição, sem buraco, dentro do horário aberto, nomes únicos, turno que vira a noite como dois pedaços, Farmacêutico ≥ 1, mínimos inteiros 0–10); resolver o turno de cada hora; pré-preencher os mínimos de cada turno com o mínimo único; avisar quando o horário da loja deixa de caber
-- [ ] T011 [US1] Teste + `src/modules/escala/escala.schemas.ts`, `escala.service.ts` e repositório: `PUT /lojas/:id/configuracao` aceita `turnos` (ou `null` para voltar ao mínimo único), mensagens em português, auditoria; `GET` devolve `turnos` e `turnosAvisos`
-- [ ] T012 [US2] Teste de integração: gravar e reler turnos e mínimos; recusas (sobreposição, buraco, fora do horário, mais de 6, Farmacêutico 0); consulta não edita; remover turno com mínimos pede confirmação (sinalizado na API), em `src/modules/escala/escala.routes.integration.test.ts`
-- [ ] T013 [P] [US1] Editor de turnos e mínimos por cargo (nome, início, fim, tabela cargos × turnos, mínimo único como ponto de partida, avisos de erro) em `src/features/diagnostico/Configuracao.jsx` (e componente novo `TurnosLoja.jsx` se ficar grande)
+- [X] T009 Migration `lojas.turnos` (Json, nula) e `schema.prisma`; gerar o client
+- [X] T010 Teste + `src/modules/regras/turnos.ts`: validar turnos (1 a 6, sem sobreposição, sem buraco, dentro do horário aberto, nomes únicos, turno que vira a noite como dois pedaços, Farmacêutico ≥ 1, mínimos inteiros 0–10); resolver o turno de cada hora; pré-preencher os mínimos de cada turno com o mínimo único; avisar quando o horário da loja deixa de caber
+- [X] T011 [US1] Teste + `src/modules/escala/escala.schemas.ts`, `escala.service.ts` e repositório: `PUT /lojas/:id/configuracao` aceita `turnos` (ou `null` para voltar ao mínimo único), mensagens em português, auditoria; `GET` devolve `turnos` e `turnosAvisos`
+- [X] T012 [US2] Teste de integração: gravar e reler turnos e mínimos; recusas (sobreposição, buraco, fora do horário, mais de 6, Farmacêutico 0); consulta não edita; remover turno com mínimos pede confirmação (sinalizado na API), em `src/modules/escala/escala.routes.integration.test.ts`
+- [X] T013 [P] [US1] Editor de turnos e mínimos por cargo (nome, início, fim, tabela cargos × turnos, mínimo único como ponto de partida, avisos de erro) em `src/features/diagnostico/Configuracao.jsx` (e componente novo `TurnosLoja.jsx` se ficar grande)
 
 **Checkpoint**: a loja já exige quantidades diferentes por turno e o motor as usa.
 

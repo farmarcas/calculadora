@@ -1,4 +1,6 @@
+import { Prisma } from '../../generated/prisma/client.js';
 import { prisma } from '../../shared/database/prisma.js';
+import type { TurnosLoja } from '../regras/turnos.js';
 import { normalizarHorarios } from '../cadastros/horarios.js';
 import type { CargaMeta, LojaDiag, TurnoDiag } from './diagnostico.js';
 import type { CadastroPessoa, TurnoLinha } from './interpretar.js';
@@ -123,6 +125,7 @@ export const escalaRepository = {
       horarios: normalizarHorarios(l.horarios),
       convencao8h24: l.convencao8h24,
       minimos: l.minimos as LojaDiag['minimos'],
+      turnos: l.turnos as unknown as TurnosLoja | null,
       custos: l.custos as unknown as LojaDiag['custos'],
       faturamento: l.faturamento as unknown as LojaDiag['faturamento'],
     };
@@ -213,7 +216,11 @@ export const escalaRepository = {
 
   async atualizarConfiguracao(
     id: string,
-    c: { convencao8h24?: boolean; minimos?: Record<string, number> },
+    c: {
+      convencao8h24?: boolean;
+      minimos?: Record<string, number>;
+      turnos?: TurnosLoja | null;
+    },
   ) {
     const atual = await prisma.loja.findFirst({
       where: { id, ...ativo },
@@ -225,6 +232,9 @@ export const escalaRepository = {
         ...(c.convencao8h24 !== undefined ? { convencao8h24: c.convencao8h24 } : {}),
         ...(c.minimos
           ? { minimos: { ...((atual?.minimos as object | null) ?? {}), ...c.minimos } }
+          : {}),
+        ...(c.turnos !== undefined
+          ? { turnos: c.turnos === null ? Prisma.JsonNull : (c.turnos as unknown as object) }
           : {}),
       },
     });

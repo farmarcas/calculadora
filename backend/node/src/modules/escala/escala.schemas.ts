@@ -6,6 +6,19 @@ const req = <B extends z.ZodType, P extends z.ZodType>(body: B, params: P) =>
   z.object({ body, params, query: vazio.default({}) });
 
 export const porLojaReq = req(vazio.default({}), id);
+const hora = z.string().regex(/^(([01]\d|2[0-3]):[0-5]\d|24:00)$/, 'Horário inválido (use HH:MM)');
+const turnoSchema = z
+  .object({
+    nome: z.string().trim().min(1).max(30),
+    inicio: hora,
+    fim: hora,
+    minimos: z.partialRecord(
+      z.enum(['Farmacêutico', 'Atendimento', 'Caixa', 'Apoio', 'Perfumaria']),
+      z.number().int().min(0).max(10),
+    ),
+  })
+  .strict();
+
 export const configuracaoReq = req(
   z
     .object({
@@ -16,6 +29,8 @@ export const configuracaoReq = req(
           z.number().int().min(0).max(10),
         )
         .optional(),
+      // Lista de turnos (a validação contra o horário da loja é no serviço) ou nulo para voltar ao mínimo único.
+      turnos: z.array(turnoSchema).max(6).nullable().optional(),
     })
     .strict()
     .refine((b) => Object.keys(b).length > 0, { message: 'Informe ao menos um campo' })

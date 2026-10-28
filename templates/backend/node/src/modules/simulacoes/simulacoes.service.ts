@@ -7,6 +7,7 @@ import { diasAbertos, type LojaDiag } from '../escala/diagnostico.js';
 import type { EscalaRepository } from '../escala/escala.repository.js';
 import { FUNCOES_PADRAO_MINIMO, regraPara, type RegraId } from '../regras/perfis.js';
 import { minimosIguais } from '../regras/requisitos.js';
+import { exigenciasDaLoja } from '../regras/turnos.js';
 import { calcularIndicadores, sintese } from './comparar.js';
 import { gerarExcelEscala } from './exportar.js';
 import { avaliarSimulacao, type PessoaSim, type TurnoSim } from './avaliar.js';
@@ -51,7 +52,7 @@ export const makeSimulacoesService = (
   const contexto = (s: SimulacaoRegistro, l: LojaDiag) => {
     const p: Premissas = s.premissas ?? {
       horarios: l.horarios,
-      minimos: { ...FUNCOES_PADRAO_MINIMO, ...(l.minimos ?? {}) },
+      minimos: exigenciasDaLoja({ ...FUNCOES_PADRAO_MINIMO, ...(l.minimos ?? {}) }, l.turnos),
       convencao8h24: l.convencao8h24,
       custos: l.custos ?? null,
       regra: s.regra,
@@ -100,7 +101,7 @@ export const makeSimulacoesService = (
       JSON.stringify(normalizarHorarios(s.premissas.horarios))
     )
       motivos.push('O horário de funcionamento da loja mudou.');
-    const min = { ...FUNCOES_PADRAO_MINIMO, ...(l.minimos ?? {}) };
+    const min = exigenciasDaLoja({ ...FUNCOES_PADRAO_MINIMO, ...(l.minimos ?? {}) }, l.turnos);
     if (!minimosIguais(min, s.premissas.minimos))
       motivos.push('O mínimo de pessoas por função mudou.');
     if (l.convencao8h24 !== s.premissas.convencao8h24)
@@ -241,7 +242,7 @@ export const makeSimulacoesService = (
         const sugeridas = vagasSugeridas(
           regra,
           diasAbertos(l.horarios),
-          { ...FUNCOES_PADRAO_MINIMO, ...(l.minimos ?? {}) },
+          exigenciasDaLoja({ ...FUNCOES_PADRAO_MINIMO, ...(l.minimos ?? {}) }, l.turnos),
           base.quadro,
         );
         base = { ...base, ...aplicarVagasEDesligados(base.quadro, base.turnos, sugeridas) };

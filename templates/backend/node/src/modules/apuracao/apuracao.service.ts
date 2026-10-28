@@ -4,6 +4,7 @@ import { NotFoundError } from '../../shared/errors/not-found-error.js';
 import { diasAbertos } from '../escala/diagnostico.js';
 import type { EscalaRepository } from '../escala/escala.repository.js';
 import { FUNCOES_PADRAO_MINIMO } from '../regras/perfis.js';
+import { exigenciasDaLoja } from '../regras/turnos.js';
 import type { SimulacoesRepository } from '../simulacoes/simulacoes.repository.js';
 import type { ApuracaoRepository } from './apuracao.repository.js';
 import { gerarExcelApuracao } from './exportar.js';
@@ -40,7 +41,9 @@ export const makeApuracaoService = (
     const c = await contexto(lojaId, de, ate);
     const p = c.emUso.premissas;
     const horarios = p?.horarios ?? c.loja.horarios;
-    const minimos = p?.minimos ?? { ...FUNCOES_PADRAO_MINIMO, ...(c.loja.minimos ?? {}) };
+    const minimos =
+      p?.minimos ??
+      exigenciasDaLoja({ ...FUNCOES_PADRAO_MINIMO, ...(c.loja.minimos ?? {}) }, c.loja.turnos);
     const batidas = await repo.batidas(lojaId, c.de, c.ate);
     const r = apurarPeriodo({
       de: c.de,

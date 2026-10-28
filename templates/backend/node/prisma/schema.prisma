@@ -41,6 +41,8 @@ model Loja {
   // Configuração do diagnóstico: convenção que permite 8h24/dia e mínimo de pessoas por função.
   convencao8h24 Boolean   @default(false) @map("convencao_8h24")
   minimos       Json?
+  // Turnos da loja e o mínimo por cargo em cada um: { versao: 1, turnos: [{ nome, inicio, fim, minimos }] }. Nulo = só o mínimo único acima.
+  turnos        Json?
   // Salário médio por função, encargos e regime tributário. Só o dono do grupo vê. Sem valor padrão.
   custos        Json?
   // Limites que marcam a simulação em uso como desatualizada (hora extra e aderência). Nulo = padrão.

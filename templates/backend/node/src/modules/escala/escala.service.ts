@@ -5,7 +5,13 @@ import { CAMPOS_BASE, CAMPOS_ESCALA, type CampoDef } from '../planilhas/campos.j
 import { inferirUmaAba } from '../planilhas/inferencia.js';
 import { lerPlanilha } from '../planilhas/leitor.js';
 import { calcularCusto } from '../custos/custo.js';
-import { montarDiagnostico } from './diagnostico.js';
+import {
+  normalizarTurnos,
+  validarTurnos,
+  type TurnoLoja,
+  type TurnosLoja,
+} from '../regras/turnos.js';
+import { diasAbertos, montarDiagnostico } from './diagnostico.js';
 import { interpretarBase, interpretarEscala, somarPorHora, type ErroLinha } from './interpretar.js';
 import type { EscalaRepository } from './escala.repository.js';
 
@@ -233,18 +239,26 @@ export const makeEscalaService = (repo: EscalaRepository, auditar: Auditor) => {
 
     async configurar(
       lojaId: string,
-      c: { convencao8h24?: boolean; minimos?: Record<string, number> },
+      c: { convencao8h24?: boolean; minimos?: Record<string, number>; turnos?: TurnoLoja[] | null },
       perfil: string,
     ) {
-      if (!(await repo.lojaParaDiagnostico(lojaId)))
-        throw new NotFoundError('Loja não encontrada', 'LOJA_NAO_ENCONTRADA');
-      await repo.atualizarConfiguracao(lojaId, c);
+      const loja = await repo.lojaParaDiagnostico(lojaId);
+      if (!loja) throw new NotFoundError('Loja não encontrada', 'LOJA_NAO_ENCONTRADA');
+      let turnos: TurnosLoja | null | undefined;
+      if (c.turnos === null) turnos = null;
+      else if (c.turnos) {
+        const normalizados = normalizarTurnos(c.turnos);
+        const erros = validarTurnos(normalizados, diasAbertos(loja.horarios));
+        if (erros.length) throw new ValidationError(erros.join(' '));
+        turnos = { versao: 1, turnos: normalizados };
+      }
+      await repo.atualizarConfiguracao(lojaId, { ...c, turnos });
       await auditar({
         acao: 'loja.configuracao',
         perfil,
         alvoTipo: 'loja',
         alvoId: lojaId,
-        detalhe: c,
+        detalhe: { ...c, turnos: c.turnos ? c.turnos.length : c.turnos },
       });
       return this.diagnostico(lojaId, perfil);
     },

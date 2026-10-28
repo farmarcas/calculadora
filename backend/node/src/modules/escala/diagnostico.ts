@@ -5,6 +5,7 @@ import type { Custos } from '../custos/custos.schemas.js';
 import { cobertura, type TurnoPessoa } from './cobertura.js';
 import { montarCenarios } from './cenarios.js';
 import { montarExtras, type ExtrasRegra } from './cenarios-extras.js';
+import { avisosDeTurnos, exigenciasDaLoja, type TurnosLoja } from '../regras/turnos.js';
 import type { Faturamento } from '../cadastros/faturamento.js';
 import { resumirVendas, type VendaLinha } from './vendas.js';
 import { vendasDoCadastro } from './vendas-cadastro.js';
@@ -17,6 +18,8 @@ export type LojaDiag = {
   horarios: HorariosSemana | null;
   convencao8h24: boolean;
   minimos: Record<string, number> | null;
+  // Turnos da loja com o mínimo por cargo em cada um; nulo = vale só o mínimo único.
+  turnos?: TurnosLoja | null;
   // Só para o cálculo de custo (visível apenas ao dono); nunca sai no diagnóstico.
   custos?: Custos | null;
   // Faturamento do cadastro: só vira venda do diagnóstico quando não há base comercial.
@@ -113,7 +116,14 @@ export const montarDiagnostico = (a: {
       rejeitadas: base.linhasRejeitadas,
     },
   };
-  const config = { convencao8h24: loja.convencao8h24, minimos };
+  // O motor lê a exigência por hora: por turno quando a loja tem turnos, senão o mínimo único.
+  const exigencias = exigenciasDaLoja(minimos, loja.turnos);
+  const config = {
+    convencao8h24: loja.convencao8h24,
+    minimos,
+    turnos: loja.turnos?.turnos ?? null,
+    turnosAvisos: avisosDeTurnos(loja.turnos, dias),
+  };
   const lojaInfo = {
     id: loja.id,
     codigo: loja.codigo,
@@ -139,7 +149,7 @@ export const montarDiagnostico = (a: {
 
   const regras = REGRA_IDS.map((id: RegraId) => {
     const regra = regraPara(id, loja.convencao8h24);
-    const funcoes = verificarRegra(regra, dias, minimos, pessoas);
+    const funcoes = verificarRegra(regra, dias, exigencias, pessoas);
     return {
       id,
       nome: regra.nome,
@@ -164,7 +174,7 @@ export const montarDiagnostico = (a: {
   const cob = cobertura(
     dias,
     noCalculo.map((t) => ({ ...t, funcao: t.funcao! })),
-    minimos,
+    exigencias,
   );
   // Origem da venda: a base comercial vale; sem ela, o faturamento do cadastro (estimativa); senão nada.
   const doCadastro = vendas.length === 0 ? vendasDoCadastro(loja.faturamento, dias) : null;
@@ -281,7 +291,7 @@ export const montarDiagnostico = (a: {
         regraId,
         convencao8h24: loja.convencao8h24,
         dias,
-        minimos,
+        minimos: exigencias,
         pessoas,
         vendas: vendasUsadas,
         vendasDoCadastro: origemVendas === 'cadastro',

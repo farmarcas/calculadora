@@ -160,6 +160,22 @@ export const escalaRepository = {
     };
   },
 
+  // Funcionários ativos da loja que não entraram na escala atual, com o motivo (para o quadro por turno).
+  async foraDaEscala(lojaId: string, naEscala: string[]) {
+    const fs = await prisma.funcionario.findMany({
+      where: { lojaId, ...ativo, matricula: { notIn: naEscala } },
+      orderBy: { nome: 'asc' },
+    });
+    return fs.map((f) => ({
+      nome: f.nome,
+      motivo: !f.funcaoEscala
+        ? 'sem função de escala'
+        : f.entrada == null || f.saida == null || f.dias.length === 0
+          ? 'sem horário de entrada, saída e dias trabalhados'
+          : 'horário que vira a noite (não entra na conta)',
+    }));
+  },
+
   // Horário atual digitado no cadastro dos funcionários: mesmo turno nos dias trabalhados.
   // Só vale turno no mesmo dia (saída depois da entrada); virada de dia fica só informativa.
   async turnosDoCadastro(lojaId: string): Promise<TurnoDiag[]> {

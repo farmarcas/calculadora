@@ -5,6 +5,7 @@ import type { Custos } from '../custos/custos.schemas.js';
 import { cobertura, type TurnoPessoa } from './cobertura.js';
 import { montarCenarios } from './cenarios.js';
 import { montarExtras, type ExtrasRegra } from './cenarios-extras.js';
+import { montarQuadroTurnos } from './quadro-turnos.js';
 import { avisosDeTurnos, exigenciasDaLoja, type TurnosLoja } from '../regras/turnos.js';
 import type { Faturamento } from '../cadastros/faturamento.js';
 import { resumirVendas, type VendaLinha } from './vendas.js';
@@ -95,6 +96,8 @@ export const montarDiagnostico = (a: {
   vendas: VendaLinha[];
   // Só o dono recebe valores de custo nos cenários.
   dono?: boolean;
+  // Funcionários da loja que não entraram na conta (sem horário, sem dias...), com o motivo.
+  foraDaConta?: { nome: string; motivo: string }[];
 }) => {
   const { loja, escala, turnos, base, vendas } = a;
   const dias = diasAbertos(loja.horarios);
@@ -316,6 +319,18 @@ export const montarDiagnostico = (a: {
     quadro,
     regras,
     cobertura: cob,
+    quadroTurnos: montarQuadroTurnos({
+      dias,
+      turnosLoja: loja.turnos,
+      exigencias,
+      cob,
+      fora: [
+        ...turnos
+          .filter((t) => !t.funcao)
+          .map((t) => ({ nome: t.nome, motivo: 'sem função de escala' })),
+        ...(a.foraDaConta ?? []),
+      ],
+    }),
     vendas: resumoVendas,
     origemVendas,
     cenarios: cenariosSaida,

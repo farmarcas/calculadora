@@ -23,10 +23,10 @@ export const hhmm = (h: number) => {
   return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
 };
 
-type Pedaco = { de: number; ate: number; turno: TurnoLoja };
+export type Pedaco = { de: number; ate: number; turno: TurnoLoja };
 
 // Cada turno vira um ou dois pedaços do relógio (o que vira a noite é cortado na meia-noite).
-const pedacosDe = (t: TurnoLoja): Pedaco[] => {
+export const pedacosDe = (t: TurnoLoja): Pedaco[] => {
   const i = emHoras(t.inicio);
   let f = emHoras(t.fim);
   if (f < EPS) f = 24;
@@ -92,7 +92,7 @@ export const exigenciasDaLoja = (
 ): Minimos => {
   if (!turnos?.turnos.length) return minimos;
   const fatias: Fatia[] = turnos.turnos.flatMap((t) =>
-    pedacosDe(t).map((p) => ({ de: p.de, ate: p.ate, minimos: t.minimos })),
+    pedacosDe(t).map((p) => ({ de: p.de, ate: p.ate, minimos: t.minimos, nome: t.nome })),
   );
   return { fatias, reserva: minimos };
 };

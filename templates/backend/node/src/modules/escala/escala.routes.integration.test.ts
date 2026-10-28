@@ -704,6 +704,109 @@ describe('escala (rotas)', () => {
       expect(JSON.stringify(semTurnos.pontosAtencao)).toBe(JSON.stringify(antes.pontosAtencao));
     });
 
+    it('quadro por turno: presentes × exigido, falta só à tarde, fora da conta com motivo e explicação por turno', async () => {
+      await request(app)
+        .post('/api/v1/cargas/escala')
+        .set(admin)
+        .attach(
+          'arquivo',
+          await xlsx(escalaCab, [
+            ['001', 'F1', 'Ana', 'Farmacêutica', 'Seg a Sáb', '08:00', '', '', '20:00', '44'],
+            ['001', 'F2', 'Bia', 'Balconista', 'Seg a Sáb', '08:00', '', '', '20:00', '44'],
+          ]),
+          'e.xlsx',
+        );
+      await request(app)
+        .post('/api/v1/funcionarios')
+        .set(admin)
+        .send({ matricula: 'S1', nome: 'Sem Horário', lojaId, funcaoEscala: 'Caixa' });
+      await request(app)
+        .post('/api/v1/funcionarios')
+        .set(admin)
+        .send({ matricula: 'S2', nome: 'Sem Função', lojaId });
+      const url = `/api/v1/lojas/${lojaId}/diagnostico`;
+
+      // sem turnos: um turno "Dia todo"
+      const antes = (await request(app).get(url).set(admin)).body;
+      expect(antes.quadroTurnos.turnos).toEqual([
+        { nome: 'Dia todo', inicio: '08:00', fim: '20:00' },
+      ]);
+
+      const d = (await configurar({ turnos: tres })).body;
+      const q = d.quadroTurnos;
+      expect(q.turnos.map((t: { nome: string }) => t.nome)).toEqual(['Manhã', 'Tarde', 'Noite']);
+      const atend = q.cargos.find((c: { cargo: string }) => c.cargo === 'Atendimento').turnos;
+      expect(atend).toEqual([
+        { turno: 'Manhã', presentes: 1, exigido: 1, falta: false },
+        { turno: 'Tarde', presentes: 1, exigido: 3, falta: true },
+        { turno: 'Noite', presentes: 1, exigido: 1, falta: false },
+      ]);
+      const fora = Object.fromEntries(
+        q.foraDaConta.map((f: { nome: string; motivo: string }) => [f.nome, f.motivo]),
+      );
+      expect(fora['Sem Horário']).toContain('sem horário');
+      expect(fora['Sem Função']).toContain('sem função');
+
+      // a explicação do cálculo cita o turno de origem
+      const linha = d.regras
+        .find((r: { id: string }) => r.id === 'r40')
+        .funcoes.find((f: { funcao: string }) => f.funcao === 'Atendimento');
+      expect(linha.memoria).toContain('Manhã 1 · Tarde 3 · Noite 1');
+    });
+
+    it('os cenários usam o mínimo do turno: com custos e base, calculam sem erro e o custo de cortar acompanha o turno', async () => {
+      await request(app)
+        .post('/api/v1/cargas/escala')
+        .set(admin)
+        .attach(
+          'arquivo',
+          await xlsx(escalaCab, [
+            ['001', 'F1', 'Ana', 'Farmacêutica', 'Seg a Sáb', '08:00', '', '', '20:00', '44'],
+            ['001', 'F2', 'Bia', 'Balconista', 'Seg a Sáb', '08:00', '', '', '20:00', '44'],
+          ]),
+          'e.xlsx',
+        );
+      await request(app)
+        .put(`/api/v1/lojas/${lojaId}/custos`)
+        .set(admin)
+        .send({
+          salarioMedio: { Farmacêutico: 8000, Atendimento: 2000, Caixa: 1500 },
+          encargosPct: 50,
+        });
+      await request(app)
+        .post('/api/v1/cargas/base')
+        .set(admin)
+        .attach(
+          'arquivo',
+          await xlsx(
+            [
+              'Data',
+              'Hora',
+              'Cod_Loja',
+              'Venda_Liquida_RS',
+              'Margem_Bruta_RS',
+              'Clientes_Atendidos',
+            ],
+            [
+              ['01/09/2026', '8', '001', '100,00', '30,00', '5'],
+              ['01/09/2026', '15', '001', '900,00', '300,00', '30'],
+            ],
+          ),
+          'b.xlsx',
+        );
+      const url = `/api/v1/lojas/${lojaId}/diagnostico`;
+      await configurar({ minimos: { Caixa: 0 } }); // mesma base de comparação nos dois casos
+      const sem = (await request(app).get(url).set(admin)).body.cenarios.r40;
+      const com = (await configurar({ turnos: tres })).body.cenarios.r40;
+      for (const c of [sem, com]) {
+        expect(c.equilibrio.indisponivel).toBeNull();
+        expect(c.economia).toBeTruthy();
+        expect(c.estender).toBeTruthy();
+      }
+      // a exigência de 3 atendentes à tarde aumenta a contratação para manter os horários
+      expect(com.manter.custoAdicionalMensal).toBeGreaterThan(sem.manter.custoAdicionalMensal);
+    });
+
     it('mudar o horário da loja avisa que os turnos deixaram de caber, sem apagar nada', async () => {
       await configurar({ turnos: tres });
       await request(app)

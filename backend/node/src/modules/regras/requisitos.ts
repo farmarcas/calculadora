@@ -5,7 +5,7 @@ const EPS = 1e-9;
 // Exigência de pessoas por cargo. Forma simples (um número por cargo, igual em todas as horas) ou
 // por fatias do dia (turnos), cada uma com o seu mínimo; `reserva` vale para a hora fora de qualquer fatia.
 // Dado puro (sem função), para poder ser gravado no retrato de uma simulação.
-export type Fatia = { de: number; ate: number; minimos: Record<string, number> };
+export type Fatia = { de: number; ate: number; minimos: Record<string, number>; nome?: string };
 export type MinimosPorFatia = { fatias: Fatia[]; reserva: Record<string, number> };
 export type Minimos = Record<string, number> | MinimosPorFatia;
 
@@ -19,6 +19,8 @@ export type Requisitos = {
   emHora: (funcao: string, dia: number, hora: number) => number;
   // Maior exigência do cargo ao longo do dia.
   pico: (funcao: string) => number;
+  // "Manhã 1 · Tarde 3": a exigência do cargo em cada turno com nome; nulo na forma simples.
+  porTurno: (funcao: string) => string | null;
 };
 
 // Pergunta única do motor: quantas pessoas deste cargo a loja exige neste dia e nesta hora.
@@ -29,6 +31,7 @@ export const requisitos = (m: Minimos): Requisitos => {
       uniforme: m,
       emHora: (f) => m[f] ?? 0,
       pico: (f) => m[f] ?? 0,
+      porTurno: () => null,
     };
   const todos = [m.reserva, ...m.fatias.map((x) => x.minimos)];
   const pico = (f: string) => Math.max(0, ...todos.map((r) => r[f] ?? 0));
@@ -43,6 +46,11 @@ export const requisitos = (m: Minimos): Requisitos => {
       return (x ? x.minimos : m.reserva)[f] ?? 0;
     },
     pico,
+    porTurno: (f) => {
+      const vistos = new Map<string, number>();
+      for (const x of m.fatias) if (x.nome) vistos.set(x.nome, x.minimos[f] ?? 0);
+      return vistos.size ? [...vistos].map(([nome, n]) => `${nome} ${n}`).join(' · ') : null;
+    },
   };
 };
 

@@ -94,7 +94,7 @@ export const verificarRegra = (
       memoria:
         (req.uniforme
           ? `Necessidade: ${minimo} pessoa(s) × ${arred(dias.reduce((s, d) => s + (d.fecha - d.abre), 0))}h abertas na semana = ${arred(necessidadeH)}h. `
-          : `Necessidade: soma das pessoas exigidas em cada hora, por turno (até ${minimo} ao mesmo tempo) = ${arred(necessidadeH)}h na semana. `) +
+          : `Necessidade por turno${req.porTurno(funcao) ? ` (${req.porTurno(funcao)} pessoa(s))` : ''}: soma das pessoas exigidas em cada hora, até ${minimo} ao mesmo tempo = ${arred(necessidadeH)}h na semana. `) +
         `Capacidade: cada pessoa até ${arred(porPessoa)}h em até ${regra.dias} dias (turno de ${arred(TL)}h) = ${arred(capacidadeH)}h e ${capacidadeT} turnos.`,
     };
   });

@@ -39,10 +39,10 @@ Regra de ouro: **os testes que já existem não mudam e seguem verdes** (paridad
 
 **Teste independente**: loja com pico à tarde mostra falta no turno certo e nunca num turno que cumpre; loja sem turnos dá o mesmo Diagnóstico de antes.
 
-- [ ] T014 Teste + `src/modules/escala/quadro-turnos.ts`: por cargo e turno, pessoas presentes (pior hora do turno no pior dia, descontado intervalo) × exigido, `falta`; lista de pessoas fora da conta com o motivo (sem função, sem horário, sem dias)
-- [ ] T015 [US4] Teste + `src/modules/escala/diagnostico.ts`: montar requisitos da loja, devolver `quadroTurnos` (um turno "Dia todo" quando não há turnos), explicação (`memoria`) citando o turno de origem da necessidade, nas regras 44h, 42h e 40h
-- [ ] T016 [US4] Teste de integração: Diagnóstico com turnos (necessidade maior no pico, menor que o pico aplicado ao dia todo), sem turnos (idêntico), cenários 2 a 5 respeitando o mínimo do turno e permissões inalteradas, em `src/modules/escala/escala.routes.integration.test.ts`
-- [ ] T017 [P] [US3] Quadro por turno na tela (cargos × turnos, presentes × exigido, destaque de falta, pessoas fora da conta) em `src/features/diagnostico/QuadroTurnos.jsx` e ligação em `Diagnostico.jsx`/`Configuracao.jsx`
+- [X] T014 Teste + `src/modules/escala/quadro-turnos.ts`: por cargo e turno, pessoas presentes (pior hora do turno no pior dia, descontado intervalo) × exigido, `falta`; lista de pessoas fora da conta com o motivo (sem função, sem horário, sem dias)
+- [X] T015 [US4] Teste + `src/modules/escala/diagnostico.ts`: montar requisitos da loja, devolver `quadroTurnos` (um turno "Dia todo" quando não há turnos), explicação (`memoria`) citando o turno de origem da necessidade, nas regras 44h, 42h e 40h
+- [X] T016 [US4] Teste de integração: Diagnóstico com turnos (necessidade maior no pico, menor que o pico aplicado ao dia todo), sem turnos (idêntico), cenários 2 a 5 respeitando o mínimo do turno e permissões inalteradas, em `src/modules/escala/escala.routes.integration.test.ts`
+- [X] T017 [P] [US3] Quadro por turno na tela (cargos × turnos, presentes × exigido, destaque de falta, pessoas fora da conta) em `src/features/diagnostico/QuadroTurnos.jsx` e ligação em `Diagnostico.jsx`/`Configuracao.jsx`
 
 **Checkpoint**: onde a loja está descoberta aparece por turno, e a contratação sugerida usa o mínimo de cada turno.
 

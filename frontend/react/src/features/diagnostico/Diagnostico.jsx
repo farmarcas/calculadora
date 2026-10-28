@@ -3,6 +3,7 @@ import { api } from "../../api/client.js";
 import { Aviso, Botao, Cartao, Ficha } from "../../components/ui/index.jsx";
 import QuadroCentral from "./QuadroCentral.jsx";
 import Cenarios from "./Cenarios.jsx";
+import QuadroTurnos from "./QuadroTurnos.jsx";
 
 const TH = "text-left text-[11px] font-bold uppercase tracking-wide text-ink-500 px-6 py-3";
 const TD = "px-6 py-3 border-t border-line";
@@ -185,6 +186,7 @@ export default function Diagnostico({ diag, podeEscrever, onEnviar, onSimular })
     <div className="flex flex-col gap-6">
       <QuadroCentral diag={diag} regraId={regraId} onRegra={setRegraId} podeEscrever={podeEscrever} onEnviar={onEnviar} />
 
+      <QuadroTurnos quadro={diag.quadroTurnos} />
       <Cenarios cenarios={diag.cenarios?.[regraId]} origemVendas={diag.origemVendas} />
 
       <Cartao titulo="Quadro por função" subtitulo="Só entram no cálculo colaboradores com função de escala">

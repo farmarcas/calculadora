@@ -212,6 +212,10 @@ export const makeEscalaService = (repo: EscalaRepository, auditar: Auditor) => {
         base: base?.meta ?? null,
         vendas: base?.vendas ?? [],
         dono: perfil === 'TENANT_ADMIN',
+        foraDaConta: await repo.foraDaEscala(
+          lojaId,
+          turnosFinais.map((t) => t.matricula),
+        ),
       });
       if (divergentes.length > 0 && diag.pontosAtencao)
         diag.pontosAtencao.push({

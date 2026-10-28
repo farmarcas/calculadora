@@ -7,19 +7,19 @@ Regra de ouro: **os testes que já existem não mudam e seguem verdes** (paridad
 
 ## Phase 1: Setup
 
-- [ ] T001 Conferir o branch `feat/cobertura-por-turno`, o ambiente de pé (`docker compose ps` saudável) e os testes atuais verdes (`npm test`, `npm run test:integration`), anotando as contagens de partida (195 unitários, 105 de integração)
+- [X] T001 Conferir o branch `feat/cobertura-por-turno`, o ambiente de pé (`docker compose ps` saudável) e os testes atuais verdes (`npm test`, `npm run test:integration`), anotando as contagens de partida (195 unitários, 105 de integração)
 
 ## Phase 2: Fatia 1 — Requisitos no motor (base da US4, sem mudança visível)
 
 **Teste independente**: todos os testes antigos passam sem alteração; com requisitos por hora, a necessidade confere com a conta manual por camadas.
 
-- [ ] T002 Teste + `src/modules/regras/requisitos.ts`: tipo `Requisitos` (`funcoes`, `emHora(cargo, dia, hora)`), `comoRequisitos(minimos | requisitos)` (o mínimo antigo vira "igual em todas as horas"), `requisitosDaLoja(minimos, turnos)` e as camadas de necessidade (horas e blocos de 8 h por camada)
-- [ ] T003 Teste + `src/modules/regras/capacidade.ts`: `verificarRegra` aceita mínimo antigo ou requisitos; necessidade de horas = soma por hora, de turnos = soma por camada de ⌈horas ÷ 8⌉; com requisito igual dá o mesmo número de hoje; `memoria` cita o turno quando houver
-- [ ] T004 [P] Teste + `src/modules/escala/cobertura.ts`: exigência por hora (`ok` compara com o requisito da hora); campo `minimo` continua para compatibilidade
-- [ ] T005 [P] Teste + `src/modules/simulacoes/avaliar.ts` e `vagas.ts`: cobertura por dia e hora e o aviso de falta usam o requisito da hora; aviso de intervalo descoberto só onde o requisito é 1
-- [ ] T006 Teste + `src/modules/escala/cenarios.ts` e `cenarios-extras.ts`: `custoMensalDaHora` passa a depender do requisito da hora cortada; cortes e extensões usam `verificarRegra` com requisitos (resultado idêntico com requisito igual)
-- [ ] T007 [P] Teste + `src/modules/apuracao/periodo.ts` e `simulacoes/simulacoes.service.ts`: o snapshot de premissas aceita a forma antiga e a nova; comparação "premissas mudaram" por igualdade profunda
-- [ ] T008 Rodar tudo: os 195 + 105 testes antigos continuam verdes sem alteração, `tsc` e `lint` limpos
+- [X] T002 Teste + `src/modules/regras/requisitos.ts`: tipo `Requisitos` (`funcoes`, `emHora(cargo, dia, hora)`), `comoRequisitos(minimos | requisitos)` (o mínimo antigo vira "igual em todas as horas"), `requisitosDaLoja(minimos, turnos)` e as camadas de necessidade (horas e blocos de 8 h por camada)
+- [X] T003 Teste + `src/modules/regras/capacidade.ts`: `verificarRegra` aceita mínimo antigo ou requisitos; necessidade de horas = soma por hora, de turnos = soma por camada de ⌈horas ÷ 8⌉; com requisito igual dá o mesmo número de hoje; `memoria` cita o turno quando houver
+- [X] T004 [P] Teste + `src/modules/escala/cobertura.ts`: exigência por hora (`ok` compara com o requisito da hora); campo `minimo` continua para compatibilidade
+- [X] T005 [P] Teste + `src/modules/simulacoes/avaliar.ts` e `vagas.ts`: cobertura por dia e hora e o aviso de falta usam o requisito da hora; aviso de intervalo descoberto só onde o requisito é 1
+- [X] T006 Teste + `src/modules/escala/cenarios.ts` e `cenarios-extras.ts`: `custoMensalDaHora` passa a depender do requisito da hora cortada; cortes e extensões usam `verificarRegra` com requisitos (resultado idêntico com requisito igual)
+- [X] T007 [P] Teste + `src/modules/apuracao/periodo.ts` e `simulacoes/simulacoes.service.ts`: o snapshot de premissas aceita a forma antiga e a nova; comparação "premissas mudaram" por igualdade profunda
+- [X] T008 Rodar tudo: os 195 + 105 testes antigos continuam verdes sem alteração, `tsc` e `lint` limpos
 
 **Checkpoint**: motor pronto para turnos; nada mudou para o usuário.
 

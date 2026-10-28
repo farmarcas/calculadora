@@ -1,5 +1,6 @@
 import type { DiaAberto } from '../regras/capacidade.js';
 import { tetoEfetivo, type Regra } from '../regras/perfis.js';
+import { requisitos, type Minimos } from '../regras/requisitos.js';
 
 export type PessoaSim = {
   matricula: string;
@@ -76,11 +77,12 @@ export const ativos = <T extends { matricula: string }>(quadro: PessoaSim[], tur
 export const avaliarSimulacao = (a: {
   regra: Regra;
   dias: DiaAberto[];
-  minimos: Record<string, number>;
+  minimos: Minimos;
   quadro: PessoaSim[];
   turnos: TurnoSim[];
 }) => {
-  const { regra, dias, minimos } = a;
+  const { regra, dias } = a;
+  const req = requisitos(a.minimos);
   const { quadro, turnos } = ativos(a.quadro, a.turnos);
   const achados: Achado[] = [];
   const erro = (r: string, texto: string, extra: Partial<Achado> = {}) =>
@@ -164,10 +166,7 @@ export const avaliarSimulacao = (a: {
 
   // Cobertura por dia aberto e função, no pior momento de cada hora.
   const funcoes = [
-    ...new Set([
-      ...Object.keys(minimos).filter((f) => (minimos[f] ?? 0) > 0),
-      ...quadro.map((p) => p.funcao).filter((f): f is string => !!f),
-    ]),
+    ...new Set([...req.funcoes, ...quadro.map((p) => p.funcao).filter((f): f is string => !!f)]),
   ];
   const funcaoDe = new Map(quadro.map((p) => [p.matricula, p.funcao]));
   const cobertura: Record<number, CoberturaDia> = {};
@@ -177,19 +176,21 @@ export const avaliarSimulacao = (a: {
     const horas: number[] = [];
     for (let h = Math.floor(d.abre); h < Math.ceil(d.fecha - EPS); h++) horas.push(h);
     cobertura[d.dia] = funcoes.map((funcao) => {
-      const minimo = minimos[funcao] ?? 0;
+      // Maior exigência do cargo no dia (igual ao mínimo de sempre quando não há turnos).
+      const minimo = Math.max(0, ...horas.map((h) => req.emHora(funcao, d.dia, h)));
       const meus = doDia.filter((t) => funcaoDe.get(t.matricula) === funcao);
       const porHora = horas.map((hora) => {
         const pessoas = meus.filter((t) => presente(t, hora)).length;
-        return { hora, pessoas, ok: pessoas >= minimo };
+        return { hora, pessoas, ok: pessoas >= req.emHora(funcao, d.dia, hora) };
       });
       const faltas = porHora.filter((c) => !c.ok).map((c) => c.hora);
+      const minimoNasFaltas = Math.max(0, ...faltas.map((h) => req.emHora(funcao, d.dia, h)));
       if (faltas.length)
         erro(
           funcao === 'Farmacêutico' ? 'farmaceutico' : 'cobertura',
           funcao === 'Farmacêutico'
             ? `Sem farmacêutico em ${NOMES_DIA[d.dia]} ${faixas(faltas)}: a lei exige farmacêutico em todo o horário de funcionamento.`
-            : `${funcao} abaixo do mínimo (${minimo}) em ${NOMES_DIA[d.dia]} ${faixas(faltas)}.`,
+            : `${funcao} abaixo do mínimo (${minimoNasFaltas}) em ${NOMES_DIA[d.dia]} ${faixas(faltas)}.`,
           { dia: d.dia },
         );
       if (minimo === 1 && meus.length === 1) {

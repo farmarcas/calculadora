@@ -1,4 +1,5 @@
 import type { DiaAberto } from '../regras/capacidade.js';
+import { requisitos, type Minimos } from '../regras/requisitos.js';
 import type { PessoaSim, TurnoSim } from '../simulacoes/avaliar.js';
 import {
   apurarDia,
@@ -18,7 +19,7 @@ export type EntradaApuracao = {
   quadro: PessoaSim[];
   turnos: TurnoSim[]; // semana planejada da simulação em uso
   dias: DiaAberto[];
-  minimos: Record<string, number>;
+  minimos: Minimos;
   batidas: { matricula: string; data: string; minuto: number }[];
   // Só se apura o que o ponto importado cobre: sem arquivo para a data, não existe "falta".
   periodosCobertos: { inicio: string; fim: string }[];
@@ -54,6 +55,8 @@ export const datas = (de: string, ate: string) => {
 const horasDo = (faixas: Faixa[], h: number) => sobreposicao(faixas, [[h, h + 1]]) >= 1 - 1e-9;
 
 export const apurarPeriodo = (e: EntradaApuracao) => {
+  const req = requisitos(e.minimos);
+  const exigido = (f: string, dia: number, h: number) => req.emHora(f, dia, h);
   const tol = e.tolerancia ?? TOLERANCIA_PADRAO_MIN;
   const coberto = (d: string) => e.periodosCobertos.some((p) => d >= p.inicio && d <= p.fim);
   const inicio = e.de > e.vigenciaInicio ? e.de : e.vigenciaInicio;
@@ -182,12 +185,14 @@ export const apurarPeriodo = (e: EntradaApuracao) => {
         horaExtraPorDia[d.diaSemana] = arred(horaExtraPorDia[d.diaSemana]! + d.horaExtraH);
 
         // Causa provável (sugestão): plano, quadro ou execução.
-        const minimo = e.minimos[f] ?? 0;
         const de = t ? Math.floor(t.saida) : Math.floor((d.primeira ?? 0) / 60);
         const ateH = Math.ceil((d.ultima ?? 0) / 60);
         const faixaCoberta = Array.from({ length: Math.max(0, ateH - de) }, (_, i) => de + i);
-        const planoFraco =
-          minimo > 0 && faixaCoberta.some((h) => planejadoNaHora(d.data, f, h) < minimo);
+        const planoFraco = faixaCoberta.some(
+          (h) =>
+            (exigido(f, d.diaSemana, h) ?? 0) > 0 &&
+            planejadoNaHora(d.data, f, h) < exigido(f, d.diaSemana, h),
+        );
         const faltouColega = apuradas.some(
           (q) =>
             q.matricula !== p.matricula &&
@@ -206,17 +211,13 @@ export const apurarPeriodo = (e: EntradaApuracao) => {
   const descobertas: { data: string; funcao: string; de: string; ate: string }[] = [];
   const horasAbaixo: Record<string, number> = {};
   const funcoes = [
-    ...new Set([
-      ...Object.keys(e.minimos).filter((f) => (e.minimos[f] ?? 0) > 0),
-      ...pessoas.map((p) => p.funcao).filter((f): f is string => !!f),
-    ]),
+    ...new Set([...req.funcoes, ...pessoas.map((p) => p.funcao).filter((f): f is string => !!f)]),
   ];
   for (const data of dias) {
     const aberto = e.dias.find((x) => x.dia === diaDaSemana(data));
     if (!aberto) continue;
     for (const f of funcoes) {
-      const minimo = e.minimos[f] ?? 0;
-      if (minimo <= 0) continue;
+      if (req.pico(f) <= 0) continue;
       const faltas: number[] = [];
       for (let h = Math.floor(aberto.abre); h < Math.ceil(aberto.fecha); h++) {
         const presentes = apuradas.filter(
@@ -226,7 +227,7 @@ export const apurarPeriodo = (e: EntradaApuracao) => {
               (d) => d.data === data && d.situacao !== 'incompleto' && horasDo(d.trabalho, h),
             ),
         ).length;
-        if (presentes < minimo) faltas.push(h);
+        if (presentes < req.emHora(f, aberto.dia, h)) faltas.push(h);
       }
       horasAbaixo[f] = (horasAbaixo[f] ?? 0) + faltas.length;
       let i = 0;

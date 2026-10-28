@@ -1,5 +1,6 @@
 import { passa, verificarRegra, type DiaAberto, type LinhaFuncao } from '../regras/capacidade.js';
 import { regraPara, type RegraId } from '../regras/perfis.js';
+import { requisitos, type Minimos } from '../regras/requisitos.js';
 import { calcularCusto, DIVISOR } from '../custos/custo.js';
 import type { Custos } from '../custos/custos.schemas.js';
 import type { PessoaSim } from '../simulacoes/avaliar.js';
@@ -94,7 +95,7 @@ export type EntradaCenarios = {
   regraId: Extract<RegraId, 'r42' | 'r40'>;
   convencao8h24: boolean;
   dias: DiaAberto[];
-  minimos: Record<string, number>;
+  minimos: Minimos;
   pessoas: { funcao: string; cargaH: number }[];
   vendas: VendaLinha[];
   // Venda estimada pelo faturamento do cadastro (não é base de dias reais): sem aviso de "poucos dias".
@@ -250,7 +251,7 @@ export const aplicarCorte = (atuais: DiaAberto[], c: Cand): DiaAberto[] =>
 export const cortarPontas = (
   regra: ReturnType<typeof regraPara>,
   dias: DiaAberto[],
-  minimos: Record<string, number>,
+  minimos: Minimos,
   pessoas: EntradaCenarios['pessoas'],
   vb: VendaDiaHora | null,
 ) => {
@@ -401,14 +402,52 @@ export const custoMensalDaHora = (
   return { custo, faltam: [] };
 };
 
+// Custo mensal de cobrir o trecho [de, ate) de um dia: soma, hora a hora, do que a loja exige nessa hora.
+// Com exigência igual em todas as horas dá o mesmo valor de custoMensalDaHora × horas.
+export const custoMensalDoTrecho = (
+  regraId: RegraId,
+  minimos: Minimos,
+  custos: Custos | null,
+  dia: number,
+  de: number,
+  ate: number,
+): { custo: number | null; faltam: string[] } => {
+  const req = requisitos(minimos);
+  const faltam = req.funcoes.filter(
+    (f) => !custos?.salarioMedio[f as keyof Custos['salarioMedio']],
+  );
+  if (!custos || faltam.length > 0) return { custo: null, faltam };
+  const fator = 1 + custos.encargosPct / 100;
+  let custo = 0;
+  for (let h = Math.floor(de); h < Math.ceil(ate); h++) {
+    const parte = Math.min(h + 1, ate) - Math.max(h, de);
+    for (const f of req.funcoes)
+      custo +=
+        (req.emHora(f, dia, h) *
+          custos.salarioMedio[f as keyof Custos['salarioMedio']]! *
+          fator *
+          5 *
+          parte) /
+        DIVISOR[regraId];
+  }
+  return { custo, faltam: [] };
+};
+
 // Corta as pontas cuja margem mensal é menor que o custo mensal de cobri-las (a de menor margem
 // primeiro), reavaliando as novas pontas a cada corte.
-export const cortarQueNaoSePagam = (dias: DiaAberto[], vb: VendaDiaHora, custoHora: number) => {
+// `custoHora` é um valor único por hora ou uma função que devolve o custo do trecho cortado.
+export const cortarQueNaoSePagam = (
+  dias: DiaAberto[],
+  vb: VendaDiaHora,
+  custoHora: number | ((dia: number, de: number, ate: number) => number),
+) => {
+  const custoDe = (x: { dia: number; de: number; ate: number }) =>
+    typeof custoHora === 'number' ? custoHora * (x.ate - x.de) : custoHora(x.dia, x.de, x.ate);
   let atuais = dias.map((d) => ({ ...d }));
   const fatias: Fatia[] = [];
   for (;;) {
     const c = candidatas(atuais, vb)
-      .filter((x) => x.margem * SEMANAS_NO_MES < custoHora * (x.ate - x.de))
+      .filter((x) => x.margem * SEMANAS_NO_MES < custoDe(x))
       .sort((x, y) => x.margem - y.margem || Number(y.fim) - Number(x.fim) || y.dia - x.dia)[0];
     if (!c) return { dias: atuais, fatias };
     fatias.push({ dia: c.dia, de: c.de, ate: c.ate, venda: c.venda, margem: c.margem });
@@ -435,7 +474,17 @@ const montarEquilibrio = (
     margemCortadaMes: null,
   };
   const foco = 'Equilibrar contratação e venda perdida';
-  const { custo: custoHora, faltam } = custoMensalDaHora(e.regraId, e.minimos, e.custos);
+  // Exigência igual em todas as horas: um valor por hora. Por turno: o custo depende da hora cortada.
+  const req = requisitos(e.minimos);
+  const { custo: custoUnico, faltam } = req.uniforme
+    ? custoMensalDaHora(e.regraId, req.uniforme, e.custos)
+    : custoMensalDoTrecho(e.regraId, e.minimos, e.custos, 0, 0, 0);
+  const custoHora: number | ((dia: number, de: number, ate: number) => number) | null = req.uniforme
+    ? custoUnico
+    : faltam.length > 0 || !e.custos
+      ? null
+      : (dia, de, ate) =>
+          custoMensalDoTrecho(e.regraId, e.minimos, e.custos, dia, de, ate).custo ?? 0;
   const indisponivel = (motivo: 'custos' | 'vendas', texto: string): CenarioEquilibrio => ({
     ...vazio,
     indisponivel: { motivo, texto },

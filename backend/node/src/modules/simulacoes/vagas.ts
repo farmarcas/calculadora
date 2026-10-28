@@ -1,6 +1,7 @@
 import { ValidationError } from '../../shared/errors/validation-error.js';
 import { verificarRegra, type DiaAberto } from '../regras/capacidade.js';
 import { tetoEfetivo, type Regra } from '../regras/perfis.js';
+import type { Minimos } from '../regras/requisitos.js';
 import type { PessoaSim, TurnoSim } from './avaliar.js';
 
 export type VagaEntrada = { matricula?: string; funcao: string; cargaH: number };
@@ -80,7 +81,7 @@ export const aplicarVagasEDesligados = (
 export const vagasSugeridas = (
   regra: Regra,
   dias: DiaAberto[],
-  minimos: Record<string, number>,
+  minimos: Minimos,
   quadro: PessoaSim[],
 ): VagaEntrada[] => {
   const pessoas = quadro

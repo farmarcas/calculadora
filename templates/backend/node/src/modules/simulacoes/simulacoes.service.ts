@@ -6,6 +6,7 @@ import { normalizarHorarios } from '../cadastros/horarios.js';
 import { diasAbertos, type LojaDiag } from '../escala/diagnostico.js';
 import type { EscalaRepository } from '../escala/escala.repository.js';
 import { FUNCOES_PADRAO_MINIMO, regraPara, type RegraId } from '../regras/perfis.js';
+import { minimosIguais } from '../regras/requisitos.js';
 import { calcularIndicadores, sintese } from './comparar.js';
 import { gerarExcelEscala } from './exportar.js';
 import { avaliarSimulacao, type PessoaSim, type TurnoSim } from './avaliar.js';
@@ -100,7 +101,7 @@ export const makeSimulacoesService = (
     )
       motivos.push('O horário de funcionamento da loja mudou.');
     const min = { ...FUNCOES_PADRAO_MINIMO, ...(l.minimos ?? {}) };
-    if (Object.keys(min).some((f) => (min[f] ?? 0) !== (s.premissas!.minimos[f] ?? 0)))
+    if (!minimosIguais(min, s.premissas.minimos))
       motivos.push('O mínimo de pessoas por função mudou.');
     if (l.convencao8h24 !== s.premissas.convencao8h24)
       motivos.push('A convenção coletiva (8h24 por dia) mudou.');

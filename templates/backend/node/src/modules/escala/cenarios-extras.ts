@@ -1,5 +1,6 @@
 import { passa, verificarRegra, type DiaAberto } from '../regras/capacidade.js';
 import { regraPara, tetoEfetivo } from '../regras/perfis.js';
+import { requisitos } from '../regras/requisitos.js';
 import {
   horarioDaSemana,
   horasDaSemana,
@@ -292,9 +293,8 @@ const montarReduzir = (e: EntradaCenarios, c: CenariosRegra): CenarioReduzir => 
   const regra = regraPara(e.regraId, e.convencao8h24);
   const linhaDe = (pessoas: EntradaCenarios['pessoas'], funcao: string) =>
     verificarRegra(regra, e.dias, e.minimos, pessoas).find((l) => l.funcao === funcao);
-  const funcoes = [...new Set(e.pessoas.map((p) => p.funcao))].filter(
-    (f) => (e.minimos[f] ?? 0) > 0,
-  );
+  const req = requisitos(e.minimos);
+  const funcoes = [...new Set(e.pessoas.map((p) => p.funcao))].filter((f) => req.pico(f) > 0);
 
   const emFalta: string[] = [];
   const cargos: CargoReduzir[] = funcoes.map((funcao) => {

@@ -1,4 +1,5 @@
 import type { DiaAberto } from '../regras/capacidade.js';
+import { requisitos, type Minimos } from '../regras/requisitos.js';
 
 export type TurnoPessoa = {
   funcao: string;
@@ -9,7 +10,13 @@ export type TurnoPessoa = {
   fimIntervalo: number | null;
 };
 
-export type CelulaHora = { hora: number; pessoas: number | null; ok: boolean | null };
+// `exigido` só vem quando a exigência muda ao longo do dia (turnos).
+export type CelulaHora = {
+  hora: number;
+  pessoas: number | null;
+  ok: boolean | null;
+  exigido?: number;
+};
 export type CoberturaFuncao = { funcao: string; minimo: number; porHora: CelulaHora[] };
 
 // A pessoa cobre a hora h se está no posto durante a hora inteira e não está em intervalo.
@@ -25,26 +32,18 @@ const cobre = (t: TurnoPessoa, dia: number, h: number) =>
   );
 
 // Pessoas presentes no pior dia de cada hora, já descontado o intervalo.
-export const cobertura = (
-  dias: DiaAberto[],
-  turnos: TurnoPessoa[],
-  minimos: Record<string, number>,
-) => {
+export const cobertura = (dias: DiaAberto[], turnos: TurnoPessoa[], minimos: Minimos) => {
+  const req = requisitos(minimos);
   if (dias.length === 0) return { horas: [] as number[], funcoes: [] as CoberturaFuncao[] };
   const ini = Math.floor(Math.min(...dias.map((d) => d.abre)));
   const fim = Math.ceil(Math.max(...dias.map((d) => d.fecha)));
   const horas = Array.from({ length: fim - ini }, (_, i) => ini + i);
-  const funcoes = [
-    ...new Set([
-      ...Object.keys(minimos).filter((f) => (minimos[f] ?? 0) > 0),
-      ...turnos.map((t) => t.funcao),
-    ]),
-  ];
+  const funcoes = [...new Set([...req.funcoes, ...turnos.map((t) => t.funcao)])];
 
   return {
     horas,
     funcoes: funcoes.map((funcao): CoberturaFuncao => {
-      const minimo = minimos[funcao] ?? 0;
+      const minimo = req.pico(funcao);
       const doFuncao = turnos.filter((t) => t.funcao === funcao);
       return {
         funcao,
@@ -55,7 +54,9 @@ export const cobertura = (
           const pessoas = Math.min(
             ...abertos.map((d) => doFuncao.filter((t) => cobre(t, d.dia, hora)).length),
           );
-          return { hora, pessoas, ok: pessoas >= minimo };
+          if (req.uniforme) return { hora, pessoas, ok: pessoas >= minimo };
+          const exigido = Math.max(...abertos.map((d) => req.emHora(funcao, d.dia, hora)));
+          return { hora, pessoas, ok: pessoas >= exigido, exigido };
         }),
       };
     }),

@@ -8,7 +8,6 @@ const gestor = { 'X-Perfil': 'SCHEDULE_MANAGER' };
 const valores = {
   salarioMedio: { Farmacêutico: 8000, Atendimento: 2500 },
   encargosPct: 70,
-  regimeTributario: 'Simples Nacional',
 };
 
 describe('custos da loja (rotas)', () => {
@@ -33,7 +32,7 @@ describe('custos da loja (rotas)', () => {
   it('começa sem custos informados', async () => {
     const r = await request(app).get(`/api/v1/lojas/${lojaId}/custos`).set(admin);
     expect(r.status).toBe(200);
-    expect(r.body).toEqual({ informado: false, custos: null });
+    expect(r.body).toEqual({ informado: false, custos: null, regimeTributario: null });
   });
 
   it('o dono salva e lê; a auditoria não guarda valores', async () => {
@@ -42,6 +41,7 @@ describe('custos da loja (rotas)', () => {
     ).toBe(200);
     const r = await request(app).get(`/api/v1/lojas/${lojaId}/custos`).set(admin);
     expect(r.body).toMatchObject({ informado: true, custos: valores });
+    expect(r.body.regimeTributario).toBeNull();
     const a = await prisma.auditoria.findFirstOrThrow({ where: { acao: 'loja.custos' } });
     expect(JSON.stringify(a.detalhe)).not.toContain('8000');
   });
@@ -88,5 +88,20 @@ describe('custos da loja (rotas)', () => {
           .set(admin)
       ).status,
     ).toBe(404);
+  });
+
+  it('mostra o regime tributário que está no cadastro da loja e não o aceita no corpo', async () => {
+    await prisma.loja.update({ where: { id: lojaId }, data: { regimeTributario: 'real' } });
+    expect(
+      (await request(app).get(`/api/v1/lojas/${lojaId}/custos`).set(admin)).body.regimeTributario,
+    ).toBe('real');
+    expect(
+      (
+        await request(app)
+          .put(`/api/v1/lojas/${lojaId}/custos`)
+          .set(admin)
+          .send({ ...valores, regimeTributario: 'simples' })
+      ).status,
+    ).toBe(400);
   });
 });

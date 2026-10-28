@@ -339,4 +339,71 @@ describe('cadastros (rotas)', () => {
       expect((await post({})).status).toBe(400);
     });
   });
+  describe('dados da loja: cidade, bandeira e regime tributário', () => {
+    const base = { codigo: '020', nome: 'Loja Vinte' };
+    const criar = (extra: object) =>
+      request(app)
+        .post('/api/v1/lojas')
+        .set(admin)
+        .send({ ...base, ...extra });
+
+    it('grava e devolve cidade, UF, bandeira, CNPJ e regime', async () => {
+      const c = await criar({
+        cnpj: '11.222.333/0001-81',
+        cidade: 'Belo Horizonte',
+        uf: 'mg',
+        marca: 'Super Popular',
+        regimeTributario: 'presumido',
+      });
+      expect(c.status).toBe(201);
+      expect(c.body).toMatchObject({
+        cidade: 'Belo Horizonte',
+        uf: 'MG',
+        marca: 'Super Popular',
+        regimeTributario: 'presumido',
+      });
+      const lido = (await request(app).get('/api/v1/lojas')).body.data[0];
+      expect(lido).toMatchObject({ cidade: 'Belo Horizonte', regimeTributario: 'presumido' });
+      const limpo = await request(app)
+        .patch(`/api/v1/lojas/${c.body.id}`)
+        .set(admin)
+        .send({ regimeTributario: null });
+      expect(limpo.body.regimeTributario).toBeNull();
+    });
+
+    it('recusa CNPJ inválido, UF inexistente e regime fora das três opções', async () => {
+      expect((await criar({ cnpj: '11.222.333/0001-82' })).status).toBe(400);
+      expect((await criar({ uf: 'XX' })).status).toBe(400);
+      expect((await criar({ regimeTributario: 'mei' })).status).toBe(400);
+    });
+
+    it('loja antiga sem cidade nem regime continua abrindo', async () => {
+      await prisma.loja.create({ data: { codigo: '021', nome: 'Antiga' } });
+      const r = await request(app).get('/api/v1/lojas');
+      expect(r.status).toBe(200);
+      expect(r.body.data[0].cidade).toBeUndefined();
+      expect(r.body.data[0].regimeTributario ?? null).toBeNull();
+    });
+
+    it('importa cidade e regime da planilha', async () => {
+      const buf = await planilha(
+        [['030', 'Loja Trinta', 'Curitiba', 'Lucro Real']],
+        [],
+        ['Cód_Loja', 'Nome_Loja', 'Cidade', 'Regime tributário'],
+      );
+      const up = await request(app)
+        .post('/api/v1/importacoes/cadastro')
+        .set(admin)
+        .attach('arquivo', buf, 'cadastro.xlsx');
+      expect(up.status).toBe(201);
+      expect(up.body.mapeamento.lojas.colunas).toMatchObject({ cidade: 2, regime_tributario: 3 });
+      const conf = await request(app)
+        .post(`/api/v1/importacoes/cadastro/${up.body.id}/confirmar`)
+        .set(admin)
+        .send({ mapeamento: up.body.mapeamento });
+      expect(conf.status).toBe(200);
+      const l = await prisma.loja.findFirst({ where: { codigo: '030' } });
+      expect(l).toMatchObject({ cidade: 'Curitiba', regimeTributario: 'real' });
+    });
+  });
 });

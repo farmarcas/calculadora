@@ -16,9 +16,10 @@ export const custosRouter = (repo = custosRepository) => {
 
   r.get('/lojas/:id/custos', soDono, validate(S.lerCustosReq), async (_req, res) => {
     const { params } = v<typeof S.lerCustosReq>(res);
-    const { existe, custos } = await repo.ler(params.id);
+    const { existe, custos, regimeTributario } = await repo.ler(params.id);
     if (!existe) throw new NotFoundError('Loja não encontrada', 'LOJA_NAO_ENCONTRADA');
-    res.json({ informado: !!custos, custos });
+    // O regime mora no cadastro da loja; aqui só é mostrado, para consulta.
+    res.json({ informado: !!custos, custos, regimeTributario });
   });
 
   r.put('/lojas/:id/custos', soDono, validate(S.salvarCustosReq), async (_req, res) => {

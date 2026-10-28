@@ -115,8 +115,8 @@ describe('ponto — importação do AFD', () => {
     await request(app)
       .post('/api/v1/lojas')
       .set(admin)
-      .send({ codigo: '002', nome: 'Norte', cnpj: '55.666.777/0001-88' });
-    const outra = await enviar([{ nome: 'norte.txt', conteudo: afd({ cnpj: '55666777000188' }) }]);
+      .send({ codigo: '002', nome: 'Norte', cnpj: '55.666.777/0001-81' });
+    const outra = await enviar([{ nome: 'norte.txt', conteudo: afd({ cnpj: '55666777000181' }) }]);
     expect(outra.body.arquivos[0].motivoRejeicao).toContain('loja 002');
     expect(await prisma.batida.count()).toBe(0);
   });

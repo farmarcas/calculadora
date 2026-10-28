@@ -13,13 +13,24 @@ import type { Aba } from '../planilhas/leitor.js';
 import type { Mapeamento, MapeamentoAba } from '../planilhas/inferencia.js';
 import { normalizar } from '../planilhas/normalizar.js';
 
+// Aceita "Simples Nacional", "Lucro Presumido", "Lucro Real" (e variações); qualquer outra coisa fica em branco.
+export const interpretarRegime = (texto: string) => {
+  const t = normalizar(texto);
+  if (t.includes('simples')) return 'simples' as const;
+  if (t.includes('presumido')) return 'presumido' as const;
+  if (t.includes('real')) return 'real' as const;
+  return undefined;
+};
+
 export type Horario = { abre: string; fecha: string };
 export type LojaInput = {
   codigo: string;
   nome: string;
   cnpj?: string;
+  cidade?: string;
   uf?: string;
   marca?: string;
+  regimeTributario?: 'simples' | 'presumido' | 'real';
   horarios?: HorariosSemana;
 };
 export type FuncionarioInput = {
@@ -142,8 +153,10 @@ export const processarLinhas = (abas: Aba[], mapa: Mapeamento): Processado => {
         codigo,
         nome,
         cnpj: celula(l, mapa.lojas!, 'cnpj') || undefined,
+        cidade: celula(l, mapa.lojas!, 'cidade') || undefined,
         uf: celula(l, mapa.lojas!, 'uf').toUpperCase() || undefined,
         marca: celula(l, mapa.lojas!, 'marca') || undefined,
+        regimeTributario: interpretarRegime(celula(l, mapa.lojas!, 'regime_tributario')),
         horarios: h.horarios,
       });
     });

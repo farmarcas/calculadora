@@ -9,7 +9,6 @@ export const custosSchema = z
     // Salário médio mensal por função (estimativa gerencial; nunca salário individual).
     salarioMedio: z.partialRecord(z.enum(FUNCOES), z.number().positive().max(1_000_000)),
     encargosPct: z.number().min(0).max(300),
-    regimeTributario: z.string().trim().max(40).optional(),
   })
   .strict();
 export type Custos = z.infer<typeof custosSchema>;

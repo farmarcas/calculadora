@@ -107,6 +107,13 @@ export const CAMPOS_LOJA: CampoDef[] = [
     conteudo: (v) => reCnpj.test(v),
   },
   {
+    chave: 'cidade',
+    rotulo: 'Cidade',
+    obrigatorio: false,
+    exemplo: 'São Paulo',
+    sinonimos: ['cidade', 'municipio', 'cidade da loja'],
+  },
+  {
     chave: 'uf',
     rotulo: 'UF',
     obrigatorio: false,
@@ -120,6 +127,13 @@ export const CAMPOS_LOJA: CampoDef[] = [
     obrigatorio: false,
     exemplo: 'Rede Exemplo',
     sinonimos: ['marca', 'bandeira', 'rede'],
+  },
+  {
+    chave: 'regime_tributario',
+    rotulo: 'Regime tributário',
+    obrigatorio: false,
+    exemplo: 'Simples Nacional',
+    sinonimos: ['regime tributario', 'regime', 'tributacao', 'regime_tributario'],
   },
   {
     chave: 'loja_24h',

@@ -13,8 +13,10 @@ const lojaSel = {
   codigo: true,
   nome: true,
   cnpj: true,
+  cidade: true,
   uf: true,
   marca: true,
+  regimeTributario: true,
   horarios: true,
 } as const;
 const funcSel = {
@@ -30,14 +32,18 @@ const funcSel = {
 } as const;
 
 const comoLoja = (
-  r: { cnpj: string | null; uf: string | null; marca: string | null; horarios: unknown } & Record<
-    string,
-    unknown
-  >,
+  r: {
+    cnpj: string | null;
+    cidade: string | null;
+    uf: string | null;
+    marca: string | null;
+    horarios: unknown;
+  } & Record<string, unknown>,
 ) =>
   ({
     ...r,
     cnpj: r.cnpj ?? undefined,
+    cidade: r.cidade ?? undefined,
     uf: r.uf ?? undefined,
     marca: r.marca ?? undefined,
     horarios: normalizarHorarios(r.horarios) ?? undefined,

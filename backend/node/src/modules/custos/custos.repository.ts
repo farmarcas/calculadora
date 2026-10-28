@@ -3,12 +3,20 @@ import { prisma } from '../../shared/database/prisma.js';
 import type { Custos } from './custos.schemas.js';
 
 export const custosRepository = {
-  async ler(lojaId: string): Promise<{ existe: boolean; custos: Custos | null }> {
+  async ler(lojaId: string): Promise<{
+    existe: boolean;
+    custos: Custos | null;
+    regimeTributario: string | null;
+  }> {
     const l = await prisma.loja.findFirst({
       where: { id: lojaId, deletedAt: null },
-      select: { custos: true },
+      select: { custos: true, regimeTributario: true },
     });
-    return { existe: !!l, custos: (l?.custos as unknown as Custos | null) ?? null };
+    return {
+      existe: !!l,
+      custos: (l?.custos as unknown as Custos | null) ?? null,
+      regimeTributario: l?.regimeTributario ?? null,
+    };
   },
   async salvar(lojaId: string, custos: Custos) {
     await prisma.loja.update({

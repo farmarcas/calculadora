@@ -3,13 +3,18 @@ import { api } from "../../api/client.js";
 import { Aviso, Botao, Campo, Modal, entrada } from "../../components/ui/index.jsx";
 import HorarioSemana, { erroDeHorario, paraApi, paraEdicao } from "./HorarioSemana.jsx";
 
+const REGIMES = [["", "Não informado"], ["simples", "Simples Nacional"], ["presumido", "Lucro Presumido"], ["real", "Lucro Real"]];
+const UFS = ["AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"];
+
 export default function FormLoja({ registro, onClose, onSalvo }) {
   const [v, setV] = useState({
     codigo: registro?.codigo ?? "",
     nome: registro?.nome ?? "",
     cnpj: registro?.cnpj ?? "",
+    cidade: registro?.cidade ?? "",
     uf: registro?.uf ?? "",
     marca: registro?.marca ?? "",
+    regimeTributario: registro?.regimeTributario ?? "",
   });
   const [dias, setDias] = useState(() => paraEdicao(registro?.horarios, !registro));
   const [mexeuNoHorario, setMexeuNoHorario] = useState(false);
@@ -19,7 +24,10 @@ export default function FormLoja({ registro, onClose, onSalvo }) {
   const salvar = async (e) => {
     e.preventDefault();
     const body = { codigo: v.codigo, nome: v.nome };
-    for (const k of ["cnpj", "uf", "marca"]) if (v[k]) body[k] = v[k];
+    for (const k of ["cnpj", "cidade", "uf", "marca"]) if (v[k]) body[k] = v[k];
+    // Em loja já cadastrada, "Não informado" limpa o regime.
+    if (v.regimeTributario) body.regimeTributario = v.regimeTributario;
+    else if (registro?.regimeTributario) body.regimeTributario = null;
     const problema = erroDeHorario(dias);
     if (problema) return setErro(problema);
     // Só manda o horário se for loja nova, se já tinha horário ou se a pessoa mexeu nele.
@@ -40,8 +48,19 @@ export default function FormLoja({ registro, onClose, onSalvo }) {
           <Campo rotulo="Código *"><input required className={entrada} value={v.codigo} onChange={set("codigo")} /></Campo>
           <Campo rotulo="Nome *"><input required minLength={2} className={entrada} value={v.nome} onChange={set("nome")} /></Campo>
           <Campo rotulo="CNPJ"><input className={entrada} value={v.cnpj} onChange={set("cnpj")} /></Campo>
-          <Campo rotulo="UF"><input maxLength={2} className={entrada} value={v.uf} onChange={set("uf")} /></Campo>
-          <Campo rotulo="Marca"><input className={entrada} value={v.marca} onChange={set("marca")} /></Campo>
+          <Campo rotulo="Cidade"><input className={entrada} value={v.cidade} onChange={set("cidade")} /></Campo>
+          <Campo rotulo="UF">
+            <select className={entrada} value={v.uf} onChange={set("uf")}>
+              <option value="">—</option>
+              {UFS.map((u) => <option key={u} value={u}>{u}</option>)}
+            </select>
+          </Campo>
+          <Campo rotulo="Bandeira"><input className={entrada} value={v.marca} onChange={set("marca")} /></Campo>
+          <Campo rotulo="Regime tributário">
+            <select className={entrada} value={v.regimeTributario} onChange={set("regimeTributario")}>
+              {REGIMES.map(([valor, rotulo]) => <option key={valor} value={valor}>{rotulo}</option>)}
+            </select>
+          </Campo>
         </div>
         <HorarioSemana dias={dias} onChange={(d) => { setDias(d); setMexeuNoHorario(true); }} />
         <div className="flex justify-end gap-2">

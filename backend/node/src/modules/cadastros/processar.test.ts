@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { deduzirFuncao, interpretarHorarioLoja, processarLinhas } from './processar.js';
+import {
+  deduzirFuncao,
+  interpretarHorarioLoja,
+  interpretarRegime,
+  processarLinhas,
+} from './processar.js';
 
 const mapa = {
   lojas: { aba: 'L', colunas: { codigo: 0, nome: 1, abre_semana: 2, fecha_semana: 3 } },
@@ -128,5 +133,15 @@ describe('interpretarHorarioLoja', () => {
     expect(interpretarHorarioLoja(cel({ abre_qua: '22:00', fecha_qua: '08:00' })).erro).toContain(
       'Qua: o fechamento (08:00) precisa ser depois da abertura (22:00)',
     );
+  });
+});
+
+describe('interpretarRegime', () => {
+  it('entende os três regimes e ignora o resto', () => {
+    expect(interpretarRegime('Simples Nacional')).toBe('simples');
+    expect(interpretarRegime('LUCRO PRESUMIDO')).toBe('presumido');
+    expect(interpretarRegime('lucro real')).toBe('real');
+    expect(interpretarRegime('MEI')).toBeUndefined();
+    expect(interpretarRegime('')).toBeUndefined();
   });
 });

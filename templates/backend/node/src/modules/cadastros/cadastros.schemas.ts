@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { UFS, validarCnpj } from './documentos.js';
 import { normalizarHorarios, validarHorarios } from './horarios.js';
 
 const vazio = z.object({}).strict();
@@ -30,15 +31,29 @@ const horariosEntrada = z.union([horariosNovo, horariosAntigo]).transform((h, ct
   return n;
 });
 
+export const REGIMES = ['simples', 'presumido', 'real'] as const;
+
 export const FUNCOES = ['Farmacêutico', 'Atendimento', 'Caixa', 'Apoio', 'Perfumaria'] as const;
 
 export const lojaSchema = z
   .object({
     codigo: z.string().trim().min(1).max(30),
     nome: z.string().trim().min(2).max(120),
-    cnpj: z.string().trim().max(18).optional(),
-    uf: z.string().trim().length(2).optional(),
+    cnpj: z
+      .string()
+      .trim()
+      .max(18)
+      .refine((v) => v === '' || validarCnpj(v), 'CNPJ inválido')
+      .optional(),
+    cidade: z.string().trim().max(80).optional(),
+    uf: z
+      .string()
+      .trim()
+      .toUpperCase()
+      .refine((v) => (UFS as readonly string[]).includes(v), 'UF inválida')
+      .optional(),
     marca: z.string().trim().max(80).optional(),
+    regimeTributario: z.enum(REGIMES).nullable().optional(),
     horarios: horariosEntrada.optional(),
   })
   .strict();

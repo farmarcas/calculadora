@@ -3,13 +3,13 @@ import { api } from "../../api/client.js";
 import { Aviso, Botao, Cartao, entrada } from "../../components/ui/index.jsx";
 
 const FUNCOES = ["Farmacêutico", "Atendimento", "Caixa", "Apoio", "Perfumaria"];
-const REGIMES = ["", "Simples Nacional", "Lucro Presumido", "Lucro Real"];
+const REGIMES = { simples: "Simples Nacional", presumido: "Lucro Presumido", real: "Lucro Real" };
 
 // Só o dono do grupo chega aqui. Valores são estimativa gerencial por média de função (não há salário individual).
 export default function Custos({ lojaId }) {
   const [sal, setSal] = useState({});
   const [enc, setEnc] = useState("");
-  const [regime, setRegime] = useState("");
+  const [regime, setRegime] = useState(null);
   const [informado, setInformado] = useState(false);
   const [erro, setErro] = useState(null);
   const [ok, setOk] = useState(false);
@@ -18,10 +18,10 @@ export default function Custos({ lojaId }) {
     api(`/lojas/${lojaId}/custos`)
       .then((r) => {
         setInformado(r.informado);
+        setRegime(r.regimeTributario ?? null);
         if (r.custos) {
           setSal(Object.fromEntries(Object.entries(r.custos.salarioMedio).map(([k, v]) => [k, String(v)])));
           setEnc(String(r.custos.encargosPct));
-          setRegime(r.custos.regimeTributario ?? "");
         }
       })
       .catch((e) => setErro(e.message));
@@ -34,7 +34,7 @@ export default function Custos({ lojaId }) {
     try {
       await api(`/lojas/${lojaId}/custos`, {
         method: "PUT",
-        body: { salarioMedio, encargosPct: Number(enc), ...(regime ? { regimeTributario: regime } : {}) },
+        body: { salarioMedio, encargosPct: Number(enc) },
       });
       setInformado(true);
       setOk(true);
@@ -62,12 +62,11 @@ export default function Custos({ lojaId }) {
             Encargos (% sobre o salário)
             <input type="number" min={0} max={300} step="0.1" className={entrada} value={enc} onChange={(e) => setEnc(e.target.value)} aria-label="Encargos" />
           </label>
-          <label className="flex flex-col gap-1 text-xs font-medium text-ink-500">
+          <p className="m-0 flex flex-col gap-1 text-xs font-medium text-ink-500">
             Regime tributário (informativo)
-            <select className={entrada} value={regime} onChange={(e) => setRegime(e.target.value)}>
-              {REGIMES.map((r) => <option key={r} value={r}>{r || "Não informado"}</option>)}
-            </select>
-          </label>
+            <span className="text-sm font-normal text-ink-700">{REGIMES[regime] ?? "Não informado"}</span>
+            <span className="font-normal">Altere em Cadastros, na configuração da loja.</span>
+          </p>
         </div>
         <p className="m-0 text-xs text-ink-500">O salário médio vale para a jornada cheia de hoje (44h). Quem já é contratado mantém o salário; uma vaga nova custa proporcional à carga dela.</p>
         <div><Botao onClick={salvar} disabled={!pronto}>Salvar custos</Botao></div>

@@ -124,4 +124,39 @@ describe('apurarPeriodo', () => {
       plano: 1,
     });
   });
+
+  it('domingo aberto entra na apuração: falta no domingo conta e deixa a faixa sem farmacêutico', () => {
+    const diasComDomingo = [...dias, { dia: 6, abre: 9, fecha: 13 }];
+    const turnosComDomingo = [
+      ...turnos,
+      { matricula: 'A', dia: 6, entrada: 9, saida: 13, iniIntervalo: null, fimIntervalo: null },
+    ];
+    const r = apurarPeriodo({
+      ...base,
+      ate: '2026-10-11',
+      dias: diasComDomingo,
+      turnos: turnosComDomingo,
+      batidas: perfeito, // ninguém bateu ponto no domingo 11/10
+      periodosCobertos: [{ inicio: '2026-10-01', fim: '2026-10-11' }],
+    });
+    expect(r.loja.faltas).toBe(1);
+    expect(r.loja.cobertura.descobertas).toEqual([
+      { data: '2026-10-11', funcao: 'Farmacêutico', de: '09:00', ate: '13:00' },
+    ]);
+    expect(r.loja.horasPlanejadas).toBe(64); // 60h da semana + 4h do domingo
+  });
+
+  it('loja 24 horas: a cobertura realizada confere a madrugada e a noite', () => {
+    const diasTodos = [0, 1, 2, 3, 4].map((dia) => ({ dia, abre: 0, fecha: 24 }));
+    const r = apurarPeriodo({
+      ...base,
+      dias: diasTodos,
+      batidas: perfeito,
+      de: '2026-10-05',
+      ate: '2026-10-05',
+      periodosCobertos: [{ inicio: '2026-10-05', fim: '2026-10-05' }],
+    });
+    // Ana 08–14 e Bia 14–20: faltam 00h–08h e 20h–24h
+    expect(r.loja.cobertura.horasAbaixoDoMinimo).toEqual({ Farmacêutico: 12 });
+  });
 });

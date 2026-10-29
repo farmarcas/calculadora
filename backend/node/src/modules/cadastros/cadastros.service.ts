@@ -8,7 +8,7 @@ import { lerPlanilha, type Aba } from '../planilhas/leitor.js';
 import type { FuncionarioBody, LojaBody } from './cadastros.schemas.js';
 import { processarLinhas, type FuncionarioInput, type LojaInput } from './processar.js';
 
-export type LojaRegistro = LojaBody & { id: string };
+export type LojaRegistro = LojaBody & { id: string; horariosResumo?: string };
 export type FuncionarioRegistro = Omit<FuncionarioBody, 'funcaoEscala'> & {
   id: string;
   funcaoEscala: string | null;
@@ -135,10 +135,11 @@ export const makeCadastrosService = (repo: CadastrosRepository, auditar: Auditor
       mapeamento: inf.mapeamento,
       sugestoes: inf.sugestoes,
       campos: {
-        lojas: CAMPOS_LOJA.map(({ chave, rotulo, obrigatorio }) => ({
+        lojas: CAMPOS_LOJA.map(({ chave, rotulo, obrigatorio, legado }) => ({
           chave,
           rotulo,
           obrigatorio,
+          legado: !!legado,
         })),
         funcionarios: CAMPOS_FUNCIONARIO.map(({ chave, rotulo, obrigatorio }) => ({
           chave,

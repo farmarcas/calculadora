@@ -24,7 +24,7 @@ function Mapa({ titulo, parte, abas, campos, sugestoes, valor, onChange }) {
       {aba && (
         <table className="w-full text-sm border-collapse">
           <tbody>
-            {campos.map((c) => {
+            {campos.filter((c) => !c.legado || valor.colunas[c.chave] != null).map((c) => {
               const atual = valor.colunas[c.chave] ?? null;
               const s = sug(c.chave);
               const [tom, texto] = atual !== null && s?.coluna === atual ? confianca(s.confianca) : atual !== null ? ["atencao", "escolhido por você"] : [c.obrigatorio ? "erro" : "neutro", c.obrigatorio ? "falta indicar" : "opcional"];

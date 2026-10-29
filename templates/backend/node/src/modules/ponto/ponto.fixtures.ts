@@ -53,7 +53,12 @@ export const montarLojaComSimulacaoEmUso = async (opcoes: { cnpj?: string | null
         codigo: '001',
         nome: 'Centro',
         ...(cnpj ? { cnpj } : {}),
-        horarios: { semana: { abre: '08:00', fecha: '20:00' } },
+        horarios: {
+          versao: 2,
+          dias: [0, 1, 2, 3, 4]
+            .map(() => ({ aberta: true, abre: '08:00', fecha: '20:00' }))
+            .concat([{ aberta: false } as never, { aberta: false } as never]),
+        },
       })
   ).body;
   await request(app)

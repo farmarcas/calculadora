@@ -48,4 +48,67 @@ describe('inferirMapeamento', () => {
     ]);
     expect(sugestoes.lojas.every((s) => s.coluna === null)).toBe(true);
   });
+
+  it('reconhece as colunas de horário por dia e a de loja 24 horas, em planilha fora do modelo', () => {
+    const { mapeamento } = inferirMapeamento([
+      {
+        nome: 'Lojas',
+        cabecalhos: [
+          'Cód_Loja',
+          'Nome',
+          'Loja 24h',
+          'Seg Abre',
+          'Seg Fecha',
+          'Abertura Sábado',
+          'Fechamento Sábado',
+          'Domingo abre',
+          'Domingo fecha',
+        ],
+        linhas: [
+          ['001', 'Centro', 'Não', '08:00', '22:00', '08:00', '20:00', 'Fechada', 'Fechada'],
+          ['002', 'Norte', 'Sim', '', '', '', '', '', ''],
+        ],
+      },
+    ]);
+    expect(mapeamento.lojas?.colunas).toMatchObject({
+      codigo: 0,
+      nome: 1,
+      loja_24h: 2,
+      abre_seg: 3,
+      fecha_seg: 4,
+      abre_sab: 5,
+      fecha_sab: 6,
+      abre_dom: 7,
+      fecha_dom: 8,
+    });
+  });
+
+  it('planilha antiga com abertura e fechamento únicos continua reconhecida', () => {
+    const { mapeamento } = inferirMapeamento([
+      {
+        nome: 'Lojas',
+        cabecalhos: ['Código', 'Nome', 'Abre semana', 'Fecha semana'],
+        linhas: [['001', 'Centro', '08:00', '22:00']],
+      },
+    ]);
+    expect(mapeamento.lojas?.colunas).toMatchObject({
+      codigo: 0,
+      nome: 1,
+      abre_semana: 2,
+      fecha_semana: 3,
+    });
+  });
+
+  it('o modelo novo traz as colunas por dia e loja 24h, sem as colunas antigas', async () => {
+    const abas = await lerPlanilha(await gerarModelo(), 'modelo.xlsx');
+    const lojas = abas.find((a) => a.nome === 'Lojas')!;
+    expect(lojas.cabecalhos).toContain('Abre segunda');
+    expect(lojas.cabecalhos).toContain('Fecha domingo');
+    expect(lojas.cabecalhos).toContain('Loja 24 horas (Sim/Não)');
+    expect(lojas.cabecalhos.some((c) => c.includes('seg a sex'))).toBe(false);
+    const { mapeamento } = inferirMapeamento(abas.filter((a) => a.nome !== 'Como preencher'));
+    expect(Object.values(mapeamento.lojas!.colunas).filter((c) => c !== null)).toHaveLength(
+      lojas.cabecalhos.length,
+    );
+  });
 });

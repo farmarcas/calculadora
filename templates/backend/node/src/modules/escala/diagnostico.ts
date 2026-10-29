@@ -1,16 +1,16 @@
 import { passa, verificarRegra, type DiaAberto, type LinhaFuncao } from '../regras/capacidade.js';
 import { FUNCOES_PADRAO_MINIMO, REGRA_IDS, regraPara, type RegraId } from '../regras/perfis.js';
+import { faixasDaSemana, normalizarHorarios, type HorariosSemana } from '../cadastros/horarios.js';
 import type { Custos } from '../custos/custos.schemas.js';
 import { cobertura, type TurnoPessoa } from './cobertura.js';
-import { lerHora } from './interpretar.js';
 import { resumirVendas, type VendaLinha } from './vendas.js';
 
-type Horario = { abre: string; fecha: string };
 export type LojaDiag = {
   id: string;
   codigo: string;
   nome: string;
-  horarios: { semana?: Horario; sabado?: Horario; domingo?: Horario } | null;
+  // Sempre no formato novo (sete dias); o antigo é convertido na leitura.
+  horarios: HorariosSemana | null;
   convencao8h24: boolean;
   minimos: Record<string, number> | null;
   // Só para o cálculo de custo (visível apenas ao dono); nunca sai no diagnóstico.
@@ -35,23 +35,8 @@ const NOMES_DIA = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
 const hh = (h: number) =>
   `${String(Math.floor(h)).padStart(2, '0')}:${String(Math.round((h % 1) * 60)).padStart(2, '0')}`;
 
-export const diasAbertos = (h: LojaDiag['horarios']): DiaAberto[] => {
-  if (!h) return [];
-  const faixa = (x?: Horario) => {
-    if (!x) return null;
-    const abre = lerHora(x.abre);
-    const fecha = lerHora(x.fecha);
-    return abre !== null && fecha !== null && fecha > abre ? { abre, fecha } : null;
-  };
-  const dias: DiaAberto[] = [];
-  const sem = faixa(h.semana);
-  if (sem) for (let d = 0; d < 5; d++) dias.push({ dia: d, ...sem });
-  const sab = faixa(h.sabado);
-  if (sab) dias.push({ dia: 5, ...sab });
-  const dom = faixa(h.domingo);
-  if (dom) dias.push({ dia: 6, ...dom });
-  return dias;
-};
+// Dias abertos com a faixa de cada um (24 horas = 0 a 24). Aceita o formato novo e o antigo.
+export const diasAbertos = (h: unknown): DiaAberto[] => faixasDaSemana(normalizarHorarios(h));
 
 const resumoDias = (dias: number[]) => {
   const s = [...dias].sort();

@@ -1,9 +1,34 @@
 import { z } from 'zod';
+import { normalizarHorarios, validarHorarios } from './horarios.js';
 
 const vazio = z.object({}).strict();
 const id = z.object({ id: z.string().uuid() }).strict();
 const hora = z.string().regex(/^\d{2}:\d{2}$/);
 const horario = z.object({ abre: hora, fecha: hora }).strict();
+
+// Aceita o formato novo (sete dias) e o antigo (semana, sábado, domingo); sempre devolve o novo, já validado.
+const diaNovo = z
+  .object({
+    aberta: z.boolean(),
+    h24: z.boolean().optional(),
+    abre: z.string().max(5).optional(),
+    fecha: z.string().max(5).optional(),
+  })
+  .strict();
+const horariosNovo = z.object({ versao: z.literal(2), dias: z.array(diaNovo).length(7) }).strict();
+const horariosAntigo = z
+  .object({ semana: horario.optional(), sabado: horario.optional(), domingo: horario.optional() })
+  .strict();
+const horariosEntrada = z.union([horariosNovo, horariosAntigo]).transform((h, ctx) => {
+  const n = normalizarHorarios(h);
+  if (!n) {
+    ctx.issues.push({ code: 'custom', message: 'Informe o horário de ao menos um dia', input: h });
+    return z.NEVER;
+  }
+  for (const erro of validarHorarios(n))
+    ctx.issues.push({ code: 'custom', message: erro, input: h });
+  return n;
+});
 
 export const FUNCOES = ['Farmacêutico', 'Atendimento', 'Caixa', 'Apoio', 'Perfumaria'] as const;
 
@@ -14,14 +39,7 @@ export const lojaSchema = z
     cnpj: z.string().trim().max(18).optional(),
     uf: z.string().trim().length(2).optional(),
     marca: z.string().trim().max(80).optional(),
-    horarios: z
-      .object({
-        semana: horario.optional(),
-        sabado: horario.optional(),
-        domingo: horario.optional(),
-      })
-      .strict()
-      .optional(),
+    horarios: horariosEntrada.optional(),
   })
   .strict();
 export type LojaBody = z.infer<typeof lojaSchema>;

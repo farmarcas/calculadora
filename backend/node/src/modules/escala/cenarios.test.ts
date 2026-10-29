@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { montarCenarios, type EntradaCenarios } from './cenarios.js';
+import { verificarRegra } from '../regras/capacidade.js';
+import { regraPara } from '../regras/perfis.js';
+import { contratacoesDe, custoDasVagas, montarCenarios, type EntradaCenarios } from './cenarios.js';
 import { vendasDoCadastro } from './vendas-cadastro.js';
 
 // Loja de segunda a sábado, 8h às 22h (84h na semana).
@@ -277,94 +279,169 @@ describe('Cenário 2 — fechar dias para manter a equipe', () => {
   });
 });
 
-describe('Cenário 3 — equilíbrio', () => {
-  // Segunda a sexta, 8h às 17h, 1 farmacêutico de 40h. Margem por hora: 60, exceto 30 às 16h e 15 na terça às 8h.
-  const semana = [0, 1, 2, 3, 4].map((dia) => ({ dia, abre: 8, fecha: 17 }));
-  const vendas = [0, 1, 2, 3, 4].flatMap((d) =>
-    Array.from({ length: 9 }, (_, i) => {
-      const hora = 8 + i;
-      const venda = hora === 16 ? 100 : d === 1 && hora === 8 ? 50 : 200;
-      return {
-        data: `2026-03-0${2 + d}`,
-        hora,
-        venda,
-        margem: venda * 0.3,
-        clientes: 1,
-        unidades: 1,
-      };
-    }),
-  );
+describe('Cenário 3 — equilíbrio por enumeração dos dias', () => {
+  const dias = (abre: number, fecha: number, lista: number[]) =>
+    lista.map((dia) => ({ dia, abre, fecha }));
+  // Segunda a sábado, 8h às 22h: 84h e 12 turnos por semana. Margem por dia (25%): 250, 300, 225, 275, 375 e 500.
+  const seisDias = dias(8, 22, [0, 1, 2, 3, 4, 5]);
+  const fat = [1000, 1200, 900, 1100, 1500, 2000, null];
+  const vendasDe = (f: (number | null)[] = fat, margemPct: number | null = 25) =>
+    vendasDoCadastro({ dias: f, mensal: null, margemPct }, seisDias)!.linhas;
+  const farm = (...horas: number[]) => horas.map((cargaH) => ({ funcao: 'Farmacêutico', cargaH }));
+  const custos = (salario = 10000) => ({ salarioMedio: { Farmacêutico: salario }, encargosPct: 0 });
   const eq = (extra: Partial<EntradaCenarios> = {}) =>
     montarCenarios(
       base({
         minimos: { Farmacêutico: 1 },
-        pessoas: [{ funcao: 'Farmacêutico', cargaH: 40 }],
-        dias: semana,
-        vendas,
+        dias: seisDias,
+        pessoas: farm(40, 40),
+        vendas: vendasDe(),
+        custos: custos(),
+        origemVenda: 'cadastro',
         ...extra,
       }),
-    ).equilibrio;
+    );
 
-  it('fecha só as horas cuja margem não paga a cobertura e contrata o resto', () => {
-    // cobrir 1 hora semanal custa 10000 × 5 ÷ 200 = 250/mês; margem de 30/semana = 130/mês (não paga),
-    // de 60/semana = 260/mês (paga)
-    const e = eq();
+  it('o melhor é o mesmo do Cenário 2: fechar a quarta custa 975 de margem e evita 4000 de folha', () => {
+    // 2 farmacêuticos de 40h para 84h e 12 turnos: manter tudo pede 1 parcial de 16h (10000 × 16 × 5 ÷ 200 = 4000).
+    // Fechar a quarta (225 × 52 ÷ 12 = 975) cobre sem contratar. Fechar também a segunda só perderia mais margem.
+    const r = eq();
+    const e = r.equilibrio;
     expect(e.indisponivel).toBeNull();
-    expect(e.coincideComManter).toBe(false);
-    expect(e.horasReduzir).toBe(6);
-    expect(e.horasSemana).toBe(39);
-    expect(e.cortes).toEqual([
-      { dia: 0, de: '16:00', ate: '17:00', venda: 100, margem: 30 },
-      { dia: 1, de: '08:00', ate: '09:00', venda: 50, margem: 15 },
-      { dia: 1, de: '16:00', ate: '17:00', venda: 100, margem: 30 },
-      { dia: 2, de: '16:00', ate: '17:00', venda: 100, margem: 30 },
-      { dia: 3, de: '16:00', ate: '17:00', venda: 100, margem: 30 },
-      { dia: 4, de: '16:00', ate: '17:00', venda: 100, margem: 30 },
-    ]);
-    expect(e.margemCortadaMes).toBe(715); // (5 × 30 + 15) × 52 ÷ 12
-    // com 39h e 5 turnos o farmacêutico atual já cobre: nada a contratar
-    expect(e.contratacoes).toEqual([]);
+    expect(e.diasFechar.map((d) => d.dia)).toEqual([2]);
+    expect(e.pessoasContratar).toBe(0);
+    expect(e.margemCortadaMes).toBe(975);
     expect(e.custoAdicionalMensal).toBe(0);
-    expect(e.acrescimoPct).toBe(0);
+    expect(e.impactoMensal).toBe(975);
+    expect(e.coincideComManter).toBe(false);
+    expect(e.coincideComEconomia).toBe(true);
+    expect(e.resumo).toContain('O equilíbrio para esta loja é fechar quarta');
+    expect(e.horasSemana).toBe(70);
   });
 
-  it('o dono vê o custo; quem não é dono recebe os mesmos cortes, sem valores de custo', () => {
-    const dono = eq();
-    const outro = eq({ dono: false });
-    expect(outro.cortes).toEqual(dono.cortes);
-    expect('custoAdicionalMensal' in outro).toBe(false);
-    expect('acrescimoPct' in outro).toBe(false);
-  });
-
-  it('quando fechar não compensa, mantém todos os horários', () => {
-    // quatro farmacêuticos já cobrem tudo (nada a contratar): fechar só perderia margem
-    const e = eq({
-      pessoas: Array.from({ length: 4 }, () => ({ funcao: 'Farmacêutico', cargaH: 40 })),
-    });
+  it('quando contratar custa menos que a margem de qualquer dia, o equilíbrio é contratar tudo', () => {
+    // salário de 1000: manter tudo custa 1000 × 16 × 5 ÷ 200 = 400 < 975 (a menor margem de dia fechável)
+    const e = eq({ custos: custos(1000) }).equilibrio;
+    expect(e.diasFechar).toEqual([]);
     expect(e.coincideComManter).toBe(true);
-    expect(e.cortes).toEqual([]);
-    expect(e.horasReduzir).toBe(0);
-    expect(e.direcionamento).toContain('não compensa');
+    expect(e.contratacoes).toMatchObject([{ funcao: 'Farmacêutico', inteiras: 0, parcialH: 16 }]);
+    expect(e.custoAdicionalMensal).toBe(400);
+    expect(e.resumo).toContain('contratar tudo');
+    // margem dos seis dias: 1083,33 + 1300 + 975 + 1191,67 + 1625 + 2166,67 = 8341,67; menos 400 de folha
+    expect(e.resultadoMensal).toBe(7941.67);
   });
 
-  it('sem base comercial ou sem custos, explica o que falta e não mostra número', () => {
-    const semVendas = eq({ vendas: [] });
+  it('combina fechar dias e contratar: 1 farmacêutico de 40h fecha segunda, quarta e quinta e contrata 1 parcial de 8h', () => {
+    // Todos abertos: 7 turnos faltantes → 1 inteira + 1 parcial = 14000. Fechando segunda, quarta e quinta (os três livres)
+    // sobram 3 dias de 14h (42h, 6 turnos): falta 1 turno → 1 parcial de 8h = 2000; margem perdida 1083,33 + 975 + 1191,67 = 3250.
+    const r = eq({ pessoas: farm(40) });
+    const e = r.equilibrio;
+    expect(e.diasFechar.map((d) => d.dia)).toEqual([0, 2, 3]);
+    expect(e.contratacoes).toMatchObject([
+      { funcao: 'Farmacêutico', inteiras: 0, parcial: { turnos: 1, horas: 8 } },
+    ]);
+    expect(e.custoAdicionalMensal).toBe(2000);
+    expect(e.margemCortadaMes).toBe(3250);
+    expect(e.impactoMensal).toBe(5250);
+    expect(e.coincideComManter).toBe(false);
+    expect(e.coincideComEconomia).toBe(false);
+    expect(e.resumo).toContain('Fechando segunda, quarta e quinta');
+    expect(e.resumo).toContain('contratando 1 Farmacêutico 1 parcial de 1 turno(s) (8h)');
+    expect(e.resumo).toContain('economiza');
+    // nunca fecha dia protegido (terça, sexta e sábado)
+    expect(r.diasProtegidos).toEqual([1, 4, 5]);
+    // domina o Cenário 1 (manter tudo: 14000); o Cenário 2 é "não recomendado" e fica de fora
+    expect(r.manter.impactoMensal).toBe(14000);
+    expect(e.impactoMensal!).toBeLessThanOrEqual(r.manter.impactoMensal!);
+    expect(r.economia.naoRecomendado).not.toBeNull();
+  });
+
+  it('é de fato o mínimo: nenhuma combinação dos dias livres tem impacto menor (conferência independente)', () => {
+    const entrada = base({
+      minimos: { Farmacêutico: 1 },
+      dias: seisDias,
+      pessoas: farm(40),
+      vendas: vendasDe(),
+      custos: custos(),
+    });
+    const regra = regraPara('r40', false);
+    const margemMes = [1083.33, 1300, 975, 1191.67, 1625, 2166.67];
+    const livres = [0, 2, 3]; // os protegidos (terça, sexta, sábado) não entram
+    const impactos = [0, 1, 2, 3, 4, 5, 6, 7].map((mascara) => {
+      const fechados = livres.filter((_, i) => mascara & (1 << i));
+      const abertos = seisDias.filter((d) => !fechados.includes(d.dia));
+      const linhas = verificarRegra(regra, abertos, entrada.minimos, entrada.pessoas);
+      const custo = custoDasVagas('r40', contratacoesDe(linhas), linhas, entrada.custos) ?? 0;
+      return custo + fechados.reduce((s, d) => s + margemMes[d]!, 0);
+    });
+    expect(Math.min(...impactos)).toBeCloseTo(5250, 2);
+    expect(eq({ pessoas: farm(40) }).equilibrio.impactoMensal!).toBeCloseTo(
+      Math.min(...impactos),
+      2,
+    );
+  });
+
+  it('empate no impacto: menos contratações, depois menos dias fechados, depois os dias mais tardios', () => {
+    // seis dias iguais (1000): protegidos = sábado, sexta e quinta; livres = segunda, terça e quarta, com a mesma margem.
+    // Fechar qualquer um cobre sem contratar; o mais tardio é a quarta.
+    const e = eq({ vendas: vendasDe(new Array(7).fill(1000)) }).equilibrio;
+    expect(e.diasFechar.map((d) => d.dia)).toEqual([2]);
+    expect(e.coincideComEconomia).toBe(true);
+  });
+
+  it('a recaptura reduz a margem perdida (20% de 975 = 780)', () => {
+    const e = eq({ recaptura: 0.2 }).equilibrio;
+    expect(e.diasFechar.map((d) => d.dia)).toEqual([2]);
+    expect(e.margemCortadaMes).toBe(780);
+    expect(e.impactoMensal).toBe(780);
+  });
+
+  it('quem não é dono vê os dias e as contratações, sem valores em reais', () => {
+    const e = eq({ dono: false }).equilibrio;
+    expect(e.diasFechar).toEqual([{ dia: 2 }]);
+    expect('custoAdicionalMensal' in e).toBe(false);
+    expect('acrescimoPct' in e).toBe(false);
+    expect('resultadoMensal' in e).toBe(false);
+    expect(e.resumo).not.toContain('R$');
+  });
+
+  it('loja de um só dia: nunca fecha o último dia aberto', () => {
+    const um = dias(8, 22, [2]);
+    const e = eq({
+      dias: um,
+      pessoas: farm(8),
+      vendas: vendasDoCadastro(
+        { dias: [null, null, 900, null, null, null, null], mensal: null, margemPct: 25 },
+        um,
+      )!.linhas,
+    }).equilibrio;
+    expect(e.diasFechar).toEqual([]);
+    expect(e.coincideComManter).toBe(true);
+  });
+
+  it('sem vendas, sem margem ou sem custos, explica o que falta e não mostra número', () => {
+    const semVendas = eq({ vendas: [], origemVenda: null }).equilibrio;
     expect(semVendas.indisponivel?.motivo).toBe('vendas');
-    expect(semVendas.cortes).toEqual([]);
+    expect(semVendas.diasFechar).toEqual([]);
     expect(semVendas.margemCortadaMes).toBeNull();
 
-    const semCustos = eq({ custos: null });
-    expect(semCustos.indisponivel?.motivo).toBe('custos');
+    const semMargem = eq({ vendas: vendasDe(fat, null) }).equilibrio;
+    expect(semMargem.indisponivel?.motivo).toBe('vendas');
+    expect(semMargem.indisponivel?.texto).toContain('margem bruta');
+
+    expect(eq({ custos: null }).equilibrio.indisponivel?.motivo).toBe('custos');
 
     const faltaFuncao = eq({
       minimos: { Farmacêutico: 1, Atendimento: 1 },
       custos: { salarioMedio: { Farmacêutico: 10000 }, encargosPct: 0 },
-    });
+    }).equilibrio;
     expect(faltaFuncao.indisponivel?.motivo).toBe('custos');
     expect(faltaFuncao.indisponivel?.texto).toContain('Atendimento');
     expect(faltaFuncao.custoAdicionalMensal).toBeNull();
 
-    expect(eq({ custos: null, dono: false }).indisponivel?.texto).toContain('dono do grupo');
+    expect(eq({ custos: null, dono: false }).equilibrio.indisponivel?.texto).toContain(
+      'dono do grupo',
+    );
   });
 });
 

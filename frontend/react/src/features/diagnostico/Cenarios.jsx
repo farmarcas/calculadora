@@ -225,10 +225,19 @@ function Equilibrio({ c }) {
           <>
             <p className="m-0 text-sm text-ink-700">{q.direcionamento}</p>
             <Impacto valor={q.impactoMensal} />
+            {q.coincideComManter && <Aviso tom="neutro">O equilíbrio para esta loja é o mesmo do Cenário 1: contratar tudo e manter todos os dias abertos.</Aviso>}
+            {q.coincideComEconomia && <Aviso tom="neutro">O equilíbrio para esta loja é o mesmo do Cenário 2: fechar os dias e não contratar ninguém.</Aviso>}
             <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
-              <Numero rotulo="Fechar" valor={`${q.horasReduzir}h`} legenda={q.coincideComManter ? "nenhuma hora a fechar" : "por semana, onde não se paga"} />
+              <Numero
+                rotulo="Dias a fechar"
+                valor={q.diasFechar.length}
+                legenda={q.diasFechar.length === 0 ? "nenhum dia" : q.diasFechar.map((d) => NOMES_DIA[d.dia]).join(", ")}
+              />
               <Numero rotulo="Contratar" valor={q.pessoasContratar} legenda={q.pessoasContratar === 1 ? "pessoa" : q.pessoasContratar === 0 ? "nada a contratar" : "pessoas"} />
-              <Numero rotulo="Margem perdida" valor={brl(q.margemCortadaMes)} legenda="por mês (estimativa)" />
+              {dono && <Numero rotulo="Margem perdida" valor={q.margemCortadaMes === null ? "—" : brl(q.margemCortadaMes)} legenda="por mês (estimativa)" />}
+              {dono && q.resultadoMensal != null && (
+                <Numero rotulo="Resultado" valor={brl(q.resultadoMensal)} legenda="margem dos dias abertos menos a folha adicional, por mês" />
+              )}
               {dono && (
                 <Numero
                   rotulo="Custo adicional"
@@ -237,22 +246,6 @@ function Equilibrio({ c }) {
                 />
               )}
             </div>
-            {q.cortes.length > 0 && (
-              <div className="overflow-x-auto">
-                <table className="w-full border-collapse text-sm min-w-[480px]">
-                  <thead><tr><th className={TH}>Dia</th><th className={TH}>Deixa de abrir</th><th className={TH}>Margem por semana</th></tr></thead>
-                  <tbody>
-                    {q.cortes.map((x) => (
-                      <tr key={`${x.dia}${x.de}`}>
-                        <td className={TD}>{NOMES_DIA[x.dia]}</td>
-                        <td className={TD}>{x.de}–{x.ate}</td>
-                        <td className={TD}>{brl(x.margem)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
             {q.contratacoes.length > 0 && (
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse text-sm min-w-[480px]">

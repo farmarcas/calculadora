@@ -41,10 +41,10 @@ Segurança do banco: sem migration nesta spec; nada de `down -v` nem `prisma mig
 
 **Teste independente**: em loja com um dia de pouca venda e contratação cara, o escolhido é o de maior resultado, conferido contra a enumeração manual.
 
-- [ ] T011 [US2] Teste + `cenarios-dias.ts`: `montarEquilibrioDia` (enumera os subconjuntos não vazios dos dias abertos sem dia protegido, até 127; contratações pela regra da spec 010; `resultado = margem dos dias abertos − custo adicional`; desempate por menos contratações e depois menos dias fechados; `coincideComManter` e `coincideComEconomia`; frase-resumo)
-- [ ] T012 [US2] Testes de otimalidade: conta à mão sobre todas as combinações de um caso pequeno e propriedade de dominância (o equilíbrio nunca é pior que os cenários 1 e 2), em `cenarios-dias.test.ts`
-- [ ] T013 [US2] `destacar` (selo "Menor impacto financeiro") com os números novos dos cenários 2 e 3; falta de custos ou faturamento diz o que falta; teste de integração, em `cenarios.ts` e `escala.routes.integration.test.ts`
-- [ ] T014 [P] [US2] Cartão do Cenário 3 (dias fechados, contratações, resultado, frase-resumo, avisos de coincidência) em `features/diagnostico/Cenarios.jsx`
+- [X] T011 [US2] Teste + `cenarios-dias.ts`: `montarEquilibrioDia` (enumera os subconjuntos não vazios dos dias abertos sem dia protegido, até 127; contratações pela regra da spec 010; `resultado = margem dos dias abertos − custo adicional`; desempate por menos contratações e depois menos dias fechados; `coincideComManter` e `coincideComEconomia`; frase-resumo)
+- [X] T012 [US2] Testes de otimalidade: conta à mão sobre todas as combinações de um caso pequeno e propriedade de dominância (o equilíbrio nunca é pior que os cenários 1 e 2), em `cenarios-dias.test.ts`
+- [X] T013 [US2] `destacar` (selo "Menor impacto financeiro") com os números novos dos cenários 2 e 3; falta de custos ou faturamento diz o que falta; teste de integração, em `cenarios.ts` e `escala.routes.integration.test.ts`
+- [X] T014 [P] [US2] Cartão do Cenário 3 (dias fechados, contratações, resultado, frase-resumo, avisos de coincidência) em `features/diagnostico/Cenarios.jsx`
 
 **Checkpoint**: o equilíbrio é sempre o melhor resultado possível.
 

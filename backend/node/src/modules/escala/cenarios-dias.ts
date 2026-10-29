@@ -151,3 +151,62 @@ export const listaDeDias = (dias: number[]) => {
     ? (nomes[0] ?? '')
     : `${nomes.slice(0, -1).join(', ')} e ${nomes[nomes.length - 1]}`;
 };
+
+export type Avaliacao = { custo: number; pessoas: number };
+export type Combinacao<T extends Avaliacao> = {
+  fechados: number[];
+  abertos: DiaAberto[];
+  avaliacao: T;
+  perdida: number; // margem mensal que deixa de entrar com os dias fechados
+  impacto: number; // custo adicional de folha + margem perdida
+};
+
+const MESMO_VALOR = 0.005; // meio centavo: abaixo disso, empate
+
+// Todas as combinações de dias a fechar entre os que não são protegidos (no máximo 2^7), sem nunca fechar o último dia aberto,
+// e a de menor impacto: custo adicional de folha + margem perdida (é o mesmo que o maior resultado líquido).
+// Empate: menos contratações, depois menos dias fechados, depois fecha os dias mais tardios da semana.
+export const melhorCombinacao = <T extends Avaliacao>(a: {
+  dias: DiaAberto[];
+  protegidos: number[];
+  margemMes: (dia: number) => number;
+  avaliar: (abertos: DiaAberto[]) => T;
+}): Combinacao<T> => {
+  const livres = a.dias
+    .map((d) => d.dia)
+    .filter((d) => !a.protegidos.includes(d))
+    .sort((x, y) => x - y);
+  const maisTardio = (x: number[], y: number[]) => {
+    const dx = [...x].sort((p, q) => q - p);
+    const dy = [...y].sort((p, q) => q - p);
+    for (let i = 0; i < Math.min(dx.length, dy.length); i++)
+      if (dx[i] !== dy[i]) return dy[i]! - dx[i]!;
+    return 0;
+  };
+  let melhor: Combinacao<T> | null = null;
+  for (let mascara = 0; mascara < 1 << livres.length; mascara++) {
+    const fechados = livres.filter((_, i) => mascara & (1 << i));
+    const abertos = a.dias.filter((d) => !fechados.includes(d.dia));
+    if (abertos.length === 0) continue;
+    const avaliacao = a.avaliar(abertos);
+    const perdida = fechados.reduce((s, d) => s + a.margemMes(d), 0);
+    const atual: Combinacao<T> = {
+      fechados,
+      abertos,
+      avaliacao,
+      perdida,
+      impacto: avaliacao.custo + perdida,
+    };
+    const ganha =
+      melhor === null ||
+      (Math.abs(atual.impacto - melhor.impacto) >= MESMO_VALOR
+        ? atual.impacto < melhor.impacto
+        : atual.avaliacao.pessoas !== melhor.avaliacao.pessoas
+          ? atual.avaliacao.pessoas < melhor.avaliacao.pessoas
+          : atual.fechados.length !== melhor.fechados.length
+            ? atual.fechados.length < melhor.fechados.length
+            : maisTardio(atual.fechados, melhor.fechados) < 0);
+    if (ganha) melhor = atual;
+  }
+  return melhor!;
+};

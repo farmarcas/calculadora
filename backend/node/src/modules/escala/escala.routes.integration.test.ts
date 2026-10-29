@@ -338,7 +338,7 @@ describe('escala (rotas)', () => {
     }
   });
 
-  it('cenário 3: avisa o que falta e, completo, só o dono vê o custo', async () => {
+  it('cenário 3: avisa o que falta e, completo, escolhe a melhor combinação de dias; só o dono vê os valores', async () => {
     await request(app)
       .post('/api/v1/cargas/escala')
       .set(admin)
@@ -354,123 +354,66 @@ describe('escala (rotas)', () => {
       .set(admin)
       .send({ minimos: { Atendimento: 0, Caixa: 0 } });
     const url = `/api/v1/lojas/${lojaId}/diagnostico`;
-    const eq = async (h: Record<string, string> = admin) =>
-      (await request(app).get(url).set(h)).body.cenarios.r40.equilibrio;
+    const cen = async (h: Record<string, string> = admin) =>
+      (await request(app).get(url).set(h)).body.cenarios.r40;
 
-    expect((await eq()).indisponivel.motivo).toBe('vendas');
+    // sem venda por dia: falta o faturamento
+    expect((await cen()).equilibrio.indisponivel.motivo).toBe('vendas');
 
-    await request(app)
-      .post('/api/v1/cargas/base')
-      .set(admin)
-      .attach(
-        'arquivo',
-        await xlsx(
-          ['Data', 'Hora', 'Cod_Loja', 'Venda_Liquida_RS', 'Clientes_Atendidos'],
-          [
-            ['01/09/2026', '10', '001', '1.200,00', '40'],
-            ['01/09/2026', '19', '001', '100,00', '5'],
-          ],
-        ),
-        'b.xlsx',
-      );
-    expect((await eq()).indisponivel.motivo).toBe('custos');
-
-    await request(app)
-      .put(`/api/v1/lojas/${lojaId}/custos`)
-      .set(admin)
-      .send({ salarioMedio: { Farmacêutico: 8000 }, encargosPct: 40 });
-    const dono = await eq();
-    expect(dono.indisponivel).toBeNull();
-    expect(dono.horasSemana + dono.horasReduzir).toBe(66);
-    expect(typeof dono.custoAdicionalMensal).toBe('number');
-    expect(typeof dono.acrescimoPct).toBe('number');
-    const cenDono = (await request(app).get(url).set(admin)).body.cenarios.r40;
-    expect(['manter', 'economia', 'equilibrio']).toContain(cenDono.destaque);
-
-    for (const h of [{ 'X-Perfil': 'SCHEDULE_MANAGER' }, { 'X-Perfil': 'SCHEDULE_VIEWER' }]) {
-      const r = await eq(h);
-      expect(r.indisponivel).toBeNull();
-      // venda e margem de cada corte são valores em reais: só o dono vê; os dias e horas são os mesmos
-      expect(r.cortes.map(semValor)).toEqual(dono.cortes.map(semValor));
-      expect(JSON.stringify(r.cortes)).not.toMatch(/venda|margem/i);
-      expect('custoAdicionalMensal' in r).toBe(false);
-      expect('acrescimoPct' in r).toBe(false);
-      const todos = (await request(app).get(url).set(h)).body.cenarios.r40;
-      expect('destaque' in todos).toBe(false);
-      expect('impactoMensal' in todos.manter).toBe(false);
-    }
-  });
-
-  it('cenário 1 em etapas: o necessário na fase de 42h, o adicional para a de 40h, custo por ano e % do faturamento só ao dono', async () => {
-    await request(app)
-      .post('/api/v1/cargas/escala')
-      .set(admin)
-      .attach(
-        'arquivo',
-        await xlsx(escalaCab, [
-          ['001', 'F1', 'Ana', 'Farmacêutica', 'Seg a Sáb', '08:00', '', '', '17:00', '44'],
-        ]),
-        'e.xlsx',
-      );
-    await request(app)
-      .put(`/api/v1/lojas/${lojaId}/configuracao`)
-      .set(admin)
-      .send({ minimos: { Atendimento: 0, Caixa: 0 } });
-    await request(app)
-      .put(`/api/v1/lojas/${lojaId}/custos`)
-      .set(admin)
-      .send({ salarioMedio: { Farmacêutico: 8000 }, encargosPct: 40 });
+    // com faturamento e margem, mas sem custos: faltam os salários
     await request(app)
       .patch(`/api/v1/lojas/${lojaId}`)
       .set(admin)
       .send({
         faturamento: {
-          dias: [10000, 10000, 10000, 10000, 10000, 8000, null],
-          mensal: 200000,
-          margemPct: 20,
+          dias: [1000, 1100, 900, 1200, 1500, 800, null],
+          mensal: null,
+          margemPct: 25,
         },
       });
-    const url = `/api/v1/lojas/${lojaId}/diagnostico`;
+    expect((await cen()).equilibrio.indisponivel.motivo).toBe('custos');
 
-    // As duas fases pedem o mesmo (1 inteira + 1 parcial de 8h): não há adicional, e a 40h custa um pouco mais por mês
-    // fase de 42h (divisor 210): 10666,67 + 2133,33 = 12800; fase de 40h (divisor 200): 11200 + 2240 = 13440
-    const dono = (await request(app).get(url).set(admin)).body;
-    expect(dono.etapas.etapa1[0]).toMatchObject({
+    await request(app)
+      .put(`/api/v1/lojas/${lojaId}/custos`)
+      .set(admin)
+      .send({ salarioMedio: { Farmacêutico: 8000 }, encargosPct: 40 });
+    const dono = await cen();
+    const e = dono.equilibrio;
+    // Segunda a sexta (12h) e sábado (6h): 66h e 11 turnos; 1 farmacêutica de 40h (5 turnos).
+    // Dias livres (não protegidos): segunda, quarta e sábado. De todas as combinações, a melhor fecha os três:
+    // sobram terça, quinta e sexta (36h, 6 turnos), falta 1 turno → 1 parcial de 8h = 8000 × 8 × 5 ÷ 200 × 1,4 = 2240;
+    // margem perdida por mês: 1083,33 + 975 + 866,67 = 2925; impacto 5165 (manter tudo: 13440).
+    expect(e.indisponivel).toBeNull();
+    expect(e.diasFechar.map((d: { dia: number }) => d.dia)).toEqual([0, 2, 5]);
+    expect(e.contratacoes[0]).toMatchObject({
       funcao: 'Farmacêutico',
-      inteiras: 1,
-      parcialH: 8,
+      inteiras: 0,
+      parcial: { turnos: 1, horas: 8 },
     });
-    expect(dono.etapas.etapa2[0]).toMatchObject({
-      funcao: 'Farmacêutico',
-      inteiras: 1,
-      parcialH: 8,
-    });
-    expect(dono.etapas.adicional).toEqual([]);
-    expect(dono.etapas).toMatchObject({
-      vigencia1: '16/12/2026',
-      vigencia2: '01/12/2027',
-      custoEtapa1Mensal: 12800,
-      custoEtapa2Mensal: 13440,
-      custoAdicionalMensal: 640,
-    });
-    // 13440 × 12 = 161280 por ano; 13440 ÷ 200000 = 6,72% do faturamento mensal informado
-    expect(dono.cenarios.r40.manter).toMatchObject({
-      custoAdicionalMensal: 13440,
-      custoAnual: 161280,
-      faturamentoMensalRef: 200000,
-      impactoPctFaturamento: 6.7,
-    });
+    expect(e.custoAdicionalMensal).toBe(2240);
+    expect(e.margemCortadaMes).toBe(2925);
+    expect(e.impactoMensal).toBe(5165);
+    expect(dono.manter.impactoMensal).toBe(13440);
+    expect(dono.destaque).toBe('equilibrio');
+    expect(e.resumo).toContain('Fechando segunda, quarta e sábado');
 
-    for (const perfil of [{ 'X-Perfil': 'SCHEDULE_MANAGER' }, { 'X-Perfil': 'SCHEDULE_VIEWER' }]) {
-      const r = (await request(app).get(url).set(perfil)).body;
-      expect(r.etapas.etapa1[0].inteiras).toBe(1);
-      expect(r.etapas.adicional).toEqual([]);
-      for (const campo of ['custoEtapa1Mensal', 'custoEtapa2Mensal', 'custoAdicionalMensal'])
-        expect(campo in r.etapas).toBe(false);
-      for (const campo of ['custoAnual', 'impactoPctFaturamento', 'faturamentoMensalRef'])
-        expect(campo in r.cenarios.r40.manter).toBe(false);
+    for (const h of [{ 'X-Perfil': 'SCHEDULE_MANAGER' }, { 'X-Perfil': 'SCHEDULE_VIEWER' }]) {
+      const r = await cen(h);
+      expect(r.equilibrio.indisponivel).toBeNull();
+      expect(r.equilibrio.diasFechar).toEqual([{ dia: 0 }, { dia: 2 }, { dia: 5 }]);
+      expect(r.equilibrio.pessoasContratar).toBe(1);
+      for (const campo of [
+        'custoAdicionalMensal',
+        'acrescimoPct',
+        'resultadoMensal',
+        'margemCortadaMes',
+        'impactoMensal',
+      ])
+        expect(campo in r.equilibrio).toBe(false);
+      expect('destaque' in r).toBe(false);
+      expect('impactoMensal' in r.manter).toBe(false);
       const texto = JSON.stringify(r);
-      for (const valor of ['161280', '13440', '12800', '200000'])
+      for (const valor of ['5165', '2925', '2240', '13440', 'R$'])
         expect(texto).not.toContain(valor);
     }
   });

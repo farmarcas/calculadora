@@ -264,7 +264,7 @@ const montarEstender = (e: EntradaCenarios, c: CenariosRegra): CenarioEstender =
     motivoIndisponivel: null,
     foco: base.foco,
     direcionamento: comVenda
-      ? `Abra ${horasEstender}h a mais por semana usando ${usaSobra}, sem nova contratação. Referência de ${brl(margemRefMes!)} de margem por mês, calculada com parte da venda das horas vizinhas (não é previsão). Faz sentido quando você já vai pagar essas horas de qualquer jeito.`
+      ? `Abra ${horasEstender}h a mais por semana usando ${usaSobra}, sem nova contratação. ${e.dono ? `Referência de ${brl(margemRefMes!)} de margem por mês, calculada` : 'Margem de referência calculada'} com parte da venda das horas vizinhas (não é previsão). Faz sentido quando você já vai pagar essas horas de qualquer jeito.`
       : `A equipe cobre ${horasEstender}h a mais por semana usando ${usaSobra}, sem nova contratação. Sem base comercial não dá para estimar a venda dessas horas.`,
     horasEstender,
     horasSemana,

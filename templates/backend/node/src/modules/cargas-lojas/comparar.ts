@@ -147,6 +147,11 @@ export const planejar = (leitura: Leitura, estado: Estado): Plano => {
         if (f === undefined) continue; // o relatório sem valor não apaga o que existe
         const atual = atualDe(existente, campo);
         if (igual(campo, atual, f)) continue;
+        // Campo vazio na loja: o relatório só preenche, não há o que corrigir.
+        if (norm(campo, atual) === undefined) {
+          mudancas[campo] = f;
+          continue;
+        }
         const anterior = existente.ultimaCarga?.[campo];
         if (existente.ultimaCarga && igual(campo, anterior, f)) continue; // a plataforma não mudou: é correção do empresário
         const empresarioMexeu = !existente.ultimaCarga || !igual(campo, atual, anterior);

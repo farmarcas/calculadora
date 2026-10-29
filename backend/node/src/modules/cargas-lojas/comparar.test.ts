@@ -251,3 +251,18 @@ describe('código da loja = Id do relatório', () => {
     expect(p.avisos[0]!.motivo).toContain('código 262');
   });
 });
+
+describe('campo vazio na loja', () => {
+  it('o relatório preenche sem virar conflito, mesmo em loja que nunca veio de carga', () => {
+    const ja = loja({
+      cnpj: '11222333000181',
+      cidade: null,
+      regimeTributario: null,
+      ultimaCarga: null,
+    });
+    const [a] = planejar(leitura(linha({ cnpj: '11222333000181' })), estado([ja])).porGe[0]!
+      .atualizar;
+    expect(a!.mudancas).toMatchObject({ cidade: 'ORLEANS', regimeTributario: 'simples' });
+    expect(a!.conflitos).toEqual([]);
+  });
+});

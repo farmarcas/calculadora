@@ -5,6 +5,7 @@ export type EventoAuditoria = {
   perfil: string;
   alvoTipo: string;
   alvoId?: string;
+  geId?: string;
   detalhe?: Record<string, unknown>;
 };
 
@@ -17,7 +18,14 @@ export const auditar: Auditor = async (e) => {
       perfil: e.perfil,
       alvoTipo: e.alvoTipo,
       alvoId: e.alvoId,
+      geId: e.geId,
       detalhe: (e.detalhe ?? undefined) as object | undefined,
     },
   });
 };
+
+// Auditor que carimba o GE da chamada em cada evento.
+export const auditorDoGe =
+  (geId: string): Auditor =>
+  (e) =>
+    auditar({ ...e, geId });

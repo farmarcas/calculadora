@@ -1,5 +1,6 @@
 import type { Prisma } from '../../generated/prisma/client.js';
 import { prisma } from '../../shared/database/prisma.js';
+import { NotFoundError } from '../../shared/errors/not-found-error.js';
 import type { Custos } from '../custos/custos.schemas.js';
 import type { Minimos } from '../regras/requisitos.js';
 import type { PessoaSim, TurnoSim } from './avaliar.js';
@@ -86,9 +87,10 @@ const turnosCreate = (ts: TurnoSim[]) =>
     fimIntervalo: t.fimIntervalo,
   }));
 
-export type SimulacoesRepository = typeof simulacoesRepository;
+export type SimulacoesRepository = ReturnType<typeof simulacoesRepository>;
 
-export const simulacoesRepository = {
+// Presa ao GE pela loja: simulação de outro GE não é encontrada.
+export const simulacoesRepository = (geId: string) => ({
   async criar(d: {
     lojaId: string;
     nome: string;
@@ -98,6 +100,8 @@ export const simulacoesRepository = {
     quadro: PessoaSim[];
     turnos: TurnoSim[];
   }) {
+    if (!(await prisma.loja.count({ where: { id: d.lojaId, geId, deletedAt: null } })))
+      throw new NotFoundError('Loja não encontrada', 'LOJA_NAO_ENCONTRADA');
     const s = await prisma.simulacao.create({
       data: {
         lojaId: d.lojaId,
@@ -114,13 +118,20 @@ export const simulacoesRepository = {
   },
 
   async buscar(id: string) {
-    const s = await prisma.simulacao.findUnique({ where: { id }, include: { turnos: true } });
+    const s = await prisma.simulacao.findFirst({
+      where: { id, loja: { geId } },
+      include: { turnos: true },
+    });
     return s ? mapear(s) : null;
   },
 
   async listar(lojaId: string, incluirDescartadas: boolean) {
     const rows = await prisma.simulacao.findMany({
-      where: { lojaId, ...(incluirDescartadas ? {} : { status: { not: 'DESCARTADA' } }) },
+      where: {
+        lojaId,
+        loja: { geId },
+        ...(incluirDescartadas ? {} : { status: { not: 'DESCARTADA' } }),
+      },
       orderBy: { criadaEm: 'desc' },
       select: {
         id: true,
@@ -182,7 +193,7 @@ export const simulacoesRepository = {
   async aprovar(id: string, lojaId: string, perfil: string, vigenciaInicio: Date) {
     await prisma.$transaction(async (tx) => {
       await tx.simulacao.updateMany({
-        where: { lojaId, status: 'EM_USO' },
+        where: { lojaId, loja: { geId }, status: 'EM_USO' },
         data: { status: 'SUBSTITUIDA', substituidaEm: new Date() },
       });
       await tx.simulacao.update({
@@ -194,9 +205,9 @@ export const simulacoesRepository = {
 
   async emUso(lojaId: string) {
     const s = await prisma.simulacao.findFirst({
-      where: { lojaId, status: 'EM_USO' },
+      where: { lojaId, loja: { geId }, status: 'EM_USO' },
       include: { turnos: true },
     });
     return s ? mapear(s) : null;
   },
-};
+});

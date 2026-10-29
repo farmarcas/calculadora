@@ -1,4 +1,3 @@
-import { GE_INICIAL_ID } from '../../shared/ge.js';
 import { prisma } from '../../shared/database/prisma.js';
 import { decimalParaHora, horaParaDecimal, mensalDeSemanal } from './carga.js';
 import { normalizarHorarios, resumoHorarios } from './horarios.js';
@@ -79,10 +78,12 @@ const paraBanco = <T extends { entrada?: string | null; saida?: string | null }>
 const limpa = <T extends object>(o: T) =>
   Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined)) as T;
 
-export const cadastrosRepository: CadastrosRepository = {
+// Todas as consultas ficam presas ao GE: registro de outro GE é como se não existisse.
+export const cadastrosRepository = (geId: string): CadastrosRepository => ({
   async listarLojas({ page, pageSize, busca }) {
     const where = {
       ...ativo,
+      geId,
       ...(busca
         ? {
             OR: [
@@ -105,35 +106,40 @@ export const cadastrosRepository: CadastrosRepository = {
     return { data: rows.map(comoLoja), total };
   },
   async buscarLoja(id) {
-    const r = await prisma.loja.findFirst({ where: { id, ...ativo }, select: lojaSel });
+    const r = await prisma.loja.findFirst({ where: { id, geId, ...ativo }, select: lojaSel });
     return r ? comoLoja(r) : null;
   },
   async buscarLojaPorCodigo(codigo) {
-    const r = await prisma.loja.findFirst({ where: { codigo, ...ativo }, select: lojaSel });
+    const r = await prisma.loja.findFirst({ where: { codigo, geId, ...ativo }, select: lojaSel });
     return r ? comoLoja(r) : null;
   },
   async criarLoja(i) {
-    // Provisório até a fatia 2 (isolamento): toda loja nova entra no GE inicial.
     return comoLoja(
       await prisma.loja.create({
-        data: { ...limpa(i), geId: GE_INICIAL_ID } as never,
+        data: { ...limpa(i), geId } as never,
         select: lojaSel,
       }),
     );
   },
   async atualizarLoja(id, i) {
     return comoLoja(
-      await prisma.loja.update({ where: { id }, data: limpa(i) as never, select: lojaSel }),
+      await prisma.loja.update({
+        where: { id, geId },
+        data: limpa(i) as never,
+        select: lojaSel,
+      }),
     );
   },
   async removerLoja(id) {
-    await prisma.loja.update({ where: { id }, data: { deletedAt: new Date() } });
+    await prisma.loja.update({ where: { id, geId }, data: { deletedAt: new Date() } });
   },
-  contarFuncionariosDaLoja: (lojaId) => prisma.funcionario.count({ where: { lojaId, ...ativo } }),
+  contarFuncionariosDaLoja: (lojaId) =>
+    prisma.funcionario.count({ where: { lojaId, loja: { geId }, ...ativo } }),
 
   async listarFuncionarios({ page, pageSize, busca, lojaId }) {
     const where = {
       ...ativo,
+      loja: { geId },
       ...(lojaId ? { lojaId } : {}),
       ...(busca
         ? {
@@ -159,47 +165,58 @@ export const cadastrosRepository: CadastrosRepository = {
   },
   async cpfsDaLoja(lojaId) {
     const rs = await prisma.funcionario.findMany({
-      where: { lojaId, cpf: { not: null }, ...ativo },
+      where: { lojaId, loja: { geId }, cpf: { not: null }, ...ativo },
       select: { id: true, cpf: true },
     });
     return rs.map((r) => ({ id: r.id, cpf: r.cpf! }));
   },
   async buscarFuncionario(id) {
-    const r = await prisma.funcionario.findFirst({ where: { id, ...ativo }, select: funcSel });
+    const r = await prisma.funcionario.findFirst({
+      where: { id, loja: { geId }, ...ativo },
+      select: funcSel,
+    });
     return r ? comoFunc(r) : null;
   },
   async buscarFuncionarioPorMatricula(matricula) {
     const r = await prisma.funcionario.findFirst({
-      where: { matricula, ...ativo },
+      where: { matricula, loja: { geId }, ...ativo },
       select: funcSel,
     });
     return r ? comoFunc(r) : null;
   },
   async criarFuncionario(i) {
     return comoFunc(
-      await prisma.funcionario.create({ data: limpa(paraBanco(i)) as never, select: funcSel }),
+      await prisma.funcionario.create({
+        data: { ...limpa(paraBanco(i)), geId } as never,
+        select: funcSel,
+      }),
     );
   },
   async atualizarFuncionario(id, i) {
     return comoFunc(
       await prisma.funcionario.update({
-        where: { id },
+        where: { id, loja: { geId } },
         data: limpa(paraBanco(i)) as never,
         select: funcSel,
       }),
     );
   },
   async removerFuncionario(id) {
-    await prisma.funcionario.update({ where: { id }, data: { deletedAt: new Date() } });
+    await prisma.funcionario.update({
+      where: { id, loja: { geId } },
+      data: { deletedAt: new Date() },
+    });
   },
 
   async criarImportacao(arquivo, abas) {
-    const r = await prisma.importacaoCadastro.create({ data: { arquivo, abas: abas as never } });
+    const r = await prisma.importacaoCadastro.create({
+      data: { arquivo, geId, abas: abas as never },
+    });
     return { id: r.id, arquivo: r.arquivo, status: r.status, abas };
   },
   async buscarImportacao(id) {
     const r = await prisma.importacaoCadastro.findUnique({ where: { id } });
-    if (!r) return null;
+    if (!r || r.geId !== geId) return null;
     return {
       id: r.id,
       arquivo: r.arquivo,
@@ -209,7 +226,7 @@ export const cadastrosRepository: CadastrosRepository = {
   },
   async fecharImportacao(id, mapeamento, resumo) {
     await prisma.importacaoCadastro.update({
-      where: { id },
+      where: { id, geId },
       data: {
         status: 'CONFIRMADA',
         mapeamento: mapeamento as never,
@@ -218,4 +235,4 @@ export const cadastrosRepository: CadastrosRepository = {
       },
     });
   },
-};
+});

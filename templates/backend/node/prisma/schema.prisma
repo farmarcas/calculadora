@@ -36,6 +36,7 @@ model GrupoEconomico {
   updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   lojas                Loja[]
+  funcionarios         Funcionario[]
   importacoesCadastro  ImportacaoCadastro[]
   auditoria            Auditoria[]
 
@@ -88,6 +89,8 @@ model Loja {
 
 model Funcionario {
   id            String    @id @default(uuid(7)) @db.Uuid
+  // GE da loja, copiado dela: é o que permite a matrícula ser única dentro do GE (índice parcial na migration).
+  geId          String    @map("ge_id") @db.Uuid
   matricula     String
   nome          String
   cpf           String?
@@ -107,9 +110,11 @@ model Funcionario {
   createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  loja Loja @relation(fields: [lojaId], references: [id])
+  loja Loja           @relation(fields: [lojaId], references: [id])
+  ge   GrupoEconomico @relation(fields: [geId], references: [id])
 
   @@index([lojaId])
+  @@index([geId])
   @@map("funcionarios")
 }
 

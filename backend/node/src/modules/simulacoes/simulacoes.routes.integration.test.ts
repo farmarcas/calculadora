@@ -1,10 +1,10 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
-import request from 'supertest';
 import ExcelJS from 'exceljs';
-import { app } from '../../app.js';
+import { GE_INICIAL_ID } from '../../shared/ge.js';
+import { reqGe } from '../../shared/testing/ge.js';
 import { prisma } from '../../shared/database/prisma.js';
 
-const admin = { 'X-Perfil': 'TENANT_ADMIN' };
+const admin = { 'X-Perfil': 'TENANT_ADMIN', 'X-GE': GE_INICIAL_ID };
 const cab = [
   'Cod_Loja',
   'ID_Colaborador',
@@ -39,7 +39,7 @@ describe('simulações (rotas)', () => {
     await prisma.carga.deleteMany();
     await prisma.funcionario.deleteMany();
     await prisma.loja.deleteMany();
-    const l = await request(app)
+    const l = await reqGe()
       .post('/api/v1/lojas')
       .set(admin)
       .send({
@@ -48,11 +48,11 @@ describe('simulações (rotas)', () => {
         horarios: { semana: { abre: '08:00', fecha: '20:00' } },
       });
     lojaId = l.body.id;
-    await request(app)
+    await reqGe()
       .put(`/api/v1/lojas/${lojaId}/configuracao`)
       .set(admin)
       .send({ minimos: { Atendimento: 0, Caixa: 0 } });
-    await request(app)
+    await reqGe()
       .post('/api/v1/cargas/escala')
       .set(admin)
       .attach('arquivo', await escala(), 'e.xlsx');
@@ -62,7 +62,7 @@ describe('simulações (rotas)', () => {
   });
 
   const criar = (body: object = { nome: 'Base 40h', regra: 'r40' }) =>
-    request(app).post(`/api/v1/lojas/${lojaId}/simulacoes`).set(admin).send(body);
+    reqGe().post(`/api/v1/lojas/${lojaId}/simulacoes`).set(admin).send(body);
 
   it('cria a partir da escala atual e já avalia', async () => {
     const r = await criar();
@@ -78,38 +78,36 @@ describe('simulações (rotas)', () => {
     const turnos = sim.turnos.map((t: { matricula: string; dia: number }) =>
       t.matricula === 'F2' && t.dia === 1 ? { ...t, entrada: 16 } : t,
     );
-    const e = await request(app).put(`/api/v1/simulacoes/${sim.id}`).set(admin).send({ turnos });
+    const e = await reqGe().put(`/api/v1/simulacoes/${sim.id}`).set(admin).send({ turnos });
     expect(e.status).toBe(200);
     expect(e.body.avaliacao.podeGravar).toBe(false);
     expect(e.body.avaliacao.erros[0].texto).toContain('Sem farmacêutico em Ter 14:00–16:00');
 
-    const g = await request(app).post(`/api/v1/simulacoes/${sim.id}/gravar`).set(admin);
+    const g = await reqGe().post(`/api/v1/simulacoes/${sim.id}/gravar`).set(admin);
     expect(g.status).toBe(400);
     expect(g.body.error.message).toContain('Não dá para gravar');
   });
 
   it('grava sem erros, congela e não deixa editar; clonar abre um rascunho novo', async () => {
     const sim = (await criar()).body;
-    const g = await request(app).post(`/api/v1/simulacoes/${sim.id}/gravar`).set(admin);
+    const g = await reqGe().post(`/api/v1/simulacoes/${sim.id}/gravar`).set(admin);
     expect(g.status).toBe(200);
     expect(g.body).toMatchObject({ status: 'gravada', editavel: false });
 
     // Mudar o cadastro depois não altera a gravada
-    await request(app)
+    await reqGe()
       .put(`/api/v1/lojas/${lojaId}/configuracao`)
       .set(admin)
       .send({ minimos: { Caixa: 3 } });
-    expect((await request(app).get(`/api/v1/simulacoes/${sim.id}`)).body.avaliacao.erros).toEqual(
-      [],
-    );
+    expect((await reqGe().get(`/api/v1/simulacoes/${sim.id}`)).body.avaliacao.erros).toEqual([]);
 
-    const ed = await request(app)
+    const ed = await reqGe()
       .put(`/api/v1/simulacoes/${sim.id}`)
       .set(admin)
       .send({ nome: 'Outro nome' });
     expect(ed.status).toBe(409);
 
-    const c = await request(app).post(`/api/v1/simulacoes/${sim.id}/clonar`).set(admin);
+    const c = await reqGe().post(`/api/v1/simulacoes/${sim.id}/clonar`).set(admin);
     expect(c.status).toBe(201);
     expect(c.body).toMatchObject({
       status: 'rascunho',
@@ -123,27 +121,22 @@ describe('simulações (rotas)', () => {
 
   it('descarta, esconde do histórico e mostra com o filtro', async () => {
     const sim = (await criar()).body;
-    await request(app).post(`/api/v1/simulacoes/${sim.id}/descartar`).set(admin);
-    expect((await request(app).get(`/api/v1/lojas/${lojaId}/simulacoes`)).body.data).toHaveLength(
-      0,
-    );
+    await reqGe().post(`/api/v1/simulacoes/${sim.id}/descartar`).set(admin);
+    expect((await reqGe().get(`/api/v1/lojas/${lojaId}/simulacoes`)).body.data).toHaveLength(0);
     expect(
-      (await request(app).get(`/api/v1/lojas/${lojaId}/simulacoes?descartadas=1`)).body.data,
+      (await reqGe().get(`/api/v1/lojas/${lojaId}/simulacoes?descartadas=1`)).body.data,
     ).toHaveLength(1);
   });
 
   it('só quem escreve cria e ajusta; consulta vê', async () => {
     expect(
-      (
-        await request(app)
-          .post(`/api/v1/lojas/${lojaId}/simulacoes`)
-          .send({ nome: 'X1', regra: 'r40' })
-      ).status,
+      (await reqGe().post(`/api/v1/lojas/${lojaId}/simulacoes`).send({ nome: 'X1', regra: 'r40' }))
+        .status,
     ).toBe(403);
     const sim = (await criar()).body;
-    expect((await request(app).get(`/api/v1/simulacoes/${sim.id}`)).status).toBe(200);
+    expect((await reqGe().get(`/api/v1/simulacoes/${sim.id}`)).status).toBe(200);
     expect(
-      (await request(app).put(`/api/v1/simulacoes/${sim.id}`).send({ nome: 'Nome novo' })).status,
+      (await reqGe().put(`/api/v1/simulacoes/${sim.id}`).send({ nome: 'Nome novo' })).status,
     ).toBe(403);
   });
 
@@ -152,7 +145,7 @@ describe('simulações (rotas)', () => {
     const turno = { dia: 0, entrada: 8, saida: 12, iniIntervalo: null, fimIntervalo: null };
     expect(
       (
-        await request(app)
+        await reqGe()
           .put(`/api/v1/simulacoes/${sim.id}`)
           .set(admin)
           .send({ turnos: [{ matricula: 'ZZ', ...turno }] })
@@ -160,7 +153,7 @@ describe('simulações (rotas)', () => {
     ).toBe(400);
     expect(
       (
-        await request(app)
+        await reqGe()
           .put(`/api/v1/simulacoes/${sim.id}`)
           .set(admin)
           .send({ turnos: [{ matricula: 'F1', ...turno, entrada: 8.1 }] })
@@ -171,7 +164,7 @@ describe('simulações (rotas)', () => {
   it('cria vazia a partir do cadastro e avisa quando falta escala atual', async () => {
     await prisma.carga.deleteMany();
     expect((await criar()).status).toBe(400);
-    await request(app).post('/api/v1/funcionarios').set(admin).send({
+    await reqGe().post('/api/v1/funcionarios').set(admin).send({
       matricula: 'M1',
       nome: 'Carla',
       lojaId,
@@ -189,7 +182,7 @@ describe('simulações (rotas)', () => {
   describe('aprovar, comparar e exportar', () => {
     const gravada = async (nome: string) => {
       const sim = (await criar({ nome, regra: 'r40' })).body;
-      const g = await request(app).post(`/api/v1/simulacoes/${sim.id}/gravar`).set(admin);
+      const g = await reqGe().post(`/api/v1/simulacoes/${sim.id}/gravar`).set(admin);
       expect(g.status).toBe(200);
       return g.body;
     };
@@ -197,18 +190,18 @@ describe('simulações (rotas)', () => {
     it('só o dono aprova, só gravada, e a anterior vira substituída (uma em uso por loja)', async () => {
       const a = await gravada('Plano A');
       const b = await gravada('Plano B');
-      const gestor = { 'X-Perfil': 'SCHEDULE_MANAGER' };
+      const gestor = { 'X-Perfil': 'SCHEDULE_MANAGER', 'X-GE': GE_INICIAL_ID };
       expect(
-        (await request(app).post(`/api/v1/simulacoes/${a.id}/aprovar`).set(gestor).send({})).status,
+        (await reqGe().post(`/api/v1/simulacoes/${a.id}/aprovar`).set(gestor).send({})).status,
       ).toBe(403);
 
       const rascunho = (await criar({ nome: 'Rascunho', regra: 'r40' })).body;
       expect(
-        (await request(app).post(`/api/v1/simulacoes/${rascunho.id}/aprovar`).set(admin).send({}))
+        (await reqGe().post(`/api/v1/simulacoes/${rascunho.id}/aprovar`).set(admin).send({}))
           .status,
       ).toBe(409);
 
-      const ok = await request(app)
+      const ok = await reqGe()
         .post(`/api/v1/simulacoes/${a.id}/aprovar`)
         .set(admin)
         .send({ vigenciaInicio: '2026-12-15' });
@@ -220,14 +213,14 @@ describe('simulações (rotas)', () => {
       });
       expect(ok.body.vigenciaInicio).toContain('2026-12-15');
 
-      await request(app).post(`/api/v1/simulacoes/${b.id}/aprovar`).set(admin).send({});
-      const lista = (await request(app).get(`/api/v1/lojas/${lojaId}/simulacoes`)).body.data;
+      await reqGe().post(`/api/v1/simulacoes/${b.id}/aprovar`).set(admin).send({});
+      const lista = (await reqGe().get(`/api/v1/lojas/${lojaId}/simulacoes`)).body.data;
       expect(lista.find((x: { id: string }) => x.id === a.id).status).toBe('substituida');
       expect(lista.find((x: { id: string }) => x.id === b.id).status).toBe('em_uso');
       expect(lista.find((x: { id: string }) => x.id === b.id).vigenciaInicio).toContain('20');
-      expect(
-        (await request(app).post(`/api/v1/simulacoes/${b.id}/descartar`).set(admin)).status,
-      ).toBe(409);
+      expect((await reqGe().post(`/api/v1/simulacoes/${b.id}/descartar`).set(admin)).status).toBe(
+        409,
+      );
       expect(await prisma.auditoria.count({ where: { acao: 'simulacao.aprovada' } })).toBe(2);
     });
 
@@ -235,9 +228,9 @@ describe('simulações (rotas)', () => {
       const a = await gravada('Plano A');
       const b = await gravada('Plano B');
       const c = (await criar({ nome: 'Plano C', regra: 'r40' })).body;
-      await request(app).post(`/api/v1/simulacoes/${a.id}/aprovar`).set(admin).send({});
+      await reqGe().post(`/api/v1/simulacoes/${a.id}/aprovar`).set(admin).send({});
 
-      const r = await request(app).get(
+      const r = await reqGe().get(
         `/api/v1/lojas/${lojaId}/simulacoes/comparar?ids=${b.id},${c.id}`,
       );
       expect(r.status).toBe(200);
@@ -247,28 +240,28 @@ describe('simulações (rotas)', () => {
       expect(r.body.simulacoes[1].indicadores).toMatchObject({ erros: 0, coberturaPct: 100 });
 
       expect(
-        (await request(app).get(`/api/v1/lojas/${lojaId}/simulacoes/comparar?ids=${b.id}`)).status,
+        (await reqGe().get(`/api/v1/lojas/${lojaId}/simulacoes/comparar?ids=${b.id}`)).status,
       ).toBe(400);
     });
 
     it('avisa que a em uso ficou desatualizada quando o quadro muda no cadastro', async () => {
       const a = await gravada('Plano A');
-      await request(app).post(`/api/v1/simulacoes/${a.id}/aprovar`).set(admin).send({});
-      await request(app)
+      await reqGe().post(`/api/v1/simulacoes/${a.id}/aprovar`).set(admin).send({});
+      await reqGe()
         .post('/api/v1/funcionarios')
         .set(admin)
         .send({ matricula: 'N1', nome: 'Novo', lojaId, funcaoEscala: 'Caixa', cargaSemanalH: 40 });
-      const d = (await request(app).get(`/api/v1/simulacoes/${a.id}`)).body;
+      const d = (await reqGe().get(`/api/v1/simulacoes/${a.id}`)).body;
       expect(d.desatualizada).toBe(true);
       expect(d.motivosDesatualizada[0]).toContain('Novo');
       expect(d.status).toBe('em_uso'); // nada muda sozinho
-      const lista = (await request(app).get(`/api/v1/lojas/${lojaId}/simulacoes`)).body.data;
+      const lista = (await reqGe().get(`/api/v1/lojas/${lojaId}/simulacoes`)).body.data;
       expect(lista[0].desatualizada).toBe(true);
     });
 
     it('exporta o Excel da escala e registra na auditoria', async () => {
       const a = await gravada('Plano A');
-      const r = await request(app)
+      const r = await reqGe()
         .get(`/api/v1/simulacoes/${a.id}/exportar.xlsx`)
         .buffer()
         .parse((res, cb) => {
@@ -289,7 +282,7 @@ describe('simulações (rotas)', () => {
 
   describe('vagas e desligamentos simulados', () => {
     const put = (id: string, body: object) =>
-      request(app).put(`/api/v1/simulacoes/${id}`).set(admin).send(body);
+      reqGe().put(`/api/v1/simulacoes/${id}`).set(admin).send(body);
 
     it('adiciona vaga, avisa quando não tem turnos e não mexe no cadastro', async () => {
       const sim = (await criar()).body;
@@ -358,14 +351,14 @@ describe('simulações (rotas)', () => {
     it('vagas ficam congeladas na gravada e vêm junto no clone', async () => {
       const sim = (await criar()).body;
       await put(sim.id, { vagas: [{ funcao: 'Apoio', cargaH: 16 }] });
-      await request(app).post(`/api/v1/simulacoes/${sim.id}/gravar`).set(admin);
+      await reqGe().post(`/api/v1/simulacoes/${sim.id}/gravar`).set(admin);
       expect((await put(sim.id, { vagas: [] })).status).toBe(409);
-      const c = (await request(app).post(`/api/v1/simulacoes/${sim.id}/clonar`).set(admin)).body;
+      const c = (await reqGe().post(`/api/v1/simulacoes/${sim.id}/clonar`).set(admin)).body;
       expect(c.quadro.some((p: { vaga?: boolean }) => p.vaga)).toBe(true);
     });
 
     it('cria já com as contratações que o diagnóstico sugere', async () => {
-      await request(app)
+      await reqGe()
         .put(`/api/v1/lojas/${lojaId}/configuracao`)
         .set(admin)
         .send({ minimos: { Caixa: 1 } });
@@ -377,11 +370,11 @@ describe('simulações (rotas)', () => {
     });
 
     it('o mesmo número de contratações no quadro central, no Cenário 1 e nas vagas sugeridas', async () => {
-      await request(app)
+      await reqGe()
         .put(`/api/v1/lojas/${lojaId}/configuracao`)
         .set(admin)
         .send({ minimos: { Caixa: 1, Atendimento: 1 } });
-      const diag = (await request(app).get(`/api/v1/lojas/${lojaId}/diagnostico`).set(admin)).body;
+      const diag = (await reqGe().get(`/api/v1/lojas/${lojaId}/diagnostico`).set(admin)).body;
       for (const regra of ['r42', 'r40'] as const) {
         const central = diag.regras.find((r: { id: string }) => r.id === regra).resumo.contratar;
         const cenario1 = diag.cenarios[regra].manter.pessoasContratar;
@@ -397,17 +390,17 @@ describe('simulações (rotas)', () => {
   describe('custo na comparação', () => {
     const custos = { salarioMedio: { Farmacêutico: 8000, Atendimento: 2000 }, encargosPct: 50 };
     const salvarCustos = (c: object = custos) =>
-      request(app).put(`/api/v1/lojas/${lojaId}/custos`).set(admin).send(c);
+      reqGe().put(`/api/v1/lojas/${lojaId}/custos`).set(admin).send(c);
     const gravada = async (nome: string, corpo: object = {}) => {
       const sim = (await criar({ nome, regra: 'r40' })).body;
       if (Object.keys(corpo).length)
-        await request(app).put(`/api/v1/simulacoes/${sim.id}`).set(admin).send(corpo);
-      const g = await request(app).post(`/api/v1/simulacoes/${sim.id}/gravar`).set(admin);
+        await reqGe().put(`/api/v1/simulacoes/${sim.id}`).set(admin).send(corpo);
+      const g = await reqGe().post(`/api/v1/simulacoes/${sim.id}/gravar`).set(admin);
       expect(g.status).toBe(200);
       return g.body;
     };
     const comparar = (ids: string[], h: Record<string, string> = admin) =>
-      request(app)
+      reqGe()
         .get(`/api/v1/lojas/${lojaId}/simulacoes/comparar?ids=${ids.join(',')}`)
         .set(h);
 
@@ -417,7 +410,7 @@ describe('simulações (rotas)', () => {
       const b = await gravada('Plano B com vaga', {
         vagas: [{ funcao: 'Farmacêutico', cargaH: 24 }],
       });
-      await request(app).post(`/api/v1/simulacoes/${a.id}/aprovar`).set(admin).send({});
+      await reqGe().post(`/api/v1/simulacoes/${a.id}/aprovar`).set(admin).send({});
 
       const r = await comparar([a.id, b.id]);
       expect(r.status).toBe(200);
@@ -444,22 +437,23 @@ describe('simulações (rotas)', () => {
       await salvarCustos();
       const a = await gravada('Plano A');
       const b = await gravada('Plano B');
-      for (const h of [{ 'X-Perfil': 'SCHEDULE_MANAGER' }, { 'X-Perfil': 'SCHEDULE_VIEWER' }]) {
+      for (const h of [
+        { 'X-Perfil': 'SCHEDULE_MANAGER', 'X-GE': GE_INICIAL_ID },
+        { 'X-Perfil': 'SCHEDULE_VIEWER', 'X-GE': GE_INICIAL_ID },
+      ]) {
         const r = await comparar([a.id, b.id], h);
         expect(r.status).toBe(200);
         expect(JSON.stringify(r.body)).not.toMatch(/custo|24000|mensal/);
-        expect(
-          (await request(app).get(`/api/v1/simulacoes/${a.id}`).set(h)).body.custo,
-        ).toBeUndefined();
+        expect((await reqGe().get(`/api/v1/simulacoes/${a.id}`).set(h)).body.custo).toBeUndefined();
       }
     });
 
     it('simulação gravada antes de informar os custos passa a mostrar o valor quando a loja informa', async () => {
       const a = await gravada('Plano A');
       await salvarCustos();
-      expect(
-        (await request(app).get(`/api/v1/simulacoes/${a.id}`).set(admin)).body.custo.mensal,
-      ).toBe(24000);
+      expect((await reqGe().get(`/api/v1/simulacoes/${a.id}`).set(admin)).body.custo.mensal).toBe(
+        24000,
+      );
     });
 
     it('sem custos informados mostra só o aviso, sem total', async () => {
@@ -492,7 +486,7 @@ describe('simulações (rotas)', () => {
         salarioMedio: { Farmacêutico: 20000, Atendimento: 2000 },
         encargosPct: 50,
       });
-      const d = (await request(app).get(`/api/v1/simulacoes/${a.id}`).set(admin)).body;
+      const d = (await reqGe().get(`/api/v1/simulacoes/${a.id}`).set(admin)).body;
       expect(d.custo.mensal).toBe(24000);
       const novo = (await criar({ nome: 'Rascunho novo', regra: 'r40' })).body;
       expect(novo.custo.mensal).toBe(60000); // rascunho usa os custos de hoje
@@ -507,7 +501,7 @@ describe('simulações (rotas)', () => {
         .concat([{ aberta: false } as never, domingo as never]),
     });
     const patchHorarios = (horarios: object) =>
-      request(app).patch(`/api/v1/lojas/${lojaId}`).set(admin).send({ horarios });
+      reqGe().patch(`/api/v1/lojas/${lojaId}`).set(admin).send({ horarios });
 
     it('domingo aberto entra nos dias da simulação e na avaliação; fechado não exige nada', async () => {
       const fechada = (await criar()).body;
@@ -541,17 +535,17 @@ describe('simulações (rotas)', () => {
 
     it('simulação gravada mantém o horário de quando foi gravada, mesmo que a loja mude depois', async () => {
       const g = (await criar()).body;
-      await request(app).post(`/api/v1/simulacoes/${g.id}/gravar`).set(admin);
+      await reqGe().post(`/api/v1/simulacoes/${g.id}/gravar`).set(admin);
       await patchHorarios(dias({ aberta: true, abre: '09:00', fecha: '18:00' }));
-      const depois = (await request(app).get(`/api/v1/simulacoes/${g.id}`).set(admin)).body;
+      const depois = (await reqGe().get(`/api/v1/simulacoes/${g.id}`).set(admin)).body;
       expect(depois.diasAbertos.map((d: { dia: number }) => d.dia)).toEqual([0, 1, 2, 3, 4]);
       expect(depois.avaliacao.erros).toEqual([]);
     });
 
     it('"desatualizada": só mudar o formato não dispara; mudar o horário da loja dispara', async () => {
       const g = (await criar()).body;
-      await request(app).post(`/api/v1/simulacoes/${g.id}/gravar`).set(admin);
-      await request(app).post(`/api/v1/simulacoes/${g.id}/aprovar`).set(admin).send({});
+      await reqGe().post(`/api/v1/simulacoes/${g.id}/gravar`).set(admin);
+      await reqGe().post(`/api/v1/simulacoes/${g.id}/aprovar`).set(admin).send({});
       // simulação aprovada antes da mudança: horário congelado no formato antigo
       const sim = await prisma.simulacao.findUniqueOrThrow({ where: { id: g.id } });
       const premissas = sim.premissas as { horarios: unknown };
@@ -561,11 +555,11 @@ describe('simulações (rotas)', () => {
           premissas: { ...premissas, horarios: { semana: { abre: '08:00', fecha: '20:00' } } },
         },
       });
-      const mesmaCoisa = (await request(app).get(`/api/v1/simulacoes/${g.id}`).set(admin)).body;
+      const mesmaCoisa = (await reqGe().get(`/api/v1/simulacoes/${g.id}`).set(admin)).body;
       expect(mesmaCoisa.motivosDesatualizada.join(' ')).not.toContain('horário');
 
       await patchHorarios(dias({ aberta: true, abre: '09:00', fecha: '13:00' }));
-      const mudou = (await request(app).get(`/api/v1/simulacoes/${g.id}`).set(admin)).body;
+      const mudou = (await reqGe().get(`/api/v1/simulacoes/${g.id}`).set(admin)).body;
       expect(mudou.desatualizada).toBe(true);
       expect(mudou.motivosDesatualizada.join(' ')).toContain(
         'O horário de funcionamento da loja mudou.',

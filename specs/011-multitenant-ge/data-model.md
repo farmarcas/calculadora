@@ -19,8 +19,8 @@ GE inicial: id fixo na migration, nome "Grupo inicial", identificação "GE-INIC
 - **+ ultimaCarga** (Json, opcional): retrato dos valores do último Excel (para detectar correção do empresário).
 - Demais campos iguais.
 
-## Funcionário (`funcionarios`) — sem coluna nova
-Pertence ao GE pela loja. Matrícula única dentro do GE: conferência feita no serviço com consulta `loja.geId`, como já é por loja hoje (nenhuma restrição de banco muda).
+## Funcionário (`funcionarios`) — muda
+Pertence ao GE pela loja. **+ geId** (uuid, NOT NULL, FK), copiado da loja (a loja não troca de GE), para o banco garantir que a **matrícula é única dentro do GE** (índice parcial `ge_id, matricula`; antes era única no sistema todo). Migration `20261029130000_funcionarios_ge`. As consultas continuam filtrando pela loja.
 
 ## ImportacaoCadastro (`importacoes_cadastro`) — muda
 - **+ geId** (uuid, FK) — GE inicial no que já existe; vazio só na carga de lojas da plataforma.

@@ -2,14 +2,15 @@ import type { Prisma } from '../../generated/prisma/client.js';
 import { prisma } from '../../shared/database/prisma.js';
 import type { Custos } from './custos.schemas.js';
 
-export const custosRepository = {
+// Presa ao GE: loja de outro GE não existe para quem chama.
+export const custosRepository = (geId: string) => ({
   async ler(lojaId: string): Promise<{
     existe: boolean;
     custos: Custos | null;
     regimeTributario: string | null;
   }> {
     const l = await prisma.loja.findFirst({
-      where: { id: lojaId, deletedAt: null },
+      where: { id: lojaId, geId, deletedAt: null },
       select: { custos: true, regimeTributario: true },
     });
     return {
@@ -20,9 +21,9 @@ export const custosRepository = {
   },
   async salvar(lojaId: string, custos: Custos) {
     await prisma.loja.update({
-      where: { id: lojaId },
+      where: { id: lojaId, geId },
       data: { custos: custos as unknown as Prisma.InputJsonValue },
     });
   },
-};
-export type CustosRepository = typeof custosRepository;
+});
+export type CustosRepository = ReturnType<typeof custosRepository>;

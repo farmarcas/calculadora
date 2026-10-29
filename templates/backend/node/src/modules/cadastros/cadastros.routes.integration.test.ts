@@ -1,11 +1,10 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
-import request from 'supertest';
 import ExcelJS from 'exceljs';
-import { app } from '../../app.js';
+import { reqGe } from '../../shared/testing/ge.js';
 import { prisma } from '../../shared/database/prisma.js';
 import { GE_INICIAL_ID } from '../../shared/ge.js';
 
-const admin = { 'X-Perfil': 'TENANT_ADMIN' };
+const admin = { 'X-Perfil': 'TENANT_ADMIN', 'X-GE': GE_INICIAL_ID };
 
 const planilha = async (
   lojas: string[][],
@@ -34,7 +33,7 @@ describe('cadastros (rotas)', () => {
   });
 
   it('baixa a planilha modelo', async () => {
-    const res = await request(app)
+    const res = await reqGe()
       .get('/api/v1/planilha-modelo')
       .buffer()
       .parse((r, cb) => {
@@ -57,7 +56,7 @@ describe('cadastros (rotas)', () => {
       ],
     );
 
-    const prev = await request(app)
+    const prev = await reqGe()
       .post('/api/v1/importacoes/cadastro')
       .set(admin)
       .attach('arquivo', arq, 'x.xlsx');
@@ -65,7 +64,7 @@ describe('cadastros (rotas)', () => {
     expect(prev.body.mapeamento.lojas.aba).toBe('Filiais');
     expect(prev.body.mapeamento.funcionarios.colunas.loja).toBe(2);
 
-    const ok = await request(app)
+    const ok = await reqGe()
       .post(`/api/v1/importacoes/cadastro/${prev.body.id}/confirmar`)
       .set(admin)
       .send({ mapeamento: prev.body.mapeamento });
@@ -74,11 +73,11 @@ describe('cadastros (rotas)', () => {
     expect(ok.body.funcionarios.novos).toBe(1);
     expect(ok.body.erros[0].motivo).toContain('loja 999 não existe');
 
-    const prev2 = await request(app)
+    const prev2 = await reqGe()
       .post('/api/v1/importacoes/cadastro')
       .set(admin)
       .attach('arquivo', arq, 'x.xlsx');
-    const again = await request(app)
+    const again = await reqGe()
       .post(`/api/v1/importacoes/cadastro/${prev2.body.id}/confirmar`)
       .set(admin)
       .send({ mapeamento: prev2.body.mapeamento });
@@ -89,38 +88,34 @@ describe('cadastros (rotas)', () => {
   });
 
   it('bloqueia escrita para quem só consulta', async () => {
-    const res = await request(app).post('/api/v1/lojas').send({ codigo: '1', nome: 'Loja' });
+    const res = await reqGe().post('/api/v1/lojas').send({ codigo: '1', nome: 'Loja' });
     expect(res.status).toBe(403);
     expect(res.body.error.code).toBe('SEM_PERMISSAO');
   });
 
   it('cria, lista, edita e remove loja; recusa código repetido e loja com funcionários', async () => {
-    const c = await request(app)
+    const c = await reqGe()
       .post('/api/v1/lojas')
       .set(admin)
       .send({ codigo: '010', nome: 'Loja Dez' });
     expect(c.status).toBe(201);
     expect(
-      (await request(app).post('/api/v1/lojas').set(admin).send({ codigo: '010', nome: 'Outra' }))
+      (await reqGe().post('/api/v1/lojas').set(admin).send({ codigo: '010', nome: 'Outra' }))
         .status,
     ).toBe(409);
-    const f = await request(app)
+    const f = await reqGe()
       .post('/api/v1/funcionarios')
       .set(admin)
       .send({ matricula: 'M1', nome: 'Carla', lojaId: c.body.id, funcaoEscala: 'Caixa' });
     expect(f.status).toBe(201);
-    expect((await request(app).delete(`/api/v1/lojas/${c.body.id}`).set(admin)).status).toBe(409);
+    expect((await reqGe().delete(`/api/v1/lojas/${c.body.id}`).set(admin)).status).toBe(409);
     expect(
-      (await request(app).patch(`/api/v1/lojas/${c.body.id}`).set(admin).send({ nome: 'Dez Novo' }))
-        .body.nome,
+      (await reqGe().patch(`/api/v1/lojas/${c.body.id}`).set(admin).send({ nome: 'Dez Novo' })).body
+        .nome,
     ).toBe('Dez Novo');
-    expect(
-      (await request(app).get('/api/v1/funcionarios?lojaId=' + c.body.id)).body.meta.total,
-    ).toBe(1);
-    expect((await request(app).delete(`/api/v1/funcionarios/${f.body.id}`).set(admin)).status).toBe(
-      204,
-    );
-    expect((await request(app).delete(`/api/v1/lojas/${c.body.id}`).set(admin)).status).toBe(204);
+    expect((await reqGe().get('/api/v1/funcionarios?lojaId=' + c.body.id)).body.meta.total).toBe(1);
+    expect((await reqGe().delete(`/api/v1/funcionarios/${f.body.id}`).set(admin)).status).toBe(204);
+    expect((await reqGe().delete(`/api/v1/lojas/${c.body.id}`).set(admin)).status).toBe(204);
   });
 
   describe('horário da loja por dia da semana', () => {
@@ -139,7 +134,7 @@ describe('cadastros (rotas)', () => {
     };
 
     it('guarda os sete dias como informados e devolve o mesmo ao reabrir', async () => {
-      const c = await request(app)
+      const c = await reqGe()
         .post('/api/v1/lojas')
         .set(admin)
         .send({ codigo: '010', nome: 'Semana', horarios: semanaCompleta });
@@ -147,7 +142,7 @@ describe('cadastros (rotas)', () => {
       expect(c.body.horarios.dias).toHaveLength(7);
       expect(c.body.horarios.dias[5]).toEqual({ aberta: true, abre: '08:00', fecha: '20:00' });
       expect(c.body.horarios.dias[6]).toEqual({ aberta: false });
-      const lida = (await request(app).get('/api/v1/lojas').set(admin)).body.data.find(
+      const lida = (await reqGe().get('/api/v1/lojas').set(admin)).body.data.find(
         (l: { codigo: string }) => l.codigo === '010',
       );
       expect(lida.horarios).toEqual(c.body.horarios);
@@ -155,7 +150,7 @@ describe('cadastros (rotas)', () => {
 
     it('loja 24 horas: sete dias de 00:00 a 24:00, e um dia pode ser ajustado depois', async () => {
       const h24 = { aberta: true, h24: true };
-      const c = await request(app)
+      const c = await reqGe()
         .post('/api/v1/lojas')
         .set(admin)
         .send({
@@ -172,7 +167,7 @@ describe('cadastros (rotas)', () => {
       ).toBe(true);
       const dias = [...c.body.horarios.dias];
       dias[6] = { aberta: false };
-      const e = await request(app)
+      const e = await reqGe()
         .patch(`/api/v1/lojas/${c.body.id}`)
         .set(admin)
         .send({ horarios: { versao: 2, dias } });
@@ -181,7 +176,7 @@ describe('cadastros (rotas)', () => {
     });
 
     it('o formato antigo continua aceito e sai como o novo; loja antiga lida do banco também', async () => {
-      const c = await request(app)
+      const c = await reqGe()
         .post('/api/v1/lojas')
         .set(admin)
         .send({
@@ -207,7 +202,7 @@ describe('cadastros (rotas)', () => {
         where: { id: c.body.id },
         data: { horarios: { semana: { abre: '07:00', fecha: '19:00' } } },
       });
-      const lida = (await request(app).get('/api/v1/lojas').set(admin)).body.data.find(
+      const lida = (await reqGe().get('/api/v1/lojas').set(admin)).body.data.find(
         (l: { codigo: string }) => l.codigo === '011',
       );
       expect(lida.horarios.dias[0]).toEqual({ aberta: true, abre: '07:00', fecha: '19:00' });
@@ -243,7 +238,7 @@ describe('cadastros (rotas)', () => {
         ['022', 'Horário ruim', 'Não', 'cedo', '22:00', '', '', '', ''],
       ]);
       const arq = Buffer.from(await wb.xlsx.writeBuffer());
-      const prev = await request(app)
+      const prev = await reqGe()
         .post('/api/v1/importacoes/cadastro')
         .set(admin)
         .attach('arquivo', arq, 'lojas.xlsx');
@@ -253,14 +248,14 @@ describe('cadastros (rotas)', () => {
         abre_seg: 3,
         abre_dom: 7,
       });
-      const ok = await request(app)
+      const ok = await reqGe()
         .post(`/api/v1/importacoes/cadastro/${prev.body.id}/confirmar`)
         .set(admin)
         .send({ mapeamento: prev.body.mapeamento });
       expect(ok.body.lojas).toEqual({ novos: 2, atualizados: 0 });
       expect(ok.body.erros[0].motivo).toContain('Horário de segunda inválido');
 
-      const lojas = (await request(app).get('/api/v1/lojas?pageSize=50').set(admin)).body.data;
+      const lojas = (await reqGe().get('/api/v1/lojas?pageSize=50').set(admin)).body.data;
       const l20 = lojas.find((l: { codigo: string }) => l.codigo === '020');
       expect(l20.horariosResumo).toBe(
         'Seg 08:00–22:00 · Ter a sex fechada · Sáb 08:00–20:00 · Dom fechada',
@@ -275,17 +270,17 @@ describe('cadastros (rotas)', () => {
         ['Código da loja', 'Nome da loja'],
         ['020', 'Renomeada'],
       ]);
-      const p2 = await request(app)
+      const p2 = await reqGe()
         .post('/api/v1/importacoes/cadastro')
         .set(admin)
         .attach('arquivo', Buffer.from(await sem.xlsx.writeBuffer()), 'l2.xlsx');
-      await request(app)
+      await reqGe()
         .post(`/api/v1/importacoes/cadastro/${p2.body.id}/confirmar`)
         .set(admin)
         .send({ mapeamento: p2.body.mapeamento });
-      const depois = (
-        await request(app).get('/api/v1/lojas?pageSize=50').set(admin)
-      ).body.data.find((l: { codigo: string }) => l.codigo === '020');
+      const depois = (await reqGe().get('/api/v1/lojas?pageSize=50').set(admin)).body.data.find(
+        (l: { codigo: string }) => l.codigo === '020',
+      );
       expect(depois.nome).toBe('Renomeada');
       expect(depois.horariosResumo).toContain('Sáb 08:00–20:00');
     });
@@ -303,15 +298,15 @@ describe('cadastros (rotas)', () => {
         ],
         ['030', 'Antiga', '08:00', '22:00', '09:00', '13:00'],
       ]);
-      const prev = await request(app)
+      const prev = await reqGe()
         .post('/api/v1/importacoes/cadastro')
         .set(admin)
         .attach('arquivo', Buffer.from(await wb.xlsx.writeBuffer()), 'a.xlsx');
-      await request(app)
+      await reqGe()
         .post(`/api/v1/importacoes/cadastro/${prev.body.id}/confirmar`)
         .set(admin)
         .send({ mapeamento: prev.body.mapeamento });
-      const l = (await request(app).get('/api/v1/lojas?pageSize=50').set(admin)).body.data.find(
+      const l = (await reqGe().get('/api/v1/lojas?pageSize=50').set(admin)).body.data.find(
         (x: { codigo: string }) => x.codigo === '030',
       );
       expect(l.horariosResumo).toBe('Seg a sex 08:00–22:00 · Sáb 09:00–13:00 · Dom fechada');
@@ -319,10 +314,7 @@ describe('cadastros (rotas)', () => {
 
     it('recusa fechamento antes da abertura, dia aberto sem horário e semana com dias a menos', async () => {
       const post = (horarios: object) =>
-        request(app)
-          .post('/api/v1/lojas')
-          .set(admin)
-          .send({ codigo: '012', nome: 'Erro', horarios });
+        reqGe().post('/api/v1/lojas').set(admin).send({ codigo: '012', nome: 'Erro', horarios });
       const ruim = {
         ...semanaCompleta,
         dias: [dia('22:00', '08:00'), ...semanaCompleta.dias.slice(1)],
@@ -343,7 +335,7 @@ describe('cadastros (rotas)', () => {
   describe('dados da loja: cidade, bandeira e regime tributário', () => {
     const base = { codigo: '020', nome: 'Loja Vinte' };
     const criar = (extra: object) =>
-      request(app)
+      reqGe()
         .post('/api/v1/lojas')
         .set(admin)
         .send({ ...base, ...extra });
@@ -363,9 +355,9 @@ describe('cadastros (rotas)', () => {
         marca: 'Super Popular',
         regimeTributario: 'presumido',
       });
-      const lido = (await request(app).get('/api/v1/lojas')).body.data[0];
+      const lido = (await reqGe().get('/api/v1/lojas')).body.data[0];
       expect(lido).toMatchObject({ cidade: 'Belo Horizonte', regimeTributario: 'presumido' });
-      const limpo = await request(app)
+      const limpo = await reqGe()
         .patch(`/api/v1/lojas/${c.body.id}`)
         .set(admin)
         .send({ regimeTributario: null });
@@ -380,7 +372,7 @@ describe('cadastros (rotas)', () => {
 
     it('loja antiga sem cidade nem regime continua abrindo', async () => {
       await prisma.loja.create({ data: { codigo: '021', nome: 'Antiga', geId: GE_INICIAL_ID } });
-      const r = await request(app).get('/api/v1/lojas');
+      const r = await reqGe().get('/api/v1/lojas');
       expect(r.status).toBe(200);
       expect(r.body.data[0].cidade).toBeUndefined();
       expect(r.body.data[0].regimeTributario ?? null).toBeNull();
@@ -392,13 +384,13 @@ describe('cadastros (rotas)', () => {
         [],
         ['Cód_Loja', 'Nome_Loja', 'Cidade', 'Regime tributário'],
       );
-      const up = await request(app)
+      const up = await reqGe()
         .post('/api/v1/importacoes/cadastro')
         .set(admin)
         .attach('arquivo', buf, 'cadastro.xlsx');
       expect(up.status).toBe(201);
       expect(up.body.mapeamento.lojas.colunas).toMatchObject({ cidade: 2, regime_tributario: 3 });
-      const conf = await request(app)
+      const conf = await reqGe()
         .post(`/api/v1/importacoes/cadastro/${up.body.id}/confirmar`)
         .set(admin)
         .send({ mapeamento: up.body.mapeamento });
@@ -408,8 +400,8 @@ describe('cadastros (rotas)', () => {
     });
   });
   describe('faturamento da loja (só o dono)', () => {
-    const gestor = { 'X-Perfil': 'SCHEDULE_MANAGER' };
-    const consulta = { 'X-Perfil': 'SCHEDULE_VIEWER' };
+    const gestor = { 'X-Perfil': 'SCHEDULE_MANAGER', 'X-GE': GE_INICIAL_ID };
+    const consulta = { 'X-Perfil': 'SCHEDULE_VIEWER', 'X-GE': GE_INICIAL_ID };
     const fat = {
       dias: [12000, 12000, 12000, 12000, 15000, 18000, null],
       mensal: 420000,
@@ -417,20 +409,20 @@ describe('cadastros (rotas)', () => {
     };
 
     it('o dono grava e lê; gestor e consulta nem recebem o campo', async () => {
-      const c = await request(app)
+      const c = await reqGe()
         .post('/api/v1/lojas')
         .set(admin)
         .send({ codigo: '040', nome: 'Loja Quarenta', faturamento: fat });
       expect(c.status).toBe(201);
       expect(c.body.faturamento).toEqual(fat);
-      const dono = (await request(app).get('/api/v1/lojas').set(admin)).body.data[0];
+      const dono = (await reqGe().get('/api/v1/lojas').set(admin)).body.data[0];
       expect(dono.faturamento).toEqual(fat);
       for (const perfil of [gestor, consulta]) {
-        const l = (await request(app).get('/api/v1/lojas').set(perfil)).body.data[0];
+        const l = (await reqGe().get('/api/v1/lojas').set(perfil)).body.data[0];
         expect(l).not.toHaveProperty('faturamento');
         expect(JSON.stringify(l)).not.toContain('420000');
       }
-      const ed = await request(app)
+      const ed = await reqGe()
         .patch(`/api/v1/lojas/${c.body.id}`)
         .set(gestor)
         .send({ nome: 'Quarenta Novo' });
@@ -439,11 +431,11 @@ describe('cadastros (rotas)', () => {
     });
 
     it('gestor não consegue gravar faturamento (403) e nada muda', async () => {
-      const c = await request(app)
+      const c = await reqGe()
         .post('/api/v1/lojas')
         .set(admin)
         .send({ codigo: '041', nome: 'Loja Quarenta e Um' });
-      const r = await request(app)
+      const r = await reqGe()
         .patch(`/api/v1/lojas/${c.body.id}`)
         .set(gestor)
         .send({ faturamento: fat });
@@ -453,10 +445,7 @@ describe('cadastros (rotas)', () => {
 
     it('recusa valor negativo, margem acima de 100 e menos de sete dias', async () => {
       const post = (f: object) =>
-        request(app)
-          .post('/api/v1/lojas')
-          .set(admin)
-          .send({ codigo: '042', nome: 'Y', faturamento: f });
+        reqGe().post('/api/v1/lojas').set(admin).send({ codigo: '042', nome: 'Y', faturamento: f });
       expect((await post({ ...fat, dias: [-5, 1, 1, 1, 1, 1, 1] })).status).toBe(400);
       expect((await post({ ...fat, margemPct: 150 })).status).toBe(400);
       expect((await post({ ...fat, dias: [1, 2] })).status).toBe(400);
@@ -466,7 +455,7 @@ describe('cadastros (rotas)', () => {
       const cab = ['Cód_Loja', 'Nome_Loja', 'Fat_Seg', 'Fat_Mensal', 'Margem_Pct'];
       const enviar = async (perfil: Record<string, string>, codigo: string) => {
         const buf = await planilha([[codigo, 'Loja P', '10000', '300000', '25']], [], cab);
-        const up = await request(app)
+        const up = await reqGe()
           .post('/api/v1/importacoes/cadastro')
           .set(perfil)
           .attach('arquivo', buf, 'f.xlsx');
@@ -475,7 +464,7 @@ describe('cadastros (rotas)', () => {
           fat_mensal: 3,
           margem_pct: 4,
         });
-        const ok = await request(app)
+        const ok = await reqGe()
           .post(`/api/v1/importacoes/cadastro/${up.body.id}/confirmar`)
           .set(perfil)
           .send({ mapeamento: up.body.mapeamento });
@@ -491,18 +480,18 @@ describe('cadastros (rotas)', () => {
     });
   });
   describe('equipe da loja: carga mensal, horário, CPF', () => {
-    const consulta = { 'X-Perfil': 'SCHEDULE_VIEWER' };
+    const consulta = { 'X-Perfil': 'SCHEDULE_VIEWER', 'X-GE': GE_INICIAL_ID };
     let lojaId: string;
     beforeEach(async () => {
       lojaId = (
-        await request(app)
+        await reqGe()
           .post('/api/v1/lojas')
           .set(admin)
           .send({ codigo: '060', nome: 'Loja Sessenta' })
       ).body.id;
     });
     const novo = (extra: object = {}) =>
-      request(app)
+      reqGe()
         .post('/api/v1/funcionarios')
         .set(admin)
         .send({ matricula: 'M1', nome: 'Ana Souza', lojaId, funcaoEscala: 'Caixa', ...extra });
@@ -524,8 +513,8 @@ describe('cadastros (rotas)', () => {
         saida: '17:30',
         dias: [0, 1, 2, 3, 4],
       });
-      const lista = (await request(app).get(`/api/v1/funcionarios?lojaId=${lojaId}`).set(admin))
-        .body.data;
+      const lista = (await reqGe().get(`/api/v1/funcionarios?lojaId=${lojaId}`).set(admin)).body
+        .data;
       expect(lista[0]).toMatchObject({ cpf: '529.982.247-25', entrada: '08:00' });
     });
 
@@ -541,12 +530,9 @@ describe('cadastros (rotas)', () => {
       expect(dup.status).toBe(409);
       expect(dup.body.error.code).toBe('CPF_DUPLICADO');
       const outra = (
-        await request(app)
-          .post('/api/v1/lojas')
-          .set(admin)
-          .send({ codigo: '061', nome: 'Loja Outra' })
+        await reqGe().post('/api/v1/lojas').set(admin).send({ codigo: '061', nome: 'Loja Outra' })
       ).body.id;
-      const ok = await request(app)
+      const ok = await reqGe()
         .post('/api/v1/funcionarios')
         .set(admin)
         .send({ matricula: 'M3', nome: 'Bia Lima', lojaId: outra, cpf: '529.982.247-25' });
@@ -561,25 +547,23 @@ describe('cadastros (rotas)', () => {
 
     it('edita só o horário e remove (exclusão lógica); sai da lista', async () => {
       const f = await novo({ entrada: '08:00', saida: '17:00', dias: [0, 1] });
-      const ed = await request(app)
+      const ed = await reqGe()
         .patch(`/api/v1/funcionarios/${f.body.id}`)
         .set(admin)
         .send({ saida: '18:00' });
       expect(ed.body).toMatchObject({ entrada: '08:00', saida: '18:00' });
       expect(
         (
-          await request(app)
+          await reqGe()
             .patch(`/api/v1/funcionarios/${f.body.id}`)
             .set(admin)
             .send({ saida: '08:00' })
         ).status,
       ).toBe(400);
-      expect(
-        (await request(app).delete(`/api/v1/funcionarios/${f.body.id}`).set(admin)).status,
-      ).toBe(204);
-      expect(
-        (await request(app).get(`/api/v1/funcionarios?lojaId=${lojaId}`)).body.meta.total,
-      ).toBe(0);
+      expect((await reqGe().delete(`/api/v1/funcionarios/${f.body.id}`).set(admin)).status).toBe(
+        204,
+      );
+      expect((await reqGe().get(`/api/v1/funcionarios?lojaId=${lojaId}`)).body.meta.total).toBe(0);
       expect(
         await prisma.funcionario.count({ where: { id: f.body.id, deletedAt: { not: null } } }),
       ).toBe(1);
@@ -587,21 +571,21 @@ describe('cadastros (rotas)', () => {
 
     it('busca por nome ou cargo; consulta vê o CPF mascarado', async () => {
       await novo({ cargo: 'Farmacêutica Responsável', cpf: '529.982.247-25' });
-      const porCargo = await request(app)
+      const porCargo = await reqGe()
         .get(`/api/v1/funcionarios?lojaId=${lojaId}&busca=responsavel`)
         .set(admin);
       expect(porCargo.body.meta.total).toBe(0);
-      const porCargo2 = await request(app)
+      const porCargo2 = await reqGe()
         .get(`/api/v1/funcionarios?lojaId=${lojaId}&busca=Respons`)
         .set(admin);
       expect(porCargo2.body.meta.total).toBe(1);
-      const vista = (await request(app).get(`/api/v1/funcionarios?lojaId=${lojaId}`).set(consulta))
-        .body.data[0];
+      const vista = (await reqGe().get(`/api/v1/funcionarios?lojaId=${lojaId}`).set(consulta)).body
+        .data[0];
       expect(vista.cpf).toBe('***.982.247-**');
       const gestor = (
-        await request(app)
+        await reqGe()
           .get(`/api/v1/funcionarios?lojaId=${lojaId}`)
-          .set({ 'X-Perfil': 'SCHEDULE_MANAGER' })
+          .set({ 'X-Perfil': 'SCHEDULE_MANAGER', 'X-GE': GE_INICIAL_ID })
       ).body.data[0];
       expect(gestor.cpf).toBe('529.982.247-25');
     });

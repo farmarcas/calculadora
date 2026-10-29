@@ -1,10 +1,10 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
-import request from 'supertest';
 import ExcelJS from 'exceljs';
-import { app } from '../../app.js';
+import { GE_INICIAL_ID } from '../../shared/ge.js';
+import { reqGe } from '../../shared/testing/ge.js';
 import { prisma } from '../../shared/database/prisma.js';
 
-const admin = { 'X-Perfil': 'TENANT_ADMIN' };
+const admin = { 'X-Perfil': 'TENANT_ADMIN', 'X-GE': GE_INICIAL_ID };
 const xlsx = async (cab: string[], linhas: string[][]) => {
   const wb = new ExcelJS.Workbook();
   wb.addWorksheet('Dados').addRows([cab, ...linhas]);
@@ -21,7 +21,7 @@ describe('escala (rotas)', () => {
     await prisma.carga.deleteMany();
     await prisma.funcionario.deleteMany();
     await prisma.loja.deleteMany();
-    const r = await request(app)
+    const r = await reqGe()
       .post('/api/v1/lojas')
       .set(admin)
       .send({
@@ -52,7 +52,7 @@ describe('escala (rotas)', () => {
   ];
 
   it('sem escala, o diagnóstico fica pendente', async () => {
-    const r = await request(app).get(`/api/v1/lojas/${lojaId}/diagnostico`);
+    const r = await reqGe().get(`/api/v1/lojas/${lojaId}/diagnostico`);
     expect(r.status).toBe(200);
     expect(r.body.status).toBe('pendente');
   });
@@ -65,7 +65,7 @@ describe('escala (rotas)', () => {
       ['001', 'F4', 'Duda', 'Caixa', 'Seg a Sex', '18:00', '', '', '08:00', ''],
       ['999', 'X1', 'Zé', 'Caixa', 'Seg a Sex', '08:00', '', '', '17:00', ''],
     ]);
-    const imp = await request(app)
+    const imp = await reqGe()
       .post('/api/v1/cargas/escala')
       .set(admin)
       .attach('arquivo', arq, 'escala.xlsx');
@@ -76,7 +76,7 @@ describe('escala (rotas)', () => {
       'não cadastrada',
     );
 
-    const d = (await request(app).get(`/api/v1/lojas/${lojaId}/diagnostico`)).body;
+    const d = (await reqGe().get(`/api/v1/lojas/${lojaId}/diagnostico`)).body;
     expect(d.status).not.toBe('pendente');
     expect(d.colaboradores).toHaveLength(3);
     expect(d.colaboradores.find((c: { nome: string }) => c.nome === 'Caio').funcao).toBeNull();
@@ -90,16 +90,16 @@ describe('escala (rotas)', () => {
     const arq = await xlsx(escalaCab, [
       ['001', 'F1', 'Ana', 'Farmacêutica', 'Seg a Sáb', '08:00', '', '', '17:00', '44'],
     ]);
-    await request(app).post('/api/v1/cargas/escala').set(admin).attach('arquivo', arq, 'a.xlsx');
-    await request(app).post('/api/v1/cargas/escala').set(admin).attach('arquivo', arq, 'b.xlsx');
-    const h = (await request(app).get(`/api/v1/lojas/${lojaId}/cargas`)).body.data;
+    await reqGe().post('/api/v1/cargas/escala').set(admin).attach('arquivo', arq, 'a.xlsx');
+    await reqGe().post('/api/v1/cargas/escala').set(admin).attach('arquivo', arq, 'b.xlsx');
+    const h = (await reqGe().get(`/api/v1/lojas/${lojaId}/cargas`)).body.data;
     expect(h).toHaveLength(2);
     expect(h.filter((c: { ativa: boolean }) => c.ativa)).toHaveLength(1);
     expect(h.find((c: { ativa: boolean }) => c.ativa).arquivo).toBe('b.xlsx');
   });
 
   it('importa a base comercial com colunas fora do padrão e mostra os horários de maior venda', async () => {
-    await request(app)
+    await reqGe()
       .post('/api/v1/cargas/escala')
       .set(admin)
       .attach(
@@ -117,19 +117,19 @@ describe('escala (rotas)', () => {
         ['02/09/2026', '18', '001', '800,00', '30'],
       ],
     );
-    const imp = await request(app)
+    const imp = await reqGe()
       .post('/api/v1/cargas/base')
       .set(admin)
       .attach('arquivo', base, 'base.xlsx');
     expect(imp.status).toBe(201);
     // o valor médio em reais é do dono
-    const d = (await request(app).get(`/api/v1/lojas/${lojaId}/diagnostico`).set(admin)).body;
+    const d = (await reqGe().get(`/api/v1/lojas/${lojaId}/diagnostico`).set(admin)).body;
     expect(d.vendas.top[0]).toMatchObject({ hora: 18, vendaMedia: 1000 });
     expect(d.vendas.periodo.dias).toBe(2);
   });
 
   it('recusa planilha sem as colunas obrigatórias', async () => {
-    const r = await request(app)
+    const r = await reqGe()
       .post('/api/v1/cargas/escala')
       .set(admin)
       .attach('arquivo', await xlsx(['A', 'B'], [['1', '2']]), 'x.xlsx');
@@ -138,7 +138,7 @@ describe('escala (rotas)', () => {
   });
 
   it('configuração muda o resultado e só quem escreve pode mudar', async () => {
-    await request(app)
+    await reqGe()
       .post('/api/v1/cargas/escala')
       .set(admin)
       .attach(
@@ -149,10 +149,10 @@ describe('escala (rotas)', () => {
         'e.xlsx',
       );
     expect(
-      (await request(app).put(`/api/v1/lojas/${lojaId}/configuracao`).send({ convencao8h24: true }))
+      (await reqGe().put(`/api/v1/lojas/${lojaId}/configuracao`).send({ convencao8h24: true }))
         .status,
     ).toBe(403);
-    const r = await request(app)
+    const r = await reqGe()
       .put(`/api/v1/lojas/${lojaId}/configuracao`)
       .set(admin)
       .send({ convencao8h24: true, minimos: { Caixa: 2 } });
@@ -165,12 +165,12 @@ describe('escala (rotas)', () => {
   });
 
   it('baixa os modelos de escala e de base', async () => {
-    expect((await request(app).get('/api/v1/planilha-modelo-escala')).status).toBe(200);
-    expect((await request(app).get('/api/v1/planilha-modelo-base')).status).toBe(200);
+    expect((await reqGe().get('/api/v1/planilha-modelo-escala')).status).toBe(200);
+    expect((await reqGe().get('/api/v1/planilha-modelo-base')).status).toBe(200);
   });
 
   it('a folha mensal atual só vai para o dono do grupo', async () => {
-    await request(app)
+    await reqGe()
       .post('/api/v1/cargas/escala')
       .set(admin)
       .attach(
@@ -182,17 +182,20 @@ describe('escala (rotas)', () => {
       );
     const url = `/api/v1/lojas/${lojaId}/diagnostico`;
     // dono sem custos informados: avisa, sem valor
-    expect((await request(app).get(url).set(admin)).body.folhaMensal).toEqual({ informado: false });
+    expect((await reqGe().get(url).set(admin)).body.folhaMensal).toEqual({ informado: false });
 
-    await request(app)
+    await reqGe()
       .put(`/api/v1/lojas/${lojaId}/custos`)
       .set(admin)
       .send({ salarioMedio: { Farmacêutico: 8000 }, encargosPct: 40 });
-    const dono = (await request(app).get(url).set(admin)).body;
+    const dono = (await reqGe().get(url).set(admin)).body;
     expect(dono.folhaMensal).toMatchObject({ informado: true, mensal: 11200, encargosPct: 40 });
 
-    for (const h of [{ 'X-Perfil': 'SCHEDULE_MANAGER' }, { 'X-Perfil': 'SCHEDULE_VIEWER' }]) {
-      const r = (await request(app).get(url).set(h)).body;
+    for (const h of [
+      { 'X-Perfil': 'SCHEDULE_MANAGER', 'X-GE': GE_INICIAL_ID },
+      { 'X-Perfil': 'SCHEDULE_VIEWER', 'X-GE': GE_INICIAL_ID },
+    ]) {
+      const r = (await reqGe().get(url).set(h)).body;
       expect(r.folhaMensal).toBeUndefined();
       expect(JSON.stringify(r)).not.toContain('11200');
     }
@@ -200,7 +203,7 @@ describe('escala (rotas)', () => {
   });
 
   it('cenário 1: contratação por cargo, custo só para o dono e quadro que já cobre tudo', async () => {
-    await request(app)
+    await reqGe()
       .post('/api/v1/cargas/escala')
       .set(admin)
       .attach(
@@ -212,18 +215,18 @@ describe('escala (rotas)', () => {
       );
     const url = `/api/v1/lojas/${lojaId}/diagnostico`;
     const config = `/api/v1/lojas/${lojaId}/configuracao`;
-    await request(app)
+    await reqGe()
       .put(config)
       .set(admin)
       .send({ minimos: { Atendimento: 0, Caixa: 0 } });
-    await request(app)
+    await reqGe()
       .put(`/api/v1/lojas/${lojaId}/custos`)
       .set(admin)
       .send({ salarioMedio: { Farmacêutico: 8000 }, encargosPct: 40 });
 
     // 66h abertas e 11 turnos por semana; 1 farmacêutica de 40h (5 turnos): faltam 6 turnos →
     // 6 ÷ 5 dias = 1 inteira e resto 1 → 1 parcial de 1 turno (8h): 2 pessoas, 48h, sem sobra
-    const dono = (await request(app).get(url).set(admin)).body.cenarios;
+    const dono = (await reqGe().get(url).set(admin)).body.cenarios;
     expect(Object.keys(dono)).toEqual(['r42', 'r40']);
     expect(dono.r40.manter.contratacoes).toEqual([
       {
@@ -246,8 +249,11 @@ describe('escala (rotas)', () => {
     expect(dono.r40.atual).toMatchObject({ horasSemana: 66, pessoas: 1, folhaMensal: 11200 });
     expect(dono.r40.vendasBase).toBeNull();
 
-    for (const h of [{ 'X-Perfil': 'SCHEDULE_MANAGER' }, { 'X-Perfil': 'SCHEDULE_VIEWER' }]) {
-      const r = (await request(app).get(url).set(h)).body;
+    for (const h of [
+      { 'X-Perfil': 'SCHEDULE_MANAGER', 'X-GE': GE_INICIAL_ID },
+      { 'X-Perfil': 'SCHEDULE_VIEWER', 'X-GE': GE_INICIAL_ID },
+    ]) {
+      const r = (await reqGe().get(url).set(h)).body;
       expect(r.cenarios.r40.manter.contratacoes[0].pessoas).toBe(2);
       expect('custoAdicionalMensal' in r.cenarios.r40.manter).toBe(false);
       expect('folhaMensal' in r.cenarios.r40.atual).toBe(false);
@@ -255,7 +261,7 @@ describe('escala (rotas)', () => {
     }
 
     // com três farmacêuticas (120h, 15 turnos) o quadro já cobre as 66h da loja
-    await request(app)
+    await reqGe()
       .post('/api/v1/cargas/escala')
       .set(admin)
       .attach(
@@ -267,13 +273,13 @@ describe('escala (rotas)', () => {
         ]),
         'e2.xlsx',
       );
-    const cobre = (await request(app).get(url).set(admin)).body.cenarios.r40.manter;
+    const cobre = (await reqGe().get(url).set(admin)).body.cenarios.r40.manter;
     expect(cobre.contratacoes).toEqual([]);
     expect(cobre.custoAdicionalMensal).toBe(0);
   });
 
   it('cenário 2: fecha dias até a equipe atual cobrir; dia protegido vira "não recomendado"; valores só ao dono', async () => {
-    await request(app)
+    await reqGe()
       .post('/api/v1/cargas/escala')
       .set(admin)
       .attach(
@@ -283,13 +289,13 @@ describe('escala (rotas)', () => {
         ]),
         'e.xlsx',
       );
-    await request(app)
+    await reqGe()
       .put(`/api/v1/lojas/${lojaId}/configuracao`)
       .set(admin)
       .send({ minimos: { Atendimento: 0, Caixa: 0 } });
     const url = `/api/v1/lojas/${lojaId}/diagnostico`;
     const eco = async (perfil = admin) =>
-      (await request(app).get(url).set(perfil)).body.cenarios.r40.economia;
+      (await reqGe().get(url).set(perfil)).body.cenarios.r40.economia;
 
     // sem venda por dia (nem base nem faturamento): não dá para escolher o dia
     const sem = await eco();
@@ -299,7 +305,7 @@ describe('escala (rotas)', () => {
 
     // loja de segunda a sexta (12h) e sábado (6h): 66h e 11 turnos; 1 farmacêutica de 40h tem 40h e 5 turnos.
     // Faturamento por dia e margem de 25%: protegidos = sexta, quinta e terça (os 3 maiores).
-    await request(app)
+    await reqGe()
       .patch(`/api/v1/lojas/${lojaId}`)
       .set(admin)
       .send({
@@ -324,7 +330,10 @@ describe('escala (rotas)', () => {
     expect(dono.impactoMensal).toBeNull(); // não recomendado: fora da escolha do selo
 
     // gestor e consulta: os dias e a frase, sem valores em reais
-    for (const perfil of [{ 'X-Perfil': 'SCHEDULE_MANAGER' }, { 'X-Perfil': 'SCHEDULE_VIEWER' }]) {
+    for (const perfil of [
+      { 'X-Perfil': 'SCHEDULE_MANAGER', 'X-GE': GE_INICIAL_ID },
+      { 'X-Perfil': 'SCHEDULE_VIEWER', 'X-GE': GE_INICIAL_ID },
+    ]) {
       const r = await eco(perfil);
       expect(r.diasFechar).toEqual([{ dia: 0 }, { dia: 1 }, { dia: 2 }]);
       expect(r.naoRecomendado.dias).toEqual([1]);
@@ -336,7 +345,7 @@ describe('escala (rotas)', () => {
   });
 
   it('cenário 3: avisa o que falta e, completo, escolhe a melhor combinação de dias; só o dono vê os valores', async () => {
-    await request(app)
+    await reqGe()
       .post('/api/v1/cargas/escala')
       .set(admin)
       .attach(
@@ -346,19 +355,19 @@ describe('escala (rotas)', () => {
         ]),
         'e.xlsx',
       );
-    await request(app)
+    await reqGe()
       .put(`/api/v1/lojas/${lojaId}/configuracao`)
       .set(admin)
       .send({ minimos: { Atendimento: 0, Caixa: 0 } });
     const url = `/api/v1/lojas/${lojaId}/diagnostico`;
     const cen = async (h: Record<string, string> = admin) =>
-      (await request(app).get(url).set(h)).body.cenarios.r40;
+      (await reqGe().get(url).set(h)).body.cenarios.r40;
 
     // sem venda por dia: falta o faturamento
     expect((await cen()).equilibrio.indisponivel.motivo).toBe('vendas');
 
     // com faturamento e margem, mas sem custos: faltam os salários
-    await request(app)
+    await reqGe()
       .patch(`/api/v1/lojas/${lojaId}`)
       .set(admin)
       .send({
@@ -370,7 +379,7 @@ describe('escala (rotas)', () => {
       });
     expect((await cen()).equilibrio.indisponivel.motivo).toBe('custos');
 
-    await request(app)
+    await reqGe()
       .put(`/api/v1/lojas/${lojaId}/custos`)
       .set(admin)
       .send({ salarioMedio: { Farmacêutico: 8000 }, encargosPct: 40 });
@@ -427,7 +436,10 @@ describe('escala (rotas)', () => {
     });
     expect(por.economia.alertas.join(' ')).toContain('terça');
 
-    for (const h of [{ 'X-Perfil': 'SCHEDULE_MANAGER' }, { 'X-Perfil': 'SCHEDULE_VIEWER' }]) {
+    for (const h of [
+      { 'X-Perfil': 'SCHEDULE_MANAGER', 'X-GE': GE_INICIAL_ID },
+      { 'X-Perfil': 'SCHEDULE_VIEWER', 'X-GE': GE_INICIAL_ID },
+    ]) {
       const r = await cen(h);
       expect(r.equilibrio.indisponivel).toBeNull();
       expect(r.equilibrio.diasFechar).toEqual([{ dia: 0 }, { dia: 2 }, { dia: 5 }]);
@@ -464,7 +476,7 @@ describe('escala (rotas)', () => {
   });
 
   it('cenário 4: abre um dia hoje fechado com a sobra da equipe; valores só para o dono', async () => {
-    await request(app)
+    await reqGe()
       .post('/api/v1/cargas/escala')
       .set(admin)
       .attach(
@@ -476,17 +488,17 @@ describe('escala (rotas)', () => {
         ]),
         'e.xlsx',
       );
-    await request(app)
+    await reqGe()
       .put(`/api/v1/lojas/${lojaId}/configuracao`)
       .set(admin)
       .send({ minimos: { Atendimento: 0, Caixa: 0 } });
-    await request(app)
+    await reqGe()
       .put(`/api/v1/lojas/${lojaId}/custos`)
       .set(admin)
       .send({ salarioMedio: { Farmacêutico: 8000 }, encargosPct: 40 });
     const url = `/api/v1/lojas/${lojaId}/diagnostico`;
     const est = async (h: Record<string, string> = admin) =>
-      (await request(app).get(url).set(h)).body.cenarios.r40.estender;
+      (await reqGe().get(url).set(h)).body.cenarios.r40.estender;
 
     // Loja de segunda a sexta (12h) e sábado (6h): 66h e 11 turnos; 3 farmacêuticas de 40h dão 120h e 15 turnos.
     // O domingo, hoje fechado, abre com o horário do dia mais curto (sábado, 08h às 14h): 72h e 12 turnos cabem.
@@ -505,7 +517,7 @@ describe('escala (rotas)', () => {
 
     // Com faturamento (segunda a sexta 1000, sábado 800, margem de 25%): a margem média dos dias abertos é 1047,22 por
     // mês; o domingo vale 50% disso: 523,61 de margem e 2094,44 de venda por mês.
-    await request(app)
+    await reqGe()
       .patch(`/api/v1/lojas/${lojaId}`)
       .set(admin)
       .send({
@@ -523,12 +535,15 @@ describe('escala (rotas)', () => {
     expect(com.aviso).toContain('50%');
 
     // O fator de dia novo é uma premissa: com 100% o domingo vale a média inteira (2 × 523,61 = 1047,22)
-    const cheio = (await request(app).get(`${url}?fatorDiaNovo=100`).set(admin)).body.cenarios.r40
+    const cheio = (await reqGe().get(`${url}?fatorDiaNovo=100`).set(admin)).body.cenarios.r40
       .estender;
     expect(cheio.margemRefMes).toBe(1047.22);
     expect(cheio.aviso).toContain('100%');
 
-    for (const h of [{ 'X-Perfil': 'SCHEDULE_MANAGER' }, { 'X-Perfil': 'SCHEDULE_VIEWER' }]) {
+    for (const h of [
+      { 'X-Perfil': 'SCHEDULE_MANAGER', 'X-GE': GE_INICIAL_ID },
+      { 'X-Perfil': 'SCHEDULE_VIEWER', 'X-GE': GE_INICIAL_ID },
+    ]) {
       const r = await est(h);
       expect(r.diasAbrir).toEqual([{ dia: 6, abre: '08:00', fecha: '14:00' }]);
       for (const campo of ['custoAdicionalMensal', 'impactoMensal']) expect(campo in r).toBe(false);
@@ -540,7 +555,7 @@ describe('escala (rotas)', () => {
   });
 
   it('sem base comercial, o faturamento do cadastro vira a venda do diagnóstico; a base vence quando enviada', async () => {
-    await request(app)
+    await reqGe()
       .post('/api/v1/cargas/escala')
       .set(admin)
       .attach(
@@ -552,21 +567,21 @@ describe('escala (rotas)', () => {
         ]),
         'e.xlsx',
       );
-    await request(app)
+    await reqGe()
       .put(`/api/v1/lojas/${lojaId}/configuracao`)
       .set(admin)
       .send({ minimos: { Atendimento: 0, Caixa: 0 } });
     const url = `/api/v1/lojas/${lojaId}/diagnostico`;
-    const gestor = { 'X-Perfil': 'SCHEDULE_MANAGER' };
-    const consulta = { 'X-Perfil': 'SCHEDULE_VIEWER' };
+    const gestor = { 'X-Perfil': 'SCHEDULE_MANAGER', 'X-GE': GE_INICIAL_ID };
+    const consulta = { 'X-Perfil': 'SCHEDULE_VIEWER', 'X-GE': GE_INICIAL_ID };
 
     // nada informado: sem origem, e o texto manda cadastrar o faturamento
-    const nada = (await request(app).get(url).set(admin)).body;
+    const nada = (await reqGe().get(url).set(admin)).body;
     expect(nada.origemVendas).toBeNull();
     expect(JSON.stringify(nada.pontosAtencao)).toContain('cadastre o faturamento da loja');
 
     // faturamento no cadastro (loja 08–20 seg a sex, 08–14 sáb), margem de 25%
-    await request(app)
+    await reqGe()
       .patch(`/api/v1/lojas/${lojaId}`)
       .set(admin)
       .send({
@@ -576,7 +591,7 @@ describe('escala (rotas)', () => {
           margemPct: 25,
         },
       });
-    const dono = (await request(app).get(url).set(admin)).body;
+    const dono = (await reqGe().get(url).set(admin)).body;
     expect(dono.origemVendas).toBe('cadastro');
     expect(dono.vendas).toBeNull();
     expect(dono.numeros.maiorVendaDescoberta).toBeNull();
@@ -591,7 +606,7 @@ describe('escala (rotas)', () => {
 
     // gestor e consulta: mesmos cenários, sem nenhum valor de venda ou margem
     for (const perfil of [gestor, consulta]) {
-      const r = (await request(app).get(url).set(perfil)).body;
+      const r = (await reqGe().get(url).set(perfil)).body;
       expect(r.origemVendas).toBe('cadastro');
       expect(r.cenarios.r40.estender.diasAbrir.length).toBe(est.diasAbrir.length);
       const texto = JSON.stringify(r.cenarios);
@@ -609,7 +624,7 @@ describe('escala (rotas)', () => {
     }
 
     // a base comercial enviada passa a valer
-    await request(app)
+    await reqGe()
       .post('/api/v1/cargas/base')
       .set(admin)
       .attach(
@@ -620,7 +635,7 @@ describe('escala (rotas)', () => {
         ),
         'b.xlsx',
       );
-    const base = (await request(app).get(url).set(admin)).body;
+    const base = (await reqGe().get(url).set(admin)).body;
     expect(base.origemVendas).toBe('base');
     expect(base.vendas).not.toBeNull();
   });
@@ -628,7 +643,7 @@ describe('escala (rotas)', () => {
   it('o horário digitado no cadastro vira a escala atual quando nada foi importado, e a importada vence', async () => {
     const url = `/api/v1/lojas/${lojaId}/diagnostico`;
     const cadastrar = (matricula: string, nome: string, extra: object) =>
-      request(app)
+      reqGe()
         .post('/api/v1/funcionarios')
         .set(admin)
         .send({
@@ -642,13 +657,13 @@ describe('escala (rotas)', () => {
     await cadastrar('C1', 'Ana', { entrada: '08:00', saida: '17:00', dias: [0, 1, 2, 3, 4, 5] });
     // saída antes da entrada (vira o dia) fica só informativa: não entra na escala
     await cadastrar('C2', 'Bia', { entrada: '22:00', saida: '06:00', dias: [0, 1] });
-    const sem = (await request(app).get(url).set(admin)).body;
+    const sem = (await reqGe().get(url).set(admin)).body;
     expect(sem.status).not.toBe('pendente');
     expect(sem.colaboradores.map((c: { nome: string }) => c.nome)).toEqual(['Ana']);
     expect(sem.fontes.escala.arquivo).toBe('Cadastro de funcionários');
 
     // escala importada para outra pessoa: a do cadastro completa o quadro
-    await request(app)
+    await reqGe()
       .post('/api/v1/cargas/escala')
       .set(admin)
       .attach(
@@ -659,7 +674,7 @@ describe('escala (rotas)', () => {
         ]),
         'e.xlsx',
       );
-    const com = (await request(app).get(url).set(admin)).body;
+    const com = (await reqGe().get(url).set(admin)).body;
     expect(com.fontes.escala.arquivo).toBe('e.xlsx');
     const ana = com.colaboradores.filter((c: { nome: string }) => c.nome === 'Ana');
     expect(ana).toHaveLength(1);
@@ -671,16 +686,16 @@ describe('escala (rotas)', () => {
     const url = `/api/v1/lojas/${lojaId}/diagnostico`;
     for (const perfil of [
       admin,
-      { 'X-Perfil': 'SCHEDULE_MANAGER' },
-      { 'X-Perfil': 'SCHEDULE_VIEWER' },
+      { 'X-Perfil': 'SCHEDULE_MANAGER', 'X-GE': GE_INICIAL_ID },
+      { 'X-Perfil': 'SCHEDULE_VIEWER', 'X-GE': GE_INICIAL_ID },
     ]) {
-      const pendente = (await request(app).get(url).set(perfil)).body;
+      const pendente = (await reqGe().get(url).set(perfil)).body;
       expect(pendente.status).toBe('pendente');
       expect(pendente.avisoEstimativa).toContain('estimativa');
       expect(pendente.avisoEstimativa).toContain('contador');
       expect(pendente.avisoEstimativa).toContain('sindicato');
     }
-    await request(app)
+    await reqGe()
       .post('/api/v1/cargas/escala')
       .set(admin)
       .attach(
@@ -690,13 +705,15 @@ describe('escala (rotas)', () => {
         ]),
         'e.xlsx',
       );
-    const completo = (await request(app).get(url).set({ 'X-Perfil': 'SCHEDULE_VIEWER' })).body;
+    const completo = (
+      await reqGe().get(url).set({ 'X-Perfil': 'SCHEDULE_VIEWER', 'X-GE': GE_INICIAL_ID })
+    ).body;
     expect(completo.status).not.toBe('pendente');
     expect(completo.avisoEstimativa).toContain('contador');
   });
 
   it('venda e margem por dia da semana: origem, dias protegidos e valores só para o dono', async () => {
-    await request(app)
+    await reqGe()
       .post('/api/v1/cargas/escala')
       .set(admin)
       .attach(
@@ -707,12 +724,12 @@ describe('escala (rotas)', () => {
         'e.xlsx',
       );
     const url = `/api/v1/lojas/${lojaId}/diagnostico`;
-    const gestor = { 'X-Perfil': 'SCHEDULE_MANAGER' };
+    const gestor = { 'X-Perfil': 'SCHEDULE_MANAGER', 'X-GE': GE_INICIAL_ID };
     const regra40 = async (perfil = admin) =>
-      (await request(app).get(url).set(perfil)).body.cenarios.r40;
+      (await reqGe().get(url).set(perfil)).body.cenarios.r40;
 
     // faturamento por dia (loja aberta de segunda a sábado) com margem de 25%
-    await request(app)
+    await reqGe()
       .patch(`/api/v1/lojas/${lojaId}`)
       .set(admin)
       .send({
@@ -739,7 +756,7 @@ describe('escala (rotas)', () => {
     expect(dono.vendasPorDia[6]).toMatchObject({ aberto: false, protegido: false, venda: 0 });
 
     // gestor e consulta: os dias e a proteção, sem nenhum valor em reais
-    for (const perfil of [gestor, { 'X-Perfil': 'SCHEDULE_VIEWER' }]) {
+    for (const perfil of [gestor, { 'X-Perfil': 'SCHEDULE_VIEWER', 'X-GE': GE_INICIAL_ID }]) {
       const r = await regra40(perfil);
       expect(r.diasProtegidos).toEqual([1, 3, 4]);
       expect(r.vendasPorDia[4]).toEqual({ dia: 4, aberto: true, protegido: true });
@@ -748,7 +765,7 @@ describe('escala (rotas)', () => {
     }
 
     // só o faturamento mensal: estimativa, igual em todos os dias abertos (52000 × 12 ÷ 52 ÷ 6 = 2000)
-    await request(app)
+    await reqGe()
       .patch(`/api/v1/lojas/${lojaId}`)
       .set(admin)
       .send({
@@ -765,7 +782,7 @@ describe('escala (rotas)', () => {
     );
 
     // base comercial enviada: vale a base
-    await request(app)
+    await reqGe()
       .post('/api/v1/cargas/base')
       .set(admin)
       .attach(
@@ -786,10 +803,10 @@ describe('escala (rotas)', () => {
     expect(base.vendasPorDia[0]).toMatchObject({ venda: 250, margem: 50 });
 
     // O painel de vendas por hora traz o valor em reais só para o dono; os demais veem a participação de cada hora
-    const donoVendas = (await request(app).get(url).set(admin)).body.vendas;
+    const donoVendas = (await reqGe().get(url).set(admin)).body.vendas;
     expect(donoVendas.horas[0].vendaMedia).toBeGreaterThan(0);
-    for (const perfil of [gestor, { 'X-Perfil': 'SCHEDULE_VIEWER' }]) {
-      const v = (await request(app).get(url).set(perfil)).body.vendas;
+    for (const perfil of [gestor, { 'X-Perfil': 'SCHEDULE_VIEWER', 'X-GE': GE_INICIAL_ID }]) {
+      const v = (await reqGe().get(url).set(perfil)).body.vendas;
       expect(v.horas.length).toBe(donoVendas.horas.length);
       expect(
         v.horas.every(
@@ -802,7 +819,7 @@ describe('escala (rotas)', () => {
   });
 
   it('premissas para simular: recaptura, margem, dias protegidos e limite do parcial; faixas, permissões e nada é gravado', async () => {
-    await request(app)
+    await reqGe()
       .post('/api/v1/cargas/escala')
       .set(admin)
       .attach(
@@ -812,15 +829,15 @@ describe('escala (rotas)', () => {
         ]),
         'e.xlsx',
       );
-    await request(app)
+    await reqGe()
       .put(`/api/v1/lojas/${lojaId}/configuracao`)
       .set(admin)
       .send({ minimos: { Atendimento: 0, Caixa: 0 } });
-    await request(app)
+    await reqGe()
       .put(`/api/v1/lojas/${lojaId}/custos`)
       .set(admin)
       .send({ salarioMedio: { Farmacêutico: 8000 }, encargosPct: 40 });
-    await request(app)
+    await reqGe()
       .patch(`/api/v1/lojas/${lojaId}`)
       .set(admin)
       .send({
@@ -831,9 +848,9 @@ describe('escala (rotas)', () => {
         },
       });
     const url = `/api/v1/lojas/${lojaId}/diagnostico`;
-    const gestor = { 'X-Perfil': 'SCHEDULE_MANAGER' };
+    const gestor = { 'X-Perfil': 'SCHEDULE_MANAGER', 'X-GE': GE_INICIAL_ID };
     const pedir = (consulta = '', perfil: Record<string, string> = admin) =>
-      request(app).get(`${url}${consulta}`).set(perfil);
+      reqGe().get(`${url}${consulta}`).set(perfil);
     const r40 = async (consulta = '', perfil = admin) => (await pedir(consulta, perfil)).body;
 
     // Sem premissas (padrões): Cenário 2 fecha segunda, terça e quarta (margem 3250); Cenário 3 fecha segunda, quarta e sábado (impacto 5165)
@@ -914,7 +931,7 @@ describe('escala (rotas)', () => {
   });
 
   it('cenário 5: mostra a sobra de gente por cargo; economia só para o dono', async () => {
-    await request(app)
+    await reqGe()
       .post('/api/v1/cargas/escala')
       .set(admin)
       .attach(
@@ -927,17 +944,17 @@ describe('escala (rotas)', () => {
         ]),
         'e.xlsx',
       );
-    await request(app)
+    await reqGe()
       .put(`/api/v1/lojas/${lojaId}/configuracao`)
       .set(admin)
       .send({ minimos: { Atendimento: 0, Caixa: 0 } });
-    await request(app)
+    await reqGe()
       .put(`/api/v1/lojas/${lojaId}/custos`)
       .set(admin)
       .send({ salarioMedio: { Farmacêutico: 8000 }, encargosPct: 40 });
     const url = `/api/v1/lojas/${lojaId}/diagnostico`;
     const red = async (h: Record<string, string> = admin) =>
-      (await request(app).get(url).set(h)).body.cenarios.r40.reduzir;
+      (await reqGe().get(url).set(h)).body.cenarios.r40.reduzir;
 
     // 66h e 11 turnos na semana: três farmacêuticas de 40h (120h, 15 turnos) bastam, duas não (10 turnos)
     const dono = await red();
@@ -956,7 +973,10 @@ describe('escala (rotas)', () => {
     expect(dono.economiaPct).toBe(25); // folha atual: 4 × 8000 × 1,4 = 44800
     expect(dono.aviso).toContain('validação trabalhista');
 
-    for (const h of [{ 'X-Perfil': 'SCHEDULE_MANAGER' }, { 'X-Perfil': 'SCHEDULE_VIEWER' }]) {
+    for (const h of [
+      { 'X-Perfil': 'SCHEDULE_MANAGER', 'X-GE': GE_INICIAL_ID },
+      { 'X-Perfil': 'SCHEDULE_VIEWER', 'X-GE': GE_INICIAL_ID },
+    ]) {
       const r = await red(h);
       expect(r.cargos).toEqual([
         { funcao: 'Farmacêutico', pessoasHoje: 4, pessoasNecessarias: 3, excedente: 1 },
@@ -967,7 +987,7 @@ describe('escala (rotas)', () => {
     }
   });
   describe('turnos da loja e mínimo por turno', () => {
-    const consulta = { 'X-Perfil': 'SCHEDULE_VIEWER' };
+    const consulta = { 'X-Perfil': 'SCHEDULE_VIEWER', 'X-GE': GE_INICIAL_ID };
     const turno = (nome: string, inicio: string, fim: string, minimos: Record<string, number>) => ({
       nome,
       inicio,
@@ -980,7 +1000,7 @@ describe('escala (rotas)', () => {
       turno('Noite', '18:00', '20:00', { Atendimento: 1 }),
     ];
     const configurar = (corpo: object, perfil = admin) =>
-      request(app).put(`/api/v1/lojas/${lojaId}/configuracao`).set(perfil).send(corpo);
+      reqGe().put(`/api/v1/lojas/${lojaId}/configuracao`).set(perfil).send(corpo);
 
     it('grava e devolve os turnos; null volta ao mínimo único', async () => {
       const r = await configurar({ turnos: tres });
@@ -1012,7 +1032,7 @@ describe('escala (rotas)', () => {
       expect(await msg([turno('A', '08:00', '20:00', { Farmacêutico: 0 })])).toContain(
         'farmacêutico é 1',
       );
-      const nada = await request(app).get(`/api/v1/lojas/${lojaId}/diagnostico`);
+      const nada = await reqGe().get(`/api/v1/lojas/${lojaId}/diagnostico`);
       expect(nada.body.config.turnos).toBeNull();
     });
 
@@ -1028,7 +1048,7 @@ describe('escala (rotas)', () => {
     });
 
     it('o Diagnóstico exige o mínimo de cada turno: falta só à tarde; sem turnos volta ao de antes', async () => {
-      await request(app)
+      await reqGe()
         .post('/api/v1/cargas/escala')
         .set(admin)
         .attach(
@@ -1040,7 +1060,7 @@ describe('escala (rotas)', () => {
           'e.xlsx',
         );
       const url = `/api/v1/lojas/${lojaId}/diagnostico`;
-      const antes = (await request(app).get(url).set(admin)).body;
+      const antes = (await reqGe().get(url).set(admin)).body;
       const comTurnos = (await configurar({ turnos: tres })).body;
       const atend = (b: typeof antes) =>
         b.regras
@@ -1056,7 +1076,7 @@ describe('escala (rotas)', () => {
     });
 
     it('quadro por turno: presentes × exigido, falta só à tarde, fora da conta com motivo e explicação por turno', async () => {
-      await request(app)
+      await reqGe()
         .post('/api/v1/cargas/escala')
         .set(admin)
         .attach(
@@ -1067,18 +1087,18 @@ describe('escala (rotas)', () => {
           ]),
           'e.xlsx',
         );
-      await request(app)
+      await reqGe()
         .post('/api/v1/funcionarios')
         .set(admin)
         .send({ matricula: 'S1', nome: 'Sem Horário', lojaId, funcaoEscala: 'Caixa' });
-      await request(app)
+      await reqGe()
         .post('/api/v1/funcionarios')
         .set(admin)
         .send({ matricula: 'S2', nome: 'Sem Função', lojaId });
       const url = `/api/v1/lojas/${lojaId}/diagnostico`;
 
       // sem turnos: um turno "Dia todo"
-      const antes = (await request(app).get(url).set(admin)).body;
+      const antes = (await reqGe().get(url).set(admin)).body;
       expect(antes.quadroTurnos.turnos).toEqual([
         { nome: 'Dia todo', inicio: '08:00', fim: '20:00' },
       ]);
@@ -1106,7 +1126,7 @@ describe('escala (rotas)', () => {
     });
 
     it('os cenários usam o mínimo do turno: com custos e base, calculam sem erro e o custo de cortar acompanha o turno', async () => {
-      await request(app)
+      await reqGe()
         .post('/api/v1/cargas/escala')
         .set(admin)
         .attach(
@@ -1117,14 +1137,14 @@ describe('escala (rotas)', () => {
           ]),
           'e.xlsx',
         );
-      await request(app)
+      await reqGe()
         .put(`/api/v1/lojas/${lojaId}/custos`)
         .set(admin)
         .send({
           salarioMedio: { Farmacêutico: 8000, Atendimento: 2000, Caixa: 1500 },
           encargosPct: 50,
         });
-      await request(app)
+      await reqGe()
         .post('/api/v1/cargas/base')
         .set(admin)
         .attach(
@@ -1147,7 +1167,7 @@ describe('escala (rotas)', () => {
         );
       const url = `/api/v1/lojas/${lojaId}/diagnostico`;
       await configurar({ minimos: { Caixa: 0 } }); // mesma base de comparação nos dois casos
-      const sem = (await request(app).get(url).set(admin)).body.cenarios.r40;
+      const sem = (await reqGe().get(url).set(admin)).body.cenarios.r40;
       const com = (await configurar({ turnos: tres })).body.cenarios.r40;
       for (const c of [sem, com]) {
         expect(c.equilibrio.indisponivel).toBeNull();
@@ -1160,11 +1180,11 @@ describe('escala (rotas)', () => {
 
     it('mudar o horário da loja avisa que os turnos deixaram de caber, sem apagar nada', async () => {
       await configurar({ turnos: tres });
-      await request(app)
+      await reqGe()
         .patch(`/api/v1/lojas/${lojaId}`)
         .set(admin)
         .send({ horarios: { semana: { abre: '08:00', fecha: '22:00' } } });
-      const r = (await request(app).get(`/api/v1/lojas/${lojaId}/diagnostico`)).body;
+      const r = (await reqGe().get(`/api/v1/lojas/${lojaId}/diagnostico`)).body;
       expect(r.config.turnos).toHaveLength(3);
       expect(r.config.turnosAvisos.join(' ')).toContain('Falta um turno entre 20:00 e 22:00');
     });

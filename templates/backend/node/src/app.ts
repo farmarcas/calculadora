@@ -4,6 +4,7 @@ import { prisma } from './shared/database/prisma.js';
 import { logger } from './shared/logger.js';
 import { errorHandler } from './shared/middlewares/error-handler.js';
 import { requestId } from './shared/middlewares/request-id.js';
+import { exigirGe } from './shared/middlewares/ge.js';
 import { lerPerfil } from './shared/middlewares/perfil.js';
 import { cadastrosRouter } from './modules/cadastros/cadastros.routes.js';
 import { escalaRouter } from './modules/escala/escala.routes.js';
@@ -49,11 +50,14 @@ export const createApp = (deps: AppDeps = {}) => {
   app.use(
     '/api/v1',
     lerPerfil,
+    // Regras legais valem para todos os GEs: não pedem o GE.
+    parametrosRouter(),
+    // Daqui para baixo tudo é de um GE: o cabeçalho X-GE é obrigatório e conferido.
+    exigirGe,
     cadastrosRouter(),
     escalaRouter(),
     simulacoesRouter(),
     custosRouter(),
-    parametrosRouter(),
   );
 
   app.use((_req, res) => {

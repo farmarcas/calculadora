@@ -1,6 +1,17 @@
 // Perfil de demonstração (sem login real nesta fase). Enviado em todo pedido.
 let perfil = localStorage.getItem("perfil") || "TENANT_ADMIN";
 
+// GE de demonstração (sem login real nesta fase). Enquanto a tela de escolha do GE não existe, usa o GE inicial.
+const GE_INICIAL = "00000000-0000-7000-8000-000000000001";
+let ge = localStorage.getItem("ge") || GE_INICIAL;
+
+export const getGe = () => ge;
+export const setGe = (id) => {
+  ge = id;
+  localStorage.setItem("ge", id);
+};
+const cabecalhos = () => ({ "X-Perfil": perfil, "X-GE": ge });
+
 export const getPerfil = () => perfil;
 export const setPerfil = (p) => {
   perfil = p;
@@ -16,7 +27,7 @@ export class ApiError extends Error {
 }
 
 export async function api(path, { method = "GET", body, form } = {}) {
-  const headers = { "X-Perfil": perfil };
+  const headers = cabecalhos();
   let payload;
   if (form) payload = form;
   else if (body !== undefined) {
@@ -34,7 +45,7 @@ export async function api(path, { method = "GET", body, form } = {}) {
 }
 
 export async function baixarArquivo(caminho, nome) {
-  const res = await fetch(`/api/v1${caminho}`, { headers: { "X-Perfil": perfil } });
+  const res = await fetch(`/api/v1${caminho}`, { headers: cabecalhos() });
   const blob = await res.blob();
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);

@@ -25,15 +25,17 @@ Segurança do banco: uma migration nova que só acrescenta e preenche; nunca `do
 
 **Teste independente**: com dois GEs, nenhuma rota devolve dado do outro, nem por endereço direto.
 
-- [ ] T007 [US1] Teste + `src/shared/middlewares/perfil.ts`: perfil `PLATFORM_OPERATOR`; `src/shared/middlewares/ge.ts`: lê `X-GE`, confere se existe e está ativo, põe `geId` em `res.locals`; erros `GE_OBRIGATORIO` (400) e `GE_INDISPONIVEL` (403); o operador sem `X-GE` só passa pelas rotas de GE
-- [ ] T008 [US1] `src/app.ts`: usar o contexto do GE depois do perfil; rotas de GE ficam de fora da exigência do cabeçalho
-- [ ] T009 [P] [US1] `src/modules/cadastros/cadastros.repository.ts` e `cadastros.service.ts`: `geId` em toda consulta e escrita de lojas, funcionários e importações; funcionário só liga a loja do GE; matrícula única dentro do GE; código único dentro do GE
-- [ ] T010 [P] [US1] `src/modules/escala/escala.repository.ts`, `escala.service.ts` e `escala.routes.ts`: `geId` em lojas, funcionários, cargas, diagnóstico e importações
-- [ ] T011 [P] [US1] `src/modules/simulacoes/simulacoes.repository.ts`, `simulacoes.routes.ts` e `custos/custos.repository.ts`: `geId` pela loja; consulta direta de funcionários da rota de simulações também filtra
-- [ ] T012 [P] [US1] `src/shared/auditoria/auditoria.ts`: grava o `geId` e o perfil; `parametros` continua global
-- [ ] T013 [US1] Teste de integração `src/shared/testing/isolamento.integration.test.ts`: dois GEs com lojas, funcionários e simulações; percorre **todas** as rotas com o GE errado e espera 404 (ou lista vazia); mesmo código de loja e mesma matrícula nos dois GEs convivem; totais, comparativos e auditoria só contam o GE de quem olha
-- [ ] T014 [US1] Ajustar os testes de integração existentes para rodarem dentro de um GE (ajudante da T005) sem mudar nenhuma expectativa de cálculo
-- [ ] T015 Rodar tudo e commitar a fatia
+- [X] T007 [US1] Teste + `src/shared/middlewares/perfil.ts`: perfil `PLATFORM_OPERATOR`; `src/shared/middlewares/ge.ts`: lê `X-GE`, confere se existe e está ativo, põe `geId` em `res.locals`; erros `GE_OBRIGATORIO` (400) e `GE_INDISPONIVEL` (403); o operador sem `X-GE` só passa pelas rotas de GE
+- [X] T008 [US1] `src/app.ts`: usar o contexto do GE depois do perfil; rotas de GE ficam de fora da exigência do cabeçalho
+- [X] T009 [P] [US1] `src/modules/cadastros/cadastros.repository.ts` e `cadastros.service.ts`: `geId` em toda consulta e escrita de lojas, funcionários e importações; funcionário só liga a loja do GE; matrícula única dentro do GE; código único dentro do GE
+- [X] T010 [P] [US1] `src/modules/escala/escala.repository.ts`, `escala.service.ts` e `escala.routes.ts`: `geId` em lojas, funcionários, cargas, diagnóstico e importações
+- [X] T011 [P] [US1] `src/modules/simulacoes/simulacoes.repository.ts`, `simulacoes.routes.ts` e `custos/custos.repository.ts`: `geId` pela loja; consulta direta de funcionários da rota de simulações também filtra
+- [X] T012 [P] [US1] `src/shared/auditoria/auditoria.ts`: grava o `geId` e o perfil; `parametros` continua global
+- [X] T013 [US1] Teste de integração `src/shared/testing/isolamento.integration.test.ts`: dois GEs com lojas, funcionários e simulações; percorre **todas** as rotas com o GE errado e espera 404 (ou lista vazia); mesmo código de loja e mesma matrícula nos dois GEs convivem; totais, comparativos e auditoria só contam o GE de quem olha
+- [X] T014 [US1] Ajustar os testes de integração existentes para rodarem dentro de um GE (ajudante da T005) sem mudar nenhuma expectativa de cálculo
+- [X] T015 Rodar tudo e commitar a fatia
+
+**Nota da fatia 2**: a matrícula única por GE exigiu uma segunda migration (`20261029130000_funcionarios_ge`, `ge_id` no funcionário). A tela já manda o GE inicial por padrão (`X-GE`) até a Fatia 5.
 
 **Checkpoint**: separação garantida no servidor, provada rota por rota.
 

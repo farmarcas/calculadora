@@ -2,7 +2,13 @@ import type { NextFunction, Request, Response } from 'express';
 import { AppError } from '../errors/app-error.js';
 
 // Perfis de demonstração (sem login real nesta fase). Sem cabeçalho = só consulta.
-export const PERFIS = ['TENANT_ADMIN', 'SCHEDULE_MANAGER', 'SCHEDULE_VIEWER'] as const;
+// PLATFORM_OPERATOR: quem cuida da plataforma (cria GEs e carrega lojas); nunca vê valores em reais.
+export const PERFIS = [
+  'PLATFORM_OPERATOR',
+  'TENANT_ADMIN',
+  'SCHEDULE_MANAGER',
+  'SCHEDULE_VIEWER',
+] as const;
 export type Perfil = (typeof PERFIS)[number];
 
 export const lerPerfil = (req: Request, res: Response, next: NextFunction) => {

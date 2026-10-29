@@ -221,23 +221,28 @@ describe('escala (rotas)', () => {
       .set(admin)
       .send({ salarioMedio: { Farmacêutico: 8000 }, encargosPct: 40 });
 
-    // 66h abertas na semana, 1 farmacêutica de 40h: faltam 48h → 2 pessoas (80h), 40% de sobra
+    // 66h abertas e 11 turnos por semana; 1 farmacêutica de 40h (5 turnos): faltam 6 turnos →
+    // 6 ÷ 5 dias = 1 inteira e resto 1 → 1 parcial de 1 turno (8h): 2 pessoas, 48h, sem sobra
     const dono = (await request(app).get(url).set(admin)).body.cenarios;
     expect(Object.keys(dono)).toEqual(['r42', 'r40']);
     expect(dono.r40.manter.contratacoes).toEqual([
       {
         funcao: 'Farmacêutico',
         pessoas: 2,
-        parcialH: null,
-        horasContratadas: 80,
-        ociosidadePct: 40,
+        inteiras: 1,
+        parcial: { turnos: 1, horas: 8 },
+        parcialH: 8,
+        horasContratadas: 48,
+        ociosidadePct: 0,
+        ajustado: false,
       },
     ]);
     expect(dono.r40.manter.horasSemana).toBe(66);
     expect(dono.r40.manter.horarioSemana[6].aberto).toBe(false);
-    // 2 vagas × 8000 × 40 × 5 ÷ 200 × 1,4 = 22400; folha atual 8000 × 1,4 = 11200
-    expect(dono.r40.manter.custoAdicionalMensal).toBe(22400);
-    expect(dono.r40.manter.acrescimoPct).toBe(200);
+    // inteira de 40h: 8000 × 40 × 5 ÷ 200 × 1,4 = 11200; parcial de 8h: 8000 × 8 × 5 ÷ 200 × 1,4 = 2240 → 13440
+    // folha atual 8000 × 1,4 = 11200 → acréscimo de 120%
+    expect(dono.r40.manter.custoAdicionalMensal).toBe(13440);
+    expect(dono.r40.manter.acrescimoPct).toBe(120);
     expect(dono.r40.atual).toMatchObject({ horasSemana: 66, pessoas: 1, folhaMensal: 11200 });
     expect(dono.r40.vendasBase).toBeNull();
 
@@ -246,7 +251,7 @@ describe('escala (rotas)', () => {
       expect(r.cenarios.r40.manter.contratacoes[0].pessoas).toBe(2);
       expect('custoAdicionalMensal' in r.cenarios.r40.manter).toBe(false);
       expect('folhaMensal' in r.cenarios.r40.atual).toBe(false);
-      expect(JSON.stringify(r)).not.toContain('22400');
+      expect(JSON.stringify(r)).not.toContain('13440');
     }
 
     // com três farmacêuticas (120h, 15 turnos) o quadro já cobre as 66h da loja

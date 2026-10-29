@@ -160,7 +160,9 @@ describe('montarDiagnostico', () => {
         saldoT: -2,
         falta: true,
         contratar: 1,
-        parcialH: 16,
+        // 2 turnos faltantes (resto de até 3) viram 1 parcial de 2 turnos; na regra atual o turno tem 44 ÷ 6 = 7,33h
+        parcialTurnos: 2,
+        parcialH: 14.67,
       });
     });
 

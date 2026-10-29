@@ -5,6 +5,7 @@ import {
   horarioDaSemana,
   horasDaSemana,
   juntarFatias,
+  vagasDe,
   type CenariosRegra,
   type DiaCenario,
   type EntradaCenarios,
@@ -82,9 +83,7 @@ const montarEstender = (e: EntradaCenarios, c: CenariosRegra): CenarioEstender =
   const regra = regraPara(e.regraId, e.convencao8h24, e.parametros);
   const vb = vendasPorDiaEHora(e.vendas);
   const cheia = tetoEfetivo(regra);
-  const vagas = c.manter.contratacoes.flatMap((ct) =>
-    Array.from({ length: ct.pessoas }, () => ({ funcao: ct.funcao, cargaH: ct.parcialH ?? cheia })),
-  );
+  const vagas = c.manter.contratacoes.flatMap((ct) => vagasDe(ct, cheia));
   const equipe = [...e.pessoas, ...vagas];
   const cobre = (dias: DiaAberto[]) => passa(verificarRegra(regra, dias, e.minimos, equipe));
 

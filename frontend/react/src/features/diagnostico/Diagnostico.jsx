@@ -89,7 +89,10 @@ function Contratacoes({ regras, regraId: id, podeEscrever, onSimular }) {
                 <td className={`${TD} text-error-600`}>{l.saldoT}</td>
                 <td className={TD}>
                   <strong>{l.contratar}</strong> {l.contratar === 1 ? "pessoa" : "pessoas"}
-                  {l.parcialH && <span className="text-ink-500"> · ou 1 parcial de {l.parcialH}h</span>}
+                  <span className="text-ink-500">
+                    {l.contratarInteiras > 0 && ` · ${l.contratarInteiras} inteira${l.contratarInteiras === 1 ? "" : "s"}`}
+                    {l.parcialH && ` · 1 parcial de ${l.parcialTurnos} turno${l.parcialTurnos === 1 ? "" : "s"} (${l.parcialH}h)`}
+                  </span>
                 </td>
               </tr>
             ))}

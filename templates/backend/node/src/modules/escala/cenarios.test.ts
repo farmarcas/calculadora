@@ -22,19 +22,34 @@ const base = (extra: Partial<EntradaCenarios> = {}): EntradaCenarios => ({
 describe('Cenário 1 — manter horários', () => {
   it('lista a contratação por cargo, com parcial e ociosidade', () => {
     const { manter } = montarCenarios(base());
+    // Regra do documento (r40: 5 dias, turno de 8h). Farmacêutico: faltam 2 turnos → 0 inteiras, resto 2
+    // (até 3) → 1 parcial de 2 turnos (16h). Atendimento: faltam 7 turnos → 7 ÷ 5 = 1 inteira, resto 2 → 1 parcial de 16h.
     expect(manter.contratacoes).toEqual([
-      { funcao: 'Farmacêutico', pessoas: 1, parcialH: 16, horasContratadas: 16, ociosidadePct: 0 },
+      {
+        funcao: 'Farmacêutico',
+        pessoas: 1,
+        inteiras: 0,
+        parcial: { turnos: 2, horas: 16 },
+        parcialH: 16,
+        horasContratadas: 16,
+        ociosidadePct: 0,
+        ajustado: false,
+      },
       {
         funcao: 'Atendimento',
         pessoas: 2,
-        parcialH: null,
-        horasContratadas: 80,
-        ociosidadePct: 30,
+        inteiras: 1,
+        parcial: { turnos: 2, horas: 16 },
+        parcialH: 16,
+        horasContratadas: 56,
+        ociosidadePct: 0,
+        ajustado: false,
       },
     ]);
     expect(manter.pessoasContratar).toBe(3);
-    // contratadas 96h, faltavam 16 + 56 = 72h → 24h sobrando
-    expect(manter.ociosidadePct).toBe(25);
+    // contratadas 16 + 56 = 72h, faltavam 16 + 56 = 72h → nada sobrando
+    expect(manter.ociosidadePct).toBe(0);
+    expect(manter.direcionamento).toContain('1 Atendimento e 1 parcial de 2 turno(s) (16h)');
     expect(manter.horasSemana).toBe(84);
     expect(manter.horarioSemana[6]).toEqual({ dia: 6, aberto: false, abre: null, fecha: null });
     expect(manter.horarioSemana[0]).toMatchObject({ aberto: true, abre: '08:00', fecha: '22:00' });
@@ -42,16 +57,18 @@ describe('Cenário 1 — manter horários', () => {
 
   it('custo adicional e % sobre a folha atual, só para o dono', () => {
     const r = montarCenarios(base());
-    // 16h de farmacêutico: 10000 × 16 × 5 ÷ 200 = 4000; 2 atendentes: 3000 × 40 × 5 ÷ 200 = 3000 cada
-    expect(r.manter.custoAdicionalMensal).toBe(10000);
+    // farmacêutico parcial de 16h: 10000 × 16 × 5 ÷ 200 = 4000; atendente inteira de 40h: 3000 × 40 × 5 ÷ 200 = 3000;
+    // atendente parcial de 16h: 3000 × 16 × 5 ÷ 200 = 1200 → 8200
+    expect(r.manter.custoAdicionalMensal).toBe(8200);
     // folha atual: 2 × 10000 + 3000 = 23000
     expect(r.atual.folhaMensal).toBe(23000);
-    expect(r.manter.acrescimoPct).toBe(43.5);
+    expect(r.manter.acrescimoPct).toBe(35.7); // 8200 ÷ 23000
   });
 
   it('42h sem convenção usa o divisor de 210 horas', () => {
     const r = montarCenarios(base({ regraId: 'r42' }));
-    expect(r.manter.custoAdicionalMensal).toBe(9523.81);
+    // mesmas contratações (16h + 40h + 16h) com o divisor 210: 3809,52 + 4000,00
+    expect(r.manter.custoAdicionalMensal).toBe(7809.52);
   });
 
   it('quem não é dono não recebe valores de custo', () => {

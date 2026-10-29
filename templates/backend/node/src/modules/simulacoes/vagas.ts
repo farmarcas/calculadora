@@ -90,9 +90,8 @@ export const vagasSugeridas = (
   const cheia = Math.min(44, Math.floor(tetoEfetivo(regra)));
   return verificarRegra(regra, dias, minimos, pessoas)
     .filter((l) => l.contratar > 0)
-    .flatMap((l) =>
-      l.contratar === 1 && l.parcialH
-        ? [{ funcao: l.funcao, cargaH: Math.min(44, Math.floor(l.parcialH)) }]
-        : Array.from({ length: l.contratar }, () => ({ funcao: l.funcao, cargaH: cheia })),
-    );
+    .flatMap((l) => [
+      ...Array.from({ length: l.contratarInteiras }, () => ({ funcao: l.funcao, cargaH: cheia })),
+      ...(l.parcialH ? [{ funcao: l.funcao, cargaH: Math.min(44, Math.floor(l.parcialH)) }] : []),
+    ]);
 };

@@ -14,12 +14,16 @@ export type DiaCenario = {
   fecha: string | null;
 };
 
+// Contratação de um cargo pela regra do documento: inteiras (jornada cheia) e, no máximo, 1 contrato parcial.
 export type Contratacao = {
   funcao: string;
-  pessoas: number;
-  parcialH: number | null;
+  pessoas: number; // inteiras + parcial
+  inteiras: number;
+  parcial: { turnos: number; horas: number } | null;
+  parcialH: number | null; // horas do parcial (igual a parcial.horas)
   horasContratadas: number;
   ociosidadePct: number;
+  ajustado: boolean; // a conferência final por horas acrescentou contratação
 };
 
 export type CenarioManter = {
@@ -124,20 +128,29 @@ export const horarioDaSemana = (dias: DiaAberto[]): DiaCenario[] =>
 export const horasDaSemana = (dias: DiaAberto[]) =>
   arred(dias.reduce((s, d) => s + (d.fecha - d.abre), 0));
 
-// Contratações por função a partir da verificação da regra: parcial quando basta uma pessoa.
+// Contratações por função a partir da verificação da regra (inteiras e, quando sobra pouco, 1 parcial).
 export const contratacoesDe = (linhas: LinhaFuncao[]): Contratacao[] =>
   linhas
     .filter((l) => l.contratar > 0)
     .map((l) => {
-      const horasContratadas = l.parcialH ?? l.contratar * l.cargaCheiaH;
+      const horasContratadas = l.contratarInteiras * l.cargaCheiaH + (l.parcialH ?? 0);
       return {
         funcao: l.funcao,
         pessoas: l.contratar,
+        inteiras: l.contratarInteiras,
+        parcial: l.parcialH ? { turnos: l.parcialTurnos, horas: l.parcialH } : null,
         parcialH: l.parcialH,
         horasContratadas: arred(horasContratadas),
         ociosidadePct: pct(((horasContratadas - l.faltaH) / horasContratadas) * 100),
+        ajustado: l.ajustado,
       };
     });
+
+// As vagas de uma contratação: cada inteira com a jornada cheia e o parcial com as suas horas.
+export const vagasDe = (c: Contratacao, jornadaCheiaH: number) => [
+  ...Array.from({ length: c.inteiras }, () => ({ funcao: c.funcao, cargaH: jornadaCheiaH })),
+  ...(c.parcialH ? [{ funcao: c.funcao, cargaH: c.parcialH }] : []),
+];
 
 export const ociosidadeTotal = (linhas: LinhaFuncao[], cs: Contratacao[]) => {
   const contratadas = cs.reduce((s, c) => s + c.horasContratadas, 0);
@@ -158,11 +171,11 @@ export const custoDasVagas = (
   if (!custos) return null;
   const quadro: PessoaSim[] = cs.flatMap((c) => {
     const cheia = linhas.find((l) => l.funcao === c.funcao)!.cargaCheiaH;
-    return Array.from({ length: c.pessoas }, (_, i) => ({
+    return vagasDe(c, cheia).map((v, i) => ({
       matricula: `VAGA-${c.funcao}-${i}`,
       nome: `Vaga ${c.funcao}`,
-      funcao: c.funcao,
-      cargaH: c.parcialH ?? cheia,
+      funcao: v.funcao,
+      cargaH: v.cargaH,
       vaga: true,
     }));
   });
@@ -187,9 +200,13 @@ export const folhaAtual = (
 
 const listaContratacoes = (cs: Contratacao[]) =>
   cs
-    .map((c) =>
-      c.parcialH ? `1 ${c.funcao} parcial de ${c.parcialH}h` : `${c.pessoas} ${c.funcao}`,
-    )
+    .map((c) => {
+      const parcial = c.parcial
+        ? `1 parcial de ${c.parcial.turnos} turno(s) (${c.parcial.horas}h)`
+        : '';
+      if (c.inteiras === 0) return `1 ${c.funcao} ${parcial}`;
+      return `${c.inteiras} ${c.funcao}${parcial ? ` e ${parcial}` : ''}`;
+    })
     .join(', ');
 
 const montarManter = (e: EntradaCenarios, linhas: LinhaFuncao[], folha: number | null) => {

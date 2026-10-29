@@ -19,9 +19,51 @@ export type LinhaFuncao = {
   falta: boolean;
   faltaH: number; // horas que faltam (maior entre o saldo de horas e o de turnos)
   cargaCheiaH: number; // jornada cheia de uma pessoa nesta regra
-  contratar: number;
-  parcialH: number | null;
+  // Contratação pela regra do documento: inteiras = ⌊turnos faltantes ÷ dias da fase⌋; resto de até
+  // `limiteParcial` turnos vira 1 contrato parcial, acima disso +1 inteira; depois confere as horas.
+  contratar: number; // total de pessoas (inteiras + parcial)
+  contratarInteiras: number;
+  parcialTurnos: number; // 0 = sem contrato parcial
+  parcialH: number | null; // horas semanais do contrato parcial
+  ajustado: boolean; // a conferência final por horas acrescentou contratação
   memoria: string;
+};
+
+export const LIMITE_PARCIAL_PADRAO = 3;
+export type OpcoesContratacao = { limiteParcial?: number };
+
+export const contratacaoPorTurnos = (a: {
+  turnosFaltantes: number;
+  horasFaltantes: number;
+  diasDaFase: number;
+  horasPorPessoa: number;
+  duracaoTurno: number;
+  limiteParcial: number;
+}) => {
+  const limite = Math.min(LIMITE_PARCIAL_PADRAO, Math.max(0, Math.floor(a.limiteParcial)));
+  let inteiras = Math.floor(a.turnosFaltantes / a.diasDaFase);
+  const resto = a.turnosFaltantes % a.diasDaFase;
+  let parcialTurnos = 0;
+  if (resto > 0) {
+    if (resto <= limite) parcialTurnos = resto;
+    else inteiras += 1;
+  }
+  const horasDe = (i: number, p: number) => i * a.horasPorPessoa + p * a.duracaoTurno;
+  // Conferência final: as horas também precisam fechar; senão, mais uma inteira por vez.
+  let ajustado = false;
+  while (horasDe(inteiras, parcialTurnos) < a.horasFaltantes - EPS) {
+    inteiras += 1;
+    ajustado = true;
+  }
+  // Se as inteiras já cobrem turnos e horas, o parcial deixou de ser necessário.
+  if (
+    ajustado &&
+    parcialTurnos > 0 &&
+    inteiras * a.diasDaFase >= a.turnosFaltantes &&
+    horasDe(inteiras, 0) >= a.horasFaltantes - EPS
+  )
+    parcialTurnos = 0;
+  return { inteiras, parcialTurnos, resto, ajustado };
 };
 
 const EPS = 1e-9;
@@ -33,6 +75,7 @@ export const verificarRegra = (
   dias: DiaAberto[],
   minimos: Minimos,
   pessoas: Pessoa[],
+  opcoes: OpcoesContratacao = {},
 ): LinhaFuncao[] => {
   const req = requisitos(minimos);
   const funcoes = [...new Set([...req.funcoes, ...pessoas.map((p) => p.funcao)])];
@@ -68,11 +111,17 @@ export const verificarRegra = (
     const saldoH = arred(capacidadeH - necessidadeH);
     const saldoT = capacidadeT - necessidadeT;
     const faltaH = Math.max(0, -saldoH, -saldoT * TL);
-    const contratar = faltaH > EPS ? Math.ceil(faltaH / porPessoa - EPS) : 0;
-    const parcialH =
-      contratar === 1
-        ? ([16, 24, 32, porPessoa].find((q) => q >= faltaH - EPS && q <= porPessoa) ?? null)
-        : null;
+    const turnosFaltantes = Math.max(0, -saldoT);
+    const c = contratacaoPorTurnos({
+      turnosFaltantes,
+      horasFaltantes: Math.max(0, -saldoH),
+      diasDaFase: regra.dias,
+      horasPorPessoa: porPessoa,
+      duracaoTurno: TL,
+      limiteParcial: opcoes.limiteParcial ?? LIMITE_PARCIAL_PADRAO,
+    });
+    const contratar = c.inteiras + (c.parcialTurnos > 0 ? 1 : 0);
+    const parcialH = c.parcialTurnos > 0 ? arred(c.parcialTurnos * TL) : null;
 
     return {
       funcao,
@@ -90,12 +139,18 @@ export const verificarRegra = (
       faltaH: arred(faltaH),
       cargaCheiaH: arred(porPessoa),
       contratar,
+      contratarInteiras: c.inteiras,
+      parcialTurnos: c.parcialTurnos,
       parcialH,
+      ajustado: c.ajustado,
       memoria:
         (req.uniforme
           ? `Necessidade: ${minimo} pessoa(s) × ${arred(dias.reduce((s, d) => s + (d.fecha - d.abre), 0))}h abertas na semana = ${arred(necessidadeH)}h. `
           : `Necessidade por turno${req.porTurno(funcao) ? ` (${req.porTurno(funcao)} pessoa(s))` : ''}: soma das pessoas exigidas em cada hora, até ${minimo} ao mesmo tempo = ${arred(necessidadeH)}h na semana. `) +
-        `Capacidade: cada pessoa até ${arred(porPessoa)}h em até ${regra.dias} dias (turno de ${arred(TL)}h) = ${arred(capacidadeH)}h e ${capacidadeT} turnos.`,
+        `Capacidade: cada pessoa até ${arred(porPessoa)}h em até ${regra.dias} dias (turno de ${arred(TL)}h) = ${arred(capacidadeH)}h e ${capacidadeT} turnos.` +
+        (contratar > 0
+          ? ` Contratar: ${turnosFaltantes} turno(s) faltantes ÷ ${regra.dias} dias = ${Math.floor(turnosFaltantes / regra.dias)} inteira(s), resto ${c.resto} turno(s)${c.parcialTurnos > 0 ? ` → 1 parcial de ${c.parcialTurnos} turno(s) (${arred(c.parcialTurnos * TL)}h)` : c.resto > 0 ? ' → +1 inteira (acima do limite do parcial)' : ''}${c.ajustado ? '; as horas pediram mais contratação' : ''}.`
+          : ''),
     };
   });
 };

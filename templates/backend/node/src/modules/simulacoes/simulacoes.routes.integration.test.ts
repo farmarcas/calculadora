@@ -375,6 +375,23 @@ describe('simulações (rotas)', () => {
       expect(vagas).toHaveLength(2);
       expect(vagas.every((v: { funcao: string }) => v.funcao === 'Caixa')).toBe(true);
     });
+
+    it('o mesmo número de contratações no quadro central, no Cenário 1 e nas vagas sugeridas', async () => {
+      await request(app)
+        .put(`/api/v1/lojas/${lojaId}/configuracao`)
+        .set(admin)
+        .send({ minimos: { Caixa: 1, Atendimento: 1 } });
+      const diag = (await request(app).get(`/api/v1/lojas/${lojaId}/diagnostico`).set(admin)).body;
+      for (const regra of ['r42', 'r40'] as const) {
+        const central = diag.regras.find((r: { id: string }) => r.id === regra).resumo.contratar;
+        const cenario1 = diag.cenarios[regra].manter.pessoasContratar;
+        const sim = await criar({ nome: `Vagas ${regra}`, regra, comVagasSugeridas: true });
+        const vagas = sim.body.quadro.filter((p: { vaga?: boolean }) => p.vaga).length;
+        expect(central).toBeGreaterThan(0);
+        expect(cenario1).toBe(central);
+        expect(vagas).toBe(central);
+      }
+    });
   });
 
   describe('custo na comparação', () => {

@@ -84,7 +84,11 @@ function Manter({ c, atual }) {
                     <td className={TD}>{x.funcao}</td>
                     <td className={TD}>
                       <strong>{x.pessoas}</strong> {x.pessoas === 1 ? "pessoa" : "pessoas"}
-                      {x.parcialH && <span className="text-ink-500"> · parcial de {x.parcialH}h</span>}
+                      <span className="text-ink-500">
+                        {x.inteiras > 0 && ` · ${x.inteiras} inteira${x.inteiras === 1 ? "" : "s"}`}
+                        {x.parcial && ` · 1 parcial de ${x.parcial.turnos} turno${x.parcial.turnos === 1 ? "" : "s"} (${x.parcial.horas}h)`}
+                        {x.ajustado && " · ajustado pelas horas"}
+                      </span>
                     </td>
                     <td className={TD}>{x.horasContratadas}h</td>
                     <td className={TD}>{pct(x.ociosidadePct)}</td>
@@ -206,7 +210,10 @@ function Equilibrio({ c }) {
                         <td className={TD}>{x.funcao}</td>
                         <td className={TD}>
                           <strong>{x.pessoas}</strong> {x.pessoas === 1 ? "pessoa" : "pessoas"}
-                          {x.parcialH && <span className="text-ink-500"> · parcial de {x.parcialH}h</span>}
+                          <span className="text-ink-500">
+                            {x.inteiras > 0 && ` · ${x.inteiras} inteira${x.inteiras === 1 ? "" : "s"}`}
+                            {x.parcial && ` · 1 parcial de ${x.parcial.turnos} turno${x.parcial.turnos === 1 ? "" : "s"} (${x.parcial.horas}h)`}
+                          </span>
                         </td>
                         <td className={TD}>{pct(x.ociosidadePct)}</td>
                       </tr>

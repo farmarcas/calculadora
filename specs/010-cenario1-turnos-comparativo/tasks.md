@@ -14,19 +14,19 @@ Segurança do banco: sem migration nesta spec; nada de `down -v` nem `prisma mig
 
 ## Phase 1: Setup
 
-- [ ] T001 Conferir o branch `feat/cenario1-comparativo`, o ambiente de pé (`docker compose ps` saudável) e os testes atuais verdes (`npm test`, `npm run test:integration`), anotando as contagens de partida
+- [X] T001 Conferir o branch `feat/cenario1-comparativo`, o ambiente de pé (`docker compose ps` saudável) e os testes atuais verdes (`npm test`, `npm run test:integration`), anotando as contagens de partida
 
 ## Phase 2: Fatia 1 — US1: regra de contratação do documento (P1) 🎯 MVP
 
 **Teste independente**: 7 turnos faltantes e 5 dias dão 1 inteira + 1 parcial de 2 turnos; 9 dão 2 inteiras; 10 dão 2 inteiras; resto 4 vira inteira.
 
-- [ ] T002 [US1] Teste + `src/modules/regras/capacidade.ts`: turnos faltantes = `max(0, −saldoT)`; inteiras = piso(faltantes ÷ dias da fase); resto de 1 até `limiteParcial` (padrão 3, de 0 a 3) vira 1 parcial de `resto × duração do turno` horas, acima do limite vira +1 inteira; conferência final por horas acrescentando inteira até fechar (`ajustado`); `LinhaFuncao` ganha `contratarInteiras`, `parcialTurnos`, `parcialH`, `ajustado`; `contratar` continua como total de pessoas; opções `{ limiteParcial }`
-- [ ] T003 [US1] Revisar, um a um, os testes antigos que conferem `contratar` e `parcialH` (`regras/capacidade.test.ts` e outros): refazer a conta à mão, atualizar só a expectativa que mudou pela regra e anotar o porquê
-- [ ] T004 [US1] Teste + `src/modules/escala/cenarios.ts`: `Contratacao` com `inteiras` e `parcial { turnos, horas }`; `contratacoesDe`, `ociosidadeTotal` e `custoDasVagas` tratam inteiras e parcial; textos do Cenário 1 dizem "N inteira(s) + 1 parcial de X turnos (Y h)"
-- [ ] T005 [P] [US1] Teste + `src/modules/simulacoes/vagas.ts`: `vagasSugeridas` com a mesma regra (inteiras com a jornada cheia e 1 parcial com as horas do resto)
-- [ ] T006 [US1] `src/modules/escala/diagnostico.ts` e `features/diagnostico/QuadroCentral.jsx` e `Cenarios.jsx`: "contratações para passar" e o cartão do Cenário 1 mostram inteiras e parcial
-- [ ] T007 [US1] Teste de integração: a mesma loja e fase mostram o mesmo número de contratações no quadro central, no Cenário 1 e nas vagas sugeridas da simulação, em `src/modules/escala/escala.routes.integration.test.ts` e `simulacoes/simulacoes.routes.integration.test.ts`
-- [ ] T008 Rodar tudo (`npm test`, `npm run test:integration`, `npm run lint`, `npx tsc --noEmit`, build do `web`) e commitar a fatia
+- [X] T002 [US1] Teste + `src/modules/regras/capacidade.ts`: turnos faltantes = `max(0, −saldoT)`; inteiras = piso(faltantes ÷ dias da fase); resto de 1 até `limiteParcial` (padrão 3, de 0 a 3) vira 1 parcial de `resto × duração do turno` horas, acima do limite vira +1 inteira; conferência final por horas acrescentando inteira até fechar (`ajustado`); `LinhaFuncao` ganha `contratarInteiras`, `parcialTurnos`, `parcialH`, `ajustado`; `contratar` continua como total de pessoas; opções `{ limiteParcial }`
+- [X] T003 [US1] Revisar, um a um, os testes antigos que conferem `contratar` e `parcialH` (`regras/capacidade.test.ts` e outros): refazer a conta à mão, atualizar só a expectativa que mudou pela regra e anotar o porquê
+- [X] T004 [US1] Teste + `src/modules/escala/cenarios.ts`: `Contratacao` com `inteiras` e `parcial { turnos, horas }`; `contratacoesDe`, `ociosidadeTotal` e `custoDasVagas` tratam inteiras e parcial; textos do Cenário 1 dizem "N inteira(s) + 1 parcial de X turnos (Y h)"
+- [X] T005 [P] [US1] Teste + `src/modules/simulacoes/vagas.ts`: `vagasSugeridas` com a mesma regra (inteiras com a jornada cheia e 1 parcial com as horas do resto)
+- [X] T006 [US1] `src/modules/escala/diagnostico.ts` e `features/diagnostico/QuadroCentral.jsx` e `Cenarios.jsx`: "contratações para passar" e o cartão do Cenário 1 mostram inteiras e parcial
+- [X] T007 [US1] Teste de integração: a mesma loja e fase mostram o mesmo número de contratações no quadro central, no Cenário 1 e nas vagas sugeridas da simulação, em `src/modules/escala/escala.routes.integration.test.ts` e `simulacoes/simulacoes.routes.integration.test.ts`
+- [X] T008 Rodar tudo (`npm test`, `npm run test:integration`, `npm run lint`, `npx tsc --noEmit`, build do `web`) e commitar a fatia
 
 **Checkpoint**: uma só regra de contratação em todo o sistema.
 

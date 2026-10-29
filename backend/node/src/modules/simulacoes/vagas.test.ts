@@ -78,8 +78,12 @@ describe('vagasSugeridas', () => {
       { funcao: 'Farmacêutico', cargaH: 16 },
     ]);
   });
-  it('sugere vagas de jornada cheia quando falta muito (84h abertas ÷ 40h = 3 pessoas)', () => {
+  it('falta muito: 12 turnos ÷ 5 dias = 2 vagas inteiras, e o resto de 2 turnos vira 1 vaga parcial de 16h', () => {
     const v = vagasSugeridas(regraPara('r40', false), dias, { Caixa: 1 }, []);
-    expect(v).toEqual(Array.from({ length: 3 }, () => ({ funcao: 'Caixa', cargaH: 40 })));
+    expect(v).toEqual([
+      { funcao: 'Caixa', cargaH: 40 },
+      { funcao: 'Caixa', cargaH: 40 },
+      { funcao: 'Caixa', cargaH: 16 },
+    ]);
   });
 });

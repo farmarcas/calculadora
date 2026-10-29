@@ -4,16 +4,20 @@ import { Aviso, Botao, Campo, Modal, entrada } from "../../components/ui/index.j
 import FaturamentoLoja, { erroDeFaturamento, faturamentoParaApi, faturamentoParaEdicao } from "./FaturamentoLoja.jsx";
 import EquipeLoja from "./EquipeLoja.jsx";
 import HorarioSemana, { erroDeHorario, paraApi, paraEdicao } from "./HorarioSemana.jsx";
+import { cuidaDoGrupo, ehOperador, formatarCnpj } from "../../api/perfis.js";
 
 const REGIMES = [["", "Não informado"], ["simples", "Simples Nacional"], ["presumido", "Lucro Presumido"], ["real", "Lucro Real"]];
 const UFS = ["AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"];
 
 export default function FormLoja({ registro, perfil, onClose, onSalvo }) {
   const dono = perfil === "TENANT_ADMIN";
+  const operador = ehOperador(perfil);
+  // O CNPJ identifica a loja: só o operador informa e muda (o empresário vê, não edita).
+  const cnpjEditavel = operador;
   const [v, setV] = useState({
     codigo: registro?.codigo ?? "",
     nome: registro?.nome ?? "",
-    cnpj: registro?.cnpj ?? "",
+    cnpj: registro?.cnpj ? formatarCnpj(registro.cnpj) : "",
     cidade: registro?.cidade ?? "",
     uf: registro?.uf ?? "",
     marca: registro?.marca ?? "",
@@ -28,7 +32,8 @@ export default function FormLoja({ registro, perfil, onClose, onSalvo }) {
   const salvar = async (e) => {
     e.preventDefault();
     const body = { codigo: v.codigo, nome: v.nome };
-    for (const k of ["cnpj", "cidade", "uf", "marca"]) if (v[k]) body[k] = v[k];
+    for (const k of ["cidade", "uf", "marca"]) if (v[k]) body[k] = v[k];
+    if (cnpjEditavel && v.cnpj) body.cnpj = v.cnpj;
     // Em loja já cadastrada, "Não informado" limpa o regime.
     if (v.regimeTributario) body.regimeTributario = v.regimeTributario;
     else if (registro?.regimeTributario) body.regimeTributario = null;
@@ -56,7 +61,9 @@ export default function FormLoja({ registro, perfil, onClose, onSalvo }) {
         <div className="grid grid-cols-2 gap-4">
           <Campo rotulo="Código *"><input required className={entrada} value={v.codigo} onChange={set("codigo")} /></Campo>
           <Campo rotulo="Nome *"><input required minLength={2} className={entrada} value={v.nome} onChange={set("nome")} /></Campo>
-          <Campo rotulo="CNPJ"><input className={entrada} value={v.cnpj} onChange={set("cnpj")} /></Campo>
+          <Campo rotulo={cnpjEditavel ? (registro ? "CNPJ" : "CNPJ *") : "CNPJ (só o operador altera)"}>
+            <input className={entrada} required={!registro} value={v.cnpj} onChange={set("cnpj")} disabled={!cnpjEditavel} placeholder={!v.cnpj && !cnpjEditavel ? "CNPJ pendente" : undefined} />
+          </Campo>
           <Campo rotulo="Cidade"><input className={entrada} value={v.cidade} onChange={set("cidade")} /></Campo>
           <Campo rotulo="UF">
             <select className={entrada} value={v.uf} onChange={set("uf")}>
@@ -79,7 +86,7 @@ export default function FormLoja({ registro, perfil, onClose, onSalvo }) {
         </div>
       </form>
       {registro ? (
-        <div className="mt-4"><EquipeLoja lojaId={registro.id} podeEscrever={perfil !== "SCHEDULE_VIEWER"} /></div>
+        <div className="mt-4"><EquipeLoja lojaId={registro.id} podeEscrever={cuidaDoGrupo(perfil)} /></div>
       ) : (
         <p className="m-0 mt-4 text-xs text-ink-500">Salve a loja para cadastrar a equipe dela aqui.</p>
       )}

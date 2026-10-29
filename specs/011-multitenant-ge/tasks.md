@@ -70,14 +70,14 @@ Segurança do banco: uma migration nova que só acrescenta e preenche; nunca `do
 
 **Teste independente**: no navegador, o operador cria o GE, envia o Excel e vê a conferência; o empresário vê só o seu GE, edita a loja e cadastra a equipe.
 
-- [ ] T029 [US4] `frontend/react/src/api/client.js`: envia `X-GE` junto de `X-Perfil`; guarda o GE escolhido
-- [ ] T030 [US4] `frontend/react/src/App.jsx`: perfil "Operador da plataforma", seletor de GE (lista de `GET /ge`), nome do GE sempre visível no topo, tudo recarrega ao trocar de GE; aviso de que é seleção de demonstração até o SSO
-- [ ] T031 [US2] `frontend/react/src/features/ge/GruposPage.jsx` (+ componentes): lista de GEs com lojas e lojas com equipe, criar GE, desativar, baixar modelo, enviar Excel; tela de conferência com criar, atualizar, rejeitar (linha e motivo), conflitos (valor atual × planilha, com escolha) e lojas fora do arquivo; menu "Grupos" só para o operador
-- [ ] T032 [US3] `frontend/react/src/features/cadastros/CadastrosPage.jsx`, `FormLoja.jsx`: sem "Nova loja", "Remover loja" e importação de lojas para quem não é operador; CNPJ só para leitura; "CNPJ pendente" nas lojas antigas; funcionários seguem editáveis; operador vê os botões de loja
-- [ ] T033 [US3] `frontend/react/src/features/cadastros/ConfiguracaoLoja.jsx`: mantém a regra dos custos só para o dono; operador não vê valores em reais
-- [ ] T034 Conferir no navegador (Browser): operador cria GE, envia Excel de 5 CNPJs, confere e confirma; troca para o GE B e nada do A aparece; dono do A corrige uma loja e cadastra funcionários; reenvio mostra o conflito; telas no celular
-- [ ] T035 Documentação: README (como funciona o GE, papéis, carga por Excel, **aviso de que sem login a separação não protege contra quem mexa no navegador; resolver com o SSO antes de dados reais**), `scripts/sync-templates.sh`, `scripts/check-repo.sh`
-- [ ] T036 Conferência final: `npm test`, `npm run test:integration`, `npm run lint`, `npx tsc --noEmit`, build do `web`, `quickstart.md` do começo ao fim, contagens iguais às da T001; commitar
+- [X] T029 [US4] `frontend/react/src/api/client.js`: envia `X-GE` junto de `X-Perfil`; guarda o GE escolhido
+- [X] T030 [US4] `frontend/react/src/App.jsx`: perfil "Operador da plataforma", seletor de GE (lista de `GET /ge`), nome do GE sempre visível no topo, tudo recarrega ao trocar de GE; aviso de que é seleção de demonstração até o SSO
+- [X] T031 [US2] `frontend/react/src/features/ge/GruposPage.jsx` (+ componentes): lista de GEs com lojas e lojas com equipe, criar GE, desativar, baixar modelo, enviar Excel; tela de conferência com criar, atualizar, rejeitar (linha e motivo), conflitos (valor atual × planilha, com escolha) e lojas fora do arquivo; menu "Grupos" só para o operador
+- [X] T032 [US3] `frontend/react/src/features/cadastros/CadastrosPage.jsx`, `FormLoja.jsx`: sem "Nova loja", "Remover loja" e importação de lojas para quem não é operador; CNPJ só para leitura; "CNPJ pendente" nas lojas antigas; funcionários seguem editáveis; operador vê os botões de loja
+- [X] T033 [US3] `frontend/react/src/features/cadastros/ConfiguracaoLoja.jsx`: mantém a regra dos custos só para o dono; operador não vê valores em reais
+- [X] T034 Conferir no navegador (Browser): operador cria GE, envia Excel de 5 CNPJs, confere e confirma; troca para o GE B e nada do A aparece; dono do A corrige uma loja e cadastra funcionários; reenvio mostra o conflito; telas no celular
+- [X] T035 Documentação: README (como funciona o GE, papéis, carga por Excel, **aviso de que sem login a separação não protege contra quem mexa no navegador; resolver com o SSO antes de dados reais**), `scripts/sync-templates.sh`, `scripts/check-repo.sh`
+- [X] T036 Conferência final: `npm test`, `npm run test:integration`, `npm run lint`, `npx tsc --noEmit`, build do `web`, `quickstart.md` do começo ao fim, contagens iguais às da T001; commitar
 
 ## Dependências e ordem
 

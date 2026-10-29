@@ -53,7 +53,7 @@ function Mapa({ titulo, parte, abas, campos, sugestoes, valor, onChange }) {
   );
 }
 
-export default function ImportarPlanilha({ onClose, onConcluido }) {
+export default function ImportarPlanilha({ onClose, onConcluido, podeLojas = false }) {
   const [prev, setPrev] = useState(null);
   const [mapa, setMapa] = useState(null);
   const [resumo, setResumo] = useState(null);
@@ -106,7 +106,8 @@ export default function ImportarPlanilha({ onClose, onConcluido }) {
         {prev && !resumo && (
           <>
             <Aviso tom="neutro">Arquivo <strong>{prev.arquivo}</strong>. Confira o que o sistema entendeu e ajuste se precisar. Nada foi gravado ainda.</Aviso>
-            <Mapa titulo="Lojas" abas={prev.abas} campos={prev.campos.lojas} sugestoes={prev.sugestoes.lojas} valor={mapa.lojas} onChange={(v) => setMapa({ ...mapa, lojas: v })} />
+            {/* As lojas vêm da plataforma: quem cuida de um grupo importa só a equipe. */}
+            {podeLojas && <Mapa titulo="Lojas" abas={prev.abas} campos={prev.campos.lojas} sugestoes={prev.sugestoes.lojas} valor={mapa.lojas} onChange={(v) => setMapa({ ...mapa, lojas: v })} />}
             <Mapa titulo="Funcionários" abas={prev.abas} campos={prev.campos.funcionarios} sugestoes={prev.sugestoes.funcionarios} valor={mapa.funcionarios} onChange={(v) => setMapa({ ...mapa, funcionarios: v })} />
             <div className="flex justify-end gap-2">
               <Botao tipo="texto" onClick={onClose}>Cancelar</Botao>

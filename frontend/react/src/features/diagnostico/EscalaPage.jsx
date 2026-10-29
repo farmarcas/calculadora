@@ -4,9 +4,10 @@ import { Aviso, Botao, Cartao, entrada } from "../../components/ui/index.jsx";
 import Diagnostico from "./Diagnostico.jsx";
 import EnviarPlanilhas from "./EnviarPlanilhas.jsx";
 import GradeTab from "../grade/GradeTab.jsx";
+import { cuidaDoGrupo } from "../../api/perfis.js";
 
 export default function EscalaPage({ perfil }) {
-  const podeEscrever = perfil !== "SCHEDULE_VIEWER";
+  const podeEscrever = cuidaDoGrupo(perfil);
   const [lojas, setLojas] = useState([]);
   const [lojaId, setLojaId] = useState("");
   const [aba, setAba] = useState("diagnostico");

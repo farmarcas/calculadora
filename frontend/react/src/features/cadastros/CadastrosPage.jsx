@@ -6,6 +6,7 @@ import FormFuncionario from "./FormFuncionario.jsx";
 import ImportarPlanilha from "./ImportarPlanilha.jsx";
 import ConfiguracaoLoja from "./ConfiguracaoLoja.jsx";
 import ParametrosLegais from "../parametros/ParametrosLegais.jsx";
+import { cuidaDoGrupo, editaLoja, ehOperador, formatarCnpj } from "../../api/perfis.js";
 
 const SECOES = [["cadastro", "Lojas e funcionários"], ["configuracao", "Configuração da loja"], ["parametros", "Parâmetros legais"]];
 
@@ -14,7 +15,10 @@ const TD = "px-6 py-3 border-t border-line";
 
 
 export default function CadastrosPage({ perfil }) {
-  const podeEscrever = perfil !== "SCHEDULE_VIEWER";
+  // A loja vem da plataforma (o operador cria e remove); o empresário corrige a loja e cuida da equipe.
+  const operador = ehOperador(perfil);
+  const podeEscrever = cuidaDoGrupo(perfil);
+  const podeEditarLoja = editaLoja(perfil);
   const [secao, setSecao] = useState("cadastro");
   const [aba, setAba] = useState("lojas");
   const [lojas, setLojas] = useState({ data: [], meta: { total: 0 } });
@@ -60,12 +64,12 @@ export default function CadastrosPage({ perfil }) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="m-0 text-2xl font-bold">Cadastros</h1>
-          <p className="mt-1 mb-0 text-sm text-ink-500">Tudo o que a Escala precisa para simular: lojas e equipe (o jeito mais rápido é por planilha), configuração de cada loja e as regras legais.</p>
+          <p className="mt-1 mb-0 text-sm text-ink-500">Tudo o que a Escala precisa para simular: as lojas do seu grupo (carregadas pela plataforma, você corrige o que precisar), a equipe de cada uma, a configuração e as regras legais.</p>
         </div>
         {secao === "cadastro" && (
           <div className="flex flex-wrap gap-2">
             <Botao tipo="secundario" onClick={baixarModelo}>Baixar planilha modelo</Botao>
-            {podeEscrever && <Botao onClick={() => setImportando(true)}>Importar planilha</Botao>}
+            {(podeEscrever || operador) && <Botao onClick={() => setImportando(true)}>{operador ? "Importar planilha" : "Importar equipe por planilha"}</Botao>}
           </div>
         )}
       </div>
@@ -96,7 +100,7 @@ export default function CadastrosPage({ perfil }) {
         <Cartao>
           <div className="p-10 text-center">
             <p className="m-0 text-base font-medium">Nada cadastrado ainda</p>
-            <p className="mt-2 mb-4 text-sm text-ink-500">Baixe a planilha modelo, preencha com as lojas e os funcionários e importe aqui.</p>
+            <p className="mt-2 mb-4 text-sm text-ink-500">{operador ? "Carregue as lojas deste grupo na tela Grupos (Excel da plataforma)." : "As lojas deste grupo ainda não foram carregadas pela plataforma. Quando estiverem aqui, você cadastra a equipe de cada uma."}</p>
           </div>
         </Cartao>
       )}
@@ -113,7 +117,7 @@ export default function CadastrosPage({ perfil }) {
               onChange={(e) => setBusca(e.target.value)}
               className="h-9 w-64 rounded-input border border-ink-300 px-3 text-sm"
             />
-            {podeEscrever && (
+            {(aba === "lojas" ? operador : podeEscrever) && (
               <Botao tipo="secundario" onClick={() => setForm({ tipo: aba === "lojas" ? "loja" : "funcionario", registro: null })}>
                 {aba === "lojas" ? "Nova loja" : "Novo funcionário"}
               </Botao>
@@ -138,26 +142,23 @@ export default function CadastrosPage({ perfil }) {
         <div className="overflow-x-auto">
           {aba === "lojas" ? (
             <table className="w-full border-collapse text-sm">
-              <thead><tr><th className={TH}>Código</th><th className={TH}>Nome</th><th className={TH}>UF</th><th className={TH}>Funcionamento</th><th className={TH}>Funcionários</th><th className={TH} /></tr></thead>
+              <thead><tr><th className={TH}>Código</th><th className={TH}>Nome</th><th className={TH}>CNPJ</th><th className={TH}>UF</th><th className={TH}>Funcionamento</th><th className={TH}>Funcionários</th><th className={TH} /></tr></thead>
               <tbody>
                 {lojas.data.map((l) => (
                   <tr key={l.id}>
                     <td className={TD}>{l.codigo}</td>
                     <td className={TD}>{l.nome}</td>
+                    <td className={TD}>{l.cnpj ? formatarCnpj(l.cnpj) : <Ficha tom="atencao">CNPJ pendente</Ficha>}</td>
                     <td className={TD}>{l.uf || "—"}</td>
                     <td className={TD}>{l.horariosResumo ?? "—"}</td>
                     <td className={TD}>{funcs.data.filter((f) => f.lojaId === l.id).length}</td>
                     <td className={`${TD} text-right`}>
-                      {podeEscrever && (
-                        <>
-                          <Botao tipo="texto" onClick={() => setForm({ tipo: "loja", registro: l })}>Editar</Botao>
-                          <Botao tipo="texto" onClick={() => remover("lojas", l)}>Remover</Botao>
-                        </>
-                      )}
+                      {podeEditarLoja && <Botao tipo="texto" onClick={() => setForm({ tipo: "loja", registro: l })}>Editar</Botao>}
+                      {operador && <Botao tipo="texto" onClick={() => remover("lojas", l)}>Remover</Botao>}
                     </td>
                   </tr>
                 ))}
-                {lojas.data.length === 0 && <tr><td className={`${TD} text-ink-500`} colSpan={6}>Nenhuma loja.</td></tr>}
+                {lojas.data.length === 0 && <tr><td className={`${TD} text-ink-500`} colSpan={7}>Nenhuma loja.</td></tr>}
               </tbody>
             </table>
           ) : (
@@ -192,7 +193,7 @@ export default function CadastrosPage({ perfil }) {
 
       {form?.tipo === "loja" && <FormLoja registro={form.registro} perfil={perfil} onClose={() => setForm(null)} onSalvo={() => { setForm(null); carregar(); }} />}
       {form?.tipo === "funcionario" && <FormFuncionario registro={form.registro} lojas={lojas.data} onClose={() => setForm(null)} onSalvo={() => { setForm(null); carregar(); }} />}
-      {importando && <ImportarPlanilha onClose={() => setImportando(false)} onConcluido={carregar} />}
+      {importando && <ImportarPlanilha podeLojas={operador} onClose={() => setImportando(false)} onConcluido={carregar} />}
     </>
   );
 }

@@ -7,18 +7,18 @@ Segurança do banco: sem migration nesta spec; nada de `down -v` nem `prisma mig
 
 ## Phase 1: Setup
 
-- [ ] T001 Conferir o branch `feat/cenarios-travas-fim-de-semana`, o ambiente de pé (`docker compose ps` saudável) e os testes atuais verdes (`npm test`, `npm run test:integration`), anotando as contagens de partida
+- [X] T001 Conferir o branch `feat/cenarios-travas-fim-de-semana`, o ambiente de pé (`docker compose ps` saudável) e os testes atuais verdes (`npm test`, `npm run test:integration`), anotando as contagens de partida
 
 ## Phase 2: Fatia 1 — Núcleo das travas (US1 e US2, sem tela) 🎯 MVP
 
 **Teste independente**: com equipe pequena e horário todos os dias, só sábado e domingo mudam, na ordem reduzir → fechar domingo → fechar sábado; nenhum passo viola as travas.
 
-- [ ] T002 [US1] Teste + `src/modules/escala/ajustes-fim-de-semana.ts`: constante `TRAVAS` (`perdaMaxPct` 10, `horasMinPct` 85, `horasMinDia` 4) e tipos `Passo`, `EstadoFimDeSemana`, `ResultadoSequencia`
-- [ ] T003 [US1] Teste + perda estimada: dia reduzido perde `vendaMes × (1 − horasAtuais ÷ horasDeHoje)`, dia fechado perde a `vendaMes` inteira; perda total em % do faturamento mensal de referência; contas à mão (ex.: dia de 12 h cortado em 2 h tira 1/6)
-- [ ] T004 [US1] Teste + redução: corta 1 h do fechamento do dia de menor venda por hora (empate: domingo) que ainda tenha mais de 4 h abertas; nunca abaixo de 4 h; dia sem venda cai no empate
-- [ ] T005 [US1] Teste + sequência: depois de cada passo confere se a equipe cobre (`verificarRegra`) e para no primeiro que cobre; esgotadas as reduções, fecha o domingo (se aberto e não protegido), depois o sábado (se aberto e não protegido); domingo já fechado é pulado; dia protegido só reduz; segunda a sexta nunca mudam
-- [ ] T006 [US2] Teste + travas: um passo só vale se o estado resultante tem perda ≤ 10% e horas ≥ 85% das de hoje; senão para e devolve o último estado válido, a trava que impediu (`perda` ou `horas`) e `faltaH` (soma da falta das funções que ainda faltam)
-- [ ] T007 Rodar tudo (`npm test`, `npm run lint`, `npx tsc --noEmit`) e commitar a fatia
+- [X] T002 [US1] Teste + `src/modules/escala/ajustes-fim-de-semana.ts`: constante `TRAVAS` (`perdaMaxPct` 10, `horasMinPct` 85, `horasMinDia` 4) e tipos `Passo`, `EstadoFimDeSemana`, `ResultadoSequencia`
+- [X] T003 [US1] Teste + perda estimada: dia reduzido perde `vendaMes × (1 − horasAtuais ÷ horasDeHoje)`, dia fechado perde a `vendaMes` inteira; perda total em % do faturamento mensal de referência; contas à mão (ex.: dia de 12 h cortado em 2 h tira 1/6)
+- [X] T004 [US1] Teste + redução: corta 1 h do fechamento do dia de menor venda por hora (empate: domingo) que ainda tenha mais de 4 h abertas; nunca abaixo de 4 h; dia sem venda cai no empate
+- [X] T005 [US1] Teste + sequência: depois de cada passo confere se a equipe cobre (`verificarRegra`) e para no primeiro que cobre; esgotadas as reduções, fecha o domingo (se aberto e não protegido), depois o sábado (se aberto e não protegido); domingo já fechado é pulado; dia protegido só reduz; segunda a sexta nunca mudam
+- [X] T006 [US2] Teste + travas: um passo só vale se o estado resultante tem perda ≤ 10% e horas ≥ 85% das de hoje; senão para e devolve o último estado válido, a trava que impediu (`perda` ou `horas`) e `faltaH` (soma da falta das funções que ainda faltam)
+- [X] T007 Rodar tudo (`npm test`, `npm run lint`, `npx tsc --noEmit`) e commitar a fatia
 
 **Checkpoint**: a regra nova existe, é pura e está provada com números à mão.
 

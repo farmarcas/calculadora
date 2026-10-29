@@ -6,7 +6,8 @@
 - **Alternatives**: alterar `escolherDiasAFechar` com pesos por dia da semana (continua uma lógica de "fechar dia", sem o conceito de reduzir horário); duas implementações (uma por cenário), que poderiam divergir.
 
 ## 2. Sequência de passos do Cenário 2
-- **Decision**: (a) reduzir o fechamento de sábado e domingo em passos de 1 h, sempre cortando 1 h do dia de menor venda por hora (empate: domingo) que ainda tenha mais de 4 h abertas; (b) fechar o domingo, se aberto e não protegido; (c) fechar o sábado, se aberto e não protegido. Depois de cada passo, conferir se a equipe atual cobre o horário (`verificarRegra`); parar no primeiro que cobre.
+- **Decision**: três fases, **cada uma a partir do horário de hoje** (uma fase nova não empilha sobre as reduções da anterior): (A) só reduzir o fechamento de sábado e domingo, 1 h por vez, sempre no dia de menor venda por hora (empate: domingo) que ainda tenha mais de 4 h abertas; (B) fechar o domingo (se aberto e não protegido) e, se preciso, reduzir o sábado; (C) fechar sábado e domingo (os que não forem protegidos). Em cada fase, conferir se a equipe atual cobre o horário (`verificarRegra`) e se as travas valem; vale a primeira fase que cobre. Se nenhuma cobre, o cenário mostra o corte máximo da fase A e a trava que parou.
+- **Observação**: com o piso de 85% das horas, reduzir os dois dias até 4 h costuma estourar a trava antes (em lojas de dias longos); por isso as fases de fechar partem do horário de hoje, e não do fim das reduções.
 - **Rationale**: é a ordem pedida; a venda por hora estimada (venda do dia ÷ horas abertas) é o melhor critério disponível para escolher qual dia cortar primeiro; o empate no domingo segue a lógica de que o domingo costuma vender menos.
 - **Alternatives**: cortar sábado e domingo sempre juntos (menos fino); cortar da abertura ou dos dois lados (decisão da pessoa: do fechamento).
 

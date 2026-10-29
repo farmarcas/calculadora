@@ -6,13 +6,13 @@ Sem tabela nem migration. Tipos novos ou alterados no cálculo e na resposta do 
 - `TRAVAS`: `{ perdaMaxPct: 10, horasMinPct: 85, horasMinDia: 4 }`.
 - `Passo`: `{ tipo: 'reduzir' | 'fechar', dia, horas?, de?: { abre, fecha }, para?: { abre, fecha } }`.
 - `EstadoFimDeSemana`: horário resultante de cada dia (`DiaAberto[]`), `passos`, `perdaPct`, `horasSemana`.
-- `ResultadoSequencia`: `{ cobre, estado, travou: 'perda' | 'horas' | null, faltaH: number | null }`.
+- `ResultadoSequencia`: `{ cobre, dias, passos, parou: 'perda' | 'horas' | 'fim_de_semana' | null, faltaH, perdaPct, horasSemana }`; `fim_de_semana` quando não há mais o que reduzir ou fechar (dias protegidos, já fechados ou no piso de 4 h).
 
 ## `CenarioEconomia` (acréscimos)
 | Campo | Tipo | Observação |
 |---|---|---|
 | `naoResolveSozinho` | boolean | a equipe não coube dentro das travas |
-| `travou` | 'perda' \| 'horas' \| null | qual trava parou |
+| `travou` | 'perda' \| 'horas' \| 'fim_de_semana' \| null | qual trava parou (ou nada mais a mexer) |
 | `faltaH` | número \| null | horas de cobertura que ainda faltam |
 | `passos` | `Passo[]` | na ordem aplicada |
 | `horariosAjustados` | `{ dia, antes, depois }[]` | reduções e fechamentos, para o cartão |

@@ -33,7 +33,8 @@ describe('comparativo dos cenários 1, 2 e 3', () => {
 
   it('campos dos cartões (dono): folha adicional, faturamento perdido e ganho frente a manter horários, à mão', () => {
     const r = comparar();
-    // Venda por mês = soma semanal × 52 ÷ 12. Cenário 2 fecha seg, ter, qua e qui: (1000+1200+900+1100) × 52 ÷ 12 = 18200.
+    // Cenário 2 (só fim de semana, com travas): o sábado perde 5 h de 14 (8666,67 × 5 ÷ 14 = 3095,24 por mês, 9,3% da
+    // venda dos seis dias, 33366,67). Resultado = −margem de 25% (773,81); ganho frente a manter: −773,81 − (−14000).
     expect(col(r, 'manter')).toMatchObject({
       folhaAdicionalMensal: 14000,
       faturamentoPerdidoMensal: 0,
@@ -42,11 +43,11 @@ describe('comparativo dos cenários 1, 2 e 3', () => {
     });
     expect(col(r, 'economia')).toMatchObject({
       folhaAdicionalMensal: 0,
-      faturamentoPerdidoMensal: 18200,
-      faturamentoPerdidoPct: 36.4,
-      ganhoFrenteManterMensal: 9450,
+      faturamentoPerdidoMensal: 3095.24,
+      faturamentoPerdidoPct: 9.3,
+      ganhoFrenteManterMensal: 13226.19,
     });
-    // Cenário 3 fecha seg, qua e qui: (1000+900+1100) × 52 ÷ 12 = 13000; folha adicional 2000; −5250 − (−14000) = 8750.
+    // Cenário 3 fecha seg, qua e qui: (1000+900+1100) × 52 ÷ 12 = 13000 (26% de 50000); folha adicional 2000; −5250 + 14000.
     expect(col(r, 'equilibrio')).toMatchObject({
       folhaAdicionalMensal: 2000,
       faturamentoPerdidoMensal: 13000,
@@ -83,19 +84,29 @@ describe('comparativo dos cenários 1, 2 e 3', () => {
     });
     expect(m.contratacoes[0]).toMatchObject({ inteiras: 1, parcial: { turnos: 2, horas: 16 } });
     expect(m.horasSemana).toBe(84);
-    // Cenário 2: só dá fechando segunda, terça, quarta e quinta (terça é protegida): margem 4550, sem contratar.
+    // Cenário 2: o sábado perde 5 h (14 → 9 h): venda 3095,24, margem 25% = 773,81; sem contratar; não cobre
+    // (1 farmacêutico de 40h tem 5 turnos para 12: faltam 7 turnos de 8 h = 56 h): "não resolve sozinho".
     const e2 = col(r, 'economia');
     expect(e2).toMatchObject({
-      status: 'nao_recomendado',
-      diasFechar: [0, 1, 2, 3],
+      status: 'nao_resolve',
+      diasFechar: [],
       contratacoes: [],
       custoFolhaMensal: 10000,
-      margemMes: -4550,
-      resultadoLiquidoMensal: -4550,
-      impactoPctFaturamento: 9.1,
+      margemMes: -773.81,
+      resultadoLiquidoMensal: -773.81,
+      impactoPctFaturamento: 1.5,
+      faltaH: 56,
     });
-    expect(e2.horasSemana).toBe(28);
-    expect(e2.alertas.join(' ')).toContain('terça');
+    expect(e2.horasSemana).toBe(79);
+    expect(e2.ajustes).toEqual([
+      {
+        dia: 5,
+        antes: { abre: '08:00', fecha: '22:00' },
+        depois: { abre: '08:00', fecha: '17:00' },
+      },
+    ]);
+    expect(e2.alertas.join(' ')).toContain('faltam 56 h');
+    expect(e2.alertas.join(' ')).toContain('Cenário 3');
     // Cenário 3: fecha segunda, quarta e quinta e contrata 1 parcial de 8h (2000): folha 12000, margem −3250, impacto 5250.
     const e3 = col(r, 'equilibrio');
     expect(e3).toMatchObject({
@@ -114,28 +125,65 @@ describe('comparativo dos cenários 1, 2 e 3', () => {
     const r = comparar();
     expect(r.destaque).toBe('equilibrio');
     expect(r.cenarios).toHaveLength(3);
-    // o destaque é o de menor impacto: 5250 contra 14000 e (Cenário 2 não recomendado) 4550 que fica de fora
-    const melhor = r.cenarios.filter(
-      (c) => c.status !== 'nao_recomendado' && c.status !== 'inviavel',
-    );
-    const maior = Math.max(...melhor.map((c) => c.resultadoLiquidoMensal!));
+    // o destaque é o de menor impacto: 5250 contra 14000; o Cenário 2 não resolve sozinho e fica de fora
+    const candidatos = r.cenarios.filter((c) => c.status === 'viavel');
+    const maior = Math.max(...candidatos.map((c) => c.resultadoLiquidoMensal!));
     expect(col(r, r.destaque!).resultadoLiquidoMensal).toBe(maior);
+    expect(col(r, 'economia').status).toBe('nao_resolve');
   });
 
-  it('Cenário 2 recomendado: status viável, destaque pode ir para ele', () => {
-    // 2 farmacêuticos de 40h: fechar a quarta resolve (975 de margem) contra 4000 de contratar
-    const r = comparar({ pessoas: farm(40, 40) });
+  // Todos os dias, 8h às 22h; domingo vende 700 (a menor venda por hora). Equipe de 40 + 40 + 24 h: reduzir o domingo
+  // de 14 h para 8 h (1 turno) basta: 6 h de corte, venda 700 × 52 ÷ 12 × 6 ÷ 14 = 1300 (25% = 325), 3,6% da venda total.
+  const seteDias = [0, 1, 2, 3, 4, 5, 6].map((dia) => ({ dia, abre: 8, fecha: 22 }));
+  const fat7 = [1000, 1200, 900, 1100, 1500, 2000, 700];
+  const comSete = (extra: Partial<EntradaCenarios> = {}, margemPct: number | null = 25) =>
+    comparar({
+      dias: seteDias,
+      pessoas: farm(40, 40, 24),
+      vendas: vendasDoCadastro({ dias: fat7, mensal: null, margemPct }, seteDias)!.linhas,
+      ...extra,
+    });
+
+  it('Cenário 2 que resolve reduzindo o fim de semana: status viável, com o horário ajustado', () => {
+    const r = comSete();
     const e2 = col(r, 'economia');
     expect(e2.status).toBe('viavel');
-    expect(e2).toMatchObject({ diasFechar: [2], margemMes: -975, resultadoLiquidoMensal: -975 });
+    expect(e2.diasFechar).toEqual([]);
+    expect(e2.ajustes).toEqual([
+      {
+        dia: 6,
+        antes: { abre: '08:00', fecha: '22:00' },
+        depois: { abre: '08:00', fecha: '16:00' },
+      },
+    ]);
+    expect(e2).toMatchObject({
+      margemMes: -325,
+      resultadoLiquidoMensal: -325,
+      faltaH: null,
+      faturamentoPerdidoPct: 3.6,
+    });
+    expect(e2.horasSemana).toBe(92);
     expect(['economia', 'equilibrio']).toContain(r.destaque);
   });
 
-  it('Cenário 2 sem equipe que cubra: inviável, com o motivo no alerta e valores nulos', () => {
-    const r = comparar({ pessoas: farm(8) });
+  it('sem margem informada: margem e saldo ficam nulos (nunca R$ 0) e o alerta pede a margem', () => {
+    const r = comSete({}, null);
+    const e2 = col(r, 'economia');
+    expect(e2).toMatchObject({
+      status: 'viavel',
+      margemMes: null,
+      resultadoLiquidoMensal: null,
+      faturamentoPerdidoMensal: 1300,
+    });
+    expect(e2.alertas.join(' ')).toContain('margem bruta média');
+    expect(r.destaque).toBeNull();
+  });
+
+  it('Cenário 2 sem farmacêutico no quadro: inviável, com o motivo no alerta e valores nulos', () => {
+    const r = comparar({ pessoas: [{ funcao: 'Atendimento', cargaH: 40 }] });
     const e2 = col(r, 'economia');
     expect(e2.status).toBe('inviavel');
-    expect(e2.alertas.join(' ')).toContain('Mesmo fechando dias');
+    expect(e2.alertas.join(' ')).toContain('Não há Farmacêutico');
     expect(e2).toMatchObject({
       custoFolhaMensal: null,
       margemMes: null,
@@ -178,9 +226,7 @@ describe('comparativo dos cenários 1, 2 e 3', () => {
     expect(col(r, 'equilibrio').alertas.join(' ')).toContain('Venda estimada');
   });
 
-  it('Cenário 3 igual a outro cenário: o alerta diz qual', () => {
-    const igualEco = comparar({ pessoas: farm(40, 40) });
-    expect(col(igualEco, 'equilibrio').alertas.join(' ')).toContain('mesmo do Cenário 2');
+  it('Cenário 3 igual ao Cenário 1: o alerta diz qual', () => {
     const igualManter = comparar({
       pessoas: farm(40, 40),
       custos: { salarioMedio: { Farmacêutico: 1000 }, encargosPct: 0 },
@@ -201,7 +247,8 @@ describe('comparativo dos cenários 1, 2 e 3', () => {
         expect(campo in c).toBe(false);
     }
     expect(col(r, 'equilibrio')).toMatchObject({ status: 'viavel', diasFechar: [0, 2, 3] });
-    expect(col(r, 'economia').status).toBe('nao_recomendado');
+    expect(col(r, 'economia')).toMatchObject({ status: 'nao_resolve', faltaH: 56 });
+    expect(col(r, 'economia').ajustes).toHaveLength(1);
     expect(JSON.stringify(r)).not.toContain('R$');
   });
 });

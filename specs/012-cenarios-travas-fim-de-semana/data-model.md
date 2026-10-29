@@ -15,7 +15,8 @@ Sem tabela nem migration. Tipos novos ou alterados no cálculo e na resposta do 
 | `travou` | 'perda' \| 'horas' \| 'fim_de_semana' \| null | qual trava parou (ou nada mais a mexer) |
 | `faltaH` | número \| null | horas de cobertura que ainda faltam |
 | `passos` | `Passo[]` | na ordem aplicada |
-| `horariosAjustados` | `{ dia, antes, depois }[]` | reduções e fechamentos, para o cartão |
+| `horariosAjustados` | `{ dia, antes: {abre,fecha}, depois: {abre,fecha} \| null }[]` | reduções e fechamentos, para o cartão (`depois` nulo = fecha) |
+| `margemInformada` | boolean | sem margem, `margemCortadaMes` é nulo |
 | `perdaFaturamentoPct` | número (só dono) | perda sobre o faturamento mensal |
 
 `margemCortadaMes` e `vendaCortadaMes`: nulos quando a margem (ou a venda) não foi informada, em vez de 0.

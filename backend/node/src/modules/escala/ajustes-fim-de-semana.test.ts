@@ -198,6 +198,25 @@ describe('sequência do fim de semana', () => {
       expect(diasUteisIguais(seq(limite))).toBe(true);
   });
 
+  it('quando a redução chega ao piso de 4 h mas fechar o sábado estouraria a trava, a trava é o motivo', () => {
+    // Sábado curto (8h–14h, 6 h) e sem domingo: reduz até 4 h (perda 14000 × 2 ÷ 6 = 4667, 7,3% de 64000) e para;
+    // fechar o sábado perderia 14000 (21,9% > 10%): o motivo é a trava de perda, não "nada mais a mexer".
+    const util = hoje.filter((d) => d.dia <= 4);
+    const curto = [...util, { dia: 5, abre: 8, fecha: 14 }]; // 70 + 6 = 76 h
+    const r = seq(60, {}, curto);
+    expect(r).toMatchObject({ cobre: false, parou: 'perda' });
+    expect(r.passos).toEqual([
+      {
+        tipo: 'reduzir',
+        dia: 5,
+        horas: 2,
+        de: { abre: 8, fecha: 14 },
+        para: { abre: 8, fecha: 12 },
+      },
+    ]);
+    expect(r.horasSemana).toBe(74);
+  });
+
   it('loja fechada no fim de semana: não há o que mexer', () => {
     const util = hoje.filter((d) => d.dia <= 4);
     const r = seq(60, {}, util); // 70 h hoje, não cobre com 60 h

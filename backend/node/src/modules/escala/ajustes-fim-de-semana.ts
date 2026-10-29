@@ -199,5 +199,7 @@ export const sequenciaFimDeSemana = (a: EntradaSequencia): ResultadoSequencia =>
     paradas.push(r.parou);
   }
   const final = corteMaximo ?? hoje;
-  return resultado(final, false, paradas.find((p) => p !== null) ?? 'fim_de_semana');
+  // Uma trava (perda ou horas) explica melhor do que "nada mais a mexer": vale se alguma fase parou nela.
+  const trava = paradas.find((p) => p === 'perda' || p === 'horas');
+  return resultado(final, false, trava ?? 'fim_de_semana');
 };

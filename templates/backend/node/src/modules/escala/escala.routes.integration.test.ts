@@ -275,7 +275,7 @@ describe('escala (rotas)', () => {
     expect(cobre.custoAdicionalMensal).toBe(0);
   });
 
-  it('cenário 2: fecha dias até a equipe atual cobrir; dia protegido vira "não recomendado"; valores só ao dono', async () => {
+  it('cenário 2: só mexe no fim de semana, dentro das travas; não resolve sozinho; valores só ao dono', async () => {
     await reqGe()
       .post('/api/v1/cargas/escala')
       .set(admin)
@@ -294,14 +294,15 @@ describe('escala (rotas)', () => {
     const eco = async (perfil = admin) =>
       (await reqGe().get(url).set(perfil)).body.cenarios.r40.economia;
 
-    // sem venda por dia (nem base nem faturamento): não dá para escolher o dia
+    // sem venda por dia (nem base nem faturamento): não dá para saber quanto cada corte custa
     const sem = await eco();
     expect(sem.viavel).toBe(false);
     expect(sem.motivoInviavel).toContain('faturamento por dia da semana');
-    expect(sem.diasFechar).toEqual([]);
+    expect(sem.passos).toEqual([]);
 
     // loja de segunda a sexta (12h) e sábado (6h): 66h e 11 turnos; 1 farmacêutica de 40h tem 40h e 5 turnos.
-    // Faturamento por dia e margem de 25%: protegidos = sexta, quinta e terça (os 3 maiores).
+    // Faturamento por dia e margem de 25%: sábado vende 800 × 52 ÷ 12 = 3466,67 por mês (577,78 por hora); a venda
+    // dos seis dias é 6500 × 52 ÷ 12 = 28166,67.
     await reqGe()
       .patch(`/api/v1/lojas/${lojaId}`)
       .set(admin)
@@ -313,31 +314,80 @@ describe('escala (rotas)', () => {
         },
       });
     const dono = await eco();
-    // Ordem de fechamento: sábado, quarta, segunda (livres) e, como ainda não cabe, a terça (protegida). Sobram quinta e
-    // sexta (24h, 4 turnos) e o sábado volta (30h, 5 turnos). Fechados: segunda, terça e quarta.
-    expect(dono.viavel).toBe(true);
-    expect(dono.diasFechar.map((d: { dia: number }) => d.dia)).toEqual([0, 1, 2]);
-    expect(dono.horasSemana).toBe(30);
-    expect(dono.horasReduzir).toBe(36);
-    // margem por mês: segunda 1083,33 + terça 1191,67 + quarta 975 = 3250; venda: 13000
-    expect(dono.margemCortadaMes).toBe(3250);
-    expect(dono.vendaCortadaMes).toBe(13000);
-    expect(dono.naoRecomendado.dias).toEqual([1]);
-    expect(dono.naoRecomendado.texto).toContain('terça');
-    expect(dono.impactoMensal).toBeNull(); // não recomendado: fora da escolha do selo
+    // Só o sábado pode mudar (não há domingo): reduz até o piso de 4 h (corta 2 h: 8h–14h → 8h–12h). Não cobre
+    // (11 turnos exigidos, 5 de capacidade) e fechar o sábado perderia 3466,67 (12,3% > 10%): para na trava de perda.
+    // Perda do corte: 3466,67 × 2 ÷ 6 = 1155,56 (4,1%); margem de 25% = 288,89.
+    expect(dono.viavel).toBe(false);
+    expect(dono.naoResolveSozinho).toBe(true);
+    expect(dono.travou).toBe('perda');
+    expect(dono.diasFechar).toEqual([]);
+    expect(dono.horarioSemana[5]).toEqual({ dia: 5, aberto: true, abre: '08:00', fecha: '12:00' });
+    for (const d of [0, 1, 2, 3, 4])
+      expect(dono.horarioSemana[d]).toMatchObject({ aberto: true, abre: '08:00', fecha: '20:00' });
+    expect(dono.horasSemana).toBe(64);
+    expect(dono.horasReduzir).toBe(2);
+    expect(dono.vendaCortadaMes).toBe(1155.56);
+    expect(dono.margemCortadaMes).toBe(288.89);
+    expect(dono.perdaFaturamentoPct).toBe(4.1);
+    expect(dono.faltaH).toBeGreaterThan(0);
+    expect(dono.passos).toEqual([
+      {
+        tipo: 'reduzir',
+        dia: 5,
+        horas: 2,
+        de: { abre: '08:00', fecha: '14:00' },
+        para: { abre: '08:00', fecha: '12:00' },
+      },
+    ]);
+    expect(dono.impactoMensal).toBeNull(); // não resolve sozinho: fora da escolha do selo
 
-    // gestor e consulta: os dias e a frase, sem valores em reais
+    // sem a margem informada, a margem perdida é nula (nunca zero)
+    await reqGe()
+      .patch(`/api/v1/lojas/${lojaId}`)
+      .set(admin)
+      .send({
+        faturamento: {
+          dias: [1000, 1100, 900, 1200, 1500, 800, null],
+          mensal: null,
+          margemPct: null,
+        },
+      });
+    const semMargem = await eco();
+    expect(semMargem.margemInformada).toBe(false);
+    expect(semMargem.margemCortadaMes).toBeNull();
+    expect(semMargem.vendaCortadaMes).toBe(1155.56);
+    await reqGe()
+      .patch(`/api/v1/lojas/${lojaId}`)
+      .set(admin)
+      .send({
+        faturamento: {
+          dias: [1000, 1100, 900, 1200, 1500, 800, null],
+          mensal: null,
+          margemPct: 25,
+        },
+      });
+
+    // gestor e consulta: os passos, o horário e o status, sem valores em reais
     for (const perfil of [
       { 'X-Perfil': 'SCHEDULE_MANAGER', 'X-GE': GE_INICIAL_ID },
       { 'X-Perfil': 'SCHEDULE_VIEWER', 'X-GE': GE_INICIAL_ID },
     ]) {
       const r = await eco(perfil);
-      expect(r.diasFechar).toEqual([{ dia: 0 }, { dia: 1 }, { dia: 2 }]);
-      expect(r.naoRecomendado.dias).toEqual([1]);
+      expect(r.naoResolveSozinho).toBe(true);
+      expect(r.diasFechar).toEqual([]);
+      expect(r.passos).toHaveLength(1);
+      expect(r.horariosAjustados).toEqual([
+        {
+          dia: 5,
+          antes: { abre: '08:00', fecha: '14:00' },
+          depois: { abre: '08:00', fecha: '12:00' },
+        },
+      ]);
       expect('margemCortadaMes' in r).toBe(false);
       expect('vendaCortadaMes' in r).toBe(false);
+      expect('perdaFaturamentoPct' in r).toBe(false);
       const texto = JSON.stringify(r);
-      for (const valor of ['3250', '13000', '1191.67', 'R$']) expect(texto).not.toContain(valor);
+      for (const valor of ['1155', '288', '4.1', 'R$']) expect(texto).not.toContain(valor);
     }
   });
 
@@ -416,12 +466,13 @@ describe('escala (rotas)', () => {
       resultadoLiquidoMensal: -13440,
       impactoPctFaturamento: 47.7,
     });
+    // Cenário 2 (só o sábado, até 4 h): perda 1155,56, margem 288,89 (1,0% do faturamento de referência)
     expect(por.economia).toMatchObject({
-      status: 'nao_recomendado',
-      diasFechar: [0, 1, 2],
+      status: 'nao_resolve',
+      diasFechar: [],
       custoFolhaMensal: 11200,
-      margemMes: -3250,
-      impactoPctFaturamento: 11.5,
+      margemMes: -288.89,
+      impactoPctFaturamento: 1,
     });
     expect(por.equilibrio).toMatchObject({
       status: 'viavel',
@@ -431,7 +482,7 @@ describe('escala (rotas)', () => {
       resultadoLiquidoMensal: -5165,
       impactoPctFaturamento: 18.3,
     });
-    expect(por.economia.alertas.join(' ')).toContain('terça');
+    expect(por.economia.alertas.join(' ')).toContain('Cenário 3');
 
     for (const h of [
       { 'X-Perfil': 'SCHEDULE_MANAGER', 'X-GE': GE_INICIAL_ID },
@@ -455,7 +506,7 @@ describe('escala (rotas)', () => {
       expect('destaque' in r.comparativo).toBe(false);
       expect(r.comparativo.cenarios.map((c: { status: string }) => c.status)).toEqual([
         'viavel',
-        'nao_recomendado',
+        'nao_resolve',
         'viavel',
       ]);
       for (const c of r.comparativo.cenarios)
@@ -850,9 +901,9 @@ describe('escala (rotas)', () => {
       reqGe().get(`${url}${consulta}`).set(perfil);
     const r40 = async (consulta = '', perfil = admin) => (await pedir(consulta, perfil)).body;
 
-    // Sem premissas (padrões): Cenário 2 fecha segunda, terça e quarta (margem 3250); Cenário 3 fecha segunda, quarta e sábado (impacto 5165)
+    // Sem premissas (padrões): Cenário 2 reduz o sábado em 2 h (margem 288,89); Cenário 3 fecha segunda, quarta e sábado (impacto 5165)
     const padrao = await r40();
-    expect(padrao.cenarios.r40.economia.margemCortadaMes).toBe(3250);
+    expect(padrao.cenarios.r40.economia.margemCortadaMes).toBe(288.89);
     expect(padrao.cenarios.r40.equilibrio.impactoMensal).toBe(5165);
     expect(padrao.premissas).toMatchObject({
       recaptura: 0,
@@ -863,18 +914,18 @@ describe('escala (rotas)', () => {
       margemPctCadastro: 25,
     });
 
-    // Recaptura de 20%: a margem perdida cai 20% (3250 → 2600; Cenário 3: 2925 → 2340, impacto 2240 + 2340 = 4580)
+    // Recaptura de 20%: a margem perdida cai 20% (288,89 → 231,11; Cenário 3: 2925 → 2340, impacto 2240 + 2340 = 4580)
     const rec = await r40('?recaptura=20');
-    expect(rec.cenarios.r40.economia.margemCortadaMes).toBe(2600);
+    expect(rec.cenarios.r40.economia.margemCortadaMes).toBe(231.11);
     expect(rec.cenarios.r40.equilibrio).toMatchObject({
       margemCortadaMes: 2340,
       impactoMensal: 4580,
     });
     expect(rec.premissas.recaptura).toBe(20);
 
-    // Margem de 50% (o dobro): margem perdida dobra (6500); Cenário 3 continua fechando os três dias livres: 5850 + 2240 = 8090
+    // Margem de 50% (o dobro): margem perdida dobra (577,78); Cenário 3 continua fechando os três dias livres: 5850 + 2240 = 8090
     const dobro = await r40('?margemPct=50');
-    expect(dobro.cenarios.r40.economia.margemCortadaMes).toBe(6500);
+    expect(dobro.cenarios.r40.economia.margemCortadaMes).toBe(577.78);
     expect(dobro.cenarios.r40.equilibrio.impactoMensal).toBe(8090);
     expect(dobro.premissas).toMatchObject({ margemPct: 50, margemPctCadastro: 25 });
 
@@ -887,11 +938,13 @@ describe('escala (rotas)', () => {
     expect(semParcial.cenarios.r40.manter.custoAdicionalMensal).toBe(22400);
     expect(semParcial.regras.find((r: { id: string }) => r.id === 'r40').resumo.contratar).toBe(2);
 
-    // Dias protegidos 0: nenhum dia é protegido e o Cenário 2 deixa de ser "não recomendado"
+    // Dias protegidos 0: nenhum dia é protegido; o Cenário 2 não fecha dia útil de qualquer jeito e segue sem resolver
     const livre = await r40('?diasProtegidos=0');
     expect(livre.cenarios.r40.diasProtegidos).toEqual([]);
     expect(livre.cenarios.r40.economia.naoRecomendado).toBeNull();
-    expect(livre.cenarios.r40.economia.viavel).toBe(true);
+    expect(livre.cenarios.r40.economia.diasFechar.every((d: { dia: number }) => d.dia >= 5)).toBe(
+      true,
+    );
 
     // Fora das faixas: 400 em português; parâmetro desconhecido também
     for (const [consulta, trecho] of [
@@ -920,7 +973,7 @@ describe('escala (rotas)', () => {
 
     // Nada foi gravado: sem premissas volta tudo ao cadastro, e a margem da loja segue 25%
     const depois = await r40();
-    expect(depois.cenarios.r40.economia.margemCortadaMes).toBe(3250);
+    expect(depois.cenarios.r40.economia.margemCortadaMes).toBe(288.89);
     expect(depois.premissas.margemPct).toBe(25);
     expect((await prisma.loja.findFirst({ where: { codigo: '001' } }))?.faturamento).toMatchObject({
       margemPct: 25,

@@ -26,14 +26,14 @@ Segurança do banco: sem migration nesta spec; nada de `down -v` nem `prisma mig
 
 **Teste independente**: o Diagnóstico da loja do caso real (94 h, equipe pequena) devolve corte de no máximo 15% das horas, perda de até 10%, nenhum dia útil tocado e `naoResolveSozinho`; sem margem, margem perdida e saldo vêm nulos.
 
-- [ ] T008 [US1] `src/modules/escala/cenarios.ts` (`montarEconomia`): troca `escolherDiasAFechar` pela sequência do núcleo; novos campos `naoResolveSozinho`, `travou`, `faltaH`, `passos`, `horariosAjustados` e (só dono) `perdaFaturamentoPct`; `diasFechar`, `horasSemana`, `horarioSemana`, `vendaCortadaMes` e `margemCortadaMes` passam a refletir o estado final; os casos de inviável por falta de gente no quadro e de "equipe já cobre" ficam como estão
-- [ ] T009 [US3] Margem não informada: `margemCortadaMes` e `margemMes` por dia viram nulos quando nenhuma margem foi informada (hoje valem 0); o teto de perda continua pelo faturamento; textos do cenário sem frase de "perde cerca de R$ 0 de margem"
-- [ ] T010 [US2] Textos do cenário (`resumo` e `direcionamento`): descrevem os passos na ordem ("Sáb e dom fecham 2 h mais cedo; domingo fecha…"), dizem qual trava parou e o que falta, e apontam o Cenário 3; sem valores em reais para quem não é dono
-- [ ] T011 [US2] `destaque` e impacto: cenário com `naoResolveSozinho` ou sem margem não entra no "Cenário sugerido" nem no selo de menor impacto
-- [ ] T012 [US1] Teste + `src/modules/escala/comparativo.ts`: status `nao_resolve`, `ajustes` por coluna, `faltaH`, `perdaFaturamentoPct` (só dono), alerta "Informe a margem bruta média da loja no Cadastro…"; margem e saldo nulos sem margem
-- [ ] T013 [US1] Refazer à mão, uma a uma, as expectativas dos testes antigos do Cenário 2 (`cenarios-dias.test.ts`, `cenarios.test.ts`, `cenarios-extras.test.ts`, `comparativo.test.ts`, `diagnostico.test.ts`) que esperavam fechar dia útil ou valores com margem zero; anotar no teste o porquê de cada mudança
-- [ ] T014 [US2] Teste de integração em `escala.routes.integration.test.ts`: a loja do caso real (94 h, equipe pequena, só faturamento mensal) não passa de 10% de perda nem de 15% de corte de horas, não toca em dia útil e mostra `naoResolveSozinho`; gestor e consulta recebem passos, horários e status sem nenhum campo em reais
-- [ ] T015 Rodar tudo (`npm test`, `npm run test:integration`, `npm run lint`, `npx tsc --noEmit`) e commitar a fatia
+- [X] T008 [US1] `src/modules/escala/cenarios.ts` (`montarEconomia`): troca `escolherDiasAFechar` pela sequência do núcleo; novos campos `naoResolveSozinho`, `travou`, `faltaH`, `passos`, `horariosAjustados` e (só dono) `perdaFaturamentoPct`; `diasFechar`, `horasSemana`, `horarioSemana`, `vendaCortadaMes` e `margemCortadaMes` passam a refletir o estado final; os casos de inviável por falta de gente no quadro e de "equipe já cobre" ficam como estão
+- [X] T009 [US3] Margem não informada: `margemCortadaMes` e `margemMes` por dia viram nulos quando nenhuma margem foi informada (hoje valem 0); o teto de perda continua pelo faturamento; textos do cenário sem frase de "perde cerca de R$ 0 de margem"
+- [X] T010 [US2] Textos do cenário (`resumo` e `direcionamento`): descrevem os passos na ordem ("Sáb e dom fecham 2 h mais cedo; domingo fecha…"), dizem qual trava parou e o que falta, e apontam o Cenário 3; sem valores em reais para quem não é dono
+- [X] T011 [US2] `destaque` e impacto: cenário com `naoResolveSozinho` ou sem margem não entra no "Cenário sugerido" nem no selo de menor impacto
+- [X] T012 [US1] Teste + `src/modules/escala/comparativo.ts`: status `nao_resolve`, `ajustes` por coluna, `faltaH`, `perdaFaturamentoPct` (só dono), alerta "Informe a margem bruta média da loja no Cadastro…"; margem e saldo nulos sem margem
+- [X] T013 [US1] Refazer à mão, uma a uma, as expectativas dos testes antigos do Cenário 2 (`cenarios-dias.test.ts`, `cenarios.test.ts`, `cenarios-extras.test.ts`, `comparativo.test.ts`, `diagnostico.test.ts`) que esperavam fechar dia útil ou valores com margem zero; anotar no teste o porquê de cada mudança
+- [X] T014 [US2] Teste de integração em `escala.routes.integration.test.ts`: a loja do caso real (94 h, equipe pequena, só faturamento mensal) não passa de 10% de perda nem de 15% de corte de horas, não toca em dia útil e mostra `naoResolveSozinho`; gestor e consulta recebem passos, horários e status sem nenhum campo em reais
+- [X] T015 Rodar tudo (`npm test`, `npm run test:integration`, `npm run lint`, `npx tsc --noEmit`) e commitar a fatia
 
 ## Phase 4: Fatia 3 — Tela (US3 e US4)
 

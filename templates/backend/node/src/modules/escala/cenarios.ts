@@ -7,14 +7,21 @@ import type { Custos } from '../custos/custos.schemas.js';
 import type { PessoaSim } from '../simulacoes/avaliar.js';
 import {
   DIAS_PROTEGIDOS_PADRAO,
-  escolherDiasAFechar,
   listaDeDias,
   melhorCombinacao,
+  NOMES_DIA_LONGO,
   semValores,
   vendasPorDia,
   type OrigemVenda,
   type VendaDia,
 } from './cenarios-dias.js';
+import {
+  perdaMensal,
+  sequenciaFimDeSemana,
+  TRAVAS,
+  type MotivoParada,
+  type Passo,
+} from './ajustes-fim-de-semana.js';
 import { vendasPorDiaEHora, type VendaLinha } from './vendas.js';
 
 export type DiaCenario = {
@@ -58,6 +65,14 @@ export type CenarioManter = {
 // Dia da semana que o cenário sugere fechar. Venda e margem por mês (já com a recaptura descontada) só para o dono.
 export type DiaFechar = { dia: number; vendaMes?: number | null; margemMes?: number | null };
 
+// Passo do cenário de economia na resposta: horários em "HH:MM".
+export type HorarioTxt = { abre: string; fecha: string };
+export type PassoCenario =
+  | { tipo: 'reduzir'; dia: number; horas: number; de: HorarioTxt; para: HorarioTxt }
+  | { tipo: 'fechar'; dia: number; de: HorarioTxt };
+// Dia de fim de semana que muda: o horário de hoje e o do cenário (nulo quando fecha).
+export type HorarioAjustado = { dia: number; antes: HorarioTxt; depois: HorarioTxt | null };
+
 export type CenarioEconomia = {
   impactoMensal?: number | null;
   viavel: boolean;
@@ -72,7 +87,20 @@ export type CenarioEconomia = {
   diasFechar: DiaFechar[];
   // Quando o único jeito de a equipe atual caber é fechar um dos dias de maior faturamento.
   naoRecomendado: { dias: number[]; texto: string } | null;
-  // Só para o dono; nulos sem dado de venda.
+  // O corte possível não basta para a equipe atual caber dentro das travas (perda máxima, piso de horas).
+  naoResolveSozinho: boolean;
+  // A trava que parou o cenário (ou `fim_de_semana`: nada mais a reduzir ou fechar); só quando não resolve sozinho.
+  travou: MotivoParada | null;
+  // Horas de cobertura que ainda faltam; só quando não resolve sozinho.
+  faltaH: number | null;
+  // O que o cenário faz, na ordem, e os horários que mudam por causa disso.
+  passos: PassoCenario[];
+  horariosAjustados: HorarioAjustado[];
+  // Só para o dono: perda sobre o faturamento mensal (%).
+  perdaFaturamentoPct?: number;
+  // A margem bruta da loja foi informada? Sem ela, a margem perdida é nula (não zero).
+  margemInformada: boolean;
+  // Só para o dono; nulos sem dado de venda (e a margem, sem margem informada).
   vendaCortadaMes: number | null;
   margemCortadaMes: number | null;
   aviso: string | null;
@@ -275,6 +303,30 @@ const montarManter = (e: EntradaCenarios, linhas: LinhaFuncao[], folha: number |
 const brl = (n: number) =>
   n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
 
+const hmTxt = (h: { abre: number; fecha: number }): HorarioTxt => ({
+  abre: hhmm(h.abre),
+  fecha: hhmm(h.fecha),
+});
+const passoTxt = (p: Passo): PassoCenario =>
+  p.tipo === 'reduzir'
+    ? { tipo: 'reduzir', dia: p.dia, horas: p.horas, de: hmTxt(p.de), para: hmTxt(p.para) }
+    : { tipo: 'fechar', dia: p.dia, de: hmTxt(p.de) };
+const hh = (t: string) => `${t.slice(0, 2)}h`;
+const horasTxt = (n: number) => `${String(n).replace('.', ',')} h`;
+// "Domingo fecha 8 h mais cedo (de 08h–22h para 08h–14h)" · "Sábado fecha".
+const fraseDoPasso = (p: PassoCenario) => {
+  const dia = NOMES_DIA_LONGO[p.dia]!;
+  const nome = dia[0]!.toUpperCase() + dia.slice(1);
+  return p.tipo === 'reduzir'
+    ? `${nome} fecha ${horasTxt(p.horas)} mais cedo (de ${hh(p.de.abre)}–${hh(p.de.fecha)} para ${hh(p.para.abre)}–${hh(p.para.fecha)})`
+    : `${nome} fecha`;
+};
+const MOTIVO_PARADA: Record<MotivoParada, string> = {
+  perda: `a perda chegaria ao limite de ${TRAVAS.perdaMaxPct}% do faturamento`,
+  horas: `a loja ficaria com menos de ${TRAVAS.horasMinPct}% das horas abertas de hoje`,
+  fim_de_semana: 'não há mais o que reduzir ou fechar no fim de semana',
+};
+
 const montarEconomia = (
   e: EntradaCenarios,
   linhas: LinhaFuncao[],
@@ -282,13 +334,20 @@ const montarEconomia = (
 ): CenarioEconomia => {
   const regra = regraPara(e.regraId, e.convencao8h24, e.parametros);
   const temVenda = porDia.some((d) => (d.venda ?? 0) > 0);
+  const temMargem = porDia.some((d) => (d.margemMes ?? 0) > 0);
   const base = {
-    foco: 'Fechar dias para manter a equipe atual',
+    foco: 'Reduzir o fim de semana para manter a equipe atual',
     horarioSemana: horarioDaSemana(e.dias),
     horasSemana: horasDaSemana(e.dias),
     horasReduzir: 0,
     diasFechar: [] as DiaFechar[],
     naoRecomendado: null,
+    naoResolveSozinho: false,
+    travou: null as MotivoParada | null,
+    faltaH: null as number | null,
+    passos: [] as PassoCenario[],
+    horariosAjustados: [] as HorarioAjustado[],
+    margemInformada: temMargem,
     vendaCortadaMes: null,
     margemCortadaMes: null,
     aviso: null as string | null,
@@ -298,91 +357,131 @@ const montarEconomia = (
     return {
       ...base,
       viavel: false,
-      motivoInviavel: `Não há ${semGente.funcao} no quadro: fechar dias não resolve, é preciso contratar.`,
+      motivoInviavel: `Não há ${semGente.funcao} no quadro: reduzir ou fechar o fim de semana não resolve, é preciso contratar.`,
       direcionamento: `Este caminho não é possível: sem ${semGente.funcao} no quadro, nenhum dia fica coberto. Veja o Cenário 1.`,
       resumo: 'Não é possível sem contratar. Veja o Cenário 1.',
     };
   if (passa(linhas))
     return {
       ...base,
-      // Nada a fechar: nenhuma margem perdida, desde que haja venda para afirmar isso.
-      ...(temVenda ? { vendaCortadaMes: 0, margemCortadaMes: 0 } : {}),
+      // Nada a mudar: nenhuma perda, desde que haja venda para afirmar isso.
+      ...(temVenda ? { vendaCortadaMes: 0, margemCortadaMes: temMargem ? 0 : null } : {}),
       viavel: true,
       motivoInviavel: null,
-      direcionamento: `A equipe atual já cobre todos os dias na regra de ${regra.nome}: não é preciso fechar nenhum.`,
-      resumo: 'A equipe atual já cobre todos os dias: não há nada a fechar.',
+      direcionamento: `A equipe atual já cobre todos os dias na regra de ${regra.nome}: não é preciso reduzir nem fechar nada.`,
+      resumo: 'A equipe atual já cobre todos os dias: não há nada a reduzir nem a fechar.',
     };
   if (!temVenda)
     return {
       ...base,
       viavel: false,
       motivoInviavel:
-        'Informe o faturamento por dia da semana no Cadastro (ou envie a base comercial) para escolher quais dias fechar.',
+        'Informe o faturamento por dia da semana no Cadastro (ou envie a base comercial) para saber quanto cada corte custa.',
       direcionamento:
-        'Sem a venda de cada dia da semana não dá para saber qual dia fechar com menos perda. Informe o faturamento por dia da semana no Cadastro ou envie a base comercial.',
-      resumo: 'Faltam as vendas por dia da semana para escolher quais dias fechar.',
+        'Sem a venda de cada dia da semana não dá para saber quanto cada corte custa. Informe o faturamento por dia da semana no Cadastro ou envie a base comercial.',
+      resumo: 'Faltam as vendas por dia da semana para calcular os cortes.',
     };
 
-  const escolha = escolherDiasAFechar({
+  const seq = sequenciaFimDeSemana({
     dias: e.dias,
     porDia,
     cobre: (dias) =>
       passa(verificarRegra(regra, dias, e.minimos, e.pessoas, { limiteParcial: e.limiteParcial })),
+    faltaH: (dias) =>
+      verificarRegra(regra, dias, e.minimos, e.pessoas, { limiteParcial: e.limiteParcial })
+        .filter((l) => l.contratar > 0)
+        .reduce((s, l) => s + l.faltaH, 0),
   });
-  if (!escolha.cobre)
-    return {
-      ...base,
-      viavel: false,
-      motivoInviavel: 'Mesmo fechando dias, a equipe atual não cobre a loja.',
-      direcionamento: 'Este caminho não é possível com a equipe atual. Veja o Cenário 1.',
-      resumo: 'Não é possível sem contratar. Veja o Cenário 1.',
-    };
-
   const recaptura = Math.min(0.3, Math.max(0, e.recaptura ?? 0));
   const fica = 1 - recaptura;
-  const diasFechar: DiaFechar[] = escolha.fechados.map((dia) => ({
+  const hoje = [...e.dias].sort((x, y) => x.dia - y.dia);
+  const fechados = hoje.filter((d) => !seq.dias.some((x) => x.dia === d.dia)).map((d) => d.dia);
+  const vendaMes = arred(perdaMensal(hoje, seq.dias, porDia) * fica);
+  const margemMes = temMargem
+    ? arred(
+        perdaMensal(
+          hoje,
+          seq.dias,
+          porDia.map((d) => ({ ...d, vendaMes: d.margemMes })),
+        ) * fica,
+      )
+    : null;
+  const diasFechar: DiaFechar[] = fechados.map((dia) => ({
     dia,
     ...(e.dono
       ? {
           vendaMes: arred(porDia[dia]!.vendaMes! * fica),
-          margemMes: arred(porDia[dia]!.margemMes! * fica),
+          margemMes: temMargem ? arred(porDia[dia]!.margemMes! * fica) : null,
         }
       : {}),
   }));
-  const vendaMes = arred(escolha.fechados.reduce((s, d) => s + porDia[d]!.vendaMes!, 0) * fica);
-  const margemMes = arred(escolha.fechados.reduce((s, d) => s + porDia[d]!.margemMes!, 0) * fica);
-  const horasSemana = horasDaSemana(escolha.atuais);
-  const nomes = listaDeDias(escolha.fechados);
-  const evitadas = linhas.reduce((s, l) => s + l.contratar, 0);
-  const fraseBase = `Fechando ${nomes} a equipe atual cobre o horário sem contratar${evitadas > 0 ? ` (você deixa de contratar ${evitadas} pessoa${evitadas === 1 ? '' : 's'})` : ''}`;
+  const passos = seq.passos.map(passoTxt);
+  const horariosAjustados: HorarioAjustado[] = passos.map((p) => ({
+    dia: p.dia,
+    antes: p.de,
+    depois: p.tipo === 'reduzir' ? p.para : null,
+  }));
   const naoRecomendado =
-    escolha.protegidosAtingidos.length > 0
+    seq.cobre && fechados.some((d) => porDia[d]!.protegido)
       ? {
-          dias: escolha.protegidosAtingidos,
-          texto: `Para a equipe atual caber é preciso fechar ${listaDeDias(escolha.protegidosAtingidos)}, um dos dias de maior faturamento da loja. Não recomendado.`,
+          dias: fechados.filter((d) => porDia[d]!.protegido),
+          texto: `Para a equipe atual caber é preciso fechar ${listaDeDias(fechados.filter((d) => porDia[d]!.protegido))}, um dos dias de maior faturamento da loja. Não recomendado.`,
         }
       : null;
-  return {
-    viavel: true,
-    motivoInviavel: null,
+  const evitadas = linhas.reduce((s, l) => s + l.contratar, 0);
+  const acoes = passos.length ? passos.map(fraseDoPasso).join('; ') : 'nenhuma mudança possível';
+  const perdaTxt = e.dono
+    ? ` Deixam de entrar cerca de ${brl(vendaMes)} em vendas por mês (${String(seq.perdaPct).replace('.', ',')}% do faturamento${margemMes !== null ? `, margem de ${brl(margemMes)}` : ''}${recaptura > 0 ? `, já descontados ${Math.round(recaptura * 100)}% que migram para os outros dias` : ''}).`
+    : '';
+  const horasMsg = seq.faltaH
+    ? ` ainda faltam ${horasTxt(seq.faltaH)} de cobertura`
+    : ' a equipe ainda não cobre o horário';
+  const frase = seq.cobre
+    ? `${acoes}. Assim a equipe atual cobre o horário sem contratar${evitadas > 0 ? ` (você deixa de contratar ${evitadas} pessoa${evitadas === 1 ? '' : 's'})` : ''}.`
+    : `${passos.length ? `${acoes}, mas` : 'Mesmo reduzindo o fim de semana,'} ${MOTIVO_PARADA[seq.parou!]}:${horasMsg}. Só mexer no fim de semana não resolve: veja o Cenário 3 (equilíbrio).`;
+  const avisos = [
+    e.origemVenda === 'estimativa'
+      ? 'Venda estimada: só o faturamento mensal foi informado e ele foi dividido igualmente entre os dias abertos. Informe o faturamento por dia da semana para estimar melhor cada corte.'
+      : null,
+    passos.some((p) => p.tipo === 'reduzir')
+      ? 'A perda de reduzir o horário é uma estimativa: supõe vendas iguais em todas as horas do dia.'
+      : null,
+  ].filter((x): x is string => x !== null);
+  const comum = {
     foco: base.foco,
-    resumo: e.dono
-      ? `${fraseBase} e perde cerca de ${brl(margemMes)} de margem por mês.`
-      : `${fraseBase}.`,
-    direcionamento: e.dono
-      ? `${fraseBase}. Deixam de entrar cerca de ${brl(vendaMes)} em vendas por mês (margem de ${brl(margemMes)}${recaptura > 0 ? `, já descontados ${Math.round(recaptura * 100)}% que migram para os outros dias` : ''}). Faz sentido quando o custo de contratar pesa mais que essa margem.`
-      : `${fraseBase}. Faz sentido quando o custo de contratar pesa mais que a venda dos dias fechados.`,
-    horasReduzir: arred(base.horasSemana - horasSemana),
-    horasSemana,
-    horarioSemana: horarioDaSemana(escolha.atuais),
+    horasReduzir: arred(base.horasSemana - seq.horasSemana),
+    horasSemana: seq.horasSemana,
+    horarioSemana: horarioDaSemana(seq.dias),
     diasFechar,
     naoRecomendado,
+    passos,
+    horariosAjustados,
+    margemInformada: temMargem,
     vendaCortadaMes: vendaMes,
     margemCortadaMes: margemMes,
-    aviso:
-      e.origemVenda === 'estimativa'
-        ? 'Venda estimada: só o faturamento mensal foi informado e ele foi dividido igualmente entre os dias abertos. Informe o faturamento por dia da semana para escolher melhor quais dias fechar.'
-        : null,
+    aviso: avisos.length ? avisos.join(' ') : null,
+    ...(e.dono ? { perdaFaturamentoPct: seq.perdaPct } : {}),
+  };
+  if (!seq.cobre)
+    return {
+      ...comum,
+      viavel: false,
+      motivoInviavel: `Só reduzir ou fechar o fim de semana não cobre o horário: ${MOTIVO_PARADA[seq.parou!]}.`,
+      naoResolveSozinho: true,
+      travou: seq.parou,
+      faltaH: seq.faltaH,
+      resumo: frase,
+      direcionamento: `${frase}${perdaTxt}`,
+    };
+  return {
+    ...comum,
+    viavel: true,
+    motivoInviavel: null,
+    naoResolveSozinho: false,
+    travou: null,
+    faltaH: null,
+    resumo: frase,
+    direcionamento: `${frase}${perdaTxt} Faz sentido quando o custo de contratar pesa mais que ${e.dono ? 'essa perda' : 'a venda perdida'}.`,
   };
 };
 

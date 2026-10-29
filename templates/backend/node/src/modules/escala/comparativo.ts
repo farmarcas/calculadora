@@ -1,8 +1,8 @@
-import type { CenariosRegra, Contratacao, EntradaCenarios } from './cenarios.js';
+import type { CenariosRegra, Contratacao, EntradaCenarios, HorarioAjustado } from './cenarios.js';
 
 // Comparativo dos cenários 1, 2 e 3 lado a lado, para a fase escolhida. Os cenários 4 (abrir um dia) e 5 (reduzir
 // equipe) seguem como cartões à parte e ficam fora da tabela e do destaque.
-export type StatusCenario = 'viavel' | 'nao_recomendado' | 'inviavel';
+export type StatusCenario = 'viavel' | 'nao_recomendado' | 'inviavel' | 'nao_resolve';
 export type IdColuna = 'manter' | 'economia' | 'equilibrio';
 
 export type ColunaComparativo = {
@@ -12,6 +12,9 @@ export type ColunaComparativo = {
   // Dias da semana que o cenário fecha (0 = segunda); nenhum no Cenário 1.
   diasFechar: number[];
   horasSemana: number;
+  // Fim de semana que muda (redução ou fechamento) e, quando o corte não basta, quantas horas ainda faltam.
+  ajustes: HorarioAjustado[];
+  faltaH: number | null;
   // Nulo quando o cenário não pode ser calculado por falta de dado (o alerta diz o que falta).
   status: StatusCenario | null;
   alertas: string[];
@@ -25,6 +28,7 @@ export type ColunaComparativo = {
   // Só para o dono: o que o cenário acrescenta à folha por mês, a venda que deixa de entrar (valor e % do faturamento)
   // e quanto o resultado difere do Cenário 1 (manter horários), por mês.
   folhaAdicionalMensal?: number | null;
+  perdaFaturamentoPct?: number;
   faturamentoPerdidoMensal?: number | null;
   faturamentoPerdidoPct?: number | null;
   ganhoFrenteManterMensal?: number | null;
@@ -84,6 +88,8 @@ export const montarComparativo = (e: EntradaCenarios, c: CenariosRegra): Compara
     contratacoes: manter.contratacoes,
     diasFechar: [],
     horasSemana: manter.horasSemana,
+    ajustes: [],
+    faltaH: null,
     status: 'viavel',
     alertas: alertasManter,
     ociosidadePct: manter.contratacoes.length ? manter.ociosidadePct : null,
@@ -91,25 +97,53 @@ export const montarComparativo = (e: EntradaCenarios, c: CenariosRegra): Compara
   };
 
   const alertasEco: string[] = [];
-  const statusEco: StatusCenario = !economia.viavel
-    ? 'inviavel'
-    : economia.naoRecomendado
-      ? 'nao_recomendado'
-      : 'viavel';
-  if (!economia.viavel && economia.motivoInviavel) alertas(alertasEco, economia.motivoInviavel);
+  const statusEco: StatusCenario = economia.naoResolveSozinho
+    ? 'nao_resolve'
+    : !economia.viavel
+      ? 'inviavel'
+      : economia.naoRecomendado
+        ? 'nao_recomendado'
+        : 'viavel';
+  if (economia.naoResolveSozinho)
+    alertas(
+      alertasEco,
+      economia.faltaH
+        ? `Só mexer no fim de semana não resolve: ainda faltam ${String(economia.faltaH).replace('.', ',')} h de cobertura. Veja o Cenário 3.`
+        : 'Só mexer no fim de semana não resolve. Veja o Cenário 3.',
+    );
+  else if (!economia.viavel && economia.motivoInviavel)
+    alertas(alertasEco, economia.motivoInviavel);
   if (economia.naoRecomendado) alertas(alertasEco, economia.naoRecomendado.texto);
-  if (economia.viavel && estimada) alertas(alertasEco, avisoEstimativa);
+  const temCorte = economia.passos.length > 0;
+  if ((economia.viavel || economia.naoResolveSozinho) && temCorte && estimada)
+    alertas(alertasEco, avisoEstimativa);
+  if (e.dono && temCorte && !economia.margemInformada)
+    alertas(
+      alertasEco,
+      'Informe a margem bruta média da loja no Cadastro para ver a margem perdida e o saldo.',
+    );
   const colEco: ColunaComparativo = {
     id: 'economia',
     nome: 'Foco em economia',
     contratacoes: [],
     diasFechar: economia.diasFechar.map((d) => d.dia),
     horasSemana: economia.horasSemana,
+    ajustes: economia.horariosAjustados,
+    faltaH: economia.naoResolveSozinho ? economia.faltaH : null,
     status: statusEco,
     alertas: alertasEco,
     ociosidadePct: null,
-    ...(economia.viavel
-      ? valores(0, economia.margemCortadaMes, economia.vendaCortadaMes)
+    ...(economia.viavel || economia.naoResolveSozinho
+      ? {
+          ...valores(0, economia.margemCortadaMes, economia.vendaCortadaMes),
+          // O % do cartão é o mesmo que as travas usam (sobre a venda de todos os dias abertos de hoje).
+          ...(e.dono && economia.perdaFaturamentoPct !== undefined
+            ? {
+                perdaFaturamentoPct: economia.perdaFaturamentoPct,
+                faturamentoPerdidoPct: economia.perdaFaturamentoPct,
+              }
+            : {}),
+        }
       : valores(null, null)),
   };
 
@@ -128,6 +162,8 @@ export const montarComparativo = (e: EntradaCenarios, c: CenariosRegra): Compara
     contratacoes: equilibrio.contratacoes,
     diasFechar: equilibrio.diasFechar.map((d) => d.dia),
     horasSemana: equilibrio.horasSemana,
+    ajustes: [],
+    faltaH: null,
     status: equilibrio.indisponivel ? null : 'viavel',
     alertas: alertasEq,
     ociosidadePct: equilibrio.contratacoes.length ? equilibrio.ociosidadePct : null,

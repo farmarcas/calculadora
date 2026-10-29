@@ -282,10 +282,11 @@ function Equilibrio({ c }) {
 function Estender({ c }) {
   const e = c.estender;
   if (!e) return null;
-  const dono = e.custoAdicionalMensal !== undefined;
-  const sem = e.margemRefMes === null;
+  // Valores em reais só chegam para o dono; para os outros o campo nem existe.
+  const dono = e.margemRefMes !== undefined;
+  const sem = dono && e.margemRefMes === null;
   return (
-    <Cartao titulo="Cenário 4 · Estender horário" subtitulo={e.foco}>
+    <Cartao titulo="Cenário 4 · Abrir um dia hoje fechado" subtitulo={e.foco}>
       <div className="px-6 py-4 flex flex-col gap-4">
         {!e.disponivel ? (
           <Aviso tom="atencao">{e.motivoIndisponivel}</Aviso>
@@ -294,13 +295,19 @@ function Estender({ c }) {
             <p className="m-0 text-sm text-ink-700">{e.direcionamento}</p>
             <Impacto valor={e.impactoMensal} detalhe="custo adicional − margem de referência" />
             <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
-              <Numero rotulo="Estender" valor={`${e.horasEstender}h`} legenda="por semana, sem contratar a mais" />
-              <Numero rotulo="Horário da loja" valor={`${e.horasSemana}h`} legenda={`por semana · hoje ${c.atual.horasSemana}h`} />
               <Numero
-                rotulo="Margem de referência"
-                valor={sem ? "—" : brl(e.margemRefMes)}
-                legenda={sem ? semVenda(c) : "por mês (referência, não previsão)"}
+                rotulo="Dias a abrir"
+                valor={e.diasAbrir.length}
+                legenda={e.diasAbrir.map((d) => `${NOMES_DIA[d.dia]} ${d.abre}–${d.fecha}`).join(", ")}
               />
+              <Numero rotulo="Horário da loja" valor={`${e.horasSemana}h`} legenda={`por semana · hoje ${c.atual.horasSemana}h (+${e.horasEstender}h, sem contratar a mais)`} />
+              {dono && (
+                <Numero
+                  rotulo="Margem de referência"
+                  valor={sem ? "—" : brl(e.margemRefMes)}
+                  legenda={sem ? semVenda(c) : "por mês (referência, não previsão)"}
+                />
+              )}
               {dono && (
                 <Numero
                   rotulo="Custo adicional"
@@ -309,22 +316,25 @@ function Estender({ c }) {
                 />
               )}
             </div>
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse text-sm min-w-[480px]">
-                <thead>
-                  <tr><th className={TH}>Dia</th><th className={TH}>Passa a abrir</th><th className={TH}>Venda de referência por semana</th></tr>
-                </thead>
-                <tbody>
-                  {e.extensoes.map((x) => (
-                    <tr key={`${x.dia}${x.de}`}>
-                      <td className={TD}>{NOMES_DIA[x.dia]}</td>
-                      <td className={TD}>{x.de}–{x.ate}</td>
-                      <td className={TD}>{x.vendaRef === null ? "—" : brl(x.vendaRef)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            {dono && (
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse text-sm min-w-[480px]">
+                  <thead>
+                    <tr><th className={TH}>Dia</th><th className={TH}>Passa a abrir</th><th className={TH}>Venda de referência por mês</th><th className={TH}>Margem de referência por mês</th></tr>
+                  </thead>
+                  <tbody>
+                    {e.diasAbrir.map((x) => (
+                      <tr key={x.dia}>
+                        <td className={TD}>{NOMES_DIA[x.dia]}</td>
+                        <td className={TD}>{x.abre}–{x.fecha}</td>
+                        <td className={TD}>{x.vendaMes == null ? "—" : brl(x.vendaMes)}</td>
+                        <td className={TD}>{x.margemMes == null ? "—" : brl(x.margemMes)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
             <div>
               <div className="mb-1 text-[11px] font-bold uppercase tracking-wide text-ink-500">Novo horário</div>
               <HorarioSemana dias={e.horarioSemana} />

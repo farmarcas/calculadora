@@ -1,25 +1,24 @@
 import { passa, verificarRegra, type DiaAberto } from '../regras/capacidade.js';
 import { regraPara, tetoEfetivo } from '../regras/perfis.js';
 import { requisitos } from '../regras/requisitos.js';
+import { listaDeDias, vendasPorDia } from './cenarios-dias.js';
 import {
+  hhmm,
   horarioDaSemana,
   horasDaSemana,
-  juntarFatias,
   vagasDe,
   type CenariosRegra,
   type DiaCenario,
   type EntradaCenarios,
-  type Fatia,
 } from './cenarios.js';
-import { vendasPorDiaEHora } from './vendas.js';
 
-export type Extensao = {
+// Dia hoje fechado que o cenário sugere abrir. Venda e margem por mês (referência) só para o dono.
+export type DiaAbrir = {
   dia: number;
-  de: string;
-  ate: string;
-  // Referência (hora vizinha), não previsão. Nulos sem base comercial.
-  vendaRef: number | null;
-  margemRef: number | null;
+  abre: string;
+  fecha: string;
+  vendaMes?: number | null;
+  margemMes?: number | null;
 };
 
 export type CenarioEstender = {
@@ -27,10 +26,13 @@ export type CenarioEstender = {
   motivoIndisponivel: string | null;
   foco: string;
   direcionamento: string;
+  // Frase curta com a lógica do cenário (sem valores em reais para quem não é dono).
+  resumo: string;
+  diasAbrir: DiaAbrir[];
   horasEstender: number;
   horasSemana: number;
   horarioSemana: DiaCenario[];
-  extensoes: Extensao[];
+  // Referência, não previsão. Só para o dono; nulos sem dado de venda.
   vendaRefMes: number | null;
   margemRefMes: number | null;
   aviso: string | null;
@@ -63,218 +65,141 @@ export type CenarioReduzir = {
 
 export type ExtrasRegra = { estender: CenarioEstender; reduzir: CenarioReduzir };
 
-const SEMANAS_NO_MES = 52 / 12;
-const MAX_POR_PONTA = 2;
-// Quanto da venda da hora vizinha vale para uma hora nova: 50% na primeira, 25% na segunda (e 50% num dia
-// hoje fechado). Quanto mais longe do horário atual, menos se espera vender.
-const FATOR_BLOCO = 0.5;
-const fatorPonta = (jaEstendidas: number) => 0.5 ** (jaEstendidas + 1);
 const arred = (n: number) => Math.round(n * 100) / 100;
 const brl = (n: number) =>
   n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
 
-type Tipo = 'depois' | 'antes' | 'bloco';
-type Cand = Fatia & { tipo: Tipo; porHora: number; dias: DiaAberto[] };
-const RANK: Record<Tipo, number> = { depois: 0, antes: 1, bloco: 2 };
+// Quanto da média dos dias abertos vale um dia hoje fechado que nunca vendeu: 50%, conservador.
+export const FATOR_DIA_NOVO_PADRAO = 0.5;
 
-// Cenário 4: com a equipe do Cenário 1 (atual + vagas), abre mais horas onde a venda de referência
-// compensa, uma hora por vez, enquanto a regra de cobertura continuar passando sem nova contratação.
+// Cenário 4: com a equipe do Cenário 1 (atual + vagas), abre um dia hoje fechado (com o horário do dia aberto mais
+// curto) quando a regra de cobertura continua passando sem nova contratação e a margem estimada do dia compensa.
+// Escolhe o de maior margem e repete enquanto couber.
 const montarEstender = (e: EntradaCenarios, c: CenariosRegra): CenarioEstender => {
   const regra = regraPara(e.regraId, e.convencao8h24, e.parametros);
-  const vb = vendasPorDiaEHora(e.vendas);
+  const porDia = vendasPorDia(e.vendas, e.dias, e.diasProtegidos);
   const cheia = tetoEfetivo(regra);
   const vagas = c.manter.contratacoes.flatMap((ct) => vagasDe(ct, cheia));
   const equipe = [...e.pessoas, ...vagas];
   const cobre = (dias: DiaAberto[]) => passa(verificarRegra(regra, dias, e.minimos, equipe));
+  const fator = Math.min(1, Math.max(0, e.fatorDiaNovo ?? FATOR_DIA_NOVO_PADRAO));
 
-  const original = new Map(e.dias.map((d) => [d.dia, d]));
-  const maisCurto = [...e.dias].sort(
-    (a, b) => a.fecha - a.abre - (b.fecha - b.abre) || b.dia - a.dia,
-  )[0];
-  // Valor médio de [de, ate) num dia, hora a hora (venda ou margem); sem base vale zero.
-  const soma = (m: number[][] | undefined, dia: number, de: number, ate: number) => {
-    let t = 0;
-    for (let h = Math.floor(de); h < Math.ceil(ate); h++)
-      t += (m?.[dia]?.[h] ?? 0) * (Math.min(ate, h + 1) - Math.max(de, h));
-    return t;
-  };
-
-  let atuais: DiaAberto[] = e.dias.map((d) => ({ ...d }));
-  const antes = new Map<number, number>();
-  const depois = new Map<number, number>();
-  const reabertos = new Set<number>();
-  const fatias: Fatia[] = [];
-
-  const candidatas = (): Cand[] => {
-    const lista: Cand[] = [];
-    const com = (novos: DiaAberto[]) => novos.sort((a, b) => a.dia - b.dia);
-    for (const d of atuais) {
-      const o = original.get(d.dia);
-      if (!o || reabertos.has(d.dia)) continue;
-      const resto = atuais.filter((x) => x.dia !== d.dia);
-      if ((antes.get(d.dia) ?? 0) < MAX_POR_PONTA) {
-        const novo = Number.isInteger(d.abre) ? d.abre - 1 : Math.floor(d.abre);
-        if (novo >= 0) {
-          const len = d.abre - novo;
-          const hora = Math.floor(o.abre);
-          const f = fatorPonta(antes.get(d.dia) ?? 0);
-          const venda = (vb?.venda[d.dia]?.[hora] ?? 0) * len * f;
-          const margem = (vb?.margem[d.dia]?.[hora] ?? 0) * len * f;
-          lista.push({
-            tipo: 'antes',
-            dia: d.dia,
-            de: novo,
-            ate: d.abre,
-            venda,
-            margem,
-            porHora: margem / len,
-            dias: com([...resto, { ...d, abre: novo }]),
-          });
-        }
-      }
-      if ((depois.get(d.dia) ?? 0) < MAX_POR_PONTA) {
-        const novo = Number.isInteger(d.fecha) ? d.fecha + 1 : Math.ceil(d.fecha);
-        if (novo <= 24) {
-          const len = novo - d.fecha;
-          const hora = Math.ceil(o.fecha) - 1;
-          const f = fatorPonta(depois.get(d.dia) ?? 0);
-          const venda = (vb?.venda[d.dia]?.[hora] ?? 0) * len * f;
-          const margem = (vb?.margem[d.dia]?.[hora] ?? 0) * len * f;
-          lista.push({
-            tipo: 'depois',
-            dia: d.dia,
-            de: d.fecha,
-            ate: novo,
-            venda,
-            margem,
-            porHora: margem / len,
-            dias: com([...resto, { ...d, fecha: novo }]),
-          });
-        }
-      }
-    }
-    if (maisCurto) {
-      for (let dia = 0; dia < 7; dia++) {
-        if (atuais.some((x) => x.dia === dia)) continue;
-        const { abre, fecha } = maisCurto;
-        const margem = soma(vb?.margem, maisCurto.dia, abre, fecha) * FATOR_BLOCO;
-        lista.push({
-          tipo: 'bloco',
-          dia,
-          de: abre,
-          ate: fecha,
-          venda: soma(vb?.venda, maisCurto.dia, abre, fecha) * FATOR_BLOCO,
-          margem,
-          porHora: margem / (fecha - abre),
-          dias: com([...atuais, { dia, abre, fecha }]),
-        });
-      }
-    }
-    return lista;
-  };
-
-  let semSobra = false;
-  let semVenda = false;
-  let semOndeAbrir = false;
-  for (let passo = 0; passo < 7 * 6; passo++) {
-    const todas = candidatas();
-    if (todas.length === 0) {
-      semOndeAbrir = fatias.length === 0;
-      break;
-    }
-    const viaveis = todas.filter((x) => cobre(x.dias));
-    if (viaveis.length === 0) {
-      semSobra = fatias.length === 0;
-      break;
-    }
-    const uteis = vb ? viaveis.filter((x) => x.margem > 0) : viaveis;
-    if (uteis.length === 0) {
-      semVenda = fatias.length === 0;
-      break;
-    }
-    const escolhida = uteis.sort(
-      (a, b) => b.porHora - a.porHora || RANK[a.tipo] - RANK[b.tipo] || b.dia - a.dia,
-    )[0]!;
-    fatias.push({
-      dia: escolhida.dia,
-      de: escolhida.de,
-      ate: escolhida.ate,
-      venda: escolhida.venda,
-      margem: escolhida.margem,
-    });
-    atuais = escolhida.dias;
-    if (escolhida.tipo === 'antes') antes.set(escolhida.dia, (antes.get(escolhida.dia) ?? 0) + 1);
-    if (escolhida.tipo === 'depois')
-      depois.set(escolhida.dia, (depois.get(escolhida.dia) ?? 0) + 1);
-    if (escolhida.tipo === 'bloco') reabertos.add(escolhida.dia);
-  }
-
-  const horasAntes = horasDaSemana(e.dias);
-  const base = {
-    foco: 'Abrir mais usando horas já pagas',
+  const base: CenarioEstender = {
+    disponivel: false,
+    motivoIndisponivel: null,
+    foco: 'Abrir um dia hoje fechado usando horas já pagas',
+    direcionamento: '',
+    resumo: '',
+    diasAbrir: [],
     horasEstender: 0,
-    horasSemana: horasAntes,
+    horasSemana: horasDaSemana(e.dias),
     horarioSemana: horarioDaSemana(e.dias),
-    extensoes: [] as Extensao[],
     vendaRefMes: null,
     margemRefMes: null,
     aviso: null,
   };
   const indisponivel = (motivo: string): CenarioEstender => ({
     ...base,
-    disponivel: false,
     motivoIndisponivel: motivo,
     direcionamento: motivo,
+    resumo: motivo,
     ...(e.dono ? { custoAdicionalMensal: null, impactoMensal: null } : {}),
   });
-  if (fatias.length === 0) {
-    if (semOndeAbrir)
-      return indisponivel(
-        'Não há horário a acrescentar: a loja já abre em todas as horas possíveis.',
-      );
-    if (semVenda)
-      return indisponivel('As horas vizinhas ao horário atual não têm venda que compense abrir.');
-    return indisponivel(
-      semSobra || !cobre(e.dias)
-        ? 'A equipe não tem horas nem turnos sobrando para abrir mais sem contratar.'
-        : 'Nenhuma hora a mais cabe na equipe sem nova contratação.',
+
+  const abertos = e.dias.map((d) => d.dia);
+  const fechados = [0, 1, 2, 3, 4, 5, 6].filter((d) => !abertos.includes(d));
+  if (fechados.length === 0) return indisponivel('Todos os dias da semana já estão abertos.');
+  // O dia novo abre com o horário do dia aberto mais curto (empate: o mais tardio da semana).
+  const maisCurto = [...e.dias].sort(
+    (a, b) => a.fecha - a.abre - (b.fecha - b.abre) || b.dia - a.dia,
+  )[0];
+  if (!maisCurto) return indisponivel('A loja não tem nenhum dia aberto cadastrado.');
+
+  const temVenda = porDia.some((d) => (d.venda ?? 0) > 0);
+  const temMargem = porDia.some((d) => (d.margem ?? 0) > 0);
+  const mediaAbertos = (campo: 'vendaMes' | 'margemMes') =>
+    e.dias.reduce((s, d) => s + (porDia[d.dia]![campo] ?? 0), 0) / e.dias.length;
+  // Dia com histórico vale o que vendeu; sem histórico, 50% da média dos dias abertos (referência).
+  const estimativa = (dia: number) => {
+    const d = porDia[dia]!;
+    const proprio = (d.venda ?? 0) > 0;
+    return {
+      estimada: !proprio,
+      vendaMes: proprio ? d.vendaMes! : mediaAbertos('vendaMes') * fator,
+      margemMes: proprio ? d.margemMes! : mediaAbertos('margemMes') * fator,
+    };
+  };
+
+  let atuais: DiaAberto[] = [...e.dias];
+  const abrir: number[] = [];
+  const candidatos = [...fechados];
+  for (;;) {
+    const viaveis = candidatos
+      .filter((d) => !abrir.includes(d))
+      .map((dia) => ({ dia, ...estimativa(dia) }))
+      .filter((x) =>
+        cobre([...atuais, { dia: x.dia, abre: maisCurto.abre, fecha: maisCurto.fecha }]),
+      )
+      // com dado de venda só vale abrir onde a margem estimada é positiva
+      .filter((x) => !temMargem || x.margemMes > 0)
+      .sort((a, b) => b.margemMes - a.margemMes || b.dia - a.dia);
+    const escolhido = viaveis[0];
+    if (!escolhido) break;
+    abrir.push(escolhido.dia);
+    atuais = [...atuais, { dia: escolhido.dia, abre: maisCurto.abre, fecha: maisCurto.fecha }].sort(
+      (a, b) => a.dia - b.dia,
     );
   }
+  if (abrir.length === 0)
+    return indisponivel(
+      temMargem && fechados.some((d) => estimativa(d).margemMes <= 0)
+        ? 'Nenhum dia hoje fechado tem margem estimada positiva para compensar abrir.'
+        : 'A equipe do Cenário 1 não tem sobra de capacidade para abrir mais um dia sem nova contratação.',
+    );
 
-  const horasSemana = horasDaSemana(atuais);
-  const horasEstender = arred(horasSemana - horasAntes);
-  const comVenda = vb !== null;
-  const vendaSem = comVenda ? arred(fatias.reduce((s, f) => s + f.venda, 0)) : null;
-  const margemSem = comVenda ? fatias.reduce((s, f) => s + f.margem, 0) : null;
-  const vendaRefMes = vendaSem === null ? null : arred(vendaSem * SEMANAS_NO_MES);
-  const margemRefMes = margemSem === null ? null : arred(margemSem * SEMANAS_NO_MES);
-  const extensoes = juntarFatias(fatias, comVenda).map((x) => ({
-    dia: x.dia,
-    de: x.de,
-    ate: x.ate,
-    vendaRef: x.venda,
-    margemRef: x.margem,
-  }));
+  const dias = [...abrir].sort((a, b) => a - b);
+  const horas = maisCurto.fecha - maisCurto.abre;
+  const itens = dias.map((dia) => ({ dia, ...estimativa(dia) }));
+  const vendaRefMes = temVenda ? arred(itens.reduce((s, x) => s + x.vendaMes, 0)) : null;
+  const margemRefMes = temMargem ? arred(itens.reduce((s, x) => s + x.margemMes, 0)) : null;
+  const algumaEstimada = itens.some((x) => x.estimada);
+  const nomes = listaDeDias(dias);
   const usaSobra =
-    c.manter.contratacoes.length > 0
-      ? 'a sobra das contratações do Cenário 1'
-      : 'a sobra da equipe atual';
+    vagas.length > 0 ? 'a sobra das contratações do Cenário 1' : 'a sobra da equipe atual';
+  const horario = `${hhmm(maisCurto.abre)}–${hhmm(maisCurto.fecha)}`;
+  const fraseBase = `Abrindo ${nomes} (${horario}) ${usaSobra} cobre o dia sem nova contratação`;
   const r: CenarioEstender = {
+    ...base,
     disponivel: true,
-    motivoIndisponivel: null,
-    foco: base.foco,
-    direcionamento: comVenda
-      ? `Abra ${horasEstender}h a mais por semana usando ${usaSobra}, sem nova contratação. ${e.dono ? `Referência de ${brl(margemRefMes!)} de margem por mês, calculada` : 'Margem de referência calculada'} com parte da venda das horas vizinhas (não é previsão). Faz sentido quando você já vai pagar essas horas de qualquer jeito.`
-      : `A equipe cobre ${horasEstender}h a mais por semana usando ${usaSobra}, sem nova contratação. Sem base comercial não dá para estimar a venda dessas horas.`,
-    horasEstender,
-    horasSemana,
+    resumo:
+      e.dono && margemRefMes !== null
+        ? `${fraseBase} e traz cerca de ${brl(margemRefMes)} de margem por mês (referência).`
+        : `${fraseBase}.`,
+    direcionamento:
+      e.dono && margemRefMes !== null
+        ? `${fraseBase}. Referência de ${brl(margemRefMes)} de margem por mês${algumaEstimada ? ', estimada em ' + Math.round(fator * 100) + '% da média dos dias abertos' : ''} (não é previsão). Faz sentido quando você já vai pagar essas horas de qualquer jeito.`
+        : `${fraseBase}. Faz sentido quando você já vai pagar essas horas de qualquer jeito.`,
+    diasAbrir: itens.map((x) => ({
+      dia: x.dia,
+      abre: hhmm(maisCurto.abre),
+      fecha: hhmm(maisCurto.fecha),
+      ...(e.dono
+        ? {
+            vendaMes: temVenda ? arred(x.vendaMes) : null,
+            margemMes: temMargem ? arred(x.margemMes) : null,
+          }
+        : {}),
+    })),
+    horasEstender: arred(horas * dias.length),
+    horasSemana: horasDaSemana(atuais),
     horarioSemana: horarioDaSemana(atuais),
-    extensoes,
     vendaRefMes,
     margemRefMes,
-    aviso: comVenda
-      ? `A venda das horas novas é uma referência: usa parte da venda da hora vizinha (50% na primeira hora nova, 25% na segunda), não uma previsão.${vb.dias < 14 && !e.vendasDoCadastro ? ` A base tem só ${vb.dias} dias de venda.` : ''}`
-      : 'Sem base comercial, as horas novas foram escolhidas só pela capacidade da equipe.',
+    aviso: !temVenda
+      ? 'Sem venda informada: os dias foram escolhidos só pela capacidade da equipe. Informe o faturamento por dia da semana para estimar o ganho.'
+      : algumaEstimada
+        ? `A margem de um dia que hoje não abre é uma referência: ${Math.round(fator * 100)}% da média dos dias abertos, não uma previsão.`
+        : null,
   };
   if (e.dono) {
     const custo = c.manter.custoAdicionalMensal ?? null;

@@ -5,10 +5,6 @@ import { app } from '../../app.js';
 import { prisma } from '../../shared/database/prisma.js';
 
 const admin = { 'X-Perfil': 'TENANT_ADMIN' };
-// Tira os campos de venda e margem (valores em reais) de um item, para comparar o que gestor e consulta veem.
-const semValor = (o: Record<string, unknown>) =>
-  Object.fromEntries(Object.entries(o).filter(([k]) => !/venda|margem/i.test(k)));
-
 const xlsx = async (cab: string[], linhas: string[][]) => {
   const wb = new ExcelJS.Workbook();
   wb.addWorksheet('Dados').addRows([cab, ...linhas]);
@@ -418,7 +414,7 @@ describe('escala (rotas)', () => {
     }
   });
 
-  it('cenário 4: estende o horário com a sobra da equipe; custo só para o dono', async () => {
+  it('cenário 4: abre um dia hoje fechado com a sobra da equipe; valores só para o dono', async () => {
     await request(app)
       .post('/api/v1/cargas/escala')
       .set(admin)
@@ -443,42 +439,48 @@ describe('escala (rotas)', () => {
     const est = async (h: Record<string, string> = admin) =>
       (await request(app).get(url).set(h)).body.cenarios.r40.estender;
 
-    // sem base comercial: horas possíveis pela capacidade, sem valor
+    // Loja de segunda a sexta (12h) e sábado (6h): 66h e 11 turnos; 3 farmacêuticas de 40h dão 120h e 15 turnos.
+    // O domingo, hoje fechado, abre com o horário do dia mais curto (sábado, 08h às 14h): 72h e 12 turnos cabem.
+    // Sem venda informada: dia escolhido só pela capacidade, sem valor.
     const sem = await est();
     expect(sem.disponivel).toBe(true);
-    expect(sem.horasEstender).toBeGreaterThan(0);
-    expect(sem.horasSemana).toBe(66 + sem.horasEstender);
+    expect(sem.diasAbrir).toEqual([
+      { dia: 6, abre: '08:00', fecha: '14:00', vendaMes: null, margemMes: null },
+    ]);
+    expect(sem.horasEstender).toBe(6);
+    expect(sem.horasSemana).toBe(72);
     expect(sem.margemRefMes).toBeNull();
-    expect(sem.custoAdicionalMensal).toBe(0); // equipe já cobre o horário
+    expect(sem.aviso).toContain('Sem venda informada');
+    expect(sem.custoAdicionalMensal).toBe(0); // a equipe já cobre o horário
     expect(sem.impactoMensal).toBeNull();
 
-    // com base comercial: margem de referência e impacto líquido para o dono
+    // Com faturamento (segunda a sexta 1000, sábado 800, margem de 25%): a margem média dos dias abertos é 1047,22 por
+    // mês; o domingo vale 50% disso: 523,61 de margem e 2094,44 de venda por mês.
     await request(app)
-      .post('/api/v1/cargas/base')
+      .patch(`/api/v1/lojas/${lojaId}`)
       .set(admin)
-      .attach(
-        'arquivo',
-        await xlsx(
-          ['Data', 'Hora', 'Cod_Loja', 'Venda_Liquida_RS', 'Margem_Bruta_RS', 'Clientes_Atendidos'],
-          [
-            ['01/09/2026', '8', '001', '400,00', '100,00', '10'],
-            ['01/09/2026', '19', '001', '800,00', '200,00', '20'],
-          ],
-        ),
-        'b.xlsx',
-      );
+      .send({
+        faturamento: {
+          dias: [1000, 1000, 1000, 1000, 1000, 800, null],
+          mensal: null,
+          margemPct: 25,
+        },
+      });
     const com = await est();
-    expect(com.disponivel).toBe(true);
-    expect(typeof com.margemRefMes).toBe('number');
-    expect(com.impactoMensal).toBe(-com.margemRefMes);
-    expect(com.aviso).toContain('referência');
+    expect(com.diasAbrir.map((d: { dia: number }) => d.dia)).toEqual([6]);
+    expect(com.margemRefMes).toBe(523.61);
+    expect(com.vendaRefMes).toBe(2094.44);
+    expect(com.impactoMensal).toBe(-523.61);
+    expect(com.aviso).toContain('50%');
 
     for (const h of [{ 'X-Perfil': 'SCHEDULE_MANAGER' }, { 'X-Perfil': 'SCHEDULE_VIEWER' }]) {
       const r = await est(h);
-      expect(r.extensoes.map(semValor)).toEqual(com.extensoes.map(semValor));
-      expect(JSON.stringify(r.extensoes)).not.toMatch(/venda|margem/i);
-      expect('custoAdicionalMensal' in r).toBe(false);
-      expect('impactoMensal' in r).toBe(false);
+      expect(r.diasAbrir).toEqual([{ dia: 6, abre: '08:00', fecha: '14:00' }]);
+      for (const campo of ['custoAdicionalMensal', 'impactoMensal']) expect(campo in r).toBe(false);
+      expect(r.margemRefMes).toBeUndefined();
+      expect(r.vendaRefMes).toBeUndefined();
+      const texto = JSON.stringify(r);
+      for (const valor of ['523.61', '2094.44', 'R$']) expect(texto).not.toContain(valor);
     }
   });
 
@@ -536,7 +538,7 @@ describe('escala (rotas)', () => {
     for (const perfil of [gestor, consulta]) {
       const r = (await request(app).get(url).set(perfil)).body;
       expect(r.origemVendas).toBe('cadastro');
-      expect(r.cenarios.r40.estender.extensoes.length).toBe(est.extensoes.length);
+      expect(r.cenarios.r40.estender.diasAbrir.length).toBe(est.diasAbrir.length);
       const texto = JSON.stringify(r.cenarios);
       for (const chave of [
         'vendaRefMes',

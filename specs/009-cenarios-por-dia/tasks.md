@@ -52,9 +52,9 @@ Segurança do banco: sem migration nesta spec; nada de `down -v` nem `prisma mig
 
 **Teste independente**: loja fechada aos domingos com sobra na equipe do Cenário 1: o domingo abre sem nova contratação, e a margem de referência confere com a conta à mão.
 
-- [ ] T015 [US3] Teste + `cenarios-dias.ts`: `montarEstenderDia` (equipe = atual + vagas do Cenário 1; candidatos = dias fechados; cabe sem nova contratação; horário do dia aberto mais curto; margem do dia no cadastro ou na base, senão 50% da média dos dias abertos, avisada como referência; escolhe o de maior margem e repete enquanto couber)
-- [ ] T016 [US3] Casos de borda com testes: nenhum dia fechado, sem sobra de capacidade, faturamento do dia fechado conhecido, sem venda nenhuma
-- [ ] T017 [US3] Teste de integração do Cenário 4 e das permissões, em `escala.routes.integration.test.ts`; [P] cartão do Cenário 4 (dia a abrir, horário, margem de referência, aviso) em `features/diagnostico/Cenarios.jsx`
+- [X] T015 [US3] Teste + `cenarios-dias.ts`: `montarEstenderDia` (equipe = atual + vagas do Cenário 1; candidatos = dias fechados; cabe sem nova contratação; horário do dia aberto mais curto; margem do dia no cadastro ou na base, senão 50% da média dos dias abertos, avisada como referência; escolhe o de maior margem e repete enquanto couber)
+- [X] T016 [US3] Casos de borda com testes: nenhum dia fechado, sem sobra de capacidade, faturamento do dia fechado conhecido, sem venda nenhuma
+- [X] T017 [US3] Teste de integração do Cenário 4 e das permissões, em `escala.routes.integration.test.ts`; [P] cartão do Cenário 4 (dia a abrir, horário, margem de referência, aviso) em `features/diagnostico/Cenarios.jsx`
 
 **Checkpoint**: o Cenário 4 abre dias, não horas. Segue a spec 010 (fatias 3 e 4).
 

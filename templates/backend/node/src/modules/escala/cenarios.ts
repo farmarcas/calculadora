@@ -145,6 +145,8 @@ export type EntradaCenarios = {
   diasProtegidos?: number;
   // Parte da venda de um dia fechado que migra para os outros dias (0 a 0,3; padrão 0).
   recaptura?: number;
+  // Quanto da média dos dias abertos vale um dia hoje fechado que nunca vendeu (0 a 1; padrão 0,5).
+  fatorDiaNovo?: number;
   custos: Custos | null;
   dono: boolean;
 };

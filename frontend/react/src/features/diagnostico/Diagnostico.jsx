@@ -151,7 +151,9 @@ function Cobertura({ cob }) {
 
 function Vendas({ vendas }) {
   if (!vendas) return null;
-  const max = Math.max(...vendas.horas.map((h) => h.vendaMedia)) || 1;
+  // Só o dono recebe o valor em reais; os demais veem a participação de cada hora no total.
+  const valorDe = (h) => h.vendaMedia ?? h.participacao;
+  const max = Math.max(...vendas.horas.map(valorDe)) || 1;
   const topo = new Set(vendas.top.map((t) => t.hora));
   return (
     <Cartao
@@ -163,9 +165,9 @@ function Vendas({ vendas }) {
           <div key={h.hora} className="flex items-center gap-3 text-xs">
             <span className="w-8 text-ink-500">{hh(h.hora)}</span>
             <div className="flex-1 h-4 bg-surface-subtle rounded">
-              <div className={`h-4 rounded ${topo.has(h.hora) ? "bg-system-500" : "bg-system-200"}`} style={{ width: `${(h.vendaMedia / max) * 100}%` }} />
+              <div className={`h-4 rounded ${topo.has(h.hora) ? "bg-system-500" : "bg-system-200"}`} style={{ width: `${(valorDe(h) / max) * 100}%` }} />
             </div>
-            <span className="w-24 text-right text-ink-700">{brl(h.vendaMedia)}</span>
+            <span className="w-24 text-right text-ink-700">{h.vendaMedia != null ? brl(h.vendaMedia) : `${String(Math.round(h.participacao * 1000) / 10).replace(".", ",")}% do dia`}</span>
           </div>
         ))}
       </div>

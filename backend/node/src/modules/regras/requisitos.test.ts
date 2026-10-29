@@ -4,7 +4,6 @@ import { regraPara } from './perfis.js';
 import { camadasDoDia, minimosIguais, requisitos, type MinimosPorFatia } from './requisitos.js';
 import { cobertura } from '../escala/cobertura.js';
 import { avaliarSimulacao } from '../simulacoes/avaliar.js';
-import { custoMensalDaHora, custoMensalDoTrecho, cortarQueNaoSePagam } from '../escala/cenarios.js';
 
 const semana = (abre: number, fecha: number, ate = 5): DiaAberto[] =>
   Array.from({ length: ate }, (_, dia) => ({ dia, abre, fecha }));
@@ -144,47 +143,5 @@ describe('cobertura e simulação com exigência por turno', () => {
     const cob = r.cobertura[0]!.find((f) => f.funcao === 'Atendimento')!;
     expect(cob.porHora.find((h) => h.hora === 9)!.ok).toBe(true);
     expect(cob.porHora.find((h) => h.hora === 15)!.ok).toBe(false);
-  });
-});
-
-describe('custo do trecho por turno', () => {
-  const custos = { salarioMedio: { Farmacêutico: 8000, Atendimento: 2000 }, encargosPct: 50 };
-
-  it('exigência igual: o mesmo valor de antes (custo da hora × horas)', () => {
-    const m = { Farmacêutico: 1, Atendimento: 1 };
-    const hora = custoMensalDaHora('r40', m, custos).custo!;
-    const trecho = custoMensalDoTrecho('r40', m, custos, 2, 18, 20).custo!;
-    expect(trecho).toBeCloseTo(hora * 2, 6);
-  });
-
-  it('por turno: cada hora custa o que a loja exige nela (conta feita à mão)', () => {
-    // hora das 15h: 1 farmacêutico (8000) + 3 atendentes (6000) = 14000 × 1,5 × 5 ÷ 200 = 525
-    const tarde = custoMensalDoTrecho('r40', porTurno, custos, 0, 15, 16).custo!;
-    expect(tarde).toBeCloseTo(525, 6);
-    // hora das 9h: 1 + 1 → 10000 × 1,5 × 5 ÷ 200 = 375
-    expect(custoMensalDoTrecho('r40', porTurno, custos, 0, 9, 10).custo).toBeCloseTo(375, 6);
-  });
-
-  it('falta de salário de um cargo exigido deixa o custo nulo', () => {
-    const r = custoMensalDoTrecho(
-      'r40',
-      porTurno,
-      { salarioMedio: { Farmacêutico: 8000 }, encargosPct: 50 },
-      0,
-      9,
-      10,
-    );
-    expect(r.custo).toBeNull();
-    expect(r.faltam).toEqual(['Atendimento']);
-  });
-
-  it('cortar o que não se paga aceita o custo por trecho', () => {
-    const vb = {
-      venda: Array.from({ length: 7 }, () => new Array<number>(24).fill(0)),
-      margem: Array.from({ length: 7 }, () => new Array<number>(24).fill(0)),
-      dias: 14,
-    };
-    const r = cortarQueNaoSePagam(semana(8, 10, 1), vb, () => 1000);
-    expect(r.fatias.length).toBeGreaterThan(0);
   });
 });

@@ -56,11 +56,8 @@ const CHAVES_DE_VENDA = new Set([
   'margem',
   'vendaMes',
   'margemMes',
-  'vendaRef',
-  'margemRef',
   'vendaRefMes',
   'margemRefMes',
-  'vendaCortadaSemana',
   'vendaCortadaMes',
   'margemCortadaMes',
 ]);
@@ -74,6 +71,16 @@ const semValoresDeVenda = (v: unknown): unknown =>
             .map(([k, x]) => [k, semValoresDeVenda(x)]),
         )
       : v;
+
+const semValorPorHora = <
+  T extends { horas: { vendaMedia: number }[]; top: { vendaMedia: number }[] },
+>(
+  v: T,
+) => ({
+  ...v,
+  horas: v.horas.map(({ vendaMedia: _v, ...resto }) => resto),
+  top: v.top.map(({ vendaMedia: _v, ...resto }) => resto),
+});
 
 // Texto fixo: o resultado é estimativa e precisa de validação fora do sistema.
 export const AVISO_ESTIMATIVA =
@@ -398,7 +405,8 @@ export const montarDiagnostico = (a: {
         ...(a.foraDaConta ?? []),
       ],
     }),
-    vendas: resumoVendas,
+    // Venda média por hora é valor em reais: só o dono; os demais veem a participação de cada hora no total.
+    vendas: a.dono || !resumoVendas ? resumoVendas : semValorPorHora(resumoVendas),
     origemVendas,
     cenarios: cenariosSaida,
     etapas,

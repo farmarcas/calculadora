@@ -60,11 +60,11 @@ Segurança do banco: sem migration nesta spec; nada de `down -v` nem `prisma mig
 
 ## Phase 6: Fatia 5 — Fechamento (depois da spec 010 fatias 3 e 4)
 
-- [ ] T018 Remover o código por hora (`cortarPontas`, `candidatas`, `aplicarCorte`, `juntarFatias`, `cortarQueNaoSePagam`, `custoMensalDoTrecho`, o Estender por hora) e reescrever ou retirar os testes antigos dos cenários 2, 3 e 4 por hora; manter Manter, Reduzir equipe e o que eles usam
-- [ ] T019 Permissões ponta a ponta (venda, margem, economia e resultado só ao dono) conferidas na tela com os três perfis
-- [ ] T020 Conferir a loja 001: registrar os novos valores dos cenários 2, 3 e 4 e do selo (hoje: "Foco em economia", R$ 8.710) e explicar a diferença na tela
-- [ ] T021 README (decisão por dia, dias protegidos, o que mudou e o que ficou de fora) e `quickstart.md` conferido
-- [ ] T022 Rodar tudo: `npm test`, `npm run test:integration`, `npm run lint`, `npx tsc --noEmit`, build do `web`, `scripts/sync-templates.sh --check`, `scripts/check-repo.sh`
+- [X] T018 Remover o código por hora (`cortarPontas`, `candidatas`, `aplicarCorte`, `juntarFatias`, `cortarQueNaoSePagam`, `custoMensalDoTrecho`, o Estender por hora) e reescrever ou retirar os testes antigos dos cenários 2, 3 e 4 por hora; manter Manter, Reduzir equipe e o que eles usam
+- [X] T019 Permissões ponta a ponta (venda, margem, economia e resultado só ao dono) conferidas na tela com os três perfis
+- [X] T020 Conferir a loja 001: registrar os novos valores dos cenários 2, 3 e 4 e do selo (hoje: "Foco em economia", R$ 8.710) e explicar a diferença na tela
+- [X] T021 README (decisão por dia, dias protegidos, o que mudou e o que ficou de fora) e `quickstart.md` conferido
+- [X] T022 Rodar tudo: `npm test`, `npm run test:integration`, `npm run lint`, `npx tsc --noEmit`, build do `web`, `scripts/sync-templates.sh --check`, `scripts/check-repo.sh`
 
 ## Dependências
 

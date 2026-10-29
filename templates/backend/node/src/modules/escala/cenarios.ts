@@ -1,7 +1,7 @@
 import { passa, verificarRegra, type DiaAberto, type LinhaFuncao } from '../regras/capacidade.js';
 import { regraPara, type RegraId } from '../regras/perfis.js';
 import { requisitos, type Minimos } from '../regras/requisitos.js';
-import { calcularCusto, divisorDe } from '../custos/custo.js';
+import { calcularCusto } from '../custos/custo.js';
 import type { TabelaParametros } from '../regras/parametros.js';
 import type { Custos } from '../custos/custos.schemas.js';
 import type { PessoaSim } from '../simulacoes/avaliar.js';
@@ -15,7 +15,7 @@ import {
   type OrigemVenda,
   type VendaDia,
 } from './cenarios-dias.js';
-import { vendasPorDiaEHora, type VendaDiaHora, type VendaLinha } from './vendas.js';
+import { vendasPorDiaEHora, type VendaLinha } from './vendas.js';
 
 export type DiaCenario = {
   dia: number;
@@ -53,15 +53,6 @@ export type CenarioManter = {
   custoAnual?: number | null;
   impactoPctFaturamento?: number | null;
   faturamentoMensalRef?: number | null;
-};
-
-export type Corte = {
-  dia: number;
-  de: string;
-  ate: string;
-  // Nulos quando não há base comercial.
-  venda: number | null;
-  margem: number | null;
 };
 
 // Dia da semana que o cenário sugere fechar. Venda e margem por mês (já com a recaptura descontada) só para o dono.
@@ -281,108 +272,8 @@ const montarManter = (e: EntradaCenarios, linhas: LinhaFuncao[], folha: number |
   return manter;
 };
 
-const SEMANAS_NO_MES = 52 / 12;
 const brl = (n: number) =>
   n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
-
-export type Fatia = { dia: number; de: number; ate: number; venda: number; margem: number };
-
-type Cand = Fatia & { fim: boolean };
-
-// Pontas que podem ser cortadas: a última e a primeira hora de cada dia aberto, com a venda e a
-// margem médias dela (fração da hora quando o horário não é redondo).
-export const candidatas = (atuais: DiaAberto[], vb: VendaDiaHora | null): Cand[] => {
-  const valor = (m: number[][] | undefined, dia: number, h: number, len: number) =>
-    (m?.[dia]?.[h] ?? 0) * len;
-  return atuais.flatMap((d) => {
-    const iniFim = Math.max(d.abre, Number.isInteger(d.fecha) ? d.fecha - 1 : Math.floor(d.fecha));
-    const fimIni = Math.min(d.fecha, Number.isInteger(d.abre) ? d.abre + 1 : Math.ceil(d.abre));
-    const mk = (de: number, ate: number, fim: boolean): Cand => ({
-      dia: d.dia,
-      de,
-      ate,
-      fim,
-      venda: valor(vb?.venda, d.dia, Math.floor(de), ate - de),
-      margem: valor(vb?.margem, d.dia, Math.floor(de), ate - de),
-    });
-    return iniFim <= d.abre
-      ? [mk(d.abre, d.fecha, true)]
-      : [mk(iniFim, d.fecha, true), mk(d.abre, fimIni, false)];
-  });
-};
-
-export const aplicarCorte = (atuais: DiaAberto[], c: Cand): DiaAberto[] =>
-  atuais.flatMap((d) => {
-    if (d.dia !== c.dia) return [d];
-    const novo = c.fim ? { ...d, fecha: c.de } : { ...d, abre: c.ate };
-    return novo.fecha > novo.abre ? [novo] : [];
-  });
-
-// Corta, uma hora por vez, a ponta (começo ou fim de um dia) que menos vende, até o quadro atual
-// cobrir o que sobrou. Empate: fim do dia antes do começo; depois o dia mais tarde na semana.
-export const cortarPontas = (
-  regra: ReturnType<typeof regraPara>,
-  dias: DiaAberto[],
-  minimos: Minimos,
-  pessoas: EntradaCenarios['pessoas'],
-  vb: VendaDiaHora | null,
-) => {
-  let atuais = dias.map((d) => ({ ...d }));
-  const fatias: Fatia[] = [];
-  while (atuais.length > 0 && !passa(verificarRegra(regra, atuais, minimos, pessoas))) {
-    const c = candidatas(atuais, vb).sort(
-      (x, y) => x.venda - y.venda || Number(y.fim) - Number(x.fim) || y.dia - x.dia,
-    )[0]!;
-    fatias.push({ dia: c.dia, de: c.de, ate: c.ate, venda: c.venda, margem: c.margem });
-    atuais = aplicarCorte(atuais, c);
-  }
-  // Devolve o que o corte levou a mais: tenta repor, da maior venda para a menor, cada fatia
-  // colada na faixa aberta do dia, enquanto o quadro continuar cobrindo.
-  for (let mudou = true; mudou;) {
-    mudou = false;
-    const ordem = fatias.map((_, i) => i).sort((a, b) => fatias[b]!.venda - fatias[a]!.venda);
-    for (const i of ordem) {
-      const f = fatias[i]!;
-      const d = atuais.find((x) => x.dia === f.dia);
-      if (!d) continue;
-      const novo =
-        Math.abs(f.de - d.fecha) < 1e-9
-          ? { ...d, fecha: f.ate }
-          : Math.abs(f.ate - d.abre) < 1e-9
-            ? { ...d, abre: f.de }
-            : null;
-      if (!novo) continue;
-      const tentativa = atuais.map((x) => (x === d ? novo : x));
-      if (!passa(verificarRegra(regra, tentativa, minimos, pessoas))) continue;
-      atuais = tentativa;
-      fatias.splice(i, 1);
-      mudou = true;
-      break;
-    }
-  }
-  return { dias: atuais, fatias };
-};
-
-// Junta fatias coladas do mesmo dia em faixas (ex.: 20h–21h e 21h–22h viram 20h–22h).
-export const juntarFatias = (fatias: Fatia[], comVendas: boolean): Corte[] => {
-  const porDia = [...fatias].sort((a, b) => a.dia - b.dia || a.de - b.de);
-  const faixas: Fatia[] = [];
-  for (const f of porDia) {
-    const u = faixas[faixas.length - 1];
-    if (u && u.dia === f.dia && Math.abs(u.ate - f.de) < 1e-9) {
-      u.ate = f.ate;
-      u.venda += f.venda;
-      u.margem += f.margem;
-    } else faixas.push({ ...f });
-  }
-  return faixas.map((f) => ({
-    dia: f.dia,
-    de: hhmm(f.de),
-    ate: hhmm(f.ate),
-    venda: comVendas ? arred(f.venda) : null,
-    margem: comVendas ? arred(f.margem) : null,
-  }));
-};
 
 const montarEconomia = (
   e: EntradaCenarios,
@@ -493,84 +384,6 @@ const montarEconomia = (
         ? 'Venda estimada: só o faturamento mensal foi informado e ele foi dividido igualmente entre os dias abertos. Informe o faturamento por dia da semana para escolher melhor quais dias fechar.'
         : null,
   };
-};
-
-// Custo mensal de cobrir 1 hora semanal da loja: cada função obrigatória, o mínimo de pessoas,
-// salário × encargos × 5 ÷ divisor da regra. Nulo se faltar o salário de alguma função obrigatória.
-export const custoMensalDaHora = (
-  regraId: RegraId,
-  minimos: Record<string, number>,
-  custos: Custos | null,
-  parametros?: TabelaParametros,
-): { custo: number | null; faltam: string[] } => {
-  const obrigatorias = Object.entries(minimos).filter(([, n]) => n > 0);
-  const faltam = obrigatorias
-    .filter(([f]) => !custos?.salarioMedio[f as keyof Custos['salarioMedio']])
-    .map(([f]) => f);
-  if (!custos || faltam.length > 0) return { custo: null, faltam };
-  const fator = 1 + custos.encargosPct / 100;
-  const custo = obrigatorias.reduce(
-    (t, [f, n]) =>
-      t +
-      (n * custos.salarioMedio[f as keyof Custos['salarioMedio']]! * fator * 5) /
-        divisorDe(regraId, parametros),
-    0,
-  );
-  return { custo, faltam: [] };
-};
-
-// Custo mensal de cobrir o trecho [de, ate) de um dia: soma, hora a hora, do que a loja exige nessa hora.
-// Com exigência igual em todas as horas dá o mesmo valor de custoMensalDaHora × horas.
-export const custoMensalDoTrecho = (
-  regraId: RegraId,
-  minimos: Minimos,
-  custos: Custos | null,
-  dia: number,
-  de: number,
-  ate: number,
-  parametros?: TabelaParametros,
-): { custo: number | null; faltam: string[] } => {
-  const req = requisitos(minimos);
-  const faltam = req.funcoes.filter(
-    (f) => !custos?.salarioMedio[f as keyof Custos['salarioMedio']],
-  );
-  if (!custos || faltam.length > 0) return { custo: null, faltam };
-  const fator = 1 + custos.encargosPct / 100;
-  let custo = 0;
-  for (let h = Math.floor(de); h < Math.ceil(ate); h++) {
-    const parte = Math.min(h + 1, ate) - Math.max(h, de);
-    for (const f of req.funcoes)
-      custo +=
-        (req.emHora(f, dia, h) *
-          custos.salarioMedio[f as keyof Custos['salarioMedio']]! *
-          fator *
-          5 *
-          parte) /
-        divisorDe(regraId, parametros);
-  }
-  return { custo, faltam: [] };
-};
-
-// Corta as pontas cuja margem mensal é menor que o custo mensal de cobri-las (a de menor margem
-// primeiro), reavaliando as novas pontas a cada corte.
-// `custoHora` é um valor único por hora ou uma função que devolve o custo do trecho cortado.
-export const cortarQueNaoSePagam = (
-  dias: DiaAberto[],
-  vb: VendaDiaHora,
-  custoHora: number | ((dia: number, de: number, ate: number) => number),
-) => {
-  const custoDe = (x: { dia: number; de: number; ate: number }) =>
-    typeof custoHora === 'number' ? custoHora * (x.ate - x.de) : custoHora(x.dia, x.de, x.ate);
-  let atuais = dias.map((d) => ({ ...d }));
-  const fatias: Fatia[] = [];
-  for (;;) {
-    const c = candidatas(atuais, vb)
-      .filter((x) => x.margem * SEMANAS_NO_MES < custoDe(x))
-      .sort((x, y) => x.margem - y.margem || Number(y.fim) - Number(x.fim) || y.dia - x.dia)[0];
-    if (!c) return { dias: atuais, fatias };
-    fatias.push({ dia: c.dia, de: c.de, ate: c.ate, venda: c.venda, margem: c.margem });
-    atuais = aplicarCorte(atuais, c);
-  }
 };
 
 const montarEquilibrio = (

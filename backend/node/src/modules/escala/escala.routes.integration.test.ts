@@ -122,7 +122,8 @@ describe('escala (rotas)', () => {
       .set(admin)
       .attach('arquivo', base, 'base.xlsx');
     expect(imp.status).toBe(201);
-    const d = (await request(app).get(`/api/v1/lojas/${lojaId}/diagnostico`)).body;
+    // o valor médio em reais é do dono
+    const d = (await request(app).get(`/api/v1/lojas/${lojaId}/diagnostico`).set(admin)).body;
     expect(d.vendas.top[0]).toMatchObject({ hora: 18, vendaMedia: 1000 });
     expect(d.vendas.periodo.dias).toBe(2);
   });
@@ -783,6 +784,21 @@ describe('escala (rotas)', () => {
     expect(base.origemVenda).toBe('base');
     // duas segundas (07/09 e 14/09/2026): (200 + 300) ÷ 2 = 250 por segunda
     expect(base.vendasPorDia[0]).toMatchObject({ venda: 250, margem: 50 });
+
+    // O painel de vendas por hora traz o valor em reais só para o dono; os demais veem a participação de cada hora
+    const donoVendas = (await request(app).get(url).set(admin)).body.vendas;
+    expect(donoVendas.horas[0].vendaMedia).toBeGreaterThan(0);
+    for (const perfil of [gestor, { 'X-Perfil': 'SCHEDULE_VIEWER' }]) {
+      const v = (await request(app).get(url).set(perfil)).body.vendas;
+      expect(v.horas.length).toBe(donoVendas.horas.length);
+      expect(
+        v.horas.every(
+          (h: Record<string, unknown>) =>
+            !('vendaMedia' in h) && typeof h.participacao === 'number',
+        ),
+      ).toBe(true);
+      expect(v.top.every((t: Record<string, unknown>) => !('vendaMedia' in t))).toBe(true);
+    }
   });
 
   it('premissas para simular: recaptura, margem, dias protegidos e limite do parcial; faixas, permissões e nada é gravado', async () => {

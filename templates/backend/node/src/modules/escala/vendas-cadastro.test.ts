@@ -32,6 +32,20 @@ describe('vendasDoCadastro', () => {
     expect(r.comMargem).toBe(false);
   });
 
+  it('informa se a venda veio só do mensal (estimativa) ou do faturamento por dia', () => {
+    const dias = semana(8, 10, 5);
+    expect(
+      vendasDoCadastro({ dias: new Array(7).fill(null), mensal: 52000, margemPct: null }, dias)!
+        .soMensal,
+    ).toBe(true);
+    expect(
+      vendasDoCadastro(
+        { dias: [100, null, null, null, null, null, null], mensal: 52000, margemPct: null },
+        dias,
+      )!.soMensal,
+    ).toBe(false);
+  });
+
   it('só o mensal: mensal × 12 ÷ 52 dividido entre os dias abertos', () => {
     const r = vendasDoCadastro(
       { dias: new Array(7).fill(null), mensal: 52000, margemPct: null },

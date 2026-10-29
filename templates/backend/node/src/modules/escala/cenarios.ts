@@ -5,6 +5,13 @@ import { calcularCusto, divisorDe } from '../custos/custo.js';
 import type { TabelaParametros } from '../regras/parametros.js';
 import type { Custos } from '../custos/custos.schemas.js';
 import type { PessoaSim } from '../simulacoes/avaliar.js';
+import {
+  DIAS_PROTEGIDOS_PADRAO,
+  semValores,
+  vendasPorDia,
+  type OrigemVenda,
+  type VendaDia,
+} from './cenarios-dias.js';
 import { vendasPorDiaEHora, type VendaDiaHora, type VendaLinha } from './vendas.js';
 
 export type DiaCenario = {
@@ -93,6 +100,10 @@ export type CenariosRegra = {
   regra: { id: RegraId; nome: string };
   atual: { horasSemana: number; pessoas: number; folhaMensal?: number | null };
   vendasBase: { dias: number } | null;
+  // Venda de cada dia da semana (valores em reais só para o dono), de onde ela vem e os dias que não se sugere fechar.
+  vendasPorDia: VendaDia[];
+  origemVenda: OrigemVenda | null;
+  diasProtegidos: number[];
   manter: CenarioManter;
   economia: CenarioEconomia;
   equilibrio: CenarioEquilibrio;
@@ -113,6 +124,9 @@ export type EntradaCenarios = {
   parametros?: TabelaParametros;
   // Faturamento mensal de referência (cadastro ou base comercial), para o impacto em % do faturamento.
   faturamentoMensalRef?: number | null;
+  // Origem da venda (base, cadastro por dia ou estimativa do mensal) e quantos dias de maior faturamento são protegidos.
+  origemVenda?: OrigemVenda | null;
+  diasProtegidos?: number;
   custos: Custos | null;
   dono: boolean;
 };
@@ -602,6 +616,7 @@ export const montarCenarios = (e: EntradaCenarios): CenariosRegra => {
   const regra = regraPara(e.regraId, e.convencao8h24, e.parametros);
   const linhas = verificarRegra(regra, e.dias, e.minimos, e.pessoas);
   const vb = vendasPorDiaEHora(e.vendas);
+  const porDia = vendasPorDia(e.vendas, e.dias, e.diasProtegidos ?? DIAS_PROTEGIDOS_PADRAO);
   const folha = e.dono ? folhaAtual(e.pessoas, e.custos, e.parametros) : null;
   const manter = montarManter(e, linhas, folha);
   const custoManter = custoDasVagas(
@@ -621,6 +636,9 @@ export const montarCenarios = (e: EntradaCenarios): CenariosRegra => {
       ...(e.dono ? { folhaMensal: folha } : {}),
     },
     vendasBase: vb ? { dias: vb.dias } : null,
+    vendasPorDia: e.dono ? porDia : porDia.map(semValores),
+    origemVenda: e.origemVenda ?? null,
+    diasProtegidos: porDia.filter((d) => d.protegido).map((d) => d.dia),
     manter,
     economia,
     equilibrio,

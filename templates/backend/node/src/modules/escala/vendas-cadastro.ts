@@ -13,13 +13,13 @@ const DATAS_REF = [
   '2001-01-07',
 ];
 
-const arred = (n: number) => Math.round(n * 100) / 100;
-
 export type VendasDoCadastro = {
   linhas: VendaLinha[];
   // Dias abertos que ficaram sem valor próprio e usaram a média dos informados.
   diasPelaMedia: number[];
   comMargem: boolean;
+  // Só o faturamento mensal foi informado: o valor de cada dia é a divisão igual entre os dias abertos (estimativa).
+  soMensal: boolean;
 };
 
 // Transforma o faturamento do cadastro em "vendas por hora" no mesmo formato da base comercial:
@@ -32,6 +32,7 @@ export const vendasDoCadastro = (
 ): VendasDoCadastro | null => {
   if (!fat || dias.length === 0) return null;
   const informados = fat.dias.filter((v): v is number => v !== null && v > 0);
+  let soMensal = false;
   let valorDoDia: (dia: number) => number;
   const diasPelaMedia: number[] = [];
   if (informados.length > 0) {
@@ -43,6 +44,7 @@ export const vendasDoCadastro = (
       return media;
     };
   } else if (fat.mensal && fat.mensal > 0) {
+    soMensal = true;
     const porDia = (fat.mensal * 12) / 52 / dias.length;
     valorDoDia = () => porDia;
   } else return null;
@@ -55,17 +57,18 @@ export const vendasDoCadastro = (
     if (horasAbertas <= 0 || total <= 0) continue;
     for (let h = Math.floor(d.abre); h < Math.ceil(d.fecha); h++) {
       const parte = Math.min(h + 1, d.fecha) - Math.max(h, d.abre);
-      const venda = arred((total * parte) / horasAbertas);
+      // Sem arredondar a hora: a soma das horas do dia tem de devolver o valor do dia (o arredondamento fica na saída).
+      const venda = (total * parte) / horasAbertas;
       linhas.push({
         data: DATAS_REF[d.dia]!,
         hora: h,
         venda,
-        margem: arred(venda * pct),
+        margem: venda * pct,
         clientes: 0,
         unidades: 0,
       });
     }
   }
   if (linhas.length === 0) return null;
-  return { linhas, diasPelaMedia, comMargem: pct > 0 };
+  return { linhas, diasPelaMedia, comMargem: pct > 0, soMensal };
 };

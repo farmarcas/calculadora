@@ -52,6 +52,8 @@ const hh = (h: number) =>
 const CHAVES_DE_VENDA = new Set([
   'venda',
   'margem',
+  'vendaMes',
+  'margemMes',
   'vendaRef',
   'margemRef',
   'vendaRefMes',
@@ -297,6 +299,16 @@ export const montarDiagnostico = (a: {
     linhasRejeitadas: escala.linhasRejeitadas,
   };
 
+  // Origem da venda por dia: base comercial, faturamento do cadastro por dia, ou estimativa (só o mensal informado).
+  const origemVenda =
+    origemVendas === 'base'
+      ? ('base' as const)
+      : origemVendas === 'cadastro'
+        ? doCadastro?.soMensal
+          ? ('estimativa' as const)
+          : ('cadastro' as const)
+        : null;
+
   // Faturamento mensal de referência (só o dono vê o que dele sai): cadastro ou base comercial.
   const faturamentoRef = faturamentoMensalDe({ faturamento: loja.faturamento, vendasBase: vendas });
 
@@ -314,14 +326,15 @@ export const montarDiagnostico = (a: {
         dono: a.dono === true,
         parametros: a.parametros,
         faturamentoMensalRef: faturamentoRef?.valor ?? null,
+        origemVenda,
       };
       const cenarios = montarCenarios(entrada);
       return [regraId, { ...cenarios, ...montarExtras(entrada, cenarios) }];
     }),
   ) as Record<'r42' | 'r40', ReturnType<typeof montarCenarios> & ExtrasRegra>;
-  // Venda estimada pelo faturamento do cadastro é valor em reais: só o dono vê.
+  // Venda e margem são valores em reais: só o dono vê, venha a venda da base comercial ou do cadastro.
   const cenariosSaida = (
-    a.dono || origemVendas !== 'cadastro' ? cenariosPorRegra : semValoresDeVenda(cenariosPorRegra)
+    a.dono ? cenariosPorRegra : semValoresDeVenda(cenariosPorRegra)
   ) as typeof cenariosPorRegra;
 
   // Contratação em etapas: o necessário já na fase de 42h e o adicional para a de 40h.

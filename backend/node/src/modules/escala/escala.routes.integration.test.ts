@@ -5,6 +5,9 @@ import { app } from '../../app.js';
 import { prisma } from '../../shared/database/prisma.js';
 
 const admin = { 'X-Perfil': 'TENANT_ADMIN' };
+// Tira os campos de venda e margem (valores em reais) de um item, para comparar o que gestor e consulta veem.
+const semValor = (o: Record<string, unknown>) =>
+  Object.fromEntries(Object.entries(o).filter(([k]) => !/venda|margem/i.test(k)));
 
 const xlsx = async (cab: string[], linhas: string[][]) => {
   const wb = new ExcelJS.Workbook();
@@ -367,7 +370,9 @@ describe('escala (rotas)', () => {
     for (const h of [{ 'X-Perfil': 'SCHEDULE_MANAGER' }, { 'X-Perfil': 'SCHEDULE_VIEWER' }]) {
       const r = await eq(h);
       expect(r.indisponivel).toBeNull();
-      expect(r.cortes).toEqual(dono.cortes);
+      // venda e margem de cada corte são valores em reais: só o dono vê; os dias e horas são os mesmos
+      expect(r.cortes.map(semValor)).toEqual(dono.cortes.map(semValor));
+      expect(JSON.stringify(r.cortes)).not.toMatch(/venda|margem/i);
       expect('custoAdicionalMensal' in r).toBe(false);
       expect('acrescimoPct' in r).toBe(false);
       const todos = (await request(app).get(url).set(h)).body.cenarios.r40;
@@ -507,7 +512,8 @@ describe('escala (rotas)', () => {
 
     for (const h of [{ 'X-Perfil': 'SCHEDULE_MANAGER' }, { 'X-Perfil': 'SCHEDULE_VIEWER' }]) {
       const r = await est(h);
-      expect(r.extensoes).toEqual(com.extensoes);
+      expect(r.extensoes.map(semValor)).toEqual(com.extensoes.map(semValor));
+      expect(JSON.stringify(r.extensoes)).not.toMatch(/venda|margem/i);
       expect('custoAdicionalMensal' in r).toBe(false);
       expect('impactoMensal' in r).toBe(false);
     }
@@ -667,6 +673,97 @@ describe('escala (rotas)', () => {
     const completo = (await request(app).get(url).set({ 'X-Perfil': 'SCHEDULE_VIEWER' })).body;
     expect(completo.status).not.toBe('pendente');
     expect(completo.avisoEstimativa).toContain('contador');
+  });
+
+  it('venda e margem por dia da semana: origem, dias protegidos e valores só para o dono', async () => {
+    await request(app)
+      .post('/api/v1/cargas/escala')
+      .set(admin)
+      .attach(
+        'arquivo',
+        await xlsx(escalaCab, [
+          ['001', 'F1', 'Ana', 'Farmacêutica', 'Seg a Sáb', '08:00', '', '', '16:00', '40'],
+        ]),
+        'e.xlsx',
+      );
+    const url = `/api/v1/lojas/${lojaId}/diagnostico`;
+    const gestor = { 'X-Perfil': 'SCHEDULE_MANAGER' };
+    const regra40 = async (perfil = admin) =>
+      (await request(app).get(url).set(perfil)).body.cenarios.r40;
+
+    // faturamento por dia (loja aberta de segunda a sábado) com margem de 25%
+    await request(app)
+      .patch(`/api/v1/lojas/${lojaId}`)
+      .set(admin)
+      .send({
+        faturamento: {
+          dias: [1010, 1120, 910, 1230, 1530, 830, null],
+          mensal: null,
+          margemPct: 25,
+        },
+      });
+    const dono = await regra40();
+    expect(dono.origemVenda).toBe('cadastro');
+    expect(dono.vendasPorDia.map((d: { venda: number }) => d.venda)).toEqual([
+      1010, 1120, 910, 1230, 1530, 830, 0,
+    ]);
+    // sexta: margem 382,50 por dia × 52 ÷ 12 = 1657,50 por mês
+    expect(dono.vendasPorDia[4]).toMatchObject({
+      aberto: true,
+      protegido: true,
+      margem: 382.5,
+      margemMes: 1657.5,
+    });
+    // os três dias de maior faturamento (sexta 1530, quinta 1230, terça 1120) são protegidos
+    expect(dono.diasProtegidos).toEqual([1, 3, 4]);
+    expect(dono.vendasPorDia[6]).toMatchObject({ aberto: false, protegido: false, venda: 0 });
+
+    // gestor e consulta: os dias e a proteção, sem nenhum valor em reais
+    for (const perfil of [gestor, { 'X-Perfil': 'SCHEDULE_VIEWER' }]) {
+      const r = await regra40(perfil);
+      expect(r.diasProtegidos).toEqual([1, 3, 4]);
+      expect(r.vendasPorDia[4]).toEqual({ dia: 4, aberto: true, protegido: true });
+      const texto = JSON.stringify(r);
+      for (const valor of ['1530', '1657.5', '382.5']) expect(texto).not.toContain(valor);
+    }
+
+    // só o faturamento mensal: estimativa, igual em todos os dias abertos (52000 × 12 ÷ 52 ÷ 6 = 2000)
+    await request(app)
+      .patch(`/api/v1/lojas/${lojaId}`)
+      .set(admin)
+      .send({
+        faturamento: {
+          dias: [null, null, null, null, null, null, null],
+          mensal: 52000,
+          margemPct: 25,
+        },
+      });
+    const est = await regra40();
+    expect(est.origemVenda).toBe('estimativa');
+    expect(est.vendasPorDia.slice(0, 6).every((d: { venda: number }) => d.venda === 2000)).toBe(
+      true,
+    );
+
+    // base comercial enviada: vale a base
+    await request(app)
+      .post('/api/v1/cargas/base')
+      .set(admin)
+      .attach(
+        'arquivo',
+        await xlsx(
+          ['Data', 'Hora', 'Cod_Loja', 'Venda_Liquida_RS', 'Margem_Bruta_RS', 'Clientes_Atendidos'],
+          [
+            ['07/09/2026', '9', '001', '100,00', '20,00', '5'],
+            ['07/09/2026', '10', '001', '100,00', '20,00', '5'],
+            ['14/09/2026', '9', '001', '300,00', '60,00', '9'],
+          ],
+        ),
+        'b.xlsx',
+      );
+    const base = await regra40();
+    expect(base.origemVenda).toBe('base');
+    // duas segundas (07/09 e 14/09/2026): (200 + 300) ÷ 2 = 250 por segunda
+    expect(base.vendasPorDia[0]).toMatchObject({ venda: 250, margem: 50 });
   });
 
   it('cenário 5: mostra a sobra de gente por cargo; economia só para o dono', async () => {

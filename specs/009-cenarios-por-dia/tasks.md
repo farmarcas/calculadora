@@ -14,17 +14,17 @@ Segurança do banco: sem migration nesta spec; nada de `down -v` nem `prisma mig
 
 ## Phase 1: Setup
 
-- [ ] T001 Conferir o branch `feat/cenarios-por-dia` (com a spec 010 fatias 1 e 2 já feitas), o ambiente de pé e os testes atuais verdes, anotando as contagens de partida
+- [X] T001 Conferir o branch `feat/cenarios-por-dia` (com a spec 010 fatias 1 e 2 já feitas), o ambiente de pé e os testes atuais verdes, anotando as contagens de partida
 
 ## Phase 2: Fatia 1 — Base por dia (fundação das US1 a US4)
 
 **Teste independente**: venda e margem mensal por dia conferem com a conta à mão nas três origens; os três dias de maior faturamento saem como protegidos.
 
-- [ ] T002 Teste + `src/modules/escala/vendas-cadastro.ts`: devolver também se a venda veio só do mensal (`soMensal`)
-- [ ] T003 Teste + `src/modules/escala/cenarios-dias.ts`: `vendasPorDia` (soma das horas de cada dia da semana, venda e margem médias), origem (`base`, `cadastro`, `estimativa`), margem mensal (× 52 ÷ 12), dias protegidos (3 de maior faturamento entre os dias abertos; empate: o mais tardio)
-- [ ] T004 `src/modules/escala/cenarios.ts` e `diagnostico.ts`: tipos novos de resposta (`vendasPorDia`, `origemVenda`, `diasProtegidos`) e entrada dos cenários com a venda por dia
-- [ ] T005 Valores de venda e margem só para o dono em qualquer origem (hoje só quando a origem é o cadastro), em `diagnostico.ts`; ajustar os testes que esperavam gestor e consulta vendo venda e margem com base comercial
-- [ ] T006 Rodar tudo e commitar a fatia
+- [X] T002 Teste + `src/modules/escala/vendas-cadastro.ts`: devolver também se a venda veio só do mensal (`soMensal`)
+- [X] T003 Teste + `src/modules/escala/cenarios-dias.ts`: `vendasPorDia` (soma das horas de cada dia da semana, venda e margem médias), origem (`base`, `cadastro`, `estimativa`), margem mensal (× 52 ÷ 12), dias protegidos (3 de maior faturamento entre os dias abertos; empate: o mais tardio)
+- [X] T004 `src/modules/escala/cenarios.ts` e `diagnostico.ts`: tipos novos de resposta (`vendasPorDia`, `origemVenda`, `diasProtegidos`) e entrada dos cenários com a venda por dia
+- [X] T005 Valores de venda e margem só para o dono em qualquer origem (hoje só quando a origem é o cadastro), em `diagnostico.ts`; ajustar os testes que esperavam gestor e consulta vendo venda e margem com base comercial
+- [X] T006 Rodar tudo e commitar a fatia
 
 ## Phase 3: Fatia 2 — US1 + US4: Cenário 2, fechar dias (P1) 🎯 MVP
 

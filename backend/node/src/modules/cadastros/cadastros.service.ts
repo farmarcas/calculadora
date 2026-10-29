@@ -1,3 +1,4 @@
+import { AppError } from '../../shared/errors/app-error.js';
 import { ConflictError } from '../../shared/errors/conflict-error.js';
 import { NotFoundError } from '../../shared/errors/not-found-error.js';
 import { ValidationError } from '../../shared/errors/validation-error.js';
@@ -6,6 +7,7 @@ import { CAMPOS_FUNCIONARIO, CAMPOS_LOJA } from '../planilhas/campos.js';
 import { inferirMapeamento, type Mapeamento } from '../planilhas/inferencia.js';
 import { lerPlanilha, type Aba } from '../planilhas/leitor.js';
 import type { FuncionarioBody, LojaBody } from './cadastros.schemas.js';
+import { normalizarCnpj, validarCnpj } from '../ge/cnpj.js';
 import { semanalDeMensal } from './carga.js';
 import { soDigitos } from './documentos.js';
 import { processarLinhas, type FuncionarioInput, type LojaInput } from './processar.js';
@@ -23,6 +25,8 @@ export type CadastrosRepository = {
   listarLojas: (f: Filtro) => Promise<{ data: LojaRegistro[]; total: number }>;
   buscarLoja: (id: string) => Promise<LojaRegistro | null>;
   buscarLojaPorCodigo: (codigo: string) => Promise<LojaRegistro | null>;
+  // Vale no sistema todo (o CNPJ é único entre todos os GEs); só diz se está em uso, sem mostrar de quem.
+  cnpjEmUso: (cnpj: string, exceto?: string) => Promise<boolean>;
   criarLoja: (i: LojaBody) => Promise<LojaRegistro>;
   atualizarLoja: (id: string, i: Partial<LojaBody>) => Promise<LojaRegistro>;
   removerLoja: (id: string) => Promise<void>;
@@ -90,13 +94,28 @@ export const makeCadastrosService = (repo: CadastrosRepository, auditar: Auditor
   async criarLoja(body: LojaBody, perfil: string) {
     if (await repo.buscarLojaPorCodigo(body.codigo))
       throw new ConflictError('Já existe loja com esse código', 'LOJA_DUPLICADA');
+    if (body.cnpj && (await repo.cnpjEmUso(body.cnpj)))
+      throw new ConflictError('Este CNPJ já está cadastrado', 'CNPJ_EM_USO');
     const loja = await repo.criarLoja(body);
     await auditar({ acao: 'loja.criada', perfil, alvoTipo: 'loja', alvoId: loja.id });
     return loja;
   },
   async editarLoja(id: string, body: Partial<LojaBody>, perfil: string) {
-    if (!(await repo.buscarLoja(id)))
-      throw new NotFoundError('Loja não encontrada', 'LOJA_NAO_ENCONTRADA');
+    const atual = await repo.buscarLoja(id);
+    if (!atual) throw new NotFoundError('Loja não encontrada', 'LOJA_NAO_ENCONTRADA');
+    if (body.cnpj !== undefined) {
+      if (perfil === 'PLATFORM_OPERATOR') {
+        if (body.cnpj !== atual.cnpj && (await repo.cnpjEmUso(body.cnpj, id)))
+          throw new ConflictError('Este CNPJ já está cadastrado', 'CNPJ_EM_USO');
+      } else if (body.cnpj !== (atual.cnpj ?? undefined)) {
+        // O CNPJ identifica a loja na carga da plataforma: só o operador muda.
+        throw new AppError(
+          'O CNPJ da loja só pode ser alterado por quem cuida da plataforma',
+          400,
+          'CNPJ_NAO_EDITAVEL',
+        );
+      }
+    }
     if (body.codigo) {
       const outra = await repo.buscarLojaPorCodigo(body.codigo);
       if (outra && outra.id !== id)
@@ -152,7 +171,7 @@ export const makeCadastrosService = (repo: CadastrosRepository, auditar: Auditor
   },
 
   // Passo 1 da importação: lê, entende as colunas e devolve a sugestão para a pessoa confirmar.
-  async receberPlanilha(arquivo: string, buffer: Buffer) {
+  async receberPlanilha(arquivo: string, buffer: Buffer, perfil: string) {
     const abas = (await lerPlanilha(buffer, arquivo)).filter(
       (a) => !/como preencher/i.test(a.nome),
     );
@@ -168,7 +187,9 @@ export const makeCadastrosService = (repo: CadastrosRepository, auditar: Auditor
         total: a.linhas.length,
         amostra: a.linhas.slice(0, 5),
       })),
-      mapeamento: inf.mapeamento,
+      // Quem cuida de um GE importa só a equipe: a aba de lojas nem é oferecida.
+      mapeamento:
+        perfil === 'PLATFORM_OPERATOR' ? inf.mapeamento : { ...inf.mapeamento, lojas: null },
       sugestoes: inf.sugestoes,
       campos: {
         lojas: CAMPOS_LOJA.map(({ chave, rotulo, obrigatorio, legado }) => ({
@@ -210,6 +231,9 @@ export const makeCadastrosService = (repo: CadastrosRepository, auditar: Auditor
     }
     if (!mapeamento.lojas && !mapeamento.funcionarios)
       throw new ValidationError('Indique ao menos uma aba (Lojas ou Funcionários).');
+    // As lojas vêm da plataforma: quem cuida de um GE importa só a equipe.
+    if (mapeamento.lojas && perfil !== 'PLATFORM_OPERATOR')
+      throw new AppError('Só quem cuida da plataforma importa lojas', 403, 'SEM_PERMISSAO');
 
     const proc = processarLinhas(imp.abas, mapeamento);
     const resumo: ResumoImportacao = {
@@ -223,7 +247,26 @@ export const makeCadastrosService = (repo: CadastrosRepository, auditar: Auditor
       // Faturamento em planilha só vale quando quem importa é o dono.
       const { faturamento: _fat, ...semFat } = loja;
       const l: LojaInput = perfil === 'TENANT_ADMIN' ? loja : semFat;
+      if (l.cnpj) {
+        if (!validarCnpj(l.cnpj)) {
+          resumo.erros.push({
+            aba: mapeamento.lojas!.aba,
+            linha: 0,
+            motivo: `Loja ${l.codigo}: CNPJ inválido`,
+          });
+          continue;
+        }
+        l.cnpj = normalizarCnpj(l.cnpj);
+      }
       const existente = await repo.buscarLojaPorCodigo(l.codigo);
+      if (l.cnpj && (await repo.cnpjEmUso(l.cnpj, existente?.id))) {
+        resumo.erros.push({
+          aba: mapeamento.lojas!.aba,
+          linha: 0,
+          motivo: `Loja ${l.codigo}: este CNPJ já está cadastrado`,
+        });
+        continue;
+      }
       if (existente) {
         await repo.atualizarLoja(existente.id, l);
         lojaIds.set(l.codigo, existente.id);

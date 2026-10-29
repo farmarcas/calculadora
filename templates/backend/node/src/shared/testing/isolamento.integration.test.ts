@@ -1,11 +1,12 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { prisma } from '../database/prisma.js';
 import { GE_INICIAL_ID } from '../ge.js';
-import { criarGe, limparGes, reqGe } from './ge.js';
+import { criarGe, limparGes, postLoja, reqGe } from './ge.js';
 
 // Dois GEs com dados parecidos. Quem está no GE B não pode ver nem mexer em nada do GE A:
 // o servidor responde como se o registro não existisse.
 const admin = { 'X-Perfil': 'TENANT_ADMIN' };
+const operador = { 'X-Perfil': 'PLATFORM_OPERATOR' };
 const custos = { salarioMedio: { Farmacêutico: 8000, Atendimento: 2500 }, encargosPct: 70 };
 const horarios = {
   versao: 2,
@@ -33,10 +34,7 @@ describe('isolamento entre GEs', () => {
     a = (await criarGe('ISO-A', 'Empresário A')).id;
     b = (await criarGe('ISO-B', 'Empresário B')).id;
     const dados = async (ge: string, nome: string) => {
-      const loja = await reqGe(ge)
-        .post('/api/v1/lojas')
-        .set(admin)
-        .send({ codigo: '001', nome, horarios });
+      const loja = await postLoja({ codigo: '001', nome, horarios }, ge);
       expect(loja.status, loja.text).toBe(201);
       const func = await reqGe(ge)
         .post('/api/v1/funcionarios')
@@ -171,7 +169,9 @@ describe('isolamento entre GEs', () => {
     // Loja de outro GE é tratada como loja que não existe: no cadastro de funcionário isso já era 400 ("Loja de lotação não existe").
     const esperado = nome === 'criar funcionário na loja' ? 400 : 404;
     it(`no GE B não dá para ${nome}`, async () => {
-      let r = reqGe(b)[metodo](url()).set(admin);
+      // Só o operador remove loja; o 404 vem depois da permissão.
+      const perfil = metodo === 'delete' && url().includes('/lojas/') ? operador : admin;
+      let r = reqGe(b)[metodo](url()).set(perfil);
       if (corpo) r = r.send(corpo());
       const res = await r;
       expect(res.status, `${metodo} ${url()} → ${res.status} ${res.text.slice(0, 120)}`).toBe(

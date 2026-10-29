@@ -113,6 +113,14 @@ export const cadastrosRepository = (geId: string): CadastrosRepository => ({
     const r = await prisma.loja.findFirst({ where: { codigo, geId, ...ativo }, select: lojaSel });
     return r ? comoLoja(r) : null;
   },
+  async cnpjEmUso(cnpj, exceto) {
+    // De propósito sem filtrar por GE: o CNPJ é único no sistema todo.
+    return (
+      (await prisma.loja.count({
+        where: { cnpj, ...ativo, ...(exceto ? { id: { not: exceto } } : {}) },
+      })) > 0
+    );
+  },
   async criarLoja(i) {
     return comoLoja(
       await prisma.loja.create({

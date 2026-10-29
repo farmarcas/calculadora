@@ -1,7 +1,7 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import ExcelJS from 'exceljs';
 import { GE_INICIAL_ID } from '../../shared/ge.js';
-import { reqGe } from '../../shared/testing/ge.js';
+import { postLoja, reqGe } from '../../shared/testing/ge.js';
 import { prisma } from '../../shared/database/prisma.js';
 
 const admin = { 'X-Perfil': 'TENANT_ADMIN', 'X-GE': GE_INICIAL_ID };
@@ -122,14 +122,11 @@ describe('parâmetros legais (rotas)', () => {
     await prisma.carga.deleteMany();
     await prisma.funcionario.deleteMany();
     await prisma.loja.deleteMany();
-    const loja = await reqGe()
-      .post('/api/v1/lojas')
-      .set(admin)
-      .send({
-        codigo: '001',
-        nome: 'Centro',
-        horarios: { semana: { abre: '08:00', fecha: '20:00' } },
-      });
+    const loja = await postLoja({
+      codigo: '001',
+      nome: 'Centro',
+      horarios: { semana: { abre: '08:00', fecha: '20:00' } },
+    });
     const wb = new ExcelJS.Workbook();
     wb.addWorksheet('Dados').addRows([
       [

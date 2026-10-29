@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { normalizarCnpj } from '../ge/cnpj.js';
 import { UFS, validarCnpj, validarCpf } from './documentos.js';
 import { faturamentoSchema } from './faturamento.js';
 import { normalizarHorarios, validarHorarios } from './horarios.js';
@@ -42,11 +43,13 @@ export const lojaSchema = z
   .object({
     codigo: z.string().trim().min(1).max(30),
     nome: z.string().trim().min(2).max(120),
+    // Aceita com ou sem pontuação e guarda só os 14 dígitos.
     cnpj: z
       .string()
       .trim()
       .max(18)
       .refine((v) => v === '' || validarCnpj(v), 'CNPJ inválido')
+      .transform((v) => (v === '' ? undefined : normalizarCnpj(v)))
       .optional(),
     cidade: z.string().trim().max(80).optional(),
     uf: z
@@ -105,7 +108,14 @@ const req = <B extends z.ZodType, P extends z.ZodType, Q extends z.ZodType>(
 ) => z.object({ body, params, query });
 
 export const listarReq = req(vazio.default({}), vazio.default({}), paginacao);
-export const criarLojaReq = req(lojaSchema, vazio.default({}), vazio.default({}));
+// Loja nova (só o operador cria) exige CNPJ válido.
+export const criarLojaReq = req(
+  lojaSchema.extend({
+    cnpj: z.string().trim().max(18).refine(validarCnpj, 'CNPJ inválido').transform(normalizarCnpj),
+  }),
+  vazio.default({}),
+  vazio.default({}),
+);
 export const editarLojaReq = req(lojaSchema.partial(), id, vazio.default({}));
 export const criarFuncReq = req(funcionarioSchema, vazio.default({}), vazio.default({}));
 export const editarFuncReq = req(funcionarioSchema.partial(), id, vazio.default({}));

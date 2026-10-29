@@ -17,6 +17,10 @@ import { makeCadastrosService, type CadastrosRepository } from './cadastros.serv
 const perfilDe = (res: Response) => res.locals.perfil as Perfil;
 const v = <T extends z.ZodType>(res: Response) => readValidated<z.infer<T>>(res);
 const escrita = exigirPerfil('TENANT_ADMIN', 'SCHEDULE_MANAGER');
+// Lojas vêm da plataforma: só o operador cria e remove; dono e gestor corrigem os dados.
+const soOperador = exigirPerfil('PLATFORM_OPERATOR');
+const editaLoja = exigirPerfil('PLATFORM_OPERATOR', 'TENANT_ADMIN', 'SCHEDULE_MANAGER');
+const importa = exigirPerfil('PLATFORM_OPERATOR', 'TENANT_ADMIN', 'SCHEDULE_MANAGER');
 
 export const cadastrosRouter = (
   repoDoGe: (geId: string) => CadastrosRepository = cadastrosRepository,
@@ -34,13 +38,15 @@ export const cadastrosRouter = (
     res.send(await gerarModelo());
   });
 
-  r.post('/importacoes/cadastro', escrita, uploadPlanilha, async (req: Request, res: Response) => {
+  r.post('/importacoes/cadastro', importa, uploadPlanilha, async (req: Request, res: Response) => {
     if (!req.file) throw new ValidationError('Envie o arquivo no campo "arquivo".');
-    res.status(201).json(await s(res).receberPlanilha(req.file.originalname, req.file.buffer));
+    res
+      .status(201)
+      .json(await s(res).receberPlanilha(req.file.originalname, req.file.buffer, perfilDe(res)));
   });
   r.post(
     '/importacoes/cadastro/:id/confirmar',
-    escrita,
+    importa,
     validate(S.confirmarReq),
     async (_req, res) => {
       const { params, body } = v<typeof S.confirmarReq>(res);
@@ -57,21 +63,21 @@ export const cadastrosRouter = (
     const pag = await s(res).listarLojas(v<typeof S.listarReq>(res).query);
     res.json({ ...pag, data: pag.data.map((l) => ocultarFaturamento(l, perfilDe(res))) });
   });
-  r.post('/lojas', escrita, validate(S.criarLojaReq), async (_req, res) => {
+  r.post('/lojas', soOperador, validate(S.criarLojaReq), async (_req, res) => {
     const { body } = v<typeof S.criarLojaReq>(res);
     soDonoGrava(res, body);
     res
       .status(201)
       .json(ocultarFaturamento(await s(res).criarLoja(body, perfilDe(res)), perfilDe(res)));
   });
-  r.patch('/lojas/:id', escrita, validate(S.editarLojaReq), async (_req, res) => {
+  r.patch('/lojas/:id', editaLoja, validate(S.editarLojaReq), async (_req, res) => {
     const { params, body } = v<typeof S.editarLojaReq>(res);
     soDonoGrava(res, body);
     res.json(
       ocultarFaturamento(await s(res).editarLoja(params.id, body, perfilDe(res)), perfilDe(res)),
     );
   });
-  r.delete('/lojas/:id', escrita, validate(S.porIdReq), async (_req, res) => {
+  r.delete('/lojas/:id', soOperador, validate(S.porIdReq), async (_req, res) => {
     await s(res).removerLoja(v<typeof S.porIdReq>(res).params.id, perfilDe(res));
     res.status(204).send();
   });

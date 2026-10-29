@@ -1,7 +1,7 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import ExcelJS from 'exceljs';
 import { GE_INICIAL_ID } from '../../shared/ge.js';
-import { reqGe } from '../../shared/testing/ge.js';
+import { postLoja, reqGe } from '../../shared/testing/ge.js';
 import { prisma } from '../../shared/database/prisma.js';
 
 const admin = { 'X-Perfil': 'TENANT_ADMIN', 'X-GE': GE_INICIAL_ID };
@@ -21,17 +21,14 @@ describe('escala (rotas)', () => {
     await prisma.carga.deleteMany();
     await prisma.funcionario.deleteMany();
     await prisma.loja.deleteMany();
-    const r = await reqGe()
-      .post('/api/v1/lojas')
-      .set(admin)
-      .send({
-        codigo: '001',
-        nome: 'Centro',
-        horarios: {
-          semana: { abre: '08:00', fecha: '20:00' },
-          sabado: { abre: '08:00', fecha: '14:00' },
-        },
-      });
+    const r = await postLoja({
+      codigo: '001',
+      nome: 'Centro',
+      horarios: {
+        semana: { abre: '08:00', fecha: '20:00' },
+        sabado: { abre: '08:00', fecha: '14:00' },
+      },
+    });
     lojaId = r.body.id;
   });
   afterAll(async () => {

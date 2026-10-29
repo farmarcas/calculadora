@@ -43,12 +43,14 @@ Segurança do banco: uma migration nova que só acrescenta e preenche; nunca `do
 
 **Teste independente**: CNPJ inválido ou em uso é recusado; dono edita a loja menos o CNPJ; criar e remover loja só pelo operador.
 
-- [ ] T016 [US3] Teste + `src/modules/ge/cnpj.ts`: normaliza (aceita pontuação), valida os dígitos verificadores, formata para exibir
-- [ ] T017 [US3] `src/modules/cadastros/cadastros.schemas.ts` e `cadastros.service.ts`: CNPJ obrigatório e válido para loja nova; `CNPJ_EM_USO` sem revelar o GE; lojas antigas sem CNPJ aparecem como "CNPJ pendente"
-- [ ] T018 [US3] `src/modules/cadastros/cadastros.routes.ts`: `POST /lojas`, `DELETE /lojas/:id` e a importação de lojas só para o operador; `PUT /lojas/:id` para dono, gestor e operador, com `CNPJ_NAO_EDITAVEL` quando o empresário tenta mudar o CNPJ; consulta só lê
-- [ ] T019 [US3] Teste + `src/modules/cadastros/processar.ts`: planilha de funcionários rejeita linha de loja que não é do GE, com o motivo
-- [ ] T020 [US3] Teste de integração em `cadastros.routes.integration.test.ts`: permissões por perfil, CNPJ inválido, repetido (mesmo GE e outro GE), edição de qualquer campo da loja pelo dono, empresário não cria nem remove loja
-- [ ] T021 Rodar tudo e commitar a fatia
+- [X] T016 [US3] Teste + `src/modules/ge/cnpj.ts`: normaliza (aceita pontuação), valida os dígitos verificadores, formata para exibir
+- [X] T017 [US3] `src/modules/cadastros/cadastros.schemas.ts` e `cadastros.service.ts`: CNPJ obrigatório e válido para loja nova; `CNPJ_EM_USO` sem revelar o GE; lojas antigas sem CNPJ aparecem como "CNPJ pendente"
+- [X] T018 [US3] `src/modules/cadastros/cadastros.routes.ts`: `POST /lojas`, `DELETE /lojas/:id` e a importação de lojas só para o operador; `PUT /lojas/:id` para dono, gestor e operador, com `CNPJ_NAO_EDITAVEL` quando o empresário tenta mudar o CNPJ; consulta só lê
+- [X] T019 [US3] Teste + `src/modules/cadastros/processar.ts`: planilha de funcionários rejeita linha de loja que não é do GE, com o motivo
+- [X] T020 [US3] Teste de integração em `cadastros.routes.integration.test.ts`: permissões por perfil, CNPJ inválido, repetido (mesmo GE e outro GE), edição de qualquer campo da loja pelo dono, empresário não cria nem remove loja
+- [X] T021 Rodar tudo e commitar a fatia
+
+**Nota da fatia 3**: a importação de cadastro deixa de oferecer a aba de lojas a quem não é operador (e recusa se forçada); a loja nova só nasce pelo operador. Os botões "Nova loja", "Remover" e o CNPJ só leitura na tela ficam para a Fatia 5.
 
 ## Phase 5: Fatia 4 — US2: GE e carga de lojas por Excel (P1)
 

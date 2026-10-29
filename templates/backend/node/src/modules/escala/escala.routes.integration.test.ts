@@ -562,6 +562,34 @@ describe('escala (rotas)', () => {
     expect(JSON.stringify(com.pontosAtencao)).toContain('difere da escala importada');
   });
 
+  it('todo Diagnóstico traz o aviso de estimativa, para qualquer perfil, com ou sem escala', async () => {
+    const url = `/api/v1/lojas/${lojaId}/diagnostico`;
+    for (const perfil of [
+      admin,
+      { 'X-Perfil': 'SCHEDULE_MANAGER' },
+      { 'X-Perfil': 'SCHEDULE_VIEWER' },
+    ]) {
+      const pendente = (await request(app).get(url).set(perfil)).body;
+      expect(pendente.status).toBe('pendente');
+      expect(pendente.avisoEstimativa).toContain('estimativa');
+      expect(pendente.avisoEstimativa).toContain('contador');
+      expect(pendente.avisoEstimativa).toContain('sindicato');
+    }
+    await request(app)
+      .post('/api/v1/cargas/escala')
+      .set(admin)
+      .attach(
+        'arquivo',
+        await xlsx(escalaCab, [
+          ['001', 'F1', 'Ana', 'Farmacêutica', 'Seg a Sex', '08:00', '', '', '16:00', '40'],
+        ]),
+        'e.xlsx',
+      );
+    const completo = (await request(app).get(url).set({ 'X-Perfil': 'SCHEDULE_VIEWER' })).body;
+    expect(completo.status).not.toBe('pendente');
+    expect(completo.avisoEstimativa).toContain('contador');
+  });
+
   it('cenário 5: mostra a sobra de gente por cargo; economia só para o dono', async () => {
     await request(app)
       .post('/api/v1/cargas/escala')

@@ -70,6 +70,10 @@ const semValoresDeVenda = (v: unknown): unknown =>
         )
       : v;
 
+// Texto fixo: o resultado é estimativa e precisa de validação fora do sistema.
+export const AVISO_ESTIMATIVA =
+  'Este resultado é uma estimativa. Valide com o seu contador e com a convenção coletiva do sindicato antes de decidir.';
+
 export const diasAbertos = (h: unknown): DiaAberto[] => faixasDaSemana(normalizarHorarios(h));
 
 const resumoDias = (dias: number[]) => {
@@ -141,6 +145,7 @@ export const montarDiagnostico = (a: {
   if (!escala || !fontes.horario) {
     return {
       loja: lojaInfo,
+      avisoEstimativa: AVISO_ESTIMATIVA,
       status: 'pendente' as const,
       mensagem: !fontes.horario
         ? 'Cadastre o horário de funcionamento da loja para calcular o diagnóstico.'
@@ -316,6 +321,7 @@ export const montarDiagnostico = (a: {
 
   return {
     loja: lojaInfo,
+    avisoEstimativa: AVISO_ESTIMATIVA,
     status,
     numeros,
     fontes,

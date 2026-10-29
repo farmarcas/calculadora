@@ -61,11 +61,11 @@ Regra de ouro: **os testes que já existem não mudam e seguem verdes** (paridad
 
 ## Phase 6: Fatia 5 — US6 e fechamento
 
-- [ ] T024 [US6] Aviso de estimativa ("valide com seu contador e com a convenção coletiva do sindicato") visível no Diagnóstico, junto dos cenários, em `src/features/diagnostico/Diagnostico.jsx`; `avisoEstimativa` na resposta; teste
-- [ ] T025 Permissões ponta a ponta com dono, gestor e consulta (turnos, mínimos, parâmetros) conferidas na tela
-- [ ] T026 Conferir que as lojas existentes (sem turnos) têm o mesmo resultado de antes: loja 001 com selo "Foco em economia", R$ 8.710 e margem de referência do Cenário 4 em R$ 3.770
-- [ ] T027 README (turnos, mínimo por turno, parâmetros legais, aviso, o que ficou de fora) e `quickstart.md` conferido
-- [ ] T028 Rodar tudo: `npm test`, `npm run test:integration`, `npm run lint`, `npx tsc --noEmit`, build do `web`, `scripts/sync-templates.sh --check`, `scripts/check-repo.sh`
+- [X] T024 [US6] Aviso de estimativa ("valide com seu contador e com a convenção coletiva do sindicato") visível no Diagnóstico, junto dos cenários, em `src/features/diagnostico/Diagnostico.jsx`; `avisoEstimativa` na resposta; teste
+- [X] T025 Permissões ponta a ponta com dono, gestor e consulta (turnos, mínimos, parâmetros) conferidas na tela
+- [X] T026 Conferir que as lojas existentes (sem turnos) têm o mesmo resultado de antes: loja 001 com selo "Foco em economia", R$ 8.710 e margem de referência do Cenário 4 em R$ 3.770
+- [X] T027 README (turnos, mínimo por turno, parâmetros legais, aviso, o que ficou de fora) e `quickstart.md` conferido
+- [X] T028 Rodar tudo: `npm test`, `npm run test:integration`, `npm run lint`, `npx tsc --noEmit`, build do `web`, `scripts/sync-templates.sh --check`, `scripts/check-repo.sh`
 
 ## Dependências
 

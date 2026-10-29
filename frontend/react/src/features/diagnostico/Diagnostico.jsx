@@ -173,6 +173,8 @@ export default function Diagnostico({ diag, podeEscrever, onEnviar, onSimular })
 
   if (diag.status === "pendente")
     return (
+      <div className="flex flex-col gap-6">
+      {diag.avisoEstimativa && <Aviso tom="atencao">{diag.avisoEstimativa}</Aviso>}
       <Cartao>
         <div className="p-10 text-center">
           <p className="m-0 text-base font-medium">{diag.mensagem}</p>
@@ -180,10 +182,12 @@ export default function Diagnostico({ diag, podeEscrever, onEnviar, onSimular })
           {podeEscrever && <Botao onClick={onEnviar}>Enviar planilhas</Botao>}
         </div>
       </Cartao>
+      </div>
     );
 
   return (
     <div className="flex flex-col gap-6">
+      {diag.avisoEstimativa && <Aviso tom="atencao">{diag.avisoEstimativa}</Aviso>}
       <QuadroCentral diag={diag} regraId={regraId} onRegra={setRegraId} podeEscrever={podeEscrever} onEnviar={onEnviar} />
 
       <QuadroTurnos quadro={diag.quadroTurnos} />

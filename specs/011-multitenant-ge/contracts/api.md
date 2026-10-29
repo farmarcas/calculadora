@@ -6,7 +6,7 @@ Cabeçalhos em todas as rotas de `/api/v1` (exceto saúde): `X-Perfil` (agora ac
 | Rota | Perfil | O que faz |
 |---|---|---|
 | `GET /ge` | todos | Lista de GEs ativos (id, nome) para escolher em tela. Provisório até o SSO. |
-| `GET /ge/resumo` | operador | Cada GE com nº de lojas e de lojas com equipe |
+| `GET /ge/resumo` | operador | Cada GE (inclusive desativados) com `lojas` e `lojasComEquipe` |
 | `POST /ge` | operador | Cria GE `{ nome, identificacao }` |
 | `PATCH /ge/:id` | operador | Renomeia ou desativa/reativa |
 
@@ -14,8 +14,8 @@ Cabeçalhos em todas as rotas de `/api/v1` (exceto saúde): `X-Perfil` (agora ac
 | Rota | O que faz |
 |---|---|
 | `GET /cargas-lojas/modelo` | Baixa o Excel modelo, no formato do relatório da plataforma |
-| `POST /cargas-lojas` | Envia o arquivo (`arquivo`); devolve `{ id, gesNovos[], porGe[{ ge, criar, atualizar, conflitos[{ cnpj, campo, atual, planilha }], foraDoArquivo[], saiuDoAtivo[] }], rejeitar[{ linha, cnpj, motivo }], ignoradasPorStatus{ Desativado, Montando, Transição }, pendencias{ semRegime, semHorario } }` sem gravar |
-| `POST /cargas-lojas/:id/confirmar` | Body `{ substituirConflitos: "nenhum" \| "todos" \| ["cnpj", ...] }`; grava e devolve o resumo |
+| `POST /cargas-lojas` | Envia o arquivo (`arquivo`); devolve `{ id, arquivo, totalLinhas, ignoradasPorStatus, pendencias{ semRegime, semHorario, horarioAjustado }, totais{ gesNovos, criar, atualizar, semMudanca, conflitos, rejeitadas, foraDoArquivo, saiuDoAtivo }, porGe[], conflitos[{ ge, cnpj, loja, campo, atual, planilha }], rejeitadas[{ linha, cnpj, motivo }], foraDoArquivo[], saiuDoAtivo[] }` (listas com até 500 itens) sem gravar |
+| `POST /cargas-lojas/:id/confirmar` | Body `{ substituirConflitos: "nenhum" (padrão) \| "todos" \| ["cnpj", ...] }`; refaz a conferência com o que existe agora, grava tudo numa só transação e devolve `{ gesCriados, lojasCriadas, lojasAtualizadas, conflitosSubstituidos, conflitosMantidos, rejeitadas }` |
 
 ## Rotas existentes (agora filtradas pelo GE)
 | Rota | Mudança |

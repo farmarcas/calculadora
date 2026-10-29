@@ -10,6 +10,8 @@ import { cadastrosRouter } from './modules/cadastros/cadastros.routes.js';
 import { escalaRouter } from './modules/escala/escala.routes.js';
 import { simulacoesRouter } from './modules/simulacoes/simulacoes.routes.js';
 import { custosRouter } from './modules/custos/custos.routes.js';
+import { geRouter } from './modules/ge/ge.routes.js';
+import { cargasLojasRouter } from './modules/cargas-lojas/cargas-lojas.routes.js';
 import { parametrosRouter } from './modules/parametros/parametros.routes.js';
 import { usersRouter } from './modules/users/users.routes.js';
 import type { UsersRepository } from './modules/users/users.service.js';
@@ -50,8 +52,10 @@ export const createApp = (deps: AppDeps = {}) => {
   app.use(
     '/api/v1',
     lerPerfil,
-    // Regras legais valem para todos os GEs: não pedem o GE.
+    // Regras legais, grupos e carga de lojas são da plataforma: não pedem o GE.
     parametrosRouter(),
+    geRouter(),
+    cargasLojasRouter(),
     // Daqui para baixo tudo é de um GE: o cabeçalho X-GE é obrigatório e conferido.
     exigirGe,
     cadastrosRouter(),

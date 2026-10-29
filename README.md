@@ -83,10 +83,12 @@ Cada pasta traz um **guia** (as regras daquela tecnologia) e **skills** (o passo
 
 Primeira funcionalidade construída sobre o Golden Path: cadastro por planilha, diagnóstico da escala frente às regras de 42h e 40h (EC 141/2026), grade da semana, simulações, comparação e aprovação. Especificação, plano e tarefas em [specs/001-escala](specs/001-escala/).
 
-- **Cadastros:** baixe a planilha modelo, preencha e importe. Planilhas fora do modelo também funcionam: o sistema sugere o que entendeu de cada coluna e só grava depois da sua confirmação.
+- **Cadastros:** baixe a planilha modelo, preencha e importe. O horário da loja é cadastrado dia a dia (segunda a domingo: aberta ou fechada, abertura e fechamento, ou 24 horas) e há o atalho "Loja 24 horas". Planilhas antigas, com só semana, sábado e domingo, continuam sendo entendidas. Planilhas fora do modelo também funcionam: o sistema sugere o que entendeu de cada coluna e só grava depois da sua confirmação.
 - **Escala:** envie a escala atual e as vendas por hora, veja o diagnóstico, monte simulações arrastando os turnos, compare até 3 e aprove a que fica em uso (só o dono do grupo aprova).
-- **Dados de exemplo (fictícios):** `docker compose exec api npm run seed` (só roda se ainda não houver lojas).
-- **Pendências conhecidas:** valores das regras 42h/40h sem validação jurídica; sem login real (há um seletor de papel de demonstração); custo ainda fora da comparação; ponto (AFD) e apuração planejado × realizado ficam para a próxima entrega.
+- **Vagas e custo:** na simulação em rascunho dá para adicionar vagas simuladas e desligamentos (nada chega ao cadastro). O dono informa o salário médio por função e os encargos em Configuração, e a comparação mostra custo mensal, anual e a diferença frente à simulação em uso. Gestor e consulta não recebem valor de custo.
+- **Gerenciar (ponto):** com uma simulação em uso, importe os arquivos de ponto (AFD, Portaria 671/2021). O sistema casa loja e pessoas, deixa as batidas sem correspondência numa fila de pendências e compara planejado × realizado (atraso, falta, hora extra, aderência e cobertura), sempre rotulado como apuração gerencial. O painel avisa quando a simulação em uso está desatualizada. Layout do arquivo conferido em [specs/003-ponto-afd/layout-afd.md](specs/003-ponto-afd/layout-afd.md).
+- **Dados de exemplo (fictícios):** `docker compose exec api npm run seed` (só roda se ainda não houver lojas); `docker compose exec api npm run afd:exemplo` gera dois arquivos de ponto fictícios em `backend/node/afd-exemplo/`.
+- **Pendências conhecidas:** valores das regras 42h/40h sem validação jurídica; sem login real (há um seletor de papel de demonstração); só dados fictícios até o parecer de proteção de dados (LGPD); ausências, trocas de turno e vendas reais ainda não entram na apuração do ponto; layout antigo de AFD (por PIS) fora; turno que atravessa a meia-noite é montado como dois turnos (um até 24:00 e outro a partir de 00:00); feriados e horários especiais por data não existem.
 
 ---
 

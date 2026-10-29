@@ -81,4 +81,39 @@ describe('avaliarSimulacao', () => {
     const r = avaliarSimulacao({ ...base, turnos });
     expect(r.avisos.some((x) => x.regra === 'intervalo-descoberto')).toBe(true);
   });
+
+  it('desligado simulado sai da cobertura e dos erros', () => {
+    const q = [{ ...quadro[0]!, desligado: true }, quadro[1]!];
+    const r = avaliarSimulacao({ ...base, quadro: q, turnos: cobreTudo });
+    // sem a Ana, só a Bia cobre 14h–20h: faltam 08h–14h, e os turnos da Ana não contam
+    expect(r.erros.some((e) => e.regra === 'farmaceutico')).toBe(true);
+    expect(r.porPessoa.map((p) => p.matricula)).toEqual(['B']);
+  });
+
+  it('vaga entra como pessoa com limite igual à carga da vaga', () => {
+    const vaga = {
+      matricula: 'VAGA-1',
+      nome: 'Vaga 1',
+      funcao: 'Farmacêutico',
+      cargaH: 16,
+      vaga: true,
+    };
+    const turnos = [...cobreTudo, ...[0, 1, 2].map((d) => t('VAGA-1', d, 8, 14))];
+    const r = avaliarSimulacao({ ...base, quadro: [...quadro, vaga], turnos });
+    expect(r.erros.some((e) => e.regra === 'jornada-semanal' && e.texto.includes('Vaga 1'))).toBe(
+      true,
+    );
+  });
+
+  it('vaga sem turnos gera aviso', () => {
+    const vaga = {
+      matricula: 'VAGA-1',
+      nome: 'Vaga 1',
+      funcao: 'Atendimento',
+      cargaH: 24,
+      vaga: true,
+    };
+    const r = avaliarSimulacao({ ...base, quadro: [...quadro, vaga], turnos: cobreTudo });
+    expect(r.avisos.some((x) => x.regra === 'vaga-sem-turnos')).toBe(true);
+  });
 });

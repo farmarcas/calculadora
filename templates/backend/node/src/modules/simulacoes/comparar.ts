@@ -1,5 +1,5 @@
 import type { CoberturaDia, PessoaSim, TurnoSim } from './avaliar.js';
-import { horasLiquidas } from './avaliar.js';
+import { ativos, horasLiquidas } from './avaliar.js';
 
 export type Indicadores = {
   erros: number;
@@ -24,6 +24,7 @@ export const calcularIndicadores = (a: {
   avisos: unknown[];
   cobertura: Record<number, CoberturaDia>;
 }): Indicadores => {
+  const { quadro, turnos } = ativos(a.quadro, a.turnos);
   let total = 0;
   let ok = 0;
   let falta = 0;
@@ -38,8 +39,8 @@ export const calcularIndicadores = (a: {
         sobra += Math.max(0, c.pessoas - f.minimo);
       }
     }
-  const diasPorPessoa = a.quadro.map(
-    (p) => new Set(a.turnos.filter((t) => t.matricula === p.matricula).map((t) => t.dia)).size,
+  const diasPorPessoa = quadro.map(
+    (p) => new Set(turnos.filter((t) => t.matricula === p.matricula).map((t) => t.dia)).size,
   );
   return {
     erros: a.erros.length,
@@ -48,12 +49,12 @@ export const calcularIndicadores = (a: {
     coberturaPct: total ? arred((ok / total) * 100) : 100,
     horasFalta: arred(falta),
     horasSobra: arred(sobra),
-    pessoas: a.quadro.length,
-    horasPlanejadas: arred(a.turnos.reduce((s, t) => s + horasLiquidas(t), 0)),
-    horasContratadas: arred(a.quadro.reduce((s, p) => s + p.cargaH, 0)),
-    domingosTrabalhados: a.turnos.filter((t) => t.dia === 6).length,
-    folgasPorPessoa: a.quadro.length
-      ? arred(diasPorPessoa.reduce((s, d) => s + (7 - d), 0) / a.quadro.length)
+    pessoas: quadro.length,
+    horasPlanejadas: arred(turnos.reduce((s, t) => s + horasLiquidas(t), 0)),
+    horasContratadas: arred(quadro.reduce((s, p) => s + p.cargaH, 0)),
+    domingosTrabalhados: turnos.filter((t) => t.dia === 6).length,
+    folgasPorPessoa: quadro.length
+      ? arred(diasPorPessoa.reduce((s, d) => s + (7 - d), 0) / quadro.length)
       : 0,
   };
 };
@@ -64,6 +65,7 @@ export const sintese = (
   i: Indicadores,
   ref: Indicadores | null,
   refNome: string | null,
+  extra: { custoDiff?: number | null; vagas?: number } = {},
 ): string => {
   const partes: string[] = [];
   if (i.erros > 0) partes.push(`tem ${i.erros} erro(s) nas regras e ainda não pode ser aprovada`);
@@ -80,6 +82,15 @@ export const sintese = (
   } else {
     partes.push(`cobre ${i.coberturaPct}% das horas exigidas`);
   }
+  if (extra.custoDiff) {
+    const v = Math.abs(extra.custoDiff).toLocaleString('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+      maximumFractionDigits: 0,
+    });
+    partes.push(`custa ${v} ${extra.custoDiff > 0 ? 'a mais' : 'a menos'} por mês frente à em uso`);
+  }
+  if (extra.vagas) partes.push(`exige contratar ${extra.vagas} vaga(s)`);
   if (i.horasFalta > 0) partes.push(`faltam ${i.horasFalta}h-pessoa por semana`);
   return `${nome} ${partes.join('; ')}.`;
 };

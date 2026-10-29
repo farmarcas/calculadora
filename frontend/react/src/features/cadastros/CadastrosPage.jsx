@@ -8,7 +8,6 @@ import ImportarPlanilha from "./ImportarPlanilha.jsx";
 const TH = "text-left text-[11px] font-bold uppercase tracking-wide text-ink-500 px-6 py-3";
 const TD = "px-6 py-3 border-t border-line";
 
-const horarioTxt = (h) => (h?.semana ? `${h.semana.abre}–${h.semana.fecha}` : "—");
 
 export default function CadastrosPage({ perfil }) {
   const podeEscrever = perfil !== "SCHEDULE_VIEWER";
@@ -113,14 +112,14 @@ export default function CadastrosPage({ perfil }) {
         <div className="overflow-x-auto">
           {aba === "lojas" ? (
             <table className="w-full border-collapse text-sm">
-              <thead><tr><th className={TH}>Código</th><th className={TH}>Nome</th><th className={TH}>UF</th><th className={TH}>Seg a sex</th><th className={TH}>Funcionários</th><th className={TH} /></tr></thead>
+              <thead><tr><th className={TH}>Código</th><th className={TH}>Nome</th><th className={TH}>UF</th><th className={TH}>Funcionamento</th><th className={TH}>Funcionários</th><th className={TH} /></tr></thead>
               <tbody>
                 {lojas.data.map((l) => (
                   <tr key={l.id}>
                     <td className={TD}>{l.codigo}</td>
                     <td className={TD}>{l.nome}</td>
                     <td className={TD}>{l.uf || "—"}</td>
-                    <td className={TD}>{horarioTxt(l.horarios)}</td>
+                    <td className={TD}>{l.horariosResumo ?? "—"}</td>
                     <td className={TD}>{funcs.data.filter((f) => f.lojaId === l.id).length}</td>
                     <td className={`${TD} text-right`}>
                       {podeEscrever && (

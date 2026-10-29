@@ -29,6 +29,25 @@ export const turnoSchema = z
   .strict();
 
 export const REGRAS = ['atual', 'r42', 'r40'] as const;
+export const FUNCOES_ESCALA = [
+  'Farmacêutico',
+  'Atendimento',
+  'Caixa',
+  'Apoio',
+  'Perfumaria',
+] as const;
+
+// Vaga simulada: a matrícula (VAGA-n) só vem de volta para vagas que já existem.
+export const vagaSchema = z
+  .object({
+    matricula: z
+      .string()
+      .regex(/^VAGA-\d+$/)
+      .optional(),
+    funcao: z.enum(FUNCOES_ESCALA),
+    cargaH: z.number().int().min(4).max(44),
+  })
+  .strict();
 
 export const porLojaReq = req(vazio.default({}), id);
 export const listarReq = req(
@@ -46,6 +65,8 @@ export const criarReq = req(
       origem: z
         .union([z.enum(['escala_atual', 'vazia']), z.string().uuid()])
         .default('escala_atual'),
+      // Já nasce com as contratações que o diagnóstico sugere para a regra escolhida.
+      comVagasSugeridas: z.boolean().default(false),
     })
     .strict(),
   id,
@@ -56,6 +77,8 @@ export const editarReq = req(
       nome: z.string().trim().min(2).max(80).optional(),
       regra: z.enum(REGRAS).optional(),
       turnos: z.array(turnoSchema).max(500).optional(),
+      vagas: z.array(vagaSchema).max(20).optional(),
+      desligados: z.array(z.string().min(1).max(30)).max(100).optional(),
     })
     .strict()
     .refine((b) => Object.keys(b).length > 0, { message: 'Informe ao menos um campo' }),

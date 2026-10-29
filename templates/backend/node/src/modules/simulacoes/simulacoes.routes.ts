@@ -9,6 +9,8 @@ import type { PessoaSim } from './avaliar.js';
 import * as S from './simulacoes.schemas.js';
 import { makeSimulacoesService } from './simulacoes.service.js';
 import { simulacoesRepository } from './simulacoes.repository.js';
+import { apuracaoRepository } from '../apuracao/apuracao.repository.js';
+import { makeApuracaoService } from '../apuracao/apuracao.service.js';
 
 const escrita = exigirPerfil('TENANT_ADMIN', 'SCHEDULE_MANAGER');
 const perfilDe = (res: Response) => res.locals.perfil as Perfil;
@@ -36,7 +38,19 @@ const cadastro = {
 };
 
 export const simulacoesRouter = () => {
-  const s = makeSimulacoesService(simulacoesRepository, escalaRepository, cadastro, auditar);
+  const apuracao = makeApuracaoService(
+    apuracaoRepository,
+    simulacoesRepository,
+    escalaRepository,
+    auditar,
+  );
+  const s = makeSimulacoesService(
+    simulacoesRepository,
+    escalaRepository,
+    cadastro,
+    auditar,
+    (lojaId) => apuracao.motivosDoPonto(lojaId),
+  );
   const r = Router();
 
   r.get('/lojas/:id/simulacoes', validate(S.listarReq), async (_req, res) => {
@@ -48,7 +62,7 @@ export const simulacoesRouter = () => {
     res.status(201).json(await s.criar(params.id, body, perfilDe(res)));
   });
   r.get('/simulacoes/:id', validate(S.porIdReq), async (_req, res) =>
-    res.json(await s.obter(v<typeof S.porIdReq>(res).params.id)),
+    res.json(await s.obter(v<typeof S.porIdReq>(res).params.id, perfilDe(res))),
   );
   r.put('/simulacoes/:id', escrita, validate(S.editarReq), async (_req, res) => {
     const { params, body } = v<typeof S.editarReq>(res);
@@ -69,7 +83,7 @@ export const simulacoesRouter = () => {
   );
   r.get('/lojas/:id/simulacoes/comparar', validate(S.compararReq), async (_req, res) => {
     const { params, query } = v<typeof S.compararReq>(res);
-    res.json(await s.comparar(params.id, query.ids));
+    res.json(await s.comparar(params.id, query.ids, perfilDe(res)));
   });
   r.get('/simulacoes/:id/exportar.xlsx', validate(S.porIdReq), async (_req, res) => {
     const { buffer, nome } = await s.exportar(v<typeof S.porIdReq>(res).params.id, perfilDe(res));

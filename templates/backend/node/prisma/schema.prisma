@@ -36,6 +36,10 @@ model Loja {
   // Configuração do diagnóstico: convenção que permite 8h24/dia e mínimo de pessoas por função.
   convencao8h24 Boolean   @default(false) @map("convencao_8h24")
   minimos       Json?
+  // Salário médio por função, encargos e regime tributário. Só o dono do grupo vê. Sem valor padrão.
+  custos        Json?
+  // Limites que marcam a simulação em uso como desatualizada (hora extra e aderência). Nulo = padrão.
+  alertas       Json?
   deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
   createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
@@ -43,6 +47,8 @@ model Loja {
   funcionarios Funcionario[]
   cargas       Carga[]
   simulacoes   Simulacao[]
+  importacoesPonto ImportacaoPonto[]
+  batidas      Batida[]
 
   @@map("lojas")
 }
@@ -227,4 +233,72 @@ model SimulacaoTurno {
 
   @@index([simulacaoId])
   @@map("simulacao_turnos")
+}
+
+enum ImportacaoPontoStatus {
+  PROCESSADO     @map("processado")
+  COM_PENDENCIAS @map("com_pendencias")
+  REJEITADO      @map("rejeitado")
+
+  @@map("importacao_ponto_status")
+}
+
+// Um arquivo AFD enviado (inclusive os rejeitados, para o log).
+model ImportacaoPonto {
+  id               String                @id @default(uuid(7)) @db.Uuid
+  lojaId           String                @map("loja_id") @db.Uuid
+  arquivo          String
+  hash             String
+  cnpj             String?
+  periodoInicio    DateTime?             @map("periodo_inicio") @db.Date
+  periodoFim       DateTime?             @map("periodo_fim") @db.Date
+  batidasAceitas   Int                   @default(0) @map("batidas_aceitas")
+  batidasRepetidas Int                   @default(0) @map("batidas_repetidas")
+  batidasPendentes Int                   @default(0) @map("batidas_pendentes")
+  status           ImportacaoPontoStatus
+  motivoRejeicao   String?               @map("motivo_rejeicao")
+  autor            String
+  criadoEm         DateTime              @default(now()) @map("criado_em") @db.Timestamptz(3)
+
+  loja    Loja     @relation(fields: [lojaId], references: [id])
+  batidas Batida[]
+
+  @@index([lojaId, criadoEm])
+  @@map("importacoes_ponto")
+}
+
+enum BatidaSituacao {
+  OK        @map("ok")
+  PENDENTE  @map("pendente")
+  VINCULADA @map("vinculada")
+  IGNORADA  @map("ignorada")
+
+  @@map("batida_situacao")
+}
+
+// Uma marcação de ponto. Única por loja, CPF, data e minuto: reenviar o arquivo não duplica.
+// O CPF é dado pessoal: só sai mascarado pela API (e só com dados fictícios até o parecer de LGPD).
+model Batida {
+  id               String         @id @default(uuid(7)) @db.Uuid
+  lojaId           String         @map("loja_id") @db.Uuid
+  importacaoId     String         @map("importacao_id") @db.Uuid
+  cpf              String
+  data             DateTime       @db.Date
+  minuto           Int
+  nsr              Int
+  situacao         BatidaSituacao @default(OK)
+  // cpf_desconhecido | sem_lotacao | dia_sem_escala
+  motivoPendencia  String?        @map("motivo_pendencia")
+  matricula        String?
+  resolvidaPor     String?        @map("resolvida_por")
+  resolvidaEm      DateTime?      @map("resolvida_em") @db.Timestamptz(3)
+  motivoIgnorar    String?        @map("motivo_ignorar")
+
+  loja       Loja            @relation(fields: [lojaId], references: [id])
+  importacao ImportacaoPonto @relation(fields: [importacaoId], references: [id])
+
+  @@unique([lojaId, cpf, data, minuto])
+  @@index([lojaId, data])
+  @@index([lojaId, situacao])
+  @@map("batidas")
 }

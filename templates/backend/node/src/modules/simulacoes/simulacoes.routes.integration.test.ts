@@ -33,6 +33,8 @@ describe('simulações (rotas)', () => {
 
   beforeEach(async () => {
     await prisma.auditoria.deleteMany();
+    await prisma.batida.deleteMany();
+    await prisma.importacaoPonto.deleteMany();
     await prisma.simulacao.deleteMany();
     await prisma.carga.deleteMany();
     await prisma.funcionario.deleteMany();
@@ -282,6 +284,276 @@ describe('simulações (rotas)', () => {
       expect(ws.getRow(5).getCell(1).value).toBe('Ana');
       expect(ws.getRow(5).getCell(3).value).toContain('08:00–14:00');
       expect(await prisma.auditoria.count({ where: { acao: 'simulacao.exportada' } })).toBe(1);
+    });
+  });
+
+  describe('vagas e desligamentos simulados', () => {
+    const put = (id: string, body: object) =>
+      request(app).put(`/api/v1/simulacoes/${id}`).set(admin).send(body);
+
+    it('adiciona vaga, avisa quando não tem turnos e não mexe no cadastro', async () => {
+      const sim = (await criar()).body;
+      const antes = await prisma.funcionario.count();
+      const r = await put(sim.id, { vagas: [{ funcao: 'Atendimento', cargaH: 24 }] });
+      expect(r.status).toBe(200);
+      const vaga = r.body.quadro.find((p: { vaga?: boolean }) => p.vaga);
+      expect(vaga).toMatchObject({
+        matricula: 'VAGA-1',
+        nome: 'Vaga 1',
+        funcao: 'Atendimento',
+        cargaH: 24,
+      });
+      expect(
+        r.body.avaliacao.avisos.some((a: { regra: string }) => a.regra === 'vaga-sem-turnos'),
+      ).toBe(true);
+      expect(await prisma.funcionario.count()).toBe(antes);
+
+      const turnos = [
+        ...r.body.turnos,
+        {
+          matricula: 'VAGA-1',
+          dia: 0,
+          entrada: 8,
+          saida: 14,
+          iniIntervalo: null,
+          fimIntervalo: null,
+        },
+      ];
+      const c = await put(sim.id, { turnos });
+      expect(
+        c.body.avaliacao.avisos.some((a: { regra: string }) => a.regra === 'vaga-sem-turnos'),
+      ).toBe(false);
+
+      const rem = await put(sim.id, { vagas: [] });
+      expect(rem.body.quadro.some((p: { vaga?: boolean }) => p.vaga)).toBe(false);
+      expect(rem.body.turnos.some((t: { matricula: string }) => t.matricula === 'VAGA-1')).toBe(
+        false,
+      );
+    });
+
+    it('desligamento simulado tira a pessoa da cobertura e pode ser desfeito', async () => {
+      const sim = (await criar()).body;
+      const d = await put(sim.id, { desligados: ['F1'] });
+      expect(d.body.quadro.find((p: { matricula: string }) => p.matricula === 'F1').desligado).toBe(
+        true,
+      );
+      expect(
+        d.body.avaliacao.erros.some((e: { regra: string }) => e.regra === 'farmaceutico'),
+      ).toBe(true);
+      const u = await put(sim.id, { desligados: [] });
+      expect(u.body.avaliacao.erros).toEqual([]);
+    });
+
+    it('recusa vaga com carga inválida, vaga inexistente e desligar uma vaga', async () => {
+      const sim = (await criar()).body;
+      expect((await put(sim.id, { vagas: [{ funcao: 'Caixa', cargaH: 2 }] })).status).toBe(400);
+      expect(
+        (await put(sim.id, { vagas: [{ matricula: 'VAGA-7', funcao: 'Caixa', cargaH: 20 }] }))
+          .status,
+      ).toBe(400);
+      await put(sim.id, { vagas: [{ funcao: 'Caixa', cargaH: 20 }] });
+      expect((await put(sim.id, { desligados: ['VAGA-1'] })).status).toBe(400);
+    });
+
+    it('vagas ficam congeladas na gravada e vêm junto no clone', async () => {
+      const sim = (await criar()).body;
+      await put(sim.id, { vagas: [{ funcao: 'Apoio', cargaH: 16 }] });
+      await request(app).post(`/api/v1/simulacoes/${sim.id}/gravar`).set(admin);
+      expect((await put(sim.id, { vagas: [] })).status).toBe(409);
+      const c = (await request(app).post(`/api/v1/simulacoes/${sim.id}/clonar`).set(admin)).body;
+      expect(c.quadro.some((p: { vaga?: boolean }) => p.vaga)).toBe(true);
+    });
+
+    it('cria já com as contratações que o diagnóstico sugere', async () => {
+      await request(app)
+        .put(`/api/v1/lojas/${lojaId}/configuracao`)
+        .set(admin)
+        .send({ minimos: { Caixa: 1 } });
+      const r = await criar({ nome: 'Com vagas', regra: 'r40', comVagasSugeridas: true });
+      expect(r.status).toBe(201);
+      const vagas = r.body.quadro.filter((p: { vaga?: boolean }) => p.vaga);
+      expect(vagas).toHaveLength(2);
+      expect(vagas.every((v: { funcao: string }) => v.funcao === 'Caixa')).toBe(true);
+    });
+  });
+
+  describe('custo na comparação', () => {
+    const custos = { salarioMedio: { Farmacêutico: 8000, Atendimento: 2000 }, encargosPct: 50 };
+    const salvarCustos = (c: object = custos) =>
+      request(app).put(`/api/v1/lojas/${lojaId}/custos`).set(admin).send(c);
+    const gravada = async (nome: string, corpo: object = {}) => {
+      const sim = (await criar({ nome, regra: 'r40' })).body;
+      if (Object.keys(corpo).length)
+        await request(app).put(`/api/v1/simulacoes/${sim.id}`).set(admin).send(corpo);
+      const g = await request(app).post(`/api/v1/simulacoes/${sim.id}/gravar`).set(admin);
+      expect(g.status).toBe(200);
+      return g.body;
+    };
+    const comparar = (ids: string[], h: Record<string, string> = admin) =>
+      request(app)
+        .get(`/api/v1/lojas/${lojaId}/simulacoes/comparar?ids=${ids.join(',')}`)
+        .set(h);
+
+    it('o dono vê custo mensal, anual e a diferença frente à em uso; a síntese cita custo e vaga', async () => {
+      await salvarCustos();
+      const a = await gravada('Plano A');
+      const b = await gravada('Plano B com vaga', {
+        vagas: [{ funcao: 'Farmacêutico', cargaH: 24 }],
+      });
+      await request(app).post(`/api/v1/simulacoes/${a.id}/aprovar`).set(admin).send({});
+
+      const r = await comparar([a.id, b.id]);
+      expect(r.status).toBe(200);
+      const [ra, rb] = r.body.simulacoes;
+      // A: 2 farmacêuticos × 8.000 × 1,5 = 24.000
+      expect(ra.custo).toMatchObject({
+        informado: true,
+        mensal: 24000,
+        anual: 288000,
+        diferencaMensalFrenteEmUso: null,
+      });
+      // B: + vaga de 24h = 8.000 × 24 × 5 ÷ 200 × 1,5 = 7.200
+      expect(rb.custo).toMatchObject({
+        mensal: 31200,
+        anual: 374400,
+        diferencaMensalFrenteEmUso: 7200,
+      });
+      expect(rb.sintese).toContain('a mais por mês');
+      expect(rb.sintese).toContain('exige contratar 1 vaga(s)');
+      expect(rb.custo.memoria.some((m: string) => m.includes('Vaga 1'))).toBe(true);
+    });
+
+    it('quem não é dono não recebe nenhum valor de custo, nem na comparação nem na simulação', async () => {
+      await salvarCustos();
+      const a = await gravada('Plano A');
+      const b = await gravada('Plano B');
+      for (const h of [{ 'X-Perfil': 'SCHEDULE_MANAGER' }, { 'X-Perfil': 'SCHEDULE_VIEWER' }]) {
+        const r = await comparar([a.id, b.id], h);
+        expect(r.status).toBe(200);
+        expect(JSON.stringify(r.body)).not.toMatch(/custo|24000|mensal/);
+        expect(
+          (await request(app).get(`/api/v1/simulacoes/${a.id}`).set(h)).body.custo,
+        ).toBeUndefined();
+      }
+    });
+
+    it('simulação gravada antes de informar os custos passa a mostrar o valor quando a loja informa', async () => {
+      const a = await gravada('Plano A');
+      await salvarCustos();
+      expect(
+        (await request(app).get(`/api/v1/simulacoes/${a.id}`).set(admin)).body.custo.mensal,
+      ).toBe(24000);
+    });
+
+    it('sem custos informados mostra só o aviso, sem total', async () => {
+      const a = await gravada('Plano A');
+      const b = await gravada('Plano B');
+      const r = await comparar([a.id, b.id]);
+      expect(r.body.simulacoes[0].custo).toEqual({
+        informado: false,
+        diferencaMensalFrenteEmUso: null,
+      });
+    });
+
+    it('função sem salário informado: avisa qual falta e não soma parcial', async () => {
+      await salvarCustos({ salarioMedio: { Atendimento: 2000 }, encargosPct: 50 });
+      const a = await gravada('Plano A');
+      const b = await gravada('Plano B');
+      const c = (await comparar([a.id, b.id])).body.simulacoes[0].custo;
+      expect(c).toMatchObject({
+        informado: true,
+        faltamInformar: ['Farmacêutico'],
+        mensal: null,
+        anual: null,
+      });
+    });
+
+    it('a simulação gravada usa o retrato dos custos de quando foi gravada', async () => {
+      await salvarCustos();
+      const a = await gravada('Plano A');
+      await salvarCustos({
+        salarioMedio: { Farmacêutico: 20000, Atendimento: 2000 },
+        encargosPct: 50,
+      });
+      const d = (await request(app).get(`/api/v1/simulacoes/${a.id}`).set(admin)).body;
+      expect(d.custo.mensal).toBe(24000);
+      const novo = (await criar({ nome: 'Rascunho novo', regra: 'r40' })).body;
+      expect(novo.custo.mensal).toBe(60000); // rascunho usa os custos de hoje
+    });
+  });
+
+  describe('horário por dia da semana nas simulações', () => {
+    const dias = (domingo: object) => ({
+      versao: 2,
+      dias: [0, 1, 2, 3, 4]
+        .map(() => ({ aberta: true, abre: '08:00', fecha: '20:00' }))
+        .concat([{ aberta: false } as never, domingo as never]),
+    });
+    const patchHorarios = (horarios: object) =>
+      request(app).patch(`/api/v1/lojas/${lojaId}`).set(admin).send({ horarios });
+
+    it('domingo aberto entra nos dias da simulação e na avaliação; fechado não exige nada', async () => {
+      const fechada = (await criar()).body;
+      expect(fechada.diasAbertos.map((d: { dia: number }) => d.dia)).toEqual([0, 1, 2, 3, 4]);
+      expect(fechada.avaliacao.erros).toEqual([]);
+
+      await patchHorarios(dias({ aberta: true, abre: '09:00', fecha: '13:00' }));
+      const aberta = (await criar({ nome: 'Com domingo', regra: 'r40' })).body;
+      expect(aberta.diasAbertos.map((d: { dia: number }) => d.dia)).toEqual([0, 1, 2, 3, 4, 6]);
+      expect(aberta.diasAbertos[5]).toEqual({ dia: 6, abre: 9, fecha: 13 });
+      // ninguém foi escalado no domingo: farmacêutico exigido das 09h às 13h
+      expect(aberta.avaliacao.erros.map((e: { texto: string }) => e.texto)).toContain(
+        'Sem farmacêutico em Dom 09:00–13:00: a lei exige farmacêutico em todo o horário de funcionamento.',
+      );
+    });
+
+    it('loja 24 horas: a grade e a cobertura vão de 00h a 24h', async () => {
+      await patchHorarios({
+        versao: 2,
+        dias: Array.from({ length: 7 }, () => ({ aberta: true, h24: true })),
+      });
+      const sim = (await criar()).body;
+      expect(sim.diasAbertos).toHaveLength(7);
+      expect(
+        sim.diasAbertos.every(
+          (d: { abre: number; fecha: number }) => d.abre === 0 && d.fecha === 24,
+        ),
+      ).toBe(true);
+      expect(sim.avaliacao.cobertura['6'][0].porHora).toHaveLength(24);
+    });
+
+    it('simulação gravada mantém o horário de quando foi gravada, mesmo que a loja mude depois', async () => {
+      const g = (await criar()).body;
+      await request(app).post(`/api/v1/simulacoes/${g.id}/gravar`).set(admin);
+      await patchHorarios(dias({ aberta: true, abre: '09:00', fecha: '18:00' }));
+      const depois = (await request(app).get(`/api/v1/simulacoes/${g.id}`).set(admin)).body;
+      expect(depois.diasAbertos.map((d: { dia: number }) => d.dia)).toEqual([0, 1, 2, 3, 4]);
+      expect(depois.avaliacao.erros).toEqual([]);
+    });
+
+    it('"desatualizada": só mudar o formato não dispara; mudar o horário da loja dispara', async () => {
+      const g = (await criar()).body;
+      await request(app).post(`/api/v1/simulacoes/${g.id}/gravar`).set(admin);
+      await request(app).post(`/api/v1/simulacoes/${g.id}/aprovar`).set(admin).send({});
+      // simulação aprovada antes da mudança: horário congelado no formato antigo
+      const sim = await prisma.simulacao.findUniqueOrThrow({ where: { id: g.id } });
+      const premissas = sim.premissas as { horarios: unknown };
+      await prisma.simulacao.update({
+        where: { id: g.id },
+        data: {
+          premissas: { ...premissas, horarios: { semana: { abre: '08:00', fecha: '20:00' } } },
+        },
+      });
+      const mesmaCoisa = (await request(app).get(`/api/v1/simulacoes/${g.id}`).set(admin)).body;
+      expect(mesmaCoisa.motivosDesatualizada.join(' ')).not.toContain('horário');
+
+      await patchHorarios(dias({ aberta: true, abre: '09:00', fecha: '13:00' }));
+      const mudou = (await request(app).get(`/api/v1/simulacoes/${g.id}`).set(admin)).body;
+      expect(mudou.desatualizada).toBe(true);
+      expect(mudou.motivosDesatualizada.join(' ')).toContain(
+        'O horário de funcionamento da loja mudou.',
+      );
+      expect(mudou.status).toBe('em_uso'); // nada muda sozinho
     });
   });
 });

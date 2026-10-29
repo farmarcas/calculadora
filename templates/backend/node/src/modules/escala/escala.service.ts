@@ -4,6 +4,7 @@ import { ValidationError } from '../../shared/errors/validation-error.js';
 import { CAMPOS_BASE, CAMPOS_ESCALA, type CampoDef } from '../planilhas/campos.js';
 import { inferirUmaAba } from '../planilhas/inferencia.js';
 import { lerPlanilha } from '../planilhas/leitor.js';
+import { calcularCusto } from '../custos/custo.js';
 import { montarDiagnostico } from './diagnostico.js';
 import { interpretarBase, interpretarEscala, somarPorHora, type ErroLinha } from './interpretar.js';
 import type { EscalaRepository } from './escala.repository.js';
@@ -166,17 +167,34 @@ export const makeEscalaService = (repo: EscalaRepository, auditar: Auditor) => {
       };
     },
 
-    async diagnostico(lojaId: string) {
+    async diagnostico(lojaId: string, perfil?: string) {
       const loja = await repo.lojaParaDiagnostico(lojaId);
       if (!loja) throw new NotFoundError('Loja não encontrada', 'LOJA_NAO_ENCONTRADA');
       const [escala, base] = await Promise.all([repo.escalaAtiva(lojaId), repo.baseAtiva(lojaId)]);
-      return montarDiagnostico({
+      const diag = montarDiagnostico({
         loja,
         escala: escala?.meta ?? null,
         turnos: escala?.turnos ?? [],
         base: base?.meta ?? null,
         vendas: base?.vendas ?? [],
       });
+      // Folha mensal atual: custo, então só o dono do grupo recebe (o campo nem existe para os outros).
+      if (perfil !== 'TENANT_ADMIN' || diag.status === 'pendente') return diag;
+      const quadro = (escala?.turnos ?? [])
+        .filter((t) => t.funcao)
+        .map((t) => ({ matricula: t.matricula, nome: t.nome, funcao: t.funcao, cargaH: t.cargaH }));
+      const custo = calcularCusto({ regra: 'atual', quadro, custos: loja.custos ?? null });
+      return {
+        ...diag,
+        folhaMensal: custo.informado
+          ? {
+              informado: true as const,
+              mensal: custo.mensal,
+              faltamInformar: custo.faltamInformar,
+              encargosPct: loja.custos?.encargosPct ?? 0,
+            }
+          : { informado: false as const },
+      };
     },
 
     async configurar(
@@ -194,7 +212,7 @@ export const makeEscalaService = (repo: EscalaRepository, auditar: Auditor) => {
         alvoId: lojaId,
         detalhe: c,
       });
-      return this.diagnostico(lojaId);
+      return this.diagnostico(lojaId, perfil);
     },
 
     async historico(lojaId: string) {

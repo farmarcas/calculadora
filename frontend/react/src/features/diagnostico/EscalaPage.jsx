@@ -5,6 +5,7 @@ import Configuracao from "./Configuracao.jsx";
 import Diagnostico from "./Diagnostico.jsx";
 import EnviarPlanilhas from "./EnviarPlanilhas.jsx";
 import GradeTab from "../grade/GradeTab.jsx";
+import GerenciarTab from "../gerenciar/GerenciarTab.jsx";
 
 export default function EscalaPage({ perfil }) {
   const podeEscrever = perfil !== "SCHEDULE_VIEWER";
@@ -14,6 +15,7 @@ export default function EscalaPage({ perfil }) {
   const [diag, setDiag] = useState(null);
   const [erro, setErro] = useState(null);
   const [enviando, setEnviando] = useState(false);
+  const [abrirSim, setAbrirSim] = useState(null);
 
   useEffect(() => {
     api("/lojas?pageSize=100")
@@ -32,7 +34,7 @@ export default function EscalaPage({ perfil }) {
     } catch (e) {
       setErro(e.message);
     }
-  }, [lojaId]);
+  }, [lojaId, perfil]); // trocar o papel recarrega: os dados mudam conforme quem olha
 
   useEffect(() => {
     setDiag(null);
@@ -70,7 +72,7 @@ export default function EscalaPage({ perfil }) {
       {erro && <Aviso>{erro}</Aviso>}
 
       <div className="flex gap-6 border-b border-line" role="tablist">
-        {[["diagnostico", "Diagnóstico"], ["grade", "Simulações"], ["configuracao", "Configuração"]].map(([id, r]) => (
+        {[["diagnostico", "Diagnóstico"], ["grade", "Simulações"], ["gerenciar", "Gerenciar"], ["configuracao", "Configuração"]].map(([id, r]) => (
           <button
             key={id}
             role="tab"
@@ -84,10 +86,11 @@ export default function EscalaPage({ perfil }) {
         ))}
       </div>
 
-      {!diag && !erro && aba !== "grade" && <p className="text-sm text-ink-500">Carregando…</p>}
-      {diag && aba === "diagnostico" && <Diagnostico diag={diag} podeEscrever={podeEscrever} onEnviar={() => setEnviando(true)} />}
-      {diag && aba === "configuracao" && <Configuracao diag={diag} podeEscrever={podeEscrever} lojaId={lojaId} onSalvo={setDiag} />}
-      {aba === "grade" && <GradeTab lojaId={lojaId} perfil={perfil} podeEscrever={podeEscrever} />}
+      {!diag && !erro && aba !== "grade" && aba !== "gerenciar" && <p className="text-sm text-ink-500">Carregando…</p>}
+      {diag && aba === "diagnostico" && <Diagnostico diag={diag} podeEscrever={podeEscrever} onEnviar={() => setEnviando(true)} onSimular={(id) => { setAbrirSim(id); setAba("grade"); }} />}
+      {diag && aba === "configuracao" && <Configuracao diag={diag} podeEscrever={podeEscrever} lojaId={lojaId} onSalvo={setDiag} perfil={perfil} />}
+      {aba === "gerenciar" && <GerenciarTab lojaId={lojaId} perfil={perfil} onAbrirSimulacao={(id) => { setAbrirSim(id); setAba("grade"); }} />}
+      {aba === "grade" && <GradeTab lojaId={lojaId} perfil={perfil} podeEscrever={podeEscrever} abrirId={abrirSim} />}
       {enviando && <EnviarPlanilhas onClose={() => setEnviando(false)} onConcluido={carregar} />}
     </>
   );

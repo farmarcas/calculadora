@@ -1,0 +1,11 @@
+# Research — vagas simuladas e custo
+
+1. **Onde ficam as vagas**: dentro do JSON `quadro` da simulação (`vaga: true`, matrícula gerada `VAGA-n`), e desligamento como `desligado: true` numa pessoa. *Por quê*: o quadro já é congelado ao gravar; evita tabela e chave estrangeira para algo que nunca vira funcionário. *Descartado*: tabela `simulacao_vagas` (mais código, mesma informação).
+2. **Como a API recebe**: o `PUT /simulacoes/:id` ganha `vagas` (lista completa de `{funcao, cargaH}`) e `desligados` (lista de matrículas). O servidor monta o quadro, numera as vagas e apaga os turnos de vaga removida. *Por quê*: um único endpoint de edição, resposta já traz a avaliação recalculada.
+3. **Avaliação**: `avaliarSimulacao` descarta pessoas desligadas (e seus turnos) antes de avaliar; vagas valem como pessoas comuns, com o limite semanal igual à carga da vaga. Vaga sem turno gera aviso.
+4. **Custo da loja**: coluna JSON `lojas.custos` = `{ salarioMedio: { função: R$ }, encargosPct, regimeTributario }`. Sem valor padrão. Rotas `GET/PUT /lojas/:id/custos` só `TENANT_ADMIN` (resposta 403 para os outros).
+5. **A conta** (função pura `custo.ts`): pessoa do cadastro = salário médio da função × (1 + encargos); vaga = salário médio × carga × 5 ÷ divisor da regra (220, 210, 200) × (1 + encargos). Total mensal; anual = mensal × 12. Pessoa desligada e função sem salário informado: não somam, e a função sem salário vai para a lista de "faltam informar". *Simplificação conhecida*: pessoa do cadastro com carga parcial é tratada como o salário médio da função; quem tem muito parcial deve ajustar o salário médio. Anotado na tela.
+6. **Congelar**: ao gravar, `premissas` passa a guardar também os custos da loja naquele momento; a gravada sempre usa o snapshot.
+7. **Comparação**: a resposta só traz o bloco `custo` quando o perfil é `TENANT_ADMIN`; para os outros o bloco não existe (não é escondido só na tela). A síntese passa a citar diferença de custo e vagas.
+8. **Atalho do diagnóstico**: `POST /lojas/:id/simulacoes` aceita `comVagasSugeridas: true`; usa as contratações do diagnóstico da regra escolhida (vaga inteira, ou parcial de 16/24/32h quando o diagnóstico sugere).
+9. **Valores monetários**: guardados como número com 2 casas; exibidos em reais arredondados ao real, com a conta explicada em "como foi calculado".

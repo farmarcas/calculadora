@@ -6,11 +6,63 @@ export type CampoDef = {
   exemplo: string;
   // Confere o conteúdo da coluna (0 a 1): ajuda quando o título é ambíguo.
   conteudo?: (valor: string) => boolean;
+  // Coluna de planilhas antigas: ainda é entendida na importação, mas não vai no modelo novo.
+  legado?: boolean;
 };
 
 const reCnpj = /^\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2}$/;
 const reCpf = /^\d{3}\.?\d{3}\.?\d{3}-?\d{2}$/;
 const reHora = /^\d{1,2}:\d{2}(:\d{2})?$/;
+
+// Horário por dia: o conteúdo da coluna pode ser HH:MM, "Fechada" ou "24h".
+export const ehHoraOuMarca = (v: string) =>
+  reHora.test(v) || /^(\d{1,2}|fechad[oa]|24\s?h(oras?|s)?|-)$/i.test(v.trim());
+
+// chave, nome completo, apelidos aceitos nos títulos das colunas
+const DIAS_PLANILHA: [string, string, string[]][] = [
+  ['seg', 'segunda', ['seg', 'segunda', 'segunda feira']],
+  ['ter', 'terça', ['ter', 'terca', 'terca feira']],
+  ['qua', 'quarta', ['qua', 'quarta', 'quarta feira']],
+  ['qui', 'quinta', ['qui', 'quinta', 'quinta feira']],
+  ['sex', 'sexta', ['sex', 'sexta', 'sexta feira']],
+  ['sab', 'sábado', ['sab', 'sabado']],
+  ['dom', 'domingo', ['dom', 'domingo']],
+];
+const EXEMPLO_ABRE = ['08:00', '08:00', '08:00', '08:00', '08:00', '08:00', 'Fechada'];
+const EXEMPLO_FECHA = ['22:00', '22:00', '22:00', '22:00', '22:00', '20:00', 'Fechada'];
+
+export const CAMPOS_HORARIO_DIA: CampoDef[] = DIAS_PLANILHA.flatMap(([k, nome, apelidos], i) => [
+  {
+    chave: `abre_${k}`,
+    rotulo: `Abre ${nome}`,
+    obrigatorio: false,
+    exemplo: EXEMPLO_ABRE[i]!,
+    sinonimos: apelidos.flatMap((a) => [
+      `abre ${a}`,
+      `${a} abre`,
+      `abertura ${a}`,
+      `${a} abertura`,
+      `hora abertura ${a}`,
+      `${a} entrada`,
+    ]),
+    conteudo: ehHoraOuMarca,
+  },
+  {
+    chave: `fecha_${k}`,
+    rotulo: `Fecha ${nome}`,
+    obrigatorio: false,
+    exemplo: EXEMPLO_FECHA[i]!,
+    sinonimos: apelidos.flatMap((a) => [
+      `fecha ${a}`,
+      `${a} fecha`,
+      `fechamento ${a}`,
+      `${a} fechamento`,
+      `hora fechamento ${a}`,
+      `${a} saida`,
+    ]),
+    conteudo: ehHoraOuMarca,
+  },
+]);
 
 export const CAMPOS_LOJA: CampoDef[] = [
   {
@@ -70,9 +122,29 @@ export const CAMPOS_LOJA: CampoDef[] = [
     sinonimos: ['marca', 'bandeira', 'rede'],
   },
   {
+    chave: 'loja_24h',
+    rotulo: 'Loja 24 horas (Sim/Não)',
+    obrigatorio: false,
+    exemplo: 'Não',
+    sinonimos: [
+      'loja 24h',
+      'loja 24 horas',
+      '24h',
+      '24 horas',
+      'funciona 24h',
+      'aberta 24h',
+      '24 hs',
+      '24x7',
+    ],
+    conteudo: (v) => /^(sim|nao|não|s|n|x|true|false|1|0)$/i.test(v),
+  },
+  ...CAMPOS_HORARIO_DIA,
+  // Planilhas antigas: uma abertura e um fechamento para segunda a sexta.
+  {
     chave: 'abre_semana',
     rotulo: 'Abre (seg a sex)',
     obrigatorio: false,
+    legado: true,
     exemplo: '08:00',
     sinonimos: [
       'abre semana',
@@ -89,6 +161,7 @@ export const CAMPOS_LOJA: CampoDef[] = [
     chave: 'fecha_semana',
     rotulo: 'Fecha (seg a sex)',
     obrigatorio: false,
+    legado: true,
     exemplo: '22:00',
     sinonimos: [
       'fecha semana',
@@ -99,38 +172,6 @@ export const CAMPOS_LOJA: CampoDef[] = [
       'fecha',
       'fim semana',
     ],
-    conteudo: (v) => reHora.test(v),
-  },
-  {
-    chave: 'abre_sabado',
-    rotulo: 'Abre (sábado)',
-    obrigatorio: false,
-    exemplo: '08:00',
-    sinonimos: ['abre sabado', 'abertura sabado', 'abre sab'],
-    conteudo: (v) => reHora.test(v),
-  },
-  {
-    chave: 'fecha_sabado',
-    rotulo: 'Fecha (sábado)',
-    obrigatorio: false,
-    exemplo: '20:00',
-    sinonimos: ['fecha sabado', 'fechamento sabado', 'fecha sab'],
-    conteudo: (v) => reHora.test(v),
-  },
-  {
-    chave: 'abre_domingo',
-    rotulo: 'Abre (domingo)',
-    obrigatorio: false,
-    exemplo: '09:00',
-    sinonimos: ['abre domingo', 'abertura domingo', 'abre dom'],
-    conteudo: (v) => reHora.test(v),
-  },
-  {
-    chave: 'fecha_domingo',
-    rotulo: 'Fecha (domingo)',
-    obrigatorio: false,
-    exemplo: '18:00',
-    sinonimos: ['fecha domingo', 'fechamento domingo', 'fecha dom'],
     conteudo: (v) => reHora.test(v),
   },
 ];

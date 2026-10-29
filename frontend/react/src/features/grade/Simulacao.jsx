@@ -3,6 +3,7 @@ import { api, baixarArquivo } from "../../api/client.js";
 import { Aviso, Botao, Cartao, Ficha, entrada } from "../../components/ui/index.jsx";
 import Aprovar from "./Aprovar.jsx";
 import Grade from "./Grade.jsx";
+import Vagas from "./Vagas.jsx";
 import { NOMES_DIA, hhmm, horasLiquidas, lerHhmm } from "./tempo.js";
 
 const STATUS = { rascunho: ["atencao", "Rascunho"], gravada: ["ok", "Gravada"], em_uso: ["ok", "Em uso"], substituida: ["neutro", "Substituída"], descartada: ["neutro", "Descartada"] };
@@ -140,6 +141,13 @@ export default function Simulacao({ id, perfil, podeEscrever, onMudou, onAbrir }
         </Aviso>
       )}
       <p className="m-0 text-xs text-ink-500">{sim.regraInfo.descricao}. Valores das regras ainda sem validação jurídica.</p>
+      {sim.custo && (
+        <p className="m-0 text-sm">
+          <strong>Custo estimado:</strong>{" "}
+          {!sim.custo.informado ? "informe os custos na Configuração para ver o valor" : sim.custo.mensal === null ? `falta o salário médio de ${sim.custo.faltamInformar.join(", ")}` : `${sim.custo.mensal.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 })} por mês · ${sim.custo.anual.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 })} por ano`}
+          <span className="text-xs text-ink-500"> (estimativa gerencial)</span>
+        </p>
+      )}
 
       <div id="area-impressao">
       <p className="hidden print:block m-0 mb-2 text-sm">{sim.nome} · {sim.regraInfo.nome} · {rotulo}</p>
@@ -166,7 +174,7 @@ export default function Simulacao({ id, perfil, podeEscrever, onMudou, onAbrir }
                 const estourou = pp && pp.horas > pp.limiteH + 1e-9;
                 return (
                   <tr key={p.matricula} className="border-t border-line">
-                    <td className="px-4 py-2"><div className="font-medium">{p.nome}</div><div className="text-xs text-ink-500">{p.funcao}</div></td>
+                    <td className={`px-4 py-2 ${p.desligado ? "opacity-50 line-through" : ""}`}><div className="font-medium">{p.nome}{p.vaga && <span className="ml-2"><Ficha tom="atencao">Simulada</Ficha></span>}</div><div className="text-xs text-ink-500">{p.funcao}</div></td>
                     {NOMES_DIA.map((_, d) => {
                       const t = turnos.find((x) => x.matricula === p.matricula && x.dia === d);
                       return <td key={d} className={`px-4 py-2 text-xs ${dia === d ? "bg-system-50" : ""}`}>{t ? `${hhmm(t.entrada)}–${hhmm(t.saida)}` : <span className="text-ink-300">folga</span>}</td>;
@@ -181,6 +189,8 @@ export default function Simulacao({ id, perfil, podeEscrever, onMudou, onAbrir }
       </Cartao>
       </div>
 
+      <Vagas quadro={sim.quadro} editavel={editavel} onSalvar={salvar} />
+
       <Cartao
         titulo={`Escala por hora · ${NOMES_DIA[dia]}`}
         subtitulo={editavel ? "Arraste um turno para mover; puxe as bordas para mudar entrada ou saída (passos de 15 min)" : "Somente leitura"}
@@ -193,7 +203,7 @@ export default function Simulacao({ id, perfil, podeEscrever, onMudou, onAbrir }
         }
       >
         {aberto ? (
-          <Grade quadro={sim.quadro} turnos={turnos} dia={dia} aberto={aberto} editavel={editavel} selecionado={sel} onSelecionar={setSel} onMudar={mudarTurno} onNovoTurno={novoTurno} />
+          <Grade quadro={sim.quadro.filter((p) => !p.desligado)} turnos={turnos} dia={dia} aberto={aberto} editavel={editavel} selecionado={sel} onSelecionar={setSel} onMudar={mudarTurno} onNovoTurno={novoTurno} />
         ) : (
           <p className="m-0 px-6 py-5 text-sm text-ink-500">A loja não abre neste dia. Cadastre o horário em Cadastros.</p>
         )}

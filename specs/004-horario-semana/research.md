@@ -1,0 +1,14 @@
+# Research — horário por dia
+
+1. **Formato novo**: `horarios = { versao: 2, dias: [ {aberta, h24, abre?, fecha?} × 7 ] }`, índice 0 = segunda … 6 = domingo. Dia fechado: `{ aberta: false }`. Dia 24 horas: `{ aberta: true, h24: true, abre: "00:00", fecha: "24:00" }`. *Por quê*: um dia por posição elimina ambiguidade ("semana" valia cinco dias) e `24:00` já é lido pelo interpretador de horas atual.
+2. **Formato antigo**: `{ semana?, sabado?, domingo? }` com `{abre, fecha}`. A função `normalizarHorarios` converte: `semana` vale segunda a sexta; o que não existe vira fechado. Reconhece os dois formatos, então dados antigos, simulações gravadas e testes antigos continuam valendo.
+3. **Quando converter**: **na leitura** (repositórios e `diasAbertos`) e **na gravação** (a API sempre grava o formato novo). Nada é reescrito em massa: loja antiga vira nova na próxima vez que alguém a salvar. *Por quê*: nenhuma migration, nenhum risco para os dados existentes.
+4. **API**: `POST/PATCH /lojas` aceita o formato novo e o antigo. Respostas sempre trazem o formato novo.
+5. **Validação**: dia aberto sem 24h exige abertura e fechamento válidos e fechamento maior que a abertura; 24h ignora os horários; fechado ignora tudo. Loja pode ter todos os dias fechados (o diagnóstico avisa).
+6. **Planilha — colunas**: `Seg_Abre, Seg_Fecha, … Dom_Abre, Dom_Fecha` e `Loja_24h` (Sim/Não). Dia sem horário = fechado; célula "Fechada" também. Célula "24h" na abertura = aquele dia 24 horas. `Loja_24h = Sim` = os sete dias 24 horas. As colunas antigas (`abre_semana`…`fecha_domingo`) continuam como campos opcionais da inferência e preenchem segunda a sexta, sábado e domingo; coluna por dia, quando existir, tem prioridade. O modelo baixado traz só as colunas novas.
+7. **Inferência**: sinônimos por dia ("Abre Segunda", "Abertura Seg", "Seg Abre"…); o conteúdo da coluna (HH:MM) reforça o palpite, como já é hoje.
+8. **Cálculo**: `diasAbertos` já devolve uma lista por dia (`{dia, abre, fecha}`); só passa a lê-la do formato novo. Necessidade de horas e turnos, cobertura, regras, ponto e apuração não mudam de fórmula. Para 24h, a cobertura percorre 00h a 24h e o turno exigido por dia é `ceil(24/8) = 3`.
+9. **Grade**: a grade das simulações já mostra os dias que `diasAbertos` devolve; domingo e sábado aparecem quando abertos. Os turnos seguem entre 00:00 e 24:00 (decisão da spec): turno que passa da meia-noite é montado como dois.
+10. **"Desatualizada"**: a comparação entre o horário atual da loja e o congelado passa a comparar as duas versões **já convertidas**, para que converter o formato não dispare alarme falso.
+11. **Resumo na tela**: função pura no front agrupa dias consecutivos iguais ("Seg a sáb 08:00–22:00 · Dom fechada", "Todos os dias 24h").
+12. **Risco conhecido**: lojas 24h exigem muito mais gente para cobrir farmacêutico nas 168 horas por semana; o diagnóstico vai mostrar contratações grandes, e isso é o resultado esperado.

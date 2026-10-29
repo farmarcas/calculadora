@@ -8,6 +8,8 @@ import { lerPerfil } from './shared/middlewares/perfil.js';
 import { cadastrosRouter } from './modules/cadastros/cadastros.routes.js';
 import { escalaRouter } from './modules/escala/escala.routes.js';
 import { simulacoesRouter } from './modules/simulacoes/simulacoes.routes.js';
+import { custosRouter } from './modules/custos/custos.routes.js';
+import { pontoRouter } from './modules/ponto/ponto.routes.js';
 import { usersRouter } from './modules/users/users.routes.js';
 import type { UsersRepository } from './modules/users/users.service.js';
 
@@ -44,7 +46,15 @@ export const createApp = (deps: AppDeps = {}) => {
   });
 
   app.use('/api/v1/users', usersRouter(deps.usersRepository));
-  app.use('/api/v1', lerPerfil, cadastrosRouter(), escalaRouter(), simulacoesRouter());
+  app.use(
+    '/api/v1',
+    lerPerfil,
+    cadastrosRouter(),
+    escalaRouter(),
+    simulacoesRouter(),
+    custosRouter(),
+    pontoRouter(),
+  );
 
   app.use((_req, res) => {
     res.status(404).json({

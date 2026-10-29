@@ -16,6 +16,8 @@ describe('escala (rotas)', () => {
   let lojaId: string;
 
   beforeEach(async () => {
+    await prisma.batida.deleteMany();
+    await prisma.importacaoPonto.deleteMany();
     await prisma.simulacao.deleteMany();
     await prisma.carga.deleteMany();
     await prisma.funcionario.deleteMany();
@@ -165,5 +167,35 @@ describe('escala (rotas)', () => {
   it('baixa os modelos de escala e de base', async () => {
     expect((await request(app).get('/api/v1/planilha-modelo-escala')).status).toBe(200);
     expect((await request(app).get('/api/v1/planilha-modelo-base')).status).toBe(200);
+  });
+
+  it('a folha mensal atual só vai para o dono do grupo', async () => {
+    await request(app)
+      .post('/api/v1/cargas/escala')
+      .set(admin)
+      .attach(
+        'arquivo',
+        await xlsx(escalaCab, [
+          ['001', 'F1', 'Ana', 'Farmacêutica', 'Seg a Sáb', '08:00', '', '', '17:00', '44'],
+        ]),
+        'e.xlsx',
+      );
+    const url = `/api/v1/lojas/${lojaId}/diagnostico`;
+    // dono sem custos informados: avisa, sem valor
+    expect((await request(app).get(url).set(admin)).body.folhaMensal).toEqual({ informado: false });
+
+    await request(app)
+      .put(`/api/v1/lojas/${lojaId}/custos`)
+      .set(admin)
+      .send({ salarioMedio: { Farmacêutico: 8000 }, encargosPct: 40 });
+    const dono = (await request(app).get(url).set(admin)).body;
+    expect(dono.folhaMensal).toMatchObject({ informado: true, mensal: 11200, encargosPct: 40 });
+
+    for (const h of [{ 'X-Perfil': 'SCHEDULE_MANAGER' }, { 'X-Perfil': 'SCHEDULE_VIEWER' }]) {
+      const r = (await request(app).get(url).set(h)).body;
+      expect(r.folhaMensal).toBeUndefined();
+      expect(JSON.stringify(r)).not.toContain('11200');
+    }
+    expect(dono.numeros).toMatchObject({ colaboradoresNoCalculo: 1 });
   });
 });

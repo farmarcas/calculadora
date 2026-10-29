@@ -7,7 +7,7 @@ const sinal = (n) => (n > 0 ? "+" : n < 0 ? "−" : "");
 const mod = (n) => brl(Math.abs(n));
 const hh = (t) => (t ? `${t.slice(0, 2)}h` : "");
 
-const STATUS = { nao_recomendado: ["atencao", "Não recomendado"], inviavel: ["erro", "Inviável"] };
+const STATUS = { viavel: ["ok", "Viável"], nao_recomendado: ["atencao", "Não recomendado"], inviavel: ["erro", "Inviável"] };
 
 const textoContratacao = (c) => {
   const parcial = c.parcial ? `1 ${c.funcao.toLowerCase()} parcial de ${c.parcial.horas}h` : "";

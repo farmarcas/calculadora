@@ -5,7 +5,6 @@ import QuadroCentral from "./QuadroCentral.jsx";
 import Cenarios from "./Cenarios.jsx";
 import QuadroTurnos from "./QuadroTurnos.jsx";
 import Comparativo from "./Comparativo.jsx";
-import Premissas from "./Premissas.jsx";
 
 const TH = "text-left text-[11px] font-bold uppercase tracking-wide text-ink-500 px-6 py-3";
 const TD = "px-6 py-3 border-t border-line";
@@ -175,7 +174,7 @@ function Vendas({ vendas }) {
   );
 }
 
-export default function Diagnostico({ diag, podeEscrever, onEnviar, onSimular, simulando, onPremissas }) {
+export default function Diagnostico({ diag, podeEscrever, onEnviar, onSimular }) {
   const [regraId, setRegraId] = useState("r42");
 
   if (diag.status === "pendente")
@@ -197,10 +196,11 @@ export default function Diagnostico({ diag, podeEscrever, onEnviar, onSimular, s
       {diag.avisoEstimativa && <Aviso tom="atencao">{diag.avisoEstimativa}</Aviso>}
       <QuadroCentral diag={diag} regraId={regraId} onRegra={setRegraId} podeEscrever={podeEscrever} onEnviar={onEnviar} />
 
-      <QuadroTurnos quadro={diag.quadroTurnos} />
-      <Premissas atual={diag.premissas} simulando={simulando} onAplicar={onPremissas} onLimpar={() => onPremissas(null)} />
-      <Comparativo comparativo={diag.cenarios?.[regraId]?.comparativo} />
+      {/* Logo depois do diagnóstico: os caminhos lado a lado e, abaixo, o detalhe de cada cenário. */}
+      <Comparativo comparativo={diag.cenarios?.[regraId]?.comparativo} cenarios={diag.cenarios?.[regraId]} />
       <Cenarios cenarios={diag.cenarios?.[regraId]} origemVendas={diag.origemVendas} etapas={diag.etapas} />
+
+      <QuadroTurnos quadro={diag.quadroTurnos} />
 
       <Cartao titulo="Quadro por função" subtitulo="Só entram no cálculo colaboradores com função de escala">
         <table className="w-full border-collapse text-sm">

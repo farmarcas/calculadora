@@ -15,8 +15,6 @@ export default function EscalaPage({ perfil }) {
   const [erro, setErro] = useState(null);
   const [enviando, setEnviando] = useState(false);
   const [abrirSim, setAbrirSim] = useState(null);
-  // Premissas só para simular (nunca gravadas): nulo = valores do cadastro.
-  const [premissas, setPremissas] = useState(null);
 
   useEffect(() => {
     api("/lojas?pageSize=100")
@@ -31,12 +29,11 @@ export default function EscalaPage({ perfil }) {
     if (!lojaId) return;
     setErro(null);
     try {
-      const consulta = premissas ? `?${new URLSearchParams(premissas)}` : "";
-      setDiag(await api(`/lojas/${lojaId}/diagnostico${consulta}`));
+      setDiag(await api(`/lojas/${lojaId}/diagnostico`));
     } catch (e) {
       setErro(e.message);
     }
-  }, [lojaId, perfil, premissas]); // trocar o papel recarrega: os dados mudam conforme quem olha
+  }, [lojaId, perfil]); // trocar o papel recarrega: os dados mudam conforme quem olha
 
   useEffect(() => {
     setDiag(null);
@@ -89,7 +86,7 @@ export default function EscalaPage({ perfil }) {
       </div>
 
       {!diag && !erro && aba !== "grade" && <p className="text-sm text-ink-500">Carregando…</p>}
-      {diag && aba === "diagnostico" && <Diagnostico diag={diag} podeEscrever={podeEscrever} simulando={!!premissas} onPremissas={setPremissas} onEnviar={() => setEnviando(true)} onSimular={(id) => { setAbrirSim(id); setAba("grade"); }} />}
+      {diag && aba === "diagnostico" && <Diagnostico diag={diag} podeEscrever={podeEscrever} onEnviar={() => setEnviando(true)} onSimular={(id) => { setAbrirSim(id); setAba("grade"); }} />}
       {aba === "grade" && <GradeTab lojaId={lojaId} perfil={perfil} podeEscrever={podeEscrever} abrirId={abrirSim} />}
       {enviando && <EnviarPlanilhas onClose={() => setEnviando(false)} onConcluido={carregar} />}
     </>

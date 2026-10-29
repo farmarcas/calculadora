@@ -15,11 +15,19 @@ export type ColunaComparativo = {
   // Nulo quando o cenário não pode ser calculado por falta de dado (o alerta diz o que falta).
   status: StatusCenario | null;
   alertas: string[];
+  // Folga das contratações do cenário (% das horas contratadas que passam do necessário); nulo sem contratação.
+  ociosidadePct: number | null;
   // Só para o dono; nulos quando falta dado. Margem perdida é negativa; o resultado é em relação a hoje.
   custoFolhaMensal?: number | null;
   margemMes?: number | null;
   resultadoLiquidoMensal?: number | null;
   impactoPctFaturamento?: number | null;
+  // Só para o dono: o que o cenário acrescenta à folha por mês, a venda que deixa de entrar (valor e % do faturamento)
+  // e quanto o resultado difere do Cenário 1 (manter horários), por mês.
+  folhaAdicionalMensal?: number | null;
+  faturamentoPerdidoMensal?: number | null;
+  faturamentoPerdidoPct?: number | null;
+  ganhoFrenteManterMensal?: number | null;
 };
 
 export type Comparativo = {
@@ -40,7 +48,11 @@ export const montarComparativo = (e: EntradaCenarios, c: CenariosRegra): Compara
     'Venda estimada: só o faturamento mensal foi informado e foi dividido igualmente entre os dias abertos.';
 
   // Valores em reais de uma coluna a partir do custo adicional de folha e da margem perdida; só para o dono.
-  const valores = (custoAdicional: number | null, margemPerdida: number | null) => {
+  const valores = (
+    custoAdicional: number | null,
+    margemPerdida: number | null,
+    vendaPerdida: number | null = null,
+  ) => {
     if (!e.dono) return {};
     const impacto =
       custoAdicional !== null && margemPerdida !== null ? custoAdicional + margemPerdida : null;
@@ -52,6 +64,10 @@ export const montarComparativo = (e: EntradaCenarios, c: CenariosRegra): Compara
       resultadoLiquidoMensal: impacto === null ? null : arred(-impacto) || 0,
       impactoPctFaturamento:
         impacto !== null && fat !== null && fat > 0 ? pct((impacto / fat) * 100) : null,
+      folhaAdicionalMensal: custoAdicional === null ? null : arred(custoAdicional) || 0,
+      faturamentoPerdidoMensal: vendaPerdida === null ? null : arred(vendaPerdida) || 0,
+      faturamentoPerdidoPct:
+        vendaPerdida !== null && fat !== null && fat > 0 ? pct((vendaPerdida / fat) * 100) : null,
     };
   };
 
@@ -70,7 +86,8 @@ export const montarComparativo = (e: EntradaCenarios, c: CenariosRegra): Compara
     horasSemana: manter.horasSemana,
     status: 'viavel',
     alertas: alertasManter,
-    ...valores(manter.custoAdicionalMensal ?? null, e.dono ? 0 : null),
+    ociosidadePct: manter.contratacoes.length ? manter.ociosidadePct : null,
+    ...valores(manter.custoAdicionalMensal ?? null, e.dono ? 0 : null, e.dono ? 0 : null),
   };
 
   const alertasEco: string[] = [];
@@ -90,7 +107,10 @@ export const montarComparativo = (e: EntradaCenarios, c: CenariosRegra): Compara
     horasSemana: economia.horasSemana,
     status: statusEco,
     alertas: alertasEco,
-    ...(economia.viavel ? valores(0, economia.margemCortadaMes) : valores(null, null)),
+    ociosidadePct: null,
+    ...(economia.viavel
+      ? valores(0, economia.margemCortadaMes, economia.vendaCortadaMes)
+      : valores(null, null)),
   };
 
   const alertasEq: string[] = [];
@@ -110,15 +130,36 @@ export const montarComparativo = (e: EntradaCenarios, c: CenariosRegra): Compara
     horasSemana: equilibrio.horasSemana,
     status: equilibrio.indisponivel ? null : 'viavel',
     alertas: alertasEq,
+    ociosidadePct: equilibrio.contratacoes.length ? equilibrio.ociosidadePct : null,
     ...(equilibrio.indisponivel
       ? valores(null, null)
-      : valores(equilibrio.custoAdicionalMensal ?? null, equilibrio.margemCortadaMes)),
+      : valores(
+          equilibrio.custoAdicionalMensal ?? null,
+          equilibrio.margemCortadaMes,
+          vendaPerdidaDe(equilibrio.diasFechar),
+        )),
   };
 
-  const r: Comparativo = { cenarios: [colManter, colEco, colEq] };
+  const cols = [colManter, colEco, colEq];
+  if (e.dono)
+    for (const col of cols) {
+      const a = col.resultadoLiquidoMensal;
+      const base = colManter.resultadoLiquidoMensal;
+      col.ganhoFrenteManterMensal =
+        a === null || a === undefined || base === null || base === undefined
+          ? null
+          : arred(a - base) || 0;
+    }
+  const r: Comparativo = { cenarios: cols };
   if (e.dono) r.destaque = c.destaque ?? null;
   return r;
 };
+
+// Soma da venda mensal dos dias que o cenário fecha; nula se algum dia não tem valor.
+const vendaPerdidaDe = (dias: { vendaMes?: number | null }[]) =>
+  dias.every((d) => typeof d.vendaMes === 'number')
+    ? dias.reduce((s, d) => s + (d.vendaMes as number), 0)
+    : null;
 
 function alertas(lista: string[], texto: string) {
   if (!lista.includes(texto)) lista.push(texto);

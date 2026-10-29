@@ -43,14 +43,19 @@ function Cartao({ posicao, coluna, foco, horarioAtual, horasManter, destaque, do
     <article className={`flex flex-col bg-surface-card rounded-card overflow-hidden border ${destaque ? "border-2 border-system-500" : "border-line"} shadow-card`} aria-label={`Cenário ${posicao}: ${c.nome}`}>
       <header className="px-5 pt-4 pb-3">
         <div className="flex items-center justify-between gap-2">
-          <h3 className="m-0 flex items-center gap-2 text-base font-medium">
-            <span className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-system-500 text-white text-xs font-bold">{posicao}</span>
-            {c.nome}
+          <h3 className="m-0 flex min-w-0 items-center gap-2 text-base font-medium">
+            <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-system-500 text-white text-xs font-bold">{posicao}</span>
+            <span className="truncate">{c.nome}</span>
           </h3>
-          {destaque && <span className="rounded-full bg-system-500 px-3 py-1 text-xs font-medium text-white">Cenário sugerido</span>}
+          {/* Selos na linha do título, à direita: o status (não recomendado, inviável) e o cenário sugerido. */}
+          {(status || destaque) && (
+            <div className="flex shrink-0 items-center gap-1.5">
+              {status && <Ficha tom={status[0]}>{status[1]}</Ficha>}
+              {destaque && <span className="rounded-full bg-system-500 px-3 py-0.5 text-xs font-medium text-white whitespace-nowrap">Cenário sugerido</span>}
+            </div>
+          )}
         </div>
         <p className="mt-2 mb-0 text-xs text-ink-500">{foco}</p>
-        {status && <div className="mt-2"><Ficha tom={status[0]}>{status[1]}</Ficha></div>}
       </header>
 
       {dono && (

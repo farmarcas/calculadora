@@ -56,12 +56,12 @@ Segurança do banco: sem migration nesta spec; nada de `down -v` nem `prisma mig
 
 **Teste independente**: mudar a margem e recalcular; recarregar e ver os valores originais; valores fora da faixa são recusados.
 
-- [ ] T017 [US4] Teste + `src/modules/escala/premissas.ts`: validar `recaptura` (0–30), `margemPct` (0–100), `fatorDiaNovo` (0–100), `diasProtegidos` (0–6), `limiteParcial` (0–3), com mensagens em português
-- [ ] T018 [US4] `escala.routes.ts` e `escala.schemas.ts`: query de premissas no Diagnóstico; a entrada dos cenários e a regra de contratação usam as premissas; a resposta devolve as premissas em uso (a margem só ao dono); teste de integração: nada é gravado, 400 fora da faixa, dono × demais
-- [ ] T019 [P] [US4] `features/diagnostico/Premissas.jsx` (campos e "Recalcular") e `EscalaPage.jsx` guardando as premissas e recarregando o Diagnóstico
-- [ ] T020 Permissões ponta a ponta com dono, gestor e consulta (comparativo, premissas, custos) conferidas na tela
-- [ ] T021 Conferir a loja 001 (os números mudam; registrar os novos e explicar a diferença) e o README com as regras novas; `quickstart.md` conferido
-- [ ] T022 Rodar tudo: `npm test`, `npm run test:integration`, `npm run lint`, `npx tsc --noEmit`, build do `web`, `scripts/sync-templates.sh --check`, `scripts/check-repo.sh`
+- [X] T017 [US4] Teste + `src/modules/escala/premissas.ts`: validar `recaptura` (0–30), `margemPct` (0–100), `fatorDiaNovo` (0–100), `diasProtegidos` (0–6), `limiteParcial` (0–3), com mensagens em português
+- [X] T018 [US4] `escala.routes.ts` e `escala.schemas.ts`: query de premissas no Diagnóstico; a entrada dos cenários e a regra de contratação usam as premissas; a resposta devolve as premissas em uso (a margem só ao dono); teste de integração: nada é gravado, 400 fora da faixa, dono × demais
+- [X] T019 [P] [US4] `features/diagnostico/Premissas.jsx` (campos e "Recalcular") e `EscalaPage.jsx` guardando as premissas e recarregando o Diagnóstico
+- [X] T020 Permissões ponta a ponta com dono, gestor e consulta (comparativo, premissas, custos) conferidas na tela
+- [X] T021 Conferir a loja 001 (os números mudam; registrar os novos e explicar a diferença) e o README com as regras novas; `quickstart.md` conferido
+- [X] T022 Rodar tudo: `npm test`, `npm run test:integration`, `npm run lint`, `npx tsc --noEmit`, build do `web`, `scripts/sync-templates.sh --check`, `scripts/check-repo.sh`
 
 ## Dependências
 

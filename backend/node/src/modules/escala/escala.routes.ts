@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from 'express';
 import type { z } from 'zod';
 import { auditar } from '../../shared/auditoria/auditoria.js';
+import { AppError } from '../../shared/errors/app-error.js';
 import { ValidationError } from '../../shared/errors/validation-error.js';
 import { exigirPerfil, type Perfil } from '../../shared/middlewares/perfil.js';
 import { uploadPlanilha } from '../../shared/middlewares/upload.js';
@@ -41,9 +42,13 @@ export const escalaRouter = (repo: EscalaRepository = escalaRepository) => {
       .json(await s.importarBase(req.file.originalname, req.file.buffer, perfilDe(res)));
   });
 
-  r.get('/lojas/:id/diagnostico', validate(S.porLojaReq), async (_req, res) =>
-    res.json(await s.diagnostico(v<typeof S.porLojaReq>(res).params.id, perfilDe(res))),
-  );
+  r.get('/lojas/:id/diagnostico', validate(S.diagnosticoReq), async (_req, res) => {
+    const { params, query } = v<typeof S.diagnosticoReq>(res);
+    // A margem simulada mexe nos valores em reais: só o dono.
+    if (query.margemPct !== undefined && perfilDe(res) !== 'TENANT_ADMIN')
+      throw new AppError('Só o dono simula a margem bruta', 403, 'SEM_PERMISSAO');
+    res.json(await s.diagnostico(params.id, perfilDe(res), query));
+  });
   r.get('/lojas/:id/cargas', validate(S.porLojaReq), async (_req, res) =>
     res.json(await s.historico(v<typeof S.porLojaReq>(res).params.id)),
   );

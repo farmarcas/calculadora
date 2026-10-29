@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { premissasQuery } from './premissas.js';
 
 const vazio = z.object({}).strict();
 const id = z.object({ id: z.string().uuid() }).strict();
@@ -6,6 +7,12 @@ const req = <B extends z.ZodType, P extends z.ZodType>(body: B, params: P) =>
   z.object({ body, params, query: vazio.default({}) });
 
 export const porLojaReq = req(vazio.default({}), id);
+// O Diagnóstico aceita premissas opcionais, só para simular (nada é gravado).
+export const diagnosticoReq = z.object({
+  body: vazio.default({}),
+  params: id,
+  query: premissasQuery.default({}),
+});
 const hora = z.string().regex(/^(([01]\d|2[0-3]):[0-5]\d|24:00)$/, 'Horário inválido (use HH:MM)');
 const turnoSchema = z
   .object({

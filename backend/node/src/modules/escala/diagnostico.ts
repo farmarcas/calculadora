@@ -10,6 +10,7 @@ import { montarQuadroTurnos } from './quadro-turnos.js';
 import { avisosDeTurnos, exigenciasDaLoja, type TurnosLoja } from '../regras/turnos.js';
 import type { Faturamento } from '../cadastros/faturamento.js';
 import { montarComparativo, type Comparativo } from './comparativo.js';
+import { PREMISSAS_PADRAO, type Premissas } from './premissas.js';
 import { montarEtapas } from './etapas.js';
 import { faturamentoMensalDe, resumirVendas, type VendaLinha } from './vendas.js';
 import { vendasDoCadastro } from './vendas-cadastro.js';
@@ -109,8 +110,12 @@ export const montarDiagnostico = (a: {
   foraDaConta?: { nome: string; motivo: string }[];
   // Parâmetros legais vigentes (jornada, dias, divisor); sem eles valem os de hoje.
   parametros?: TabelaParametros;
+  // Premissas só para simular (recaptura, fator de dia novo, dias protegidos, limite do parcial) e a margem simulada do dono.
+  premissas?: Premissas;
+  margemPctSimulada?: number | null;
 }) => {
   const { loja, escala, turnos, base, vendas } = a;
+  const prem = a.premissas ?? PREMISSAS_PADRAO;
   const dias = diasAbertos(loja.horarios);
   const minimos = { ...FUNCOES_PADRAO_MINIMO, ...(loja.minimos ?? {}) };
   const horasAbertas = dias.reduce((s, d) => s + (d.fecha - d.abre), 0);
@@ -164,7 +169,9 @@ export const montarDiagnostico = (a: {
 
   const regras = REGRA_IDS.map((id: RegraId) => {
     const regra = regraPara(id, loja.convencao8h24, a.parametros);
-    const funcoes = verificarRegra(regra, dias, exigencias, pessoas);
+    const funcoes = verificarRegra(regra, dias, exigencias, pessoas, {
+      limiteParcial: prem.limiteParcial,
+    });
     return {
       id,
       nome: regra.nome,
@@ -195,7 +202,13 @@ export const montarDiagnostico = (a: {
   const doCadastro = vendas.length === 0 ? vendasDoCadastro(loja.faturamento, dias) : null;
   const origemVendas =
     vendas.length > 0 ? ('base' as const) : doCadastro ? ('cadastro' as const) : null;
-  const vendasUsadas = doCadastro?.linhas ?? vendas;
+  // Margem simulada (só o dono): substitui a margem da base ou do cadastro em todas as horas, sem gravar nada.
+  const margemEmUso = a.margemPctSimulada ?? loja.faturamento?.margemPct ?? null;
+  const vendasBrutas = doCadastro?.linhas ?? vendas;
+  const vendasUsadas =
+    a.margemPctSimulada == null
+      ? vendasBrutas
+      : vendasBrutas.map((l) => ({ ...l, margem: (l.venda * a.margemPctSimulada!) / 100 }));
   // Sem curva por hora (origem cadastro) não existe "horário de maior venda".
   const resumoVendas = origemVendas === 'base' ? resumirVendas(vendas) : null;
 
@@ -328,6 +341,10 @@ export const montarDiagnostico = (a: {
         parametros: a.parametros,
         faturamentoMensalRef: faturamentoRef?.valor ?? null,
         origemVenda,
+        recaptura: prem.recaptura / 100,
+        diasProtegidos: prem.diasProtegidos,
+        fatorDiaNovo: prem.fatorDiaNovo / 100,
+        limiteParcial: prem.limiteParcial,
       };
       const cenarios = montarCenarios(entrada);
       return [
@@ -385,6 +402,16 @@ export const montarDiagnostico = (a: {
     origemVendas,
     cenarios: cenariosSaida,
     etapas,
+    premissas: {
+      ...prem,
+      // A margem (valor em reais indireto) só o dono vê: a em uso e a do cadastro, para voltar a ela.
+      ...(a.dono
+        ? {
+            margemPct: margemEmUso,
+            margemPctCadastro: loja.faturamento?.margemPct ?? null,
+          }
+        : {}),
+    },
     pontosAtencao: atencao,
     colaboradores: turnos.map((t) => ({
       matricula: t.matricula,

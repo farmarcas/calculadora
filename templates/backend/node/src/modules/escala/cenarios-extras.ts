@@ -81,7 +81,8 @@ const montarEstender = (e: EntradaCenarios, c: CenariosRegra): CenarioEstender =
   const cheia = tetoEfetivo(regra);
   const vagas = c.manter.contratacoes.flatMap((ct) => vagasDe(ct, cheia));
   const equipe = [...e.pessoas, ...vagas];
-  const cobre = (dias: DiaAberto[]) => passa(verificarRegra(regra, dias, e.minimos, equipe));
+  const cobre = (dias: DiaAberto[]) =>
+    passa(verificarRegra(regra, dias, e.minimos, equipe, { limiteParcial: e.limiteParcial }));
   const fator = Math.min(1, Math.max(0, e.fatorDiaNovo ?? FATOR_DIA_NOVO_PADRAO));
 
   const base: CenarioEstender = {
@@ -216,7 +217,9 @@ const pct = (n: number) => Math.round(n * 10) / 10;
 const montarReduzir = (e: EntradaCenarios, c: CenariosRegra): CenarioReduzir => {
   const regra = regraPara(e.regraId, e.convencao8h24, e.parametros);
   const linhaDe = (pessoas: EntradaCenarios['pessoas'], funcao: string) =>
-    verificarRegra(regra, e.dias, e.minimos, pessoas).find((l) => l.funcao === funcao);
+    verificarRegra(regra, e.dias, e.minimos, pessoas, { limiteParcial: e.limiteParcial }).find(
+      (l) => l.funcao === funcao,
+    );
   const req = requisitos(e.minimos);
   const funcoes = [...new Set(e.pessoas.map((p) => p.funcao))].filter((f) => req.pico(f) > 0);
 

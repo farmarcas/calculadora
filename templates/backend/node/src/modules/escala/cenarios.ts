@@ -147,6 +147,8 @@ export type EntradaCenarios = {
   recaptura?: number;
   // Quanto da média dos dias abertos vale um dia hoje fechado que nunca vendeu (0 a 1; padrão 0,5).
   fatorDiaNovo?: number;
+  // Turnos de sobra até os quais se contrata um parcial (0 a 3; padrão 3).
+  limiteParcial?: number;
   custos: Custos | null;
   dono: boolean;
 };
@@ -433,7 +435,8 @@ const montarEconomia = (
   const escolha = escolherDiasAFechar({
     dias: e.dias,
     porDia,
-    cobre: (dias) => passa(verificarRegra(regra, dias, e.minimos, e.pessoas)),
+    cobre: (dias) =>
+      passa(verificarRegra(regra, dias, e.minimos, e.pessoas, { limiteParcial: e.limiteParcial })),
   });
   if (!escolha.cobre)
     return {
@@ -627,7 +630,9 @@ const montarEquilibrio = (
     protegidos: porDia.filter((d) => d.protegido).map((d) => d.dia),
     margemMes: (dia) => porDia[dia]!.margemMes! * fica,
     avaliar: (abertos) => {
-      const linhas = verificarRegra(regra, abertos, e.minimos, e.pessoas);
+      const linhas = verificarRegra(regra, abertos, e.minimos, e.pessoas, {
+        limiteParcial: e.limiteParcial,
+      });
       const cs = contratacoesDe(linhas);
       return {
         linhas,
@@ -699,7 +704,9 @@ const montarEquilibrio = (
 
 export const montarCenarios = (e: EntradaCenarios): CenariosRegra => {
   const regra = regraPara(e.regraId, e.convencao8h24, e.parametros);
-  const linhas = verificarRegra(regra, e.dias, e.minimos, e.pessoas);
+  const linhas = verificarRegra(regra, e.dias, e.minimos, e.pessoas, {
+    limiteParcial: e.limiteParcial,
+  });
   const vb = vendasPorDiaEHora(e.vendas);
   const porDia = vendasPorDia(e.vendas, e.dias, e.diasProtegidos ?? DIAS_PROTEGIDOS_PADRAO);
   const folha = e.dono ? folhaAtual(e.pessoas, e.custos, e.parametros) : null;

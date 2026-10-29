@@ -14,6 +14,7 @@ import {
 import { diasAbertos, montarDiagnostico } from './diagnostico.js';
 import { interpretarBase, interpretarEscala, somarPorHora, type ErroLinha } from './interpretar.js';
 import type { EscalaRepository } from './escala.repository.js';
+import { premissasDe, type PremissasEntrada } from './premissas.js';
 
 const entendi = (
   campos: CampoDef[],
@@ -173,7 +174,7 @@ export const makeEscalaService = (repo: EscalaRepository, auditar: Auditor) => {
       };
     },
 
-    async diagnostico(lojaId: string, perfil?: string) {
+    async diagnostico(lojaId: string, perfil?: string, simulacao?: PremissasEntrada) {
       const loja = await repo.lojaParaDiagnostico(lojaId);
       if (!loja) throw new NotFoundError('Loja não encontrada', 'LOJA_NAO_ENCONTRADA');
       const [escalaImportada, base, doCadastro, parametros] = await Promise.all([
@@ -214,6 +215,8 @@ export const makeEscalaService = (repo: EscalaRepository, auditar: Auditor) => {
         vendas: base?.vendas ?? [],
         dono: perfil === 'TENANT_ADMIN',
         parametros,
+        premissas: premissasDe(simulacao).valores,
+        margemPctSimulada: premissasDe(simulacao).margemPctSimulada,
         foraDaConta: await repo.foraDaEscala(
           lojaId,
           turnosFinais.map((t) => t.matricula),

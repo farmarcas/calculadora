@@ -521,6 +521,12 @@ describe('escala (rotas)', () => {
     expect(com.impactoMensal).toBe(-523.61);
     expect(com.aviso).toContain('50%');
 
+    // O fator de dia novo é uma premissa: com 100% o domingo vale a média inteira (2 × 523,61 = 1047,22)
+    const cheio = (await request(app).get(`${url}?fatorDiaNovo=100`).set(admin)).body.cenarios.r40
+      .estender;
+    expect(cheio.margemRefMes).toBe(1047.22);
+    expect(cheio.aviso).toContain('100%');
+
     for (const h of [{ 'X-Perfil': 'SCHEDULE_MANAGER' }, { 'X-Perfil': 'SCHEDULE_VIEWER' }]) {
       const r = await est(h);
       expect(r.diasAbrir).toEqual([{ dia: 6, abre: '08:00', fecha: '14:00' }]);
@@ -777,6 +783,118 @@ describe('escala (rotas)', () => {
     expect(base.origemVenda).toBe('base');
     // duas segundas (07/09 e 14/09/2026): (200 + 300) ÷ 2 = 250 por segunda
     expect(base.vendasPorDia[0]).toMatchObject({ venda: 250, margem: 50 });
+  });
+
+  it('premissas para simular: recaptura, margem, dias protegidos e limite do parcial; faixas, permissões e nada é gravado', async () => {
+    await request(app)
+      .post('/api/v1/cargas/escala')
+      .set(admin)
+      .attach(
+        'arquivo',
+        await xlsx(escalaCab, [
+          ['001', 'F1', 'Ana', 'Farmacêutica', 'Seg a Sáb', '08:00', '', '', '17:00', '44'],
+        ]),
+        'e.xlsx',
+      );
+    await request(app)
+      .put(`/api/v1/lojas/${lojaId}/configuracao`)
+      .set(admin)
+      .send({ minimos: { Atendimento: 0, Caixa: 0 } });
+    await request(app)
+      .put(`/api/v1/lojas/${lojaId}/custos`)
+      .set(admin)
+      .send({ salarioMedio: { Farmacêutico: 8000 }, encargosPct: 40 });
+    await request(app)
+      .patch(`/api/v1/lojas/${lojaId}`)
+      .set(admin)
+      .send({
+        faturamento: {
+          dias: [1000, 1100, 900, 1200, 1500, 800, null],
+          mensal: null,
+          margemPct: 25,
+        },
+      });
+    const url = `/api/v1/lojas/${lojaId}/diagnostico`;
+    const gestor = { 'X-Perfil': 'SCHEDULE_MANAGER' };
+    const pedir = (consulta = '', perfil: Record<string, string> = admin) =>
+      request(app).get(`${url}${consulta}`).set(perfil);
+    const r40 = async (consulta = '', perfil = admin) => (await pedir(consulta, perfil)).body;
+
+    // Sem premissas (padrões): Cenário 2 fecha segunda, terça e quarta (margem 3250); Cenário 3 fecha segunda, quarta e sábado (impacto 5165)
+    const padrao = await r40();
+    expect(padrao.cenarios.r40.economia.margemCortadaMes).toBe(3250);
+    expect(padrao.cenarios.r40.equilibrio.impactoMensal).toBe(5165);
+    expect(padrao.premissas).toMatchObject({
+      recaptura: 0,
+      fatorDiaNovo: 50,
+      diasProtegidos: 3,
+      limiteParcial: 3,
+      margemPct: 25,
+      margemPctCadastro: 25,
+    });
+
+    // Recaptura de 20%: a margem perdida cai 20% (3250 → 2600; Cenário 3: 2925 → 2340, impacto 2240 + 2340 = 4580)
+    const rec = await r40('?recaptura=20');
+    expect(rec.cenarios.r40.economia.margemCortadaMes).toBe(2600);
+    expect(rec.cenarios.r40.equilibrio).toMatchObject({
+      margemCortadaMes: 2340,
+      impactoMensal: 4580,
+    });
+    expect(rec.premissas.recaptura).toBe(20);
+
+    // Margem de 50% (o dobro): margem perdida dobra (6500); Cenário 3 continua fechando os três dias livres: 5850 + 2240 = 8090
+    const dobro = await r40('?margemPct=50');
+    expect(dobro.cenarios.r40.economia.margemCortadaMes).toBe(6500);
+    expect(dobro.cenarios.r40.equilibrio.impactoMensal).toBe(8090);
+    expect(dobro.premissas).toMatchObject({ margemPct: 50, margemPctCadastro: 25 });
+
+    // Limite do parcial 0: o resto vira outra inteira (2 × 11200 = 22400) em vez do parcial de 8h
+    const semParcial = await r40('?limiteParcial=0');
+    expect(semParcial.cenarios.r40.manter.contratacoes[0]).toMatchObject({
+      inteiras: 2,
+      parcial: null,
+    });
+    expect(semParcial.cenarios.r40.manter.custoAdicionalMensal).toBe(22400);
+    expect(semParcial.regras.find((r: { id: string }) => r.id === 'r40').resumo.contratar).toBe(2);
+
+    // Dias protegidos 0: nenhum dia é protegido e o Cenário 2 deixa de ser "não recomendado"
+    const livre = await r40('?diasProtegidos=0');
+    expect(livre.cenarios.r40.diasProtegidos).toEqual([]);
+    expect(livre.cenarios.r40.economia.naoRecomendado).toBeNull();
+    expect(livre.cenarios.r40.economia.viavel).toBe(true);
+
+    // Fora das faixas: 400 em português; parâmetro desconhecido também
+    for (const [consulta, trecho] of [
+      ['?recaptura=31', 'entre 0% e 30%'],
+      ['?margemPct=101', 'entre 0% e 100%'],
+      ['?fatorDiaNovo=101', 'entre 0% e 100%'],
+      ['?diasProtegidos=7', 'entre 0 e 6'],
+      ['?limiteParcial=4', 'entre 0 e 3'],
+    ] as const) {
+      const r = await pedir(consulta);
+      expect(r.status).toBe(400);
+      expect(JSON.stringify(r.body)).toContain(trecho);
+    }
+    expect((await pedir('?foo=1')).status).toBe(400);
+
+    // Gestor: não simula a margem (403) e não vê a margem nas premissas; as demais premissas valem
+    expect((await pedir('?margemPct=30', gestor)).status).toBe(403);
+    const g = await r40('?recaptura=20&limiteParcial=0', gestor);
+    expect(g.premissas).toEqual({
+      recaptura: 20,
+      fatorDiaNovo: 50,
+      diasProtegidos: 3,
+      limiteParcial: 0,
+    });
+    expect(JSON.stringify(g)).not.toContain('"margemPct"');
+
+    // Nada foi gravado: sem premissas volta tudo ao cadastro, e a margem da loja segue 25%
+    const depois = await r40();
+    expect(depois.cenarios.r40.economia.margemCortadaMes).toBe(3250);
+    expect(depois.premissas.margemPct).toBe(25);
+    expect((await prisma.loja.findFirst({ where: { codigo: '001' } }))?.faturamento).toMatchObject({
+      margemPct: 25,
+    });
   });
 
   it('cenário 5: mostra a sobra de gente por cargo; economia só para o dono', async () => {

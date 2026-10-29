@@ -143,6 +143,7 @@ export const cargasLojasRepository = {
             r.conflitosSubstituidos += trocados;
             r.conflitosMantidos += a.conflitos.length - trocados;
             const dados: Record<string, unknown> = { ultimaCarga: json(a.retrato) };
+            if (a.codigo) dados['codigo'] = a.codigo;
             for (const [campo, valor] of Object.entries(campos))
               dados[campo] = campo === 'horarios' ? json(valor) : valor;
             await tx.loja.update({ where: { id: a.lojaId }, data: dados as never });

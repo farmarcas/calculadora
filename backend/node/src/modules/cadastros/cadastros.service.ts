@@ -116,6 +116,13 @@ export const makeCadastrosService = (repo: CadastrosRepository, auditar: Auditor
         );
       }
     }
+    // O código vem do Id da plataforma e a carga o mantém: só o operador muda.
+    if (body.codigo !== undefined && body.codigo !== atual.codigo && perfil !== 'PLATFORM_OPERATOR')
+      throw new AppError(
+        'O código da loja só pode ser alterado por quem cuida da plataforma',
+        400,
+        'CODIGO_NAO_EDITAVEL',
+      );
     if (body.codigo) {
       const outra = await repo.buscarLojaPorCodigo(body.codigo);
       if (outra && outra.id !== id)

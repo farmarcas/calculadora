@@ -43,6 +43,8 @@ export type Atualizacao = {
   // O que o relatório diz, para guardar como retrato da carga.
   retrato: Retrato;
   conflitos: Conflito[];
+  // Novo código da loja, quando o Id do relatório é diferente do código de hoje.
+  codigo?: string;
 };
 export type PlanoGe = {
   identificacao: string;
@@ -56,7 +58,8 @@ export type PlanoGe = {
   foraDoArquivo: { cnpj: string; nome: string }[];
   saiuDoAtivo: { cnpj: string; nome: string; status: string }[];
 };
-export type Plano = { porGe: PlanoGe[]; rejeitadas: Rejeicao[] };
+// `avisos`: linhas que entram, mas com algo que não foi aplicado (ex.: código já usado por outra loja do grupo).
+export type Plano = { porGe: PlanoGe[]; rejeitadas: Rejeicao[]; avisos: Rejeicao[] };
 
 // JSON com as chaves em ordem fixa: o banco guarda JSON sem garantir a ordem das chaves.
 const canon = (v: unknown): string =>
@@ -77,6 +80,7 @@ const atualDe = (l: LojaExistente, c: Campo): unknown => l[c];
 
 export const planejar = (leitura: Leitura, estado: Estado): Plano => {
   const rejeitadas: Rejeicao[] = [...leitura.rejeitadas];
+  const avisos: Rejeicao[] = [];
   const grupos = new Map<string, LinhaRelatorio[]>();
   for (const l of leitura.linhas)
     grupos.set(l.geIdentificacao, [...(grupos.get(l.geIdentificacao) ?? []), l]);
@@ -157,8 +161,19 @@ export const planejar = (leitura: Leitura, estado: Estado): Plano => {
         else mudancas[campo] = f;
       }
       const retratoNovo = { ...(existente.ultimaCarga ?? {}), ...retrato };
+      // O código da loja é o Id do relatório (a plataforma manda); só não muda se outra loja do grupo já usa esse código.
+      let codigo: string | undefined;
+      if (l.codigo !== existente.codigo) {
+        if (doGe.some((x) => x.id !== existente.id && x.codigo === l.codigo))
+          avisos.push({
+            linha: l.linha,
+            cnpj: l.cnpj,
+            motivo: `O código ${l.codigo} já é de outra loja do grupo; o código de "${existente.nome}" (${existente.codigo}) não foi alterado`,
+          });
+        else codigo = l.codigo;
+      }
       const mudouRetrato = canon(retratoNovo) !== canon(existente.ultimaCarga ?? {});
-      if (Object.keys(mudancas).length === 0 && conflitos.length === 0 && !mudouRetrato)
+      if (Object.keys(mudancas).length === 0 && conflitos.length === 0 && !codigo && !mudouRetrato)
         plano.semMudanca++;
       else
         plano.atualizar.push({
@@ -167,6 +182,7 @@ export const planejar = (leitura: Leitura, estado: Estado): Plano => {
           mudancas,
           retrato: retratoNovo,
           conflitos,
+          codigo,
         });
     }
 
@@ -178,7 +194,7 @@ export const planejar = (leitura: Leitura, estado: Estado): Plano => {
     }
     porGe.push(plano);
   }
-  return { porGe, rejeitadas };
+  return { porGe, rejeitadas, avisos };
 };
 
 // Aplica a escolha do operador sobre os conflitos: substituir pelo valor da planilha ou manter o atual.

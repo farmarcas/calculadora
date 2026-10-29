@@ -225,6 +225,24 @@ describe('carga de lojas por Excel (operador)', () => {
     expect((await prisma.loja.findFirstOrThrow({ where: { cnpj: c1 } })).cidade).toBe('TUBARÃO');
   });
 
+  it('loja que já existe com outro código passa a usar o Id do relatório; o empresário não muda o código', async () => {
+    await confirmar((await enviar(await xlsx(tres()))).body.id);
+    const loja = await prisma.loja.findFirstOrThrow({ where: { cnpj: c1 } });
+    await prisma.loja.update({ where: { id: loja.id }, data: { codigo: 'antigo' } });
+    // O empresário não troca o código (ele vem da plataforma).
+    const r = await reqGe(loja.geId)
+      .patch(`/api/v1/lojas/${loja.id}`)
+      .set(dono)
+      .send({ codigo: 'meu' });
+    expect(r.status).toBe(400);
+    expect(r.body.error.code).toBe('CODIGO_NAO_EDITAVEL');
+    // A carga devolve o código para o Id do arquivo.
+    const c = await enviar(await xlsx(tres()));
+    expect(c.body.totais.codigosAjustados).toBe(1);
+    await confirmar(c.body.id);
+    expect((await prisma.loja.findUniqueOrThrow({ where: { id: loja.id } })).codigo).toBe('1');
+  });
+
   it('rejeita CNPJ inválido, repetido e de outro GE, com linha e motivo; o resto entra', async () => {
     const outro = await criarGe('999', 'Dono do CNPJ');
     const emUso = cnpjValido();

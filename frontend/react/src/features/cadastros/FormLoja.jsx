@@ -59,7 +59,7 @@ export default function FormLoja({ registro, perfil, onClose, onSalvo }) {
       <form onSubmit={salvar} className="flex flex-col gap-4">
         {erro && <Aviso>{erro}</Aviso>}
         <div className="grid grid-cols-2 gap-4">
-          <Campo rotulo="Código *"><input required className={entrada} value={v.codigo} onChange={set("codigo")} /></Campo>
+          <Campo rotulo={registro && !operador ? "Código (só o operador altera)" : "Código *"}><input required className={entrada} value={v.codigo} onChange={set("codigo")} disabled={!!registro && !operador} /></Campo>
           <Campo rotulo="Nome *"><input required minLength={2} className={entrada} value={v.nome} onChange={set("nome")} /></Campo>
           <Campo rotulo={cnpjEditavel ? (registro ? "CNPJ" : "CNPJ *") : "CNPJ (só o operador altera)"}>
             <input className={entrada} required={!registro} value={v.cnpj} onChange={set("cnpj")} disabled={!cnpjEditavel} placeholder={!v.cnpj && !cnpjEditavel ? "CNPJ pendente" : undefined} />

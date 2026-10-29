@@ -218,3 +218,36 @@ describe('planejar a carga de lojas', () => {
     expect(g!.foraDoArquivo.map((x) => x.cnpj)).toEqual(['15839321000313', '']);
   });
 });
+
+describe('código da loja = Id do relatório', () => {
+  const base = {
+    nome: 'Ultra ORLEANS/SC',
+    cidade: 'ORLEANS',
+    uf: 'SC',
+    marca: 'Ultra',
+    regimeTributario: 'simples',
+    horarios: horarios('07:00'),
+  };
+
+  it('loja que já existe com outro código passa a usar o Id do relatório', () => {
+    const ja = loja({ cnpj: '11222333000181', codigo: '7', ultimaCarga: base });
+    const p = planejar(leitura(linha({ cnpj: '11222333000181', codigo: '262' })), estado([ja]));
+    expect(p.porGe[0]!.atualizar[0]).toMatchObject({ codigo: '262' });
+    expect(p.avisos).toEqual([]);
+  });
+
+  it('código já igual ao Id não conta como mudança', () => {
+    const ja = loja({ cnpj: '11222333000181', codigo: '262', ultimaCarga: base });
+    const p = planejar(leitura(linha({ cnpj: '11222333000181', codigo: '262' })), estado([ja]));
+    expect(p.porGe[0]!.semMudanca).toBe(1);
+    expect(p.porGe[0]!.atualizar).toEqual([]);
+  });
+
+  it('Id já usado por outra loja do grupo: não troca o código e avisa', () => {
+    const a = loja({ cnpj: '11222333000181', codigo: '7', ultimaCarga: base });
+    const b = loja({ cnpj: '06787293000185', codigo: '262' });
+    const p = planejar(leitura(linha({ cnpj: '11222333000181', codigo: '262' })), estado([a, b]));
+    expect(p.porGe[0]!.atualizar.some((x) => x.codigo)).toBe(false);
+    expect(p.avisos[0]!.motivo).toContain('código 262');
+  });
+});

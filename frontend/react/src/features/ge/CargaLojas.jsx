@@ -99,6 +99,7 @@ export default function CargaLojas({ onClose, onConcluido }) {
             </div>
             <div className="flex flex-wrap gap-2 text-xs">
               {Object.entries(conf.ignoradasPorStatus).map(([s, n]) => <Ficha key={s}>{n} {s.toLowerCase()} (ignoradas)</Ficha>)}
+              {t.codigosAjustados > 0 && <Ficha tom="atencao">{t.codigosAjustados} códigos ajustados para o Id do relatório</Ficha>}
               {conf.pendencias.semRegime > 0 && <Ficha tom="atencao">{conf.pendencias.semRegime} sem regime tributário</Ficha>}
               {conf.pendencias.semHorario > 0 && <Ficha tom="atencao">{conf.pendencias.semHorario} sem horário</Ficha>}
               {conf.pendencias.horarioAjustado > 0 && <Ficha tom="atencao">{conf.pendencias.horarioAjustado} com horário ajustado</Ficha>}
@@ -143,6 +144,13 @@ export default function CargaLojas({ onClose, onConcluido }) {
                   </table>
                 </div>
               </section>
+            )}
+
+            {conf.avisos?.length > 0 && (
+              <Aviso tom="atencao">
+                <p className="m-0"><strong>{t.avisos} aviso(s):</strong></p>
+                <ul className="m-0 pl-5">{conf.avisos.slice(0, 5).map((x, i) => <li key={i}>{x.motivo}</li>)}</ul>
+              </Aviso>
             )}
 
             {(conf.saiuDoAtivo.length > 0 || conf.foraDoArquivo.length > 0) && (

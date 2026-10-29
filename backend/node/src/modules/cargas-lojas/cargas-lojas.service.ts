@@ -38,6 +38,8 @@ const resumoDoPlano = (leitura: Leitura, plano: Plano) => {
       rejeitadas: plano.rejeitadas.length,
       foraDoArquivo: soma((g) => g.foraDoArquivo.length),
       saiuDoAtivo: soma((g) => g.saiuDoAtivo.length),
+      codigosAjustados: soma((g) => g.atualizar.filter((a) => a.codigo).length),
+      avisos: plano.avisos.length,
     },
     porGe: plano.porGe
       .map((g) => ({
@@ -54,6 +56,7 @@ const resumoDoPlano = (leitura: Leitura, plano: Plano) => {
       .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')),
     conflitos: conflitos.slice(0, LIMITE_LISTA),
     rejeitadas: plano.rejeitadas.slice(0, LIMITE_LISTA),
+    avisos: plano.avisos.slice(0, LIMITE_LISTA),
     foraDoArquivo: comGe((g) => g.foraDoArquivo).slice(0, LIMITE_LISTA),
     saiuDoAtivo: comGe((g) => g.saiuDoAtivo).slice(0, LIMITE_LISTA),
   };

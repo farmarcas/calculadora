@@ -149,33 +149,75 @@ const origemTexto = {
   estimativa: "estimativa: só o faturamento mensal, dividido igualmente entre os dias abertos",
 };
 
+const NOMES_LONGO = ["segunda", "terça", "quarta", "quinta", "sexta", "sábado", "domingo"];
+const hhTxt = (t) => `${t.slice(0, 2)}h`;
+// "Domingo fecha 6 h mais cedo (de 08h–22h para 08h–16h)" · "Sábado fecha".
+const fraseDoPasso = (p) => {
+  const nome = NOMES_LONGO[p.dia][0].toUpperCase() + NOMES_LONGO[p.dia].slice(1);
+  return p.tipo === "reduzir"
+    ? `${nome} fecha ${String(p.horas).replace(".", ",")} h mais cedo (de ${hhTxt(p.de.abre)}–${hhTxt(p.de.fecha)} para ${hhTxt(p.para.abre)}–${hhTxt(p.para.fecha)})`
+    : `${nome} fecha`;
+};
+const TRAVA_TEXTO = {
+  perda: "o próximo corte passaria do limite de perda de 10% do faturamento",
+  horas: "o próximo corte deixaria a loja com menos de 85% das horas abertas por semana",
+  fim_de_semana: "não há mais o que reduzir ou fechar no fim de semana",
+};
+
 function Economia({ c }) {
   const e = c.economia;
   // Valores em reais só chegam para o dono; para os outros o campo nem existe.
   const dono = e.margemCortadaMes !== undefined;
   const sem = dono && e.margemCortadaMes === null;
+  const calculado = e.viavel || e.naoResolveSozinho;
   return (
-    <Cartao titulo="Cenário 2 · Foco em economia" subtitulo={e.foco} acoes={<Selo ativo={c.destaque === "economia"} />}>
+    <Cartao
+      titulo="Cenário 2 · Foco em economia"
+      subtitulo={e.foco}
+      acoes={
+        <>
+          {e.naoResolveSozinho && <Ficha tom="atencao">Não resolve sozinho</Ficha>}
+          <Selo ativo={c.destaque === "economia"} />
+        </>
+      }
+    >
       <div className="px-6 py-4 flex flex-col gap-4">
-        {e.viavel && <p className="m-0 text-sm text-ink-700">{e.direcionamento}</p>}
+        {calculado && <p className="m-0 text-sm text-ink-700">{e.direcionamento}</p>}
         <Impacto valor={e.impactoMensal} />
         {e.naoRecomendado && <Aviso tom="erro">{e.naoRecomendado.texto}</Aviso>}
-        {!e.viavel ? (
+        {!calculado ? (
           <Aviso tom="atencao">{e.motivoInviavel}</Aviso>
         ) : (
           <>
+            {e.passos?.length > 0 && (
+              <div>
+                <div className="mb-1 text-[11px] font-bold uppercase tracking-wide text-ink-500">Passos, na ordem</div>
+                <ol className="m-0 pl-5 text-sm text-ink-700">
+                  {e.passos.map((p, i) => <li key={i}>{fraseDoPasso(p)}</li>)}
+                </ol>
+              </div>
+            )}
+            {e.naoResolveSozinho && (
+              <Aviso tom="atencao">
+                O cenário parou porque {TRAVA_TEXTO[e.travou]}. Veja o Cenário 3 (equilíbrio) ou o Cenário 1.
+              </Aviso>
+            )}
             <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
               <Numero
                 rotulo="Dias a fechar"
                 valor={e.diasFechar.length}
-                legenda={e.diasFechar.length === 0 ? "nenhum: a equipe já cobre" : e.diasFechar.map((d) => NOMES_DIA[d.dia]).join(", ")}
+                legenda={e.diasFechar.length === 0 ? "nenhum dia inteiro" : e.diasFechar.map((d) => NOMES_DIA[d.dia]).join(", ")}
               />
               <Numero rotulo="Horário da loja" valor={`${e.horasSemana}h`} legenda={`por semana · hoje ${c.atual.horasSemana}h (${e.horasReduzir}h a menos)`} />
               {dono && (
-                <Numero rotulo="Venda que deixa de entrar" valor={sem ? "—" : brl(e.vendaCortadaMes)} legenda={sem ? semVenda(c) : "por mês (estimativa)"} />
+                <Numero
+                  rotulo="Venda que deixa de entrar"
+                  valor={e.vendaCortadaMes == null ? "—" : brl(e.vendaCortadaMes)}
+                  legenda={e.vendaCortadaMes == null ? semVenda(c) : `por mês${e.perdaFaturamentoPct != null ? ` · ${pct(e.perdaFaturamentoPct)} do faturamento` : ""} (estimativa)`}
+                />
               )}
               {dono && (
-                <Numero rotulo="Margem perdida" valor={sem ? "—" : brl(e.margemCortadaMes)} legenda={sem ? semVenda(c) : "por mês (estimativa)"} />
+                <Numero rotulo="Margem perdida" valor={sem ? "—" : brl(e.margemCortadaMes)} legenda={sem ? "informe a margem bruta média da loja no Cadastro" : "por mês (estimativa)"} />
               )}
             </div>
             {e.diasFechar.length > 0 && (
@@ -204,7 +246,8 @@ function Economia({ c }) {
               <div className="mb-1 text-[11px] font-bold uppercase tracking-wide text-ink-500">Novo horário</div>
               <HorarioSemana dias={e.horarioSemana} />
             </div>
-            {c.origemVenda && <p className="m-0 text-xs text-ink-500">Origem da venda: {origemTexto[c.origemVenda]}. Dias protegidos (os 3 de maior faturamento): {c.diasProtegidos.length ? c.diasProtegidos.map((d) => NOMES_DIA[d]).join(", ") : "nenhum"}.</p>}
+            {c.origemVenda && <p className="m-0 text-xs text-ink-500">Origem da venda: {origemTexto[c.origemVenda]}. Dias protegidos (os 3 de maior faturamento, só reduzem): {c.diasProtegidos.length ? c.diasProtegidos.map((d) => NOMES_DIA[d]).join(", ") : "nenhum"}. Segunda a sexta nunca mudam neste cenário.</p>}
+            {dono && sem && <Aviso tom="atencao">Informe a margem bruta média da loja no Cadastro para ver a margem perdida e o saldo mensal deste cenário.</Aviso>}
             {e.aviso && <Aviso tom="atencao">{e.aviso}</Aviso>}
           </>
         )}

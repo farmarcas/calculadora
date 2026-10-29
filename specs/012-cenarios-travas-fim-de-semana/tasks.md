@@ -39,11 +39,13 @@ Segurança do banco: sem migration nesta spec; nada de `down -v` nem `prisma mig
 
 **Teste independente**: no navegador, o cartão do Cenário 2 mostra o selo "Não resolve sozinho", a mudança de horário com reduções e fechamentos, o que falta e o aviso de margem.
 
-- [ ] T016 [US1] `features/diagnostico/Comparativo.jsx`: selo amarelo "Não resolve sozinho" na linha do título (junto dos demais); linha "Mudança de horário" com as reduções ("Sáb 08h–18h (antes 08h–22h) · Dom fechado") e os fechamentos; "Horas abertas" já mostra a diferença; sem "Cenário sugerido" nem "Viável" quando não resolve
-- [ ] T017 [US4] `features/diagnostico/Cenarios.jsx` (detalhe do Cenário 2): lista dos passos aplicados, a trava que parou, quanto falta e o caminho sugerido (Cenário 3); aviso "Informe a margem bruta média…" quando a margem não existe
-- [ ] T018 [US3] "Margem perdida" e "Saldo mensal estimado" mostram "—" (nunca R$ 0) quando nulos; bloco do saldo em cinza
-- [ ] T019 Conferir no navegador (dono e gestor): loja do GE 216 (sem margem, não resolve sozinho), loja com equipe que cabe depois de reduzir, loja com margem informada, loja 001; telas largas e estreitas
-- [ ] T020 Rodar tudo e commitar a fatia
+- [X] T016 [US1] `features/diagnostico/Comparativo.jsx`: selo amarelo "Não resolve sozinho" na linha do título (junto dos demais); linha "Mudança de horário" com as reduções ("Sáb 08h–18h (antes 08h–22h) · Dom fechado") e os fechamentos; "Horas abertas" já mostra a diferença; sem "Cenário sugerido" nem "Viável" quando não resolve
+- [X] T017 [US4] `features/diagnostico/Cenarios.jsx` (detalhe do Cenário 2): lista dos passos aplicados, a trava que parou, quanto falta e o caminho sugerido (Cenário 3); aviso "Informe a margem bruta média…" quando a margem não existe
+- [X] T018 [US3] "Margem perdida" e "Saldo mensal estimado" mostram "—" (nunca R$ 0) quando nulos; bloco do saldo em cinza
+- [X] T019 Conferir no navegador (dono e gestor): loja do GE 216 (sem margem, não resolve sozinho), loja com equipe que cabe depois de reduzir, loja com margem informada, loja 001; telas largas e estreitas
+- [X] T020 Rodar tudo e commitar a fatia
+
+**Nota da fatia 3**: conferido no navegador com a loja Porto Feliz do GE 216 (dono e gestor): selo "Não resolve sozinho", mudança de horário com as reduções, "Ainda falta cobrir", aviso da trava e, sem valores em reais para o gestor. 35 das 37 lojas do GE 216 aparecem como "inviável" no Cenário 2 porque o quadro não tem ninguém na função Caixa (mínimo 1): é dado, não regra.
 
 ## Phase 5: Fatia 4 — US5: Cenário 3 com as mesmas travas e fechamento (P2)
 

@@ -7,13 +7,19 @@ const sinal = (n) => (n > 0 ? "+" : n < 0 ? "−" : "");
 const mod = (n) => brl(Math.abs(n));
 const hh = (t) => (t ? `${t.slice(0, 2)}h` : "");
 
-const STATUS = { viavel: ["ok", "Viável"], nao_recomendado: ["atencao", "Não recomendado"], inviavel: ["erro", "Inviável"] };
+const STATUS = { viavel: ["ok", "Viável"], nao_recomendado: ["atencao", "Não recomendado"], nao_resolve: ["atencao", "Não resolve sozinho"], inviavel: ["erro", "Inviável"] };
 
 const textoContratacao = (c) => {
   const parcial = c.parcial ? `1 ${c.funcao.toLowerCase()} parcial de ${c.parcial.horas}h` : "";
   if (c.inteiras === 0) return parcial;
   return `${c.inteiras} ${c.funcao.toLowerCase()}${c.inteiras === 1 ? "" : "s"} inteiro${c.inteiras === 1 ? "" : "s"}${parcial ? ` e ${parcial}` : ""}`;
 };
+
+// Fim de semana que muda: "Dom 08h–16h (antes 08h–22h)" · "Sáb fechado (antes 08h–22h)".
+const linhaDeAjuste = (a) =>
+  a.depois
+    ? `${NOMES_DIA[a.dia]} ${hh(a.depois.abre)}–${hh(a.depois.fecha)} (antes ${hh(a.antes.abre)}–${hh(a.antes.fecha)})`
+    : `${NOMES_DIA[a.dia]} fechado (antes ${hh(a.antes.abre)}–${hh(a.antes.fecha)})`;
 
 // "Seg fechado (antes 07h–22h)" · "Seg, qua e qui fechados" · "Horário mantido".
 const mudancaDeHorario = (dias, horarioAtual) => {
@@ -86,10 +92,15 @@ function Cartao({ posicao, coluna, foco, horarioAtual, horasManter, destaque, do
           </Linha>
         </>
       )}
-      <Linha rotulo="Mudança de horário" tom={c.diasFechar.length ? "text-attention-700" : undefined}>{mudancaDeHorario(c.diasFechar, horarioAtual)}</Linha>
+      <Linha rotulo="Mudança de horário" tom={c.ajustes?.length || c.diasFechar.length ? "text-attention-700" : undefined}>
+        {c.ajustes?.length ? c.ajustes.map((a) => <div key={a.dia}>{linhaDeAjuste(a)}</div>) : mudancaDeHorario(c.diasFechar, horarioAtual)}
+      </Linha>
       <Linha rotulo="Horas abertas">
         {c.horasSemana}h por semana{dif !== 0 && <span className="text-attention-700"> ({sinal(dif)}{Math.abs(dif)}h)</span>}
       </Linha>
+      {c.faltaH > 0 && (
+        <Linha rotulo="Ainda falta cobrir" tom="text-error-600">{String(c.faltaH).replace(".", ",")}h de cobertura</Linha>
+      )}
       <Linha rotulo="Ociosidade das contratações" tom={c.ociosidadePct ? "text-attention-700" : undefined}>
         {c.ociosidadePct == null ? "—" : `${pct(c.ociosidadePct)} das horas contratadas`}
       </Linha>

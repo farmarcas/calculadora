@@ -1,11 +1,25 @@
 // Dados FICTÍCIOS para conhecer a Escala (nenhuma pessoa ou loja real). Uso: npm run seed
 // Só roda se ainda não houver lojas cadastradas, para nunca misturar com dados da pessoa.
 import { prisma } from '../src/shared/database/prisma.js';
-import {
-  CNPJ_EXEMPLO_MASCARADO,
-  VIGENCIA_EXEMPLO,
-  cpfDeExemplo,
-} from '../src/modules/ponto/exemplo.js';
+
+const CNPJ_EXEMPLO_MASCARADO = '11.222.333/0001-81';
+const VIGENCIA_EXEMPLO = '2026-10-01';
+
+// CPF fictício, mas com os dígitos verificadores certos (o cadastro valida CPF).
+const cpfFicticio = (n: number) => {
+  const base = String(100_000_000 + n * 7_919).slice(0, 9);
+  const dv = (digitos: string, peso: number) => {
+    const soma = [...digitos].reduce((t, c, i) => t + Number(c) * (peso - i), 0);
+    const r = soma % 11;
+    return r < 2 ? 0 : 11 - r;
+  };
+  const d1 = dv(base, 10);
+  const d2 = dv(base + d1, 11);
+  const c = `${base}${d1}${d2}`;
+  return `${c.slice(0, 3)}.${c.slice(3, 6)}.${c.slice(6, 9)}-${c.slice(9)}`;
+};
+const MATRICULAS = ['F001', 'F006', 'F002', 'F007', 'F003', 'F008', 'F004', 'F005'];
+const cpfDeExemplo = (matricula: string) => cpfFicticio(100 + MATRICULAS.indexOf(matricula));
 
 const FUNCIONARIOS: [string, string, string, string, string, number][] = [
   ['F001', 'Ana Souza', '001', 'Farmacêutica', 'Farmacêutico', 40],
@@ -135,7 +149,7 @@ const main = async () => {
     },
   });
 
-  // Simulação EM USO (já aprovada) para a loja 001, igual à escala atual: é o que o Gerenciar compara com o ponto.
+  // Simulação EM USO (já aprovada) para a loja 001, igual à escala atual: é a que o Diagnóstico e as Simulações usam como referência.
   const quadro = TURNOS.map(([m]) => ({
     matricula: m,
     nome: nomes.get(m)![1],

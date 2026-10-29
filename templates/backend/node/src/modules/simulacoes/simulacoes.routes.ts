@@ -9,8 +9,6 @@ import type { PessoaSim } from './avaliar.js';
 import * as S from './simulacoes.schemas.js';
 import { makeSimulacoesService } from './simulacoes.service.js';
 import { simulacoesRepository } from './simulacoes.repository.js';
-import { apuracaoRepository } from '../apuracao/apuracao.repository.js';
-import { makeApuracaoService } from '../apuracao/apuracao.service.js';
 
 const escrita = exigirPerfil('TENANT_ADMIN', 'SCHEDULE_MANAGER');
 const perfilDe = (res: Response) => res.locals.perfil as Perfil;
@@ -38,19 +36,7 @@ const cadastro = {
 };
 
 export const simulacoesRouter = () => {
-  const apuracao = makeApuracaoService(
-    apuracaoRepository,
-    simulacoesRepository,
-    escalaRepository,
-    auditar,
-  );
-  const s = makeSimulacoesService(
-    simulacoesRepository,
-    escalaRepository,
-    cadastro,
-    auditar,
-    (lojaId) => apuracao.motivosDoPonto(lojaId),
-  );
+  const s = makeSimulacoesService(simulacoesRepository, escalaRepository, cadastro, auditar);
   const r = Router();
 
   r.get('/lojas/:id/simulacoes', validate(S.listarReq), async (_req, res) => {

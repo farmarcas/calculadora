@@ -46,9 +46,9 @@ Segurança do banco: sem migration nesta spec; nada de `down -v` nem `prisma mig
 
 **Teste independente**: três colunas lado a lado, status de cada uma, destaque no de maior resultado; gestor e consulta sem linhas em reais.
 
-- [ ] T014 [US3] Teste + `src/modules/escala/comparativo.ts`: colunas dos cenários 1, 2 e 3 com contratações, horas abertas, status (`viavel`, `nao_recomendado`, `inviavel`, nulo sem dados), alertas e, para o dono, custo de folha mensal, margem, resultado líquido em relação a hoje e percentual do faturamento; destaque igual ao do selo
-- [ ] T015 [US3] Teste + `diagnostico.ts`: `cenarios.r42.comparativo` e `cenarios.r40.comparativo`; teste de integração dos status (viável, não recomendado, inviável, sem dados) e das permissões
-- [ ] T016 [P] [US3] `features/diagnostico/Comparativo.jsx`: tabela lado a lado com o destaque, ligada em `Diagnostico.jsx` acima dos cartões; célula que diz o que falta quando não há dado
+- [X] T014 [US3] Teste + `src/modules/escala/comparativo.ts`: colunas dos cenários 1, 2 e 3 com contratações, horas abertas, status (`viavel`, `nao_recomendado`, `inviavel`, nulo sem dados), alertas e, para o dono, custo de folha mensal, margem, resultado líquido em relação a hoje e percentual do faturamento; destaque igual ao do selo
+- [X] T015 [US3] Teste + `diagnostico.ts`: `cenarios.r42.comparativo` e `cenarios.r40.comparativo`; teste de integração dos status (viável, não recomendado, inviável, sem dados) e das permissões
+- [X] T016 [P] [US3] `features/diagnostico/Comparativo.jsx`: tabela lado a lado com o destaque, ligada em `Diagnostico.jsx` acima dos cartões; célula que diz o que falta quando não há dado
 
 **Checkpoint**: dá para escolher entre os caminhos numa tabela só.
 

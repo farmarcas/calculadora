@@ -393,6 +393,39 @@ describe('escala (rotas)', () => {
     expect(dono.destaque).toBe('equilibrio');
     expect(e.resumo).toContain('Fechando segunda, quarta e sábado');
 
+    // Comparativo lado a lado. Folha atual: 8000 × 1,4 = 11200. Faturamento de referência: soma dos dias 6500 ×
+    // 52 ÷ 12 = 28166,67 por mês. Impactos: Cenário 1 = 13440; Cenário 2 = 3250; Cenário 3 = 5165.
+    const comp = dono.comparativo;
+    expect(comp.cenarios.map((c: { id: string }) => c.id)).toEqual([
+      'manter',
+      'economia',
+      'equilibrio',
+    ]);
+    expect(comp.destaque).toBe('equilibrio');
+    const por = Object.fromEntries(comp.cenarios.map((c: { id: string }) => [c.id, c]));
+    expect(por.manter).toMatchObject({
+      status: 'viavel',
+      custoFolhaMensal: 24640,
+      resultadoLiquidoMensal: -13440,
+      impactoPctFaturamento: 47.7,
+    });
+    expect(por.economia).toMatchObject({
+      status: 'nao_recomendado',
+      diasFechar: [0, 1, 2],
+      custoFolhaMensal: 11200,
+      margemMes: -3250,
+      impactoPctFaturamento: 11.5,
+    });
+    expect(por.equilibrio).toMatchObject({
+      status: 'viavel',
+      diasFechar: [0, 2, 5],
+      custoFolhaMensal: 13440,
+      margemMes: -2925,
+      resultadoLiquidoMensal: -5165,
+      impactoPctFaturamento: 18.3,
+    });
+    expect(por.economia.alertas.join(' ')).toContain('terça');
+
     for (const h of [{ 'X-Perfil': 'SCHEDULE_MANAGER' }, { 'X-Perfil': 'SCHEDULE_VIEWER' }]) {
       const r = await cen(h);
       expect(r.equilibrio.indisponivel).toBeNull();
@@ -408,8 +441,23 @@ describe('escala (rotas)', () => {
         expect(campo in r.equilibrio).toBe(false);
       expect('destaque' in r).toBe(false);
       expect('impactoMensal' in r.manter).toBe(false);
+      // comparativo: contratações, dias, horas, status e alertas; nenhuma linha em reais e nenhum destaque
+      expect('destaque' in r.comparativo).toBe(false);
+      expect(r.comparativo.cenarios.map((c: { status: string }) => c.status)).toEqual([
+        'viavel',
+        'nao_recomendado',
+        'viavel',
+      ]);
+      for (const c of r.comparativo.cenarios)
+        for (const campo of [
+          'custoFolhaMensal',
+          'margemMes',
+          'resultadoLiquidoMensal',
+          'impactoPctFaturamento',
+        ])
+          expect(campo in c).toBe(false);
       const texto = JSON.stringify(r);
-      for (const valor of ['5165', '2925', '2240', '13440', 'R$'])
+      for (const valor of ['5165', '2925', '2240', '13440', '24640', '11200', 'R$'])
         expect(texto).not.toContain(valor);
     }
   });

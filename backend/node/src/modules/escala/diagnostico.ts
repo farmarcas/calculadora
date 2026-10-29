@@ -9,6 +9,7 @@ import type { TabelaParametros } from '../regras/parametros.js';
 import { montarQuadroTurnos } from './quadro-turnos.js';
 import { avisosDeTurnos, exigenciasDaLoja, type TurnosLoja } from '../regras/turnos.js';
 import type { Faturamento } from '../cadastros/faturamento.js';
+import { montarComparativo, type Comparativo } from './comparativo.js';
 import { montarEtapas } from './etapas.js';
 import { faturamentoMensalDe, resumirVendas, type VendaLinha } from './vendas.js';
 import { vendasDoCadastro } from './vendas-cadastro.js';
@@ -329,9 +330,19 @@ export const montarDiagnostico = (a: {
         origemVenda,
       };
       const cenarios = montarCenarios(entrada);
-      return [regraId, { ...cenarios, ...montarExtras(entrada, cenarios) }];
+      return [
+        regraId,
+        {
+          ...cenarios,
+          ...montarExtras(entrada, cenarios),
+          comparativo: montarComparativo(entrada, cenarios),
+        },
+      ];
     }),
-  ) as Record<'r42' | 'r40', ReturnType<typeof montarCenarios> & ExtrasRegra>;
+  ) as Record<
+    'r42' | 'r40',
+    ReturnType<typeof montarCenarios> & ExtrasRegra & { comparativo: Comparativo }
+  >;
   // Venda e margem são valores em reais: só o dono vê, venha a venda da base comercial ou do cadastro.
   const cenariosSaida = (
     a.dono ? cenariosPorRegra : semValoresDeVenda(cenariosPorRegra)

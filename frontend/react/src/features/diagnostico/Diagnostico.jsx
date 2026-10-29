@@ -4,6 +4,7 @@ import { Aviso, Botao, Cartao, Ficha } from "../../components/ui/index.jsx";
 import QuadroCentral from "./QuadroCentral.jsx";
 import Cenarios from "./Cenarios.jsx";
 import QuadroTurnos from "./QuadroTurnos.jsx";
+import Comparativo from "./Comparativo.jsx";
 
 const TH = "text-left text-[11px] font-bold uppercase tracking-wide text-ink-500 px-6 py-3";
 const TD = "px-6 py-3 border-t border-line";
@@ -194,6 +195,7 @@ export default function Diagnostico({ diag, podeEscrever, onEnviar, onSimular })
       <QuadroCentral diag={diag} regraId={regraId} onRegra={setRegraId} podeEscrever={podeEscrever} onEnviar={onEnviar} />
 
       <QuadroTurnos quadro={diag.quadroTurnos} />
+      <Comparativo comparativo={diag.cenarios?.[regraId]?.comparativo} />
       <Cenarios cenarios={diag.cenarios?.[regraId]} origemVendas={diag.origemVendas} etapas={diag.etapas} />
 
       <Cartao titulo="Quadro por função" subtitulo="Só entram no cálculo colaboradores com função de escala">

@@ -65,4 +65,8 @@ frontend/react/src/features/diagnostico/
 2. **US1 + US4 — Cenário 2:** fechar dias até a equipe atual caber, com dias protegidos e "não recomendado"; cartão na tela.
 3. **US2 — Cenário 3:** enumeração das combinações, desempate, avisos de coincidência, frase-resumo, selo; cartão na tela.
 4. **US3 — Cenário 4:** abrir um dia fechado com a sobra do Cenário 1, margem de referência (50% da média dos dias abertos); cartão na tela.
-5. **US5 + fechamento:** recaptura (consulta, tela), remoção do código por hora, permissões, README e conferência da loja 001.
+5. **Fechamento:** remoção do código por hora, permissões, README e conferência da loja 001. A **recaptura** entra pelas premissas editáveis da spec 010 (`?recaptura=`), sem repetir a tela.
+
+## Ordem com a spec 010
+
+A nova regra de contratação (spec 010, fatia 1) entra antes das fatias 2 a 4 desta spec, porque o Cenário 3 usa a mesma regra; o comparativo (spec 010, fatia 3) entra depois do Cenário 3.

@@ -3,6 +3,7 @@ import request from 'supertest';
 import ExcelJS from 'exceljs';
 import { app } from '../../app.js';
 import { prisma } from '../../shared/database/prisma.js';
+import { GE_INICIAL_ID } from '../../shared/ge.js';
 
 const admin = { 'X-Perfil': 'TENANT_ADMIN' };
 
@@ -378,7 +379,7 @@ describe('cadastros (rotas)', () => {
     });
 
     it('loja antiga sem cidade nem regime continua abrindo', async () => {
-      await prisma.loja.create({ data: { codigo: '021', nome: 'Antiga' } });
+      await prisma.loja.create({ data: { codigo: '021', nome: 'Antiga', geId: GE_INICIAL_ID } });
       const r = await request(app).get('/api/v1/lojas');
       expect(r.status).toBe(200);
       expect(r.body.data[0].cidade).toBeUndefined();

@@ -23,11 +23,33 @@ model User {
   @@map("users")
 }
 
-// Escala (M4) — cadastro por planilha. Um único grupo por enquanto (sem group_id).
+// Grupo Econômico (GE): o empresário e o seu conjunto de lojas; é a fronteira de todos os dados (spec 011).
+// Funcionários, cargas, simulações e ponto pertencem ao GE pela loja.
+model GrupoEconomico {
+  id            String   @id @default(uuid(7)) @db.Uuid
+  nome          String
+  // Número do "Grupo Econômico" na plataforma; único.
+  identificacao String   @unique
+  responsavel   String?
+  ativo         Boolean  @default(true)
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  lojas                Loja[]
+  importacoesCadastro  ImportacaoCadastro[]
+  auditoria            Auditoria[]
+
+  @@map("grupos_economicos")
+}
+
+// Escala (M4) — cadastro por planilha. Cada loja pertence a um GE. O código é único dentro do GE e o CNPJ (só dígitos)
+// no sistema todo, entre lojas ativas; esses índices parciais vivem no SQL da migration.
 model Loja {
   id        String    @id @default(uuid(7)) @db.Uuid
+  geId      String    @map("ge_id") @db.Uuid
   codigo    String
   nome      String
+  // 14 dígitos; nulo só nas lojas antigas ("CNPJ pendente").
   cnpj      String?
   uf        String?
   marca     String?
@@ -47,16 +69,20 @@ model Loja {
   custos        Json?
   // Limites que marcam a simulação em uso como desatualizada (hora extra e aderência). Nulo = padrão.
   alertas       Json?
+  // Retrato dos valores do último Excel da plataforma, para saber o que o empresário corrigiu depois.
+  ultimaCarga   Json?     @map("ultima_carga")
   deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
   createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
+  ge           GrupoEconomico @relation(fields: [geId], references: [id])
   funcionarios Funcionario[]
   cargas       Carga[]
   simulacoes   Simulacao[]
   importacoesPonto ImportacaoPonto[]
   batidas      Batida[]
 
+  @@index([geId])
   @@map("lojas")
 }
 
@@ -97,6 +123,10 @@ enum ImportacaoStatus {
 // Planilha recebida: guarda as linhas lidas até a pessoa confirmar o mapeamento.
 model ImportacaoCadastro {
   id            String           @id @default(uuid(7)) @db.Uuid
+  // Nulo na carga de lojas da plataforma (o arquivo traz vários GEs).
+  geId          String?          @map("ge_id") @db.Uuid
+  // cadastro | carga_lojas
+  tipo          String           @default("cadastro")
   arquivo       String
   status        ImportacaoStatus @default(AGUARDANDO_CONFIRMACAO)
   abas          Json
@@ -105,11 +135,15 @@ model ImportacaoCadastro {
   criadoEm      DateTime         @default(now()) @map("criado_em") @db.Timestamptz(3)
   confirmadoEm  DateTime?        @map("confirmado_em") @db.Timestamptz(3)
 
+  ge GrupoEconomico? @relation(fields: [geId], references: [id], onDelete: Restrict)
+
+  @@index([geId])
   @@map("importacoes_cadastro")
 }
 
 model Auditoria {
   id        String   @id @default(uuid(7)) @db.Uuid
+  geId      String?  @map("ge_id") @db.Uuid
   acao      String
   perfil    String
   alvoTipo  String   @map("alvo_tipo")
@@ -117,7 +151,10 @@ model Auditoria {
   detalhe   Json?
   criadoEm  DateTime @default(now()) @map("criado_em") @db.Timestamptz(3)
 
+  ge GrupoEconomico? @relation(fields: [geId], references: [id], onDelete: Restrict)
+
   @@index([alvoTipo, alvoId])
+  @@index([geId])
   @@map("auditoria")
 }
 

@@ -1,3 +1,4 @@
+import { GE_INICIAL_ID } from '../../shared/ge.js';
 import { prisma } from '../../shared/database/prisma.js';
 import { decimalParaHora, horaParaDecimal, mensalDeSemanal } from './carga.js';
 import { normalizarHorarios, resumoHorarios } from './horarios.js';
@@ -112,7 +113,13 @@ export const cadastrosRepository: CadastrosRepository = {
     return r ? comoLoja(r) : null;
   },
   async criarLoja(i) {
-    return comoLoja(await prisma.loja.create({ data: limpa(i) as never, select: lojaSel }));
+    // Provisório até a fatia 2 (isolamento): toda loja nova entra no GE inicial.
+    return comoLoja(
+      await prisma.loja.create({
+        data: { ...limpa(i), geId: GE_INICIAL_ID } as never,
+        select: lojaSel,
+      }),
+    );
   },
   async atualizarLoja(id, i) {
     return comoLoja(

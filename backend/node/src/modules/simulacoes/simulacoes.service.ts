@@ -2,6 +2,7 @@ import type { Auditor } from '../../shared/auditoria/auditoria.js';
 import { ConflictError } from '../../shared/errors/conflict-error.js';
 import { NotFoundError } from '../../shared/errors/not-found-error.js';
 import { ValidationError } from '../../shared/errors/validation-error.js';
+import { normalizarHorarios } from '../cadastros/horarios.js';
 import { diasAbertos, type LojaDiag } from '../escala/diagnostico.js';
 import type { EscalaRepository } from '../escala/escala.repository.js';
 import { FUNCOES_PADRAO_MINIMO, regraPara, type RegraId } from '../regras/perfis.js';
@@ -55,7 +56,7 @@ export const makeSimulacoesService = (
       regra: s.regra,
     };
     const regra = regraPara(s.regra as RegraId, p.convencao8h24);
-    const dias = diasAbertos(p.horarios as LojaDiag['horarios']);
+    const dias = diasAbertos(p.horarios);
     return { premissas: p, regra, dias };
   };
 
@@ -92,7 +93,11 @@ export const makeSimulacoesService = (
     });
     if (sairam.length)
       motivos.push(`Saiu do quadro da loja: ${sairam.map((p) => p.nome).join(', ')}.`);
-    if (JSON.stringify(l.horarios ?? null) !== JSON.stringify(s.premissas.horarios ?? null))
+    // Compara os dois já convertidos: só mudar o formato do cadastro não é mudança de horário.
+    if (
+      JSON.stringify(normalizarHorarios(l.horarios)) !==
+      JSON.stringify(normalizarHorarios(s.premissas.horarios))
+    )
       motivos.push('O horário de funcionamento da loja mudou.');
     const min = { ...FUNCOES_PADRAO_MINIMO, ...(l.minimos ?? {}) };
     if (Object.keys(min).some((f) => (min[f] ?? 0) !== (s.premissas!.minimos[f] ?? 0)))

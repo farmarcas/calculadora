@@ -1,4 +1,5 @@
 import { prisma } from '../../shared/database/prisma.js';
+import { normalizarHorarios, resumoHorarios } from './horarios.js';
 import type { Aba } from '../planilhas/leitor.js';
 import type {
   CadastrosRepository,
@@ -39,7 +40,8 @@ const comoLoja = (
     cnpj: r.cnpj ?? undefined,
     uf: r.uf ?? undefined,
     marca: r.marca ?? undefined,
-    horarios: (r.horarios ?? undefined) as LojaRegistro['horarios'],
+    horarios: normalizarHorarios(r.horarios) ?? undefined,
+    horariosResumo: resumoHorarios(normalizarHorarios(r.horarios)),
   }) as LojaRegistro;
 const comoFunc = (r: Record<string, unknown>) =>
   Object.fromEntries(

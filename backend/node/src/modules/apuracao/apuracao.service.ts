@@ -1,7 +1,7 @@
 import type { Auditor } from '../../shared/auditoria/auditoria.js';
 import { ConflictError } from '../../shared/errors/conflict-error.js';
 import { NotFoundError } from '../../shared/errors/not-found-error.js';
-import { diasAbertos, type LojaDiag } from '../escala/diagnostico.js';
+import { diasAbertos } from '../escala/diagnostico.js';
 import type { EscalaRepository } from '../escala/escala.repository.js';
 import { FUNCOES_PADRAO_MINIMO } from '../regras/perfis.js';
 import type { SimulacoesRepository } from '../simulacoes/simulacoes.repository.js';
@@ -39,7 +39,7 @@ export const makeApuracaoService = (
   const calcular = async (lojaId: string, de?: string, ate?: string) => {
     const c = await contexto(lojaId, de, ate);
     const p = c.emUso.premissas;
-    const horarios = (p?.horarios ?? c.loja.horarios) as LojaDiag['horarios'];
+    const horarios = p?.horarios ?? c.loja.horarios;
     const minimos = p?.minimos ?? { ...FUNCOES_PADRAO_MINIMO, ...(c.loja.minimos ?? {}) };
     const batidas = await repo.batidas(lojaId, c.de, c.ate);
     const r = apurarPeriodo({

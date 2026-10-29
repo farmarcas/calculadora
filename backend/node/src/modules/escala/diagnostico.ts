@@ -1,16 +1,16 @@
 import { passa, verificarRegra, type DiaAberto, type LinhaFuncao } from '../regras/capacidade.js';
 import { FUNCOES_PADRAO_MINIMO, REGRA_IDS, regraPara, type RegraId } from '../regras/perfis.js';
+import { faixasDaSemana, normalizarHorarios, type HorariosSemana } from '../cadastros/horarios.js';
 import type { Custos } from '../custos/custos.schemas.js';
 import { cobertura, type TurnoPessoa } from './cobertura.js';
-import { lerHora } from './interpretar.js';
 import { resumirVendas, type VendaLinha } from './vendas.js';
 
-type Horario = { abre: string; fecha: string };
 export type LojaDiag = {
   id: string;
   codigo: string;
   nome: string;
-  horarios: { semana?: Horario; sabado?: Horario; domingo?: Horario } | null;
+  // Sempre no formato novo (sete dias); o antigo é convertido na leitura.
+  horarios: HorariosSemana | null;
   convencao8h24: boolean;
   minimos: Record<string, number> | null;
   // Só para o cálculo de custo (visível apenas ao dono); nunca sai no diagnóstico.
@@ -35,23 +35,8 @@ const NOMES_DIA = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
 const hh = (h: number) =>
   `${String(Math.floor(h)).padStart(2, '0')}:${String(Math.round((h % 1) * 60)).padStart(2, '0')}`;
 
-export const diasAbertos = (h: LojaDiag['horarios']): DiaAberto[] => {
-  if (!h) return [];
-  const faixa = (x?: Horario) => {
-    if (!x) return null;
-    const abre = lerHora(x.abre);
-    const fecha = lerHora(x.fecha);
-    return abre !== null && fecha !== null && fecha > abre ? { abre, fecha } : null;
-  };
-  const dias: DiaAberto[] = [];
-  const sem = faixa(h.semana);
-  if (sem) for (let d = 0; d < 5; d++) dias.push({ dia: d, ...sem });
-  const sab = faixa(h.sabado);
-  if (sab) dias.push({ dia: 5, ...sab });
-  const dom = faixa(h.domingo);
-  if (dom) dias.push({ dia: 6, ...dom });
-  return dias;
-};
+// Dias abertos com a faixa de cada um (24 horas = 0 a 24). Aceita o formato novo e o antigo.
+export const diasAbertos = (h: unknown): DiaAberto[] => faixasDaSemana(normalizarHorarios(h));
 
 const resumoDias = (dias: number[]) => {
   const s = [...dias].sort();
@@ -131,6 +116,12 @@ export const montarDiagnostico = (a: {
       descricao: regra.descricao,
       passa: passa(funcoes),
       funcoes,
+      // Números grandes do quadro central.
+      resumo: {
+        turnosEmFalta: funcoes.reduce((t, f) => t + Math.max(0, -f.saldoT), 0),
+        saldoHoras: Math.round(funcoes.reduce((t, f) => t + f.saldoH, 0) * 100) / 100,
+        contratar: funcoes.reduce((t, f) => t + f.contratar, 0),
+      },
     };
   });
   const [atual, r42, r40] = regras as [
@@ -218,9 +209,31 @@ export const montarDiagnostico = (a: {
     return { funcao, pessoas: doF.length, cargaTotalH: doF.reduce((s, t) => s + t.cargaH, 0) };
   });
 
+  // Pontos de atenção em números: cada um vira um "big number" no quadro central.
+  const abaixoDoMinimo = (nome: string) =>
+    cob.funcoes
+      .filter((f) => (nome === 'Farmacêutico' ? f.funcao === nome : f.funcao !== 'Farmacêutico'))
+      .reduce((t, f) => t + f.porHora.filter((c) => c.ok === false).length, 0);
+  const numeros = {
+    colaboradoresNoCalculo: noCalculo.length,
+    faixasSemFarmaceutico: abaixoDoMinimo('Farmacêutico'),
+    faixasAbaixoDoMinimo: abaixoDoMinimo('outras'),
+    // Nulo quando não há base comercial: não dá para saber onde está a maior venda.
+    maiorVendaDescoberta: resumoVendas
+      ? resumoVendas.top.filter((t) =>
+          cob.funcoes.some(
+            (f) => f.minimo > 0 && f.porHora.find((c) => c.hora === t.hora)?.ok === false,
+          ),
+        ).length
+      : null,
+    foraDoCalculo: turnos.filter((t) => !t.funcao).length,
+    linhasRejeitadas: escala.linhasRejeitadas,
+  };
+
   return {
     loja: lojaInfo,
     status,
+    numeros,
     fontes,
     config,
     quadro,

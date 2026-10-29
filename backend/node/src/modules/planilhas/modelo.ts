@@ -25,7 +25,11 @@ const montarAba = (wb: ExcelJS.Workbook, nome: string, campos: CampoDef[]) => {
 
 export const gerarModelo = async (): Promise<Buffer> => {
   const wb = new ExcelJS.Workbook();
-  montarAba(wb, 'Lojas', CAMPOS_LOJA);
+  montarAba(
+    wb,
+    'Lojas',
+    CAMPOS_LOJA.filter((c) => !c.legado),
+  );
   montarAba(wb, 'Funcionários', CAMPOS_FUNCIONARIO);
   const ajuda = wb.addWorksheet('Como preencher');
   ajuda.addRows([

@@ -1,43 +1,14 @@
 import { useState } from "react";
 import { api } from "../../api/client.js";
 import { Aviso, Botao, Cartao, Ficha } from "../../components/ui/index.jsx";
+import QuadroCentral from "./QuadroCentral.jsx";
 
 const TH = "text-left text-[11px] font-bold uppercase tracking-wide text-ink-500 px-6 py-3";
 const TD = "px-6 py-3 border-t border-line";
 const hh = (h) => `${String(h).padStart(2, "0")}h`;
 const brl = (v) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
-const data = (iso) => new Date(iso).toLocaleDateString("pt-BR");
 // Datas "AAAA-MM-DD" não têm fuso: formatar sem passar por Date evita mostrar o dia anterior.
 const diaIso = (s) => s.split("-").reverse().join("/");
-
-const STATUS = {
-  ok: ["ok", "Passa em todas as regras"],
-  cobertura: ["atencao", "Passa nas regras, mas há horários abaixo do mínimo"],
-  falha_futura: ["atencao", "Passa hoje, falha em 42h ou 40h"],
-  falha_atual: ["erro", "Já falta na regra atual"],
-};
-
-function Fonte({ titulo, ok, detalhe, acao }) {
-  return (
-    <div className="flex-1 min-w-52 border border-line rounded-card p-4 bg-white">
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-sm font-medium">{titulo}</span>
-        <Ficha tom={ok ? "ok" : "neutro"}>{ok ? "Recebida" : "Pendente"}</Ficha>
-      </div>
-      <p className="mt-2 mb-0 text-xs text-ink-500">{detalhe}</p>
-      {acao}
-    </div>
-  );
-}
-
-const horarioTxt = (h) => {
-  if (!h) return "Não cadastrado";
-  const p = [];
-  if (h.semana) p.push(`seg a sex ${h.semana.abre}–${h.semana.fecha}`);
-  if (h.sabado) p.push(`sáb ${h.sabado.abre}–${h.sabado.fecha}`);
-  if (h.domingo) p.push(`dom ${h.domingo.abre}–${h.domingo.fecha}`);
-  return p.join(" · ") || "Não cadastrado";
-};
 
 function Verificacao({ regras }) {
   const funcoes = regras[0].funcoes.map((f) => f.funcao);
@@ -85,8 +56,7 @@ function Verificacao({ regras }) {
   );
 }
 
-function Contratacoes({ regras, podeEscrever, onSimular }) {
-  const [id, setId] = useState("r42");
+function Contratacoes({ regras, regraId: id, podeEscrever, onSimular }) {
   const [erro, setErro] = useState(null);
   const simular = async () => {
     setErro(null);
@@ -102,16 +72,7 @@ function Contratacoes({ regras, podeEscrever, onSimular }) {
   return (
     <Cartao
       titulo="Déficit e contratações por função"
-      subtitulo="O quanto falta para a regra passar e quantas pessoas isso representa"
-      acoes={
-        <div className="flex border border-line rounded-input overflow-hidden" role="group" aria-label="Regra">
-          {regras.map((r) => (
-            <button key={r.id} onClick={() => setId(r.id)} aria-pressed={id === r.id} className={`px-3 py-1.5 text-sm ${id === r.id ? "bg-system-50 text-system-700 font-medium" : "text-ink-700"}`}>
-              {r.nome}
-            </button>
-          ))}
-        </div>
-      }
+      subtitulo={`Na regra de ${regra.nome}: o quanto falta para passar e quantas pessoas isso representa`}
     >
       {faltas.length === 0 ? (
         <p className="m-0 px-6 py-5 text-sm text-ink-700">Na regra de {regra.nome}, o quadro atual cobre o horário da loja.</p>
@@ -206,46 +167,22 @@ function Vendas({ vendas }) {
 }
 
 export default function Diagnostico({ diag, podeEscrever, onEnviar, onSimular }) {
+  const [regraId, setRegraId] = useState("r40");
+
   if (diag.status === "pendente")
     return (
-      <>
-        <Cartao>
-          <div className="p-10 text-center">
-            <p className="m-0 text-base font-medium">{diag.mensagem}</p>
-            <p className="mt-2 mb-4 text-sm text-ink-500">Sem a escala atual não há quadro por função, capacidade de horas e turnos nem cobertura por faixa.</p>
-            {podeEscrever && <Botao onClick={onEnviar}>Enviar planilhas</Botao>}
-          </div>
-        </Cartao>
-      </>
+      <Cartao>
+        <div className="p-10 text-center">
+          <p className="m-0 text-base font-medium">{diag.mensagem}</p>
+          <p className="mt-2 mb-4 text-sm text-ink-500">Sem a escala atual não há quadro por função, capacidade de horas e turnos nem cobertura por faixa.</p>
+          {podeEscrever && <Botao onClick={onEnviar}>Enviar planilhas</Botao>}
+        </div>
+      </Cartao>
     );
 
-  const [tom, textoStatus] = STATUS[diag.status];
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap gap-4">
-        <Fonte titulo="Horário de funcionamento" ok detalhe={`${horarioTxt(diag.loja.horarios)} · ${diag.loja.horasAbertas}h abertas por semana`} />
-        <Fonte
-          titulo="Escala atual"
-          ok={!!diag.fontes.escala}
-          detalhe={diag.fontes.escala ? `${diag.fontes.escala.arquivo} · ${data(diag.fontes.escala.recebidaEm)} · ${diag.fontes.escala.aceitas} colaboradores` : "não recebida"}
-        />
-        <Fonte
-          titulo="Base comercial"
-          ok={!!diag.fontes.base}
-          detalhe={diag.fontes.base ? `${diag.fontes.base.arquivo} · ${data(diag.fontes.base.recebidaEm)}` : "não recebida: sem horários de maior venda"}
-        />
-      </div>
-
-      <div className="flex items-center gap-3"><Ficha tom={tom}>{textoStatus}</Ficha></div>
-
-      <Cartao titulo="Pontos de atenção">
-        <ul className="list-none m-0 p-0">
-          {diag.pontosAtencao.length === 0 && <li className="px-6 py-4 text-sm text-ink-700">Nenhum ponto de atenção.</li>}
-          {diag.pontosAtencao.map((p, i) => (
-            <li key={i} className="px-6 py-3 border-t border-line first:border-0"><Aviso tom={p.tom}>{p.texto}</Aviso></li>
-          ))}
-        </ul>
-      </Cartao>
+      <QuadroCentral diag={diag} regraId={regraId} onRegra={setRegraId} podeEscrever={podeEscrever} onEnviar={onEnviar} />
 
       <Cartao titulo="Quadro por função" subtitulo="Só entram no cálculo colaboradores com função de escala">
         <table className="w-full border-collapse text-sm">
@@ -259,7 +196,7 @@ export default function Diagnostico({ diag, podeEscrever, onEnviar, onSimular })
       </Cartao>
 
       <Verificacao regras={diag.regras} />
-      <Contratacoes regras={diag.regras.map((r) => ({ ...r, lojaId: diag.loja.id }))} podeEscrever={podeEscrever} onSimular={onSimular} />
+      <Contratacoes regras={diag.regras.map((r) => ({ ...r, lojaId: diag.loja.id }))} regraId={regraId} podeEscrever={podeEscrever} onSimular={onSimular} />
       <Cobertura cob={diag.cobertura} />
       <Vendas vendas={diag.vendas} />
 

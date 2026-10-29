@@ -42,7 +42,7 @@ export const escalaRouter = (repo: EscalaRepository = escalaRepository) => {
   });
 
   r.get('/lojas/:id/diagnostico', validate(S.porLojaReq), async (_req, res) =>
-    res.json(await s.diagnostico(v<typeof S.porLojaReq>(res).params.id)),
+    res.json(await s.diagnostico(v<typeof S.porLojaReq>(res).params.id, perfilDe(res))),
   );
   r.get('/lojas/:id/cargas', validate(S.porLojaReq), async (_req, res) =>
     res.json(await s.historico(v<typeof S.porLojaReq>(res).params.id)),

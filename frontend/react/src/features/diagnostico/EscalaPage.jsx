@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../../api/client.js";
 import { Aviso, Botao, Cartao, entrada } from "../../components/ui/index.jsx";
-import Configuracao from "./Configuracao.jsx";
 import Diagnostico from "./Diagnostico.jsx";
 import EnviarPlanilhas from "./EnviarPlanilhas.jsx";
 import GradeTab from "../grade/GradeTab.jsx";
@@ -74,7 +73,7 @@ export default function EscalaPage({ perfil }) {
       {erro && <Aviso>{erro}</Aviso>}
 
       <div className="flex gap-6 border-b border-line" role="tablist">
-        {[["diagnostico", "Diagnóstico"], ["grade", "Simulações"], ["configuracao", "Configuração"]].map(([id, r]) => (
+        {[["diagnostico", "Diagnóstico"], ["grade", "Simulações"]].map(([id, r]) => (
           <button
             key={id}
             role="tab"
@@ -90,7 +89,6 @@ export default function EscalaPage({ perfil }) {
 
       {!diag && !erro && aba !== "grade" && <p className="text-sm text-ink-500">Carregando…</p>}
       {diag && aba === "diagnostico" && <Diagnostico diag={diag} podeEscrever={podeEscrever} simulando={!!premissas} onPremissas={setPremissas} onEnviar={() => setEnviando(true)} onSimular={(id) => { setAbrirSim(id); setAba("grade"); }} />}
-      {diag && aba === "configuracao" && <Configuracao diag={diag} podeEscrever={podeEscrever} lojaId={lojaId} onSalvo={setDiag} perfil={perfil} />}
       {aba === "grade" && <GradeTab lojaId={lojaId} perfil={perfil} podeEscrever={podeEscrever} abrirId={abrirSim} />}
       {enviando && <EnviarPlanilhas onClose={() => setEnviando(false)} onConcluido={carregar} />}
     </>

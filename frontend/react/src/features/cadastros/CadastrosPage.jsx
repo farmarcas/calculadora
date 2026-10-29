@@ -4,6 +4,10 @@ import { Aviso, Botao, Cartao, Ficha } from "../../components/ui/index.jsx";
 import FormLoja from "./FormLoja.jsx";
 import FormFuncionario from "./FormFuncionario.jsx";
 import ImportarPlanilha from "./ImportarPlanilha.jsx";
+import ConfiguracaoLoja from "./ConfiguracaoLoja.jsx";
+import ParametrosLegais from "../parametros/ParametrosLegais.jsx";
+
+const SECOES = [["cadastro", "Lojas e funcionários"], ["configuracao", "Configuração da loja"], ["parametros", "Parâmetros legais"]];
 
 const TH = "text-left text-[11px] font-bold uppercase tracking-wide text-ink-500 px-6 py-3";
 const TD = "px-6 py-3 border-t border-line";
@@ -11,6 +15,7 @@ const TD = "px-6 py-3 border-t border-line";
 
 export default function CadastrosPage({ perfil }) {
   const podeEscrever = perfil !== "SCHEDULE_VIEWER";
+  const [secao, setSecao] = useState("cadastro");
   const [aba, setAba] = useState("lojas");
   const [lojas, setLojas] = useState({ data: [], meta: { total: 0 } });
   const [funcs, setFuncs] = useState({ data: [], meta: { total: 0 } });
@@ -55,17 +60,38 @@ export default function CadastrosPage({ perfil }) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="m-0 text-2xl font-bold">Cadastros</h1>
-          <p className="mt-1 mb-0 text-sm text-ink-500">Lojas e funcionários que alimentam a Escala. O jeito mais rápido é por planilha.</p>
+          <p className="mt-1 mb-0 text-sm text-ink-500">Tudo o que a Escala precisa para simular: lojas e equipe (o jeito mais rápido é por planilha), configuração de cada loja e as regras legais.</p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Botao tipo="secundario" onClick={baixarModelo}>Baixar planilha modelo</Botao>
-          {podeEscrever && <Botao onClick={() => setImportando(true)}>Importar planilha</Botao>}
-        </div>
+        {secao === "cadastro" && (
+          <div className="flex flex-wrap gap-2">
+            <Botao tipo="secundario" onClick={baixarModelo}>Baixar planilha modelo</Botao>
+            {podeEscrever && <Botao onClick={() => setImportando(true)}>Importar planilha</Botao>}
+          </div>
+        )}
       </div>
 
       {perfil === "SCHEDULE_VIEWER" && <Aviso tom="neutro">Você está como "Somente consulta": não pode criar, editar nem importar.</Aviso>}
       {erro && <Aviso>{erro}</Aviso>}
 
+      <div className="flex gap-6 border-b border-line" role="tablist" aria-label="Seções do cadastro">
+        {SECOES.map(([id, r]) => (
+          <button
+            key={id}
+            role="tab"
+            aria-selected={secao === id}
+            onClick={() => setSecao(id)}
+            className={`py-3 text-sm font-medium ${secao === id ? "text-ink-900" : "text-ink-500"}`}
+            style={{ boxShadow: secao === id ? "inset 0 -2px 0 0 #006FF7" : "none" }}
+          >
+            {r}
+          </button>
+        ))}
+      </div>
+
+      {secao === "configuracao" && <ConfiguracaoLoja perfil={perfil} podeEscrever={podeEscrever} />}
+      {secao === "parametros" && <ParametrosLegais perfil={perfil} />}
+
+      {secao === "cadastro" && (<>
       {vazio && (
         <Cartao>
           <div className="p-10 text-center">
@@ -162,6 +188,7 @@ export default function CadastrosPage({ perfil }) {
           )}
         </div>
       </Cartao>
+      </>)}
 
       {form?.tipo === "loja" && <FormLoja registro={form.registro} perfil={perfil} onClose={() => setForm(null)} onSalvo={() => { setForm(null); carregar(); }} />}
       {form?.tipo === "funcionario" && <FormFuncionario registro={form.registro} lojas={lojas.data} onClose={() => setForm(null)} onSalvo={() => { setForm(null); carregar(); }} />}

@@ -91,7 +91,7 @@ export default function QuadroCentral({ diag, regraId, onRegra, podeEscrever, on
                 <Numero rotulo="Folha mensal atual" valor={brl(folha.mensal)} legenda={`Salários + encargos ${folha.encargosPct}%`} />
               )
             ) : (
-              <Numero rotulo="Folha mensal atual" valor="—" legenda="informe os custos na Configuração" />
+              <Numero rotulo="Folha mensal atual" valor="—" legenda="informe os custos em Cadastros › Configuração" />
             ))}
           <Numero rotulo="Turnos em falta" valor={regra.resumo.turnosEmFalta} legenda={`por semana na regra de ${regra.nome}`} tom={regra.resumo.turnosEmFalta > 0 ? "erro" : "ok"} />
           <Numero rotulo="Saldo de horas" valor={`${sinal(regra.resumo.saldoHoras)}h`} legenda="por semana · capacidade − necessidade" tom={regra.resumo.saldoHoras < 0 ? "erro" : "neutro"} />

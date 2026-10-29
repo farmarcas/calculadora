@@ -115,7 +115,7 @@ function Contratacoes({ regras, regraId: id, podeEscrever, onSimular }) {
 function Cobertura({ cob }) {
   if (!cob.horas.length) return null;
   return (
-    <Cartao titulo="Cobertura da escala atual" subtitulo="Pessoas presentes no pior dia de cada hora, já descontado o intervalo · mínimos da Configuração">
+    <Cartao titulo="Cobertura da escala atual" subtitulo="Pessoas presentes no pior dia de cada hora, já descontado o intervalo · mínimos em Cadastros › Configuração">
       <div className="overflow-x-auto px-6 py-4">
         <table className="border-collapse text-xs min-w-[720px] w-full">
           <thead>

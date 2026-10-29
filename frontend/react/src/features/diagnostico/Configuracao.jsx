@@ -28,7 +28,7 @@ export default function Configuracao({ diag, podeEscrever, lojaId, onSalvo, perf
   return (
     <div className="flex flex-col gap-6">
       {erro && <Aviso>{erro}</Aviso>}
-      {ok && <Aviso tom="ok">Configuração salva. O diagnóstico já foi recalculado.</Aviso>}
+      {ok && <Aviso tom="ok">Configuração salva. O Diagnóstico e as Simulações da Escala já usam os novos valores.</Aviso>}
       <Cartao titulo="Convenção coletiva" subtitulo="Define se a regra de 42h é atingível em 5 dias">
         <label className="flex items-center gap-3 px-6 py-4 cursor-pointer">
           <input type="checkbox" checked={conv} disabled={!podeEscrever} onChange={(e) => setConv(e.target.checked)} className="h-5 w-5" />

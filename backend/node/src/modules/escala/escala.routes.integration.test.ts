@@ -275,7 +275,7 @@ describe('escala (rotas)', () => {
     expect(cobre.custoAdicionalMensal).toBe(0);
   });
 
-  it('cenário 2: reduz o horário até a equipe cobrir, com e sem base comercial', async () => {
+  it('cenário 2: fecha dias até a equipe atual cobrir; dia protegido vira "não recomendado"; valores só ao dono', async () => {
     await request(app)
       .post('/api/v1/cargas/escala')
       .set(admin)
@@ -291,31 +291,51 @@ describe('escala (rotas)', () => {
       .set(admin)
       .send({ minimos: { Atendimento: 0, Caixa: 0 } });
     const url = `/api/v1/lojas/${lojaId}/diagnostico`;
+    const eco = async (perfil = admin) =>
+      (await request(app).get(url).set(perfil)).body.cenarios.r40.economia;
 
-    // sem base: corta o fim do dia e não estima venda
-    const sem = (await request(app).get(url).set(admin)).body.cenarios.r40.economia;
-    expect(sem.viavel).toBe(true);
-    expect(sem.horasReduzir).toBeGreaterThan(0);
-    expect(sem.horasSemana + sem.horasReduzir).toBe(66);
-    expect(sem.horasSemana).toBeLessThanOrEqual(40); // 1 farmacêutica de 40h
-    expect(sem.vendaCortadaMes).toBeNull();
-    expect(sem.cortes[0].venda).toBeNull();
+    // sem venda por dia (nem base nem faturamento): não dá para escolher o dia
+    const sem = await eco();
+    expect(sem.viavel).toBe(false);
+    expect(sem.motivoInviavel).toContain('faturamento por dia da semana');
+    expect(sem.diasFechar).toEqual([]);
 
-    // com base: estima a venda cortada
-    const base = await xlsx(
-      ['Data', 'Hora', 'Cod_Loja', 'Venda_Liquida_RS', 'Clientes_Atendidos'],
-      [
-        ['01/09/2026', '18', '001', '1.200,00', '40'],
-        ['01/09/2026', '19', '001', '600,00', '20'],
-      ],
-    );
-    await request(app).post('/api/v1/cargas/base').set(admin).attach('arquivo', base, 'b.xlsx');
-    const com = (await request(app).get(url).set(admin)).body.cenarios.r40.economia;
-    expect(typeof com.vendaCortadaSemana).toBe('number');
-    expect(com.vendaCortadaMes).toBeCloseTo((com.vendaCortadaSemana * 52) / 12, 1);
-    expect(com.aviso).toContain('1 dias');
-    // o cenário de economia não traz custo para ninguém
-    expect(JSON.stringify(com)).not.toContain('custoAdicional');
+    // loja de segunda a sexta (12h) e sábado (6h): 66h e 11 turnos; 1 farmacêutica de 40h tem 40h e 5 turnos.
+    // Faturamento por dia e margem de 25%: protegidos = sexta, quinta e terça (os 3 maiores).
+    await request(app)
+      .patch(`/api/v1/lojas/${lojaId}`)
+      .set(admin)
+      .send({
+        faturamento: {
+          dias: [1000, 1100, 900, 1200, 1500, 800, null],
+          mensal: null,
+          margemPct: 25,
+        },
+      });
+    const dono = await eco();
+    // Ordem de fechamento: sábado, quarta, segunda (livres) e, como ainda não cabe, a terça (protegida). Sobram quinta e
+    // sexta (24h, 4 turnos) e o sábado volta (30h, 5 turnos). Fechados: segunda, terça e quarta.
+    expect(dono.viavel).toBe(true);
+    expect(dono.diasFechar.map((d: { dia: number }) => d.dia)).toEqual([0, 1, 2]);
+    expect(dono.horasSemana).toBe(30);
+    expect(dono.horasReduzir).toBe(36);
+    // margem por mês: segunda 1083,33 + terça 1191,67 + quarta 975 = 3250; venda: 13000
+    expect(dono.margemCortadaMes).toBe(3250);
+    expect(dono.vendaCortadaMes).toBe(13000);
+    expect(dono.naoRecomendado.dias).toEqual([1]);
+    expect(dono.naoRecomendado.texto).toContain('terça');
+    expect(dono.impactoMensal).toBeNull(); // não recomendado: fora da escolha do selo
+
+    // gestor e consulta: os dias e a frase, sem valores em reais
+    for (const perfil of [{ 'X-Perfil': 'SCHEDULE_MANAGER' }, { 'X-Perfil': 'SCHEDULE_VIEWER' }]) {
+      const r = await eco(perfil);
+      expect(r.diasFechar).toEqual([{ dia: 0 }, { dia: 1 }, { dia: 2 }]);
+      expect(r.naoRecomendado.dias).toEqual([1]);
+      expect('margemCortadaMes' in r).toBe(false);
+      expect('vendaCortadaMes' in r).toBe(false);
+      const texto = JSON.stringify(r);
+      for (const valor of ['3250', '13000', '1191.67', 'R$']) expect(texto).not.toContain(valor);
+    }
   });
 
   it('cenário 3: avisa o que falta e, completo, só o dono vê o custo', async () => {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { montarCenarios, type EntradaCenarios } from './cenarios.js';
+import { vendasDoCadastro } from './vendas-cadastro.js';
 
 // Loja de segunda a sábado, 8h às 22h (84h na semana).
 const dias = [0, 1, 2, 3, 4, 5].map((dia) => ({ dia, abre: 8, fecha: 22 }));
@@ -126,100 +127,153 @@ describe('Cenário 1 — manter horários', () => {
   });
 });
 
-describe('Cenário 2 — foco em economia', () => {
-  const so = (extra: Partial<EntradaCenarios> = {}) =>
-    base({
-      minimos: { Farmacêutico: 1 },
-      pessoas: [{ funcao: 'Farmacêutico', cargaH: 40 }],
-      ...extra,
-    });
-  const sab = (c: EntradaCenarios) => montarCenarios(c).economia;
+describe('Cenário 2 — fechar dias para manter a equipe', () => {
+  const dias = (abre: number, fecha: number, lista: number[]) =>
+    lista.map((dia) => ({ dia, abre, fecha }));
+  // Segunda a sábado, 8h às 22h: 84h e 12 turnos por semana.
+  const seisDias = dias(8, 22, [0, 1, 2, 3, 4, 5]);
+  // Faturamento por dia (segunda a sábado) e margem de 25%: margem do dia 250, 300, 225, 275, 375 e 500.
+  const fat = [1000, 1200, 900, 1100, 1500, 2000, null];
+  const vendasDe = (d: typeof seisDias, f: (number | null)[] = fat) =>
+    vendasDoCadastro({ dias: f, mensal: null, margemPct: 25 }, d)!.linhas;
+  const farm = (...horas: number[]) => horas.map((cargaH) => ({ funcao: 'Farmacêutico', cargaH }));
+  const eco = (extra: Partial<EntradaCenarios> = {}) =>
+    montarCenarios(
+      base({
+        minimos: { Farmacêutico: 1 },
+        dias: seisDias,
+        pessoas: farm(40, 40),
+        vendas: vendasDe(seisDias),
+        origemVenda: 'cadastro',
+        ...extra,
+      }),
+    ).economia;
 
-  it('sem base comercial corta o fim do dia, do dia mais tarde para o mais cedo, e não estima venda', () => {
-    // 84h abertas e 12 turnos para 1 farmacêutico de 40h (5 turnos): só passa com Seg e Ter inteiras e Qua até 16h
-    const e = sab(so());
+  it('fecha o dia de menor margem que resolve: 2 farmacêuticos de 40h (80h, 10 turnos) para 84h e 12 turnos', () => {
+    // Fechar um dia de 14h (2 turnos) dá 70h e 10 turnos: cabe. Entre os dias não protegidos
+    // (segunda 250, quarta 225, quinta 275 de margem) o menor é a quarta: 225 × 52 ÷ 12 = 975 por mês.
+    const e = eco();
     expect(e.viavel).toBe(true);
-    expect(e.horasReduzir).toBe(48);
-    expect(e.horasSemana).toBe(36);
-    expect(e.horarioSemana.map((d) => d.aberto)).toEqual([
-      true,
-      true,
-      true,
-      false,
-      false,
-      false,
-      false,
-    ]);
-    expect(e.horarioSemana[2]).toMatchObject({ abre: '08:00', fecha: '16:00' });
-    expect(e.cortes).toEqual([
-      { dia: 2, de: '16:00', ate: '22:00', venda: null, margem: null },
-      { dia: 3, de: '08:00', ate: '22:00', venda: null, margem: null },
-      { dia: 4, de: '08:00', ate: '22:00', venda: null, margem: null },
-      { dia: 5, de: '08:00', ate: '22:00', venda: null, margem: null },
-    ]);
-    expect(e.vendaCortadaMes).toBeNull();
-    expect(e.direcionamento).toContain('Sem base comercial');
+    expect(e.diasFechar).toEqual([{ dia: 2, vendaMes: 3900, margemMes: 975 }]);
+    expect(e.horasReduzir).toBe(14);
+    expect(e.horasSemana).toBe(70);
+    expect(e.horarioSemana[2]).toEqual({ dia: 2, aberto: false, abre: null, fecha: null });
+    expect(e.margemCortadaMes).toBe(975);
+    expect(e.vendaCortadaMes).toBe(3900); // 900 × 52 ÷ 12
+    expect(e.naoRecomendado).toBeNull();
+    expect(e.resumo).toContain('Fechando quarta a equipe atual cobre o horário sem contratar');
+    expect(e.resumo).toContain('deixa de contratar 1 pessoa');
   });
 
-  // Segunda a sexta, 8h às 17h: 1 farmacêutico de 40h precisa de 1 hora a menos em cada dia.
-  const semana = [0, 1, 2, 3, 4].map((dia) => ({ dia, abre: 8, fecha: 17 }));
-  const vendas = [0, 1, 2, 3, 4].flatMap((d) =>
-    Array.from({ length: 9 }, (_, i) => {
-      const hora = 8 + i;
-      const venda = hora === 16 ? 100 : d === 1 && hora === 8 ? 50 : 200;
-      return {
-        data: `2026-03-0${2 + d}`,
-        hora,
-        venda,
-        margem: venda * 0.3,
-        clientes: 1,
-        unidades: 1,
-      };
-    }),
-  );
-
-  it('corta as horas que menos vendem e confere o valor cortado com as médias', () => {
-    const e = sab(so({ dias: semana, vendas }));
-    expect(e.horasReduzir).toBe(5);
-    // terça perde a primeira hora (50); nos outros dias, a última (100)
-    expect(e.cortes).toEqual([
-      { dia: 0, de: '16:00', ate: '17:00', venda: 100, margem: 30 },
-      { dia: 1, de: '08:00', ate: '09:00', venda: 50, margem: 15 },
-      { dia: 2, de: '16:00', ate: '17:00', venda: 100, margem: 30 },
-      { dia: 3, de: '16:00', ate: '17:00', venda: 100, margem: 30 },
-      { dia: 4, de: '16:00', ate: '17:00', venda: 100, margem: 30 },
-    ]);
-    expect(e.vendaCortadaSemana).toBe(450);
-    expect(e.vendaCortadaMes).toBe(1950); // 450 × 52 ÷ 12
-    expect(e.margemCortadaMes).toBe(585);
-    expect(e.aviso).toContain('5 dias');
-  });
-
-  it('loja 24 horas: corta o fim do domingo até caber', () => {
-    const dias24 = Array.from({ length: 7 }, (_, dia) => ({ dia, abre: 0, fecha: 24 }));
-    const e = sab(
-      so({
-        dias: dias24,
-        pessoas: Array.from({ length: 4 }, () => ({ funcao: 'Farmacêutico', cargaH: 40 })),
+  it('só fecha dia protegido como último recurso e marca "não recomendado"', () => {
+    // 1 farmacêutico de 40h: cabem no máximo 2 dias de 14h. Fecha segunda, terça?, quarta e quinta pela ordem de margem:
+    // quarta 975, segunda 1083,33, quinta 1191,67 e, como ainda não cabe, a terça (protegida, 300 → 1300).
+    const e = eco({ pessoas: farm(40) });
+    expect(e.diasFechar.map((d) => d.dia)).toEqual([0, 1, 2, 3]);
+    expect(e.naoRecomendado).toMatchObject({ dias: [1] });
+    expect(e.naoRecomendado!.texto).toContain('terça');
+    expect(e.margemCortadaMes).toBe(4550); // 1083,33 + 1300 + 975 + 1191,67
+    expect(e.horasSemana).toBe(28);
+    // o dia protegido fechado tira o cenário da escolha do selo
+    const r = montarCenarios(
+      base({
+        minimos: { Farmacêutico: 1 },
+        dias: seisDias,
+        pessoas: farm(40),
+        vendas: vendasDe(seisDias),
       }),
     );
-    expect(e.horasReduzir).toBe(8);
-    expect(e.cortes).toEqual([{ dia: 6, de: '16:00', ate: '24:00', venda: null, margem: null }]);
+    expect(r.economia.impactoMensal).toBeNull();
   });
 
-  it('quadro que já cobre tudo não reduz nada', () => {
-    const e = sab(
-      so({ pessoas: Array.from({ length: 4 }, () => ({ funcao: 'Farmacêutico', cargaH: 40 })) }),
-    );
-    expect(e).toMatchObject({ viavel: true, horasReduzir: 0, cortes: [] });
-    expect(e.direcionamento).toContain('não é preciso reduzir');
+  it('reabre o dia que acabou não sendo necessário', () => {
+    // Domingo curto (09h às 13h) e equipe de 2 × 40h mais 1 × 8h (88h e 11 turnos) para 88h e 13 turnos.
+    // Fechar o domingo (o menor) não basta; fechar a quarta resolve; com a quarta fechada o domingo cabe de volta.
+    const domingo = [...seisDias, { dia: 6, abre: 9, fecha: 13 }];
+    const e = eco({
+      dias: domingo,
+      pessoas: farm(40, 40, 8),
+      vendas: vendasDe(domingo, [1000, 1200, 900, 1100, 1500, 2000, 300]),
+    });
+    expect(e.diasFechar.map((d) => d.dia)).toEqual([2]);
+    expect(e.horarioSemana[6]).toMatchObject({
+      dia: 6,
+      aberto: true,
+      abre: '09:00',
+      fecha: '13:00',
+    });
+    expect(e.horasReduzir).toBe(14);
   });
 
-  it('função obrigatória sem ninguém no quadro: não há solução cortando horário', () => {
-    const e = sab(so({ pessoas: [{ funcao: 'Atendimento', cargaH: 40 }] }));
+  it('equipe que não cobre nem com um único dia aberto: sem solução', () => {
+    const e = eco({ pessoas: farm(8) });
     expect(e.viavel).toBe(false);
-    expect(e.motivoInviavel).toContain('Farmacêutico');
-    expect(e.cortes).toEqual([]);
+    expect(e.motivoInviavel).toContain('Mesmo fechando dias');
+    expect(e.diasFechar).toEqual([]);
+  });
+
+  it('função obrigatória sem ninguém no quadro: não há solução fechando dias', () => {
+    const e = eco({ pessoas: [{ funcao: 'Atendimento', cargaH: 40 }] });
+    expect(e.viavel).toBe(false);
+    expect(e.motivoInviavel).toContain('Não há Farmacêutico');
+  });
+
+  it('quadro que já cobre tudo não fecha nada, com margem perdida zero', () => {
+    const e = eco({ pessoas: farm(40, 40, 40) });
+    expect(e.viavel).toBe(true);
+    expect(e.diasFechar).toEqual([]);
+    expect(e.horasReduzir).toBe(0);
+    expect(e.margemCortadaMes).toBe(0);
+    expect(e.direcionamento).toContain('já cobre todos os dias');
+  });
+
+  it('sem venda por dia (nem base nem faturamento) diz o que falta e não escolhe dia', () => {
+    const e = eco({ vendas: [], origemVenda: null });
+    expect(e.viavel).toBe(false);
+    expect(e.motivoInviavel).toContain('faturamento por dia da semana');
+    expect(e.margemCortadaMes).toBeNull();
+  });
+
+  it('só o faturamento mensal: avisa que a venda é estimada', () => {
+    const mensal = vendasDoCadastro(
+      { dias: new Array(7).fill(null), mensal: 52000, margemPct: 25 },
+      seisDias,
+    )!.linhas;
+    const e = eco({ vendas: mensal, origemVenda: 'estimativa' });
+    expect(e.viavel).toBe(true);
+    expect(e.aviso).toContain('Venda estimada');
+    // dias iguais (2000 cada): fecha o mais tardio entre os não protegidos (protegidos: sábado, sexta, quinta)
+    expect(e.diasFechar.map((d) => d.dia)).toEqual([2]);
+  });
+
+  it('a recaptura reduz a venda e a margem perdidas (20% de 975 e de 3900)', () => {
+    const e = eco({ recaptura: 0.2 });
+    expect(e.margemCortadaMes).toBe(780);
+    expect(e.vendaCortadaMes).toBe(3120);
+    expect(e.diasFechar[0]).toMatchObject({ margemMes: 780, vendaMes: 3120 });
+    expect(e.direcionamento).toContain('20%');
+    // acima de 30% vale 30%
+    expect(eco({ recaptura: 0.9 }).margemCortadaMes).toBe(682.5);
+  });
+
+  it('quem não é dono vê os dias e a frase, sem valores em reais', () => {
+    const e = eco({ dono: false });
+    expect(e.diasFechar).toEqual([{ dia: 2 }]);
+    expect(e.resumo).not.toContain('R$');
+    expect(e.direcionamento).not.toContain('R$');
+  });
+
+  it('loja 24 horas: fecha dias inteiros (7 × 24h = 168h para 3 farmacêuticos de 40h)', () => {
+    const d24 = dias(0, 24, [0, 1, 2, 3, 4, 5, 6]);
+    const e = eco({
+      dias: d24,
+      pessoas: farm(40, 40, 40),
+      vendas: vendasDe(d24, new Array(7).fill(2400)),
+    });
+    // 120h e 15 turnos de capacidade: cabem 5 dias de 24h (120h e 15 turnos); fecha 2 (a quinta e a quarta: empate e o mais tardio vai primeiro)
+    expect(e.diasFechar.map((d) => d.dia)).toEqual([2, 3]);
+    expect(e.horasSemana).toBe(120);
+    expect(e.horasReduzir).toBe(48);
   });
 });
 
@@ -342,12 +396,34 @@ describe('Direcionamento — destaque de menor impacto financeiro', () => {
     );
 
   it('escolhe o menor entre custo adicional e margem perdida', () => {
+    // Farmacêutico de 40h e outro de 16h: 56h e 7 turnos para 45h e 10 turnos. Cenário 1: faltam 3 turnos →
+    // 1 parcial de 24h: 10000 × 24 × 5 ÷ 200 = 6000. Cenário 2: fechar 2 dias não protegidos (terça: 1550 por dia,
+    // margem de 465; segunda: 1700, margem de 510) resolve; × 52 ÷ 12 = 2015 + 2210 = 4225.
+    const r = com({
+      pessoas: [
+        { funcao: 'Farmacêutico', cargaH: 40 },
+        { funcao: 'Farmacêutico', cargaH: 16 },
+      ],
+    });
+    expect(r.manter.impactoMensal).toBe(6000);
+    expect(r.economia.diasFechar.map((d) => d.dia)).toEqual([0, 1]);
+    expect(r.economia.naoRecomendado).toBeNull();
+    expect(r.economia.impactoMensal).toBe(4225);
+    const impactos = [
+      r.manter.impactoMensal,
+      r.economia.impactoMensal,
+      r.equilibrio.impactoMensal,
+    ].filter((x): x is number => typeof x === 'number');
+    expect(Math.min(...impactos)).toBeLessThanOrEqual(4225);
+    expect(r[r.destaque!].impactoMensal).toBe(Math.min(...impactos));
+  });
+
+  it('Cenário 2 "não recomendado" (só fecha dia protegido) não entra na escolha do selo', () => {
+    // 1 farmacêutico de 40h: 3 dias protegidos pedem fechar 3 dias, e só dois são livres
     const r = com();
-    // Cenário 1: 1 farmacêutico de 40h = 10000; Cenário 2: margem perdida 585; Cenário 3: 0 + 715
-    expect(r.manter.impactoMensal).toBe(10000);
-    expect(r.economia.impactoMensal).toBe(585);
-    expect(r.equilibrio.impactoMensal).toBe(715);
-    expect(r.destaque).toBe('economia');
+    expect(r.economia.naoRecomendado).not.toBeNull();
+    expect(r.economia.impactoMensal).toBeNull();
+    expect(r.destaque).not.toBe('economia');
   });
 
   it('empate no impacto: vence o que contrata menos, depois a ordem 1, 3, 2', () => {

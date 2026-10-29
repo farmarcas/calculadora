@@ -7,6 +7,8 @@ import type { Custos } from '../custos/custos.schemas.js';
 import type { PessoaSim } from '../simulacoes/avaliar.js';
 import {
   DIAS_PROTEGIDOS_PADRAO,
+  escolherDiasAFechar,
+  listaDeDias,
   semValores,
   vendasPorDia,
   type OrigemVenda,
@@ -61,17 +63,24 @@ export type Corte = {
   margem: number | null;
 };
 
+// Dia da semana que o cenário sugere fechar. Venda e margem por mês (já com a recaptura descontada) só para o dono.
+export type DiaFechar = { dia: number; vendaMes?: number | null; margemMes?: number | null };
+
 export type CenarioEconomia = {
   impactoMensal?: number | null;
   viavel: boolean;
   motivoInviavel: string | null;
   foco: string;
   direcionamento: string;
+  // Frase curta com a lógica do cenário (sem valores em reais para quem não é dono).
+  resumo: string;
   horasReduzir: number;
   horasSemana: number;
   horarioSemana: DiaCenario[];
-  cortes: Corte[];
-  vendaCortadaSemana: number | null;
+  diasFechar: DiaFechar[];
+  // Quando o único jeito de a equipe atual caber é fechar um dos dias de maior faturamento.
+  naoRecomendado: { dias: number[]; texto: string } | null;
+  // Só para o dono; nulos sem dado de venda.
   vendaCortadaMes: number | null;
   margemCortadaMes: number | null;
   aviso: string | null;
@@ -127,6 +136,8 @@ export type EntradaCenarios = {
   // Origem da venda (base, cadastro por dia ou estimativa do mensal) e quantos dias de maior faturamento são protegidos.
   origemVenda?: OrigemVenda | null;
   diasProtegidos?: number;
+  // Parte da venda de um dia fechado que migra para os outros dias (0 a 0,3; padrão 0).
+  recaptura?: number;
   custos: Custos | null;
   dono: boolean;
 };
@@ -362,70 +373,112 @@ export const juntarFatias = (fatias: Fatia[], comVendas: boolean): Corte[] => {
   }));
 };
 
-const montarEconomia = (e: EntradaCenarios, linhas: LinhaFuncao[]): CenarioEconomia => {
+const montarEconomia = (
+  e: EntradaCenarios,
+  linhas: LinhaFuncao[],
+  porDia: VendaDia[],
+): CenarioEconomia => {
   const regra = regraPara(e.regraId, e.convencao8h24, e.parametros);
-  const vb = vendasPorDiaEHora(e.vendas);
+  const temVenda = porDia.some((d) => (d.venda ?? 0) > 0);
   const base = {
-    foco: 'Reduzir horário e manter a equipe atual',
+    foco: 'Fechar dias para manter a equipe atual',
     horarioSemana: horarioDaSemana(e.dias),
     horasSemana: horasDaSemana(e.dias),
     horasReduzir: 0,
-    cortes: [] as Corte[],
-    vendaCortadaSemana: null,
+    diasFechar: [] as DiaFechar[],
+    naoRecomendado: null,
     vendaCortadaMes: null,
     margemCortadaMes: null,
-    aviso: null,
+    aviso: null as string | null,
   };
   const semGente = linhas.find((l) => l.minimo > 0 && l.pessoas === 0);
   if (semGente)
     return {
       ...base,
       viavel: false,
-      motivoInviavel: `Não há ${semGente.funcao} no quadro: reduzir horários não resolve, é preciso contratar.`,
-      direcionamento: `Este caminho não é possível: sem ${semGente.funcao} no quadro, nenhum horário fica coberto. Veja o Cenário 1.`,
+      motivoInviavel: `Não há ${semGente.funcao} no quadro: fechar dias não resolve, é preciso contratar.`,
+      direcionamento: `Este caminho não é possível: sem ${semGente.funcao} no quadro, nenhum dia fica coberto. Veja o Cenário 1.`,
+      resumo: 'Não é possível sem contratar. Veja o Cenário 1.',
     };
   if (passa(linhas))
     return {
       ...base,
-      // Nada a cortar: sem venda perdida (zero), desde que haja base para afirmar isso.
-      ...(vb ? { vendaCortadaSemana: 0, vendaCortadaMes: 0, margemCortadaMes: 0 } : {}),
+      // Nada a fechar: nenhuma margem perdida, desde que haja venda para afirmar isso.
+      ...(temVenda ? { vendaCortadaMes: 0, margemCortadaMes: 0 } : {}),
       viavel: true,
       motivoInviavel: null,
-      direcionamento: `A equipe atual já cobre todos os horários na regra de ${regra.nome}: não é preciso reduzir nada.`,
+      direcionamento: `A equipe atual já cobre todos os dias na regra de ${regra.nome}: não é preciso fechar nenhum.`,
+      resumo: 'A equipe atual já cobre todos os dias: não há nada a fechar.',
     };
-
-  const { dias, fatias } = cortarPontas(regra, e.dias, e.minimos, e.pessoas, vb);
-  if (dias.length === 0)
+  if (!temVenda)
     return {
       ...base,
       viavel: false,
-      motivoInviavel: 'Mesmo reduzindo os horários, a equipe atual não cobre a loja.',
-      direcionamento: 'Este caminho não é possível com a equipe atual. Veja o Cenário 1.',
+      motivoInviavel:
+        'Informe o faturamento por dia da semana no Cadastro (ou envie a base comercial) para escolher quais dias fechar.',
+      direcionamento:
+        'Sem a venda de cada dia da semana não dá para saber qual dia fechar com menos perda. Informe o faturamento por dia da semana no Cadastro ou envie a base comercial.',
+      resumo: 'Faltam as vendas por dia da semana para escolher quais dias fechar.',
     };
-  const horasSemana = horasDaSemana(dias);
-  const horasReduzir = arred(base.horasSemana - horasSemana);
-  const cortes = juntarFatias(fatias, vb !== null);
-  const vendaSem = vb ? arred(fatias.reduce((s, f) => s + f.venda, 0)) : null;
-  const vendaMes = vendaSem === null ? null : arred(vendaSem * SEMANAS_NO_MES);
-  const margemMes = vb ? arred(fatias.reduce((s, f) => s + f.margem, 0) * SEMANAS_NO_MES) : null;
+
+  const escolha = escolherDiasAFechar({
+    dias: e.dias,
+    porDia,
+    cobre: (dias) => passa(verificarRegra(regra, dias, e.minimos, e.pessoas)),
+  });
+  if (!escolha.cobre)
+    return {
+      ...base,
+      viavel: false,
+      motivoInviavel: 'Mesmo fechando dias, a equipe atual não cobre a loja.',
+      direcionamento: 'Este caminho não é possível com a equipe atual. Veja o Cenário 1.',
+      resumo: 'Não é possível sem contratar. Veja o Cenário 1.',
+    };
+
+  const recaptura = Math.min(0.3, Math.max(0, e.recaptura ?? 0));
+  const fica = 1 - recaptura;
+  const diasFechar: DiaFechar[] = escolha.fechados.map((dia) => ({
+    dia,
+    ...(e.dono
+      ? {
+          vendaMes: arred(porDia[dia]!.vendaMes! * fica),
+          margemMes: arred(porDia[dia]!.margemMes! * fica),
+        }
+      : {}),
+  }));
+  const vendaMes = arred(escolha.fechados.reduce((s, d) => s + porDia[d]!.vendaMes!, 0) * fica);
+  const margemMes = arred(escolha.fechados.reduce((s, d) => s + porDia[d]!.margemMes!, 0) * fica);
+  const horasSemana = horasDaSemana(escolha.atuais);
+  const nomes = listaDeDias(escolha.fechados);
+  const evitadas = linhas.reduce((s, l) => s + l.contratar, 0);
+  const fraseBase = `Fechando ${nomes} a equipe atual cobre o horário sem contratar${evitadas > 0 ? ` (você deixa de contratar ${evitadas} pessoa${evitadas === 1 ? '' : 's'})` : ''}`;
+  const naoRecomendado =
+    escolha.protegidosAtingidos.length > 0
+      ? {
+          dias: escolha.protegidosAtingidos,
+          texto: `Para a equipe atual caber é preciso fechar ${listaDeDias(escolha.protegidosAtingidos)}, um dos dias de maior faturamento da loja. Não recomendado.`,
+        }
+      : null;
   return {
     viavel: true,
     motivoInviavel: null,
     foco: base.foco,
-    direcionamento:
-      vendaMes === null
-        ? `Reduza ${horasReduzir}h por semana, começando pelo fim do dia, e mantenha a equipe. Sem base comercial não dá para estimar a venda que deixa de entrar.`
-        : `Reduza ${horasReduzir}h por semana e mantenha a equipe atual. Deixam de entrar cerca de ${brl(vendaMes)} em vendas por mês (margem de ${brl(margemMes!)}). Faz sentido quando o custo de contratar pesa mais que essa venda.`,
-    horasReduzir,
+    resumo: e.dono
+      ? `${fraseBase} e perde cerca de ${brl(margemMes)} de margem por mês.`
+      : `${fraseBase}.`,
+    direcionamento: e.dono
+      ? `${fraseBase}. Deixam de entrar cerca de ${brl(vendaMes)} em vendas por mês (margem de ${brl(margemMes)}${recaptura > 0 ? `, já descontados ${Math.round(recaptura * 100)}% que migram para os outros dias` : ''}). Faz sentido quando o custo de contratar pesa mais que essa margem.`
+      : `${fraseBase}. Faz sentido quando o custo de contratar pesa mais que a venda dos dias fechados.`,
+    horasReduzir: arred(base.horasSemana - horasSemana),
     horasSemana,
-    horarioSemana: horarioDaSemana(dias),
-    cortes,
-    vendaCortadaSemana: vendaSem,
+    horarioSemana: horarioDaSemana(escolha.atuais),
+    diasFechar,
+    naoRecomendado,
     vendaCortadaMes: vendaMes,
     margemCortadaMes: margemMes,
     aviso:
-      vb && vb.dias < 14 && !e.vendasDoCadastro
-        ? `A estimativa usa só ${vb.dias} dias de venda: confirme com uma base maior.`
+      e.origemVenda === 'estimativa'
+        ? 'Venda estimada: só o faturamento mensal foi informado e ele foi dividido igualmente entre os dias abertos. Informe o faturamento por dia da semana para escolher melhor quais dias fechar.'
         : null,
   };
 };
@@ -626,7 +679,7 @@ export const montarCenarios = (e: EntradaCenarios): CenariosRegra => {
     e.custos,
     e.parametros,
   );
-  const economia = montarEconomia(e, linhas);
+  const economia = montarEconomia(e, linhas, porDia);
   const equilibrio = montarEquilibrio(e, folha, custoManter);
   const r: CenariosRegra = {
     regra: { id: regra.id, nome: regra.nome },
@@ -653,8 +706,11 @@ export const montarCenarios = (e: EntradaCenarios): CenariosRegra => {
 export const destacar = (r: CenariosRegra) => {
   const { manter, economia, equilibrio } = r;
   manter.impactoMensal = manter.custoAdicionalMensal ?? null;
+  // O Cenário 2 que só fecha dia protegido é "não recomendado": não entra na escolha do selo.
   economia.impactoMensal =
-    economia.viavel && economia.margemCortadaMes !== null ? economia.margemCortadaMes : null;
+    economia.viavel && economia.naoRecomendado === null && economia.margemCortadaMes !== null
+      ? economia.margemCortadaMes
+      : null;
   equilibrio.impactoMensal =
     equilibrio.indisponivel === null &&
     equilibrio.custoAdicionalMensal != null &&

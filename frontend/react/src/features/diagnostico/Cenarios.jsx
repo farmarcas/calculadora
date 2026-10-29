@@ -143,44 +143,57 @@ function Manter({ c, atual }) {
   );
 }
 
+const origemTexto = {
+  base: "venda da base comercial somada por dia da semana",
+  cadastro: "faturamento por dia da semana do cadastro",
+  estimativa: "estimativa: só o faturamento mensal, dividido igualmente entre os dias abertos",
+};
+
 function Economia({ c }) {
   const e = c.economia;
-  const sem = e.vendaCortadaMes === null;
+  // Valores em reais só chegam para o dono; para os outros o campo nem existe.
+  const dono = e.margemCortadaMes !== undefined;
+  const sem = dono && e.margemCortadaMes === null;
   return (
     <Cartao titulo="Cenário 2 · Foco em economia" subtitulo={e.foco} acoes={<Selo ativo={c.destaque === "economia"} />}>
       <div className="px-6 py-4 flex flex-col gap-4">
         {e.viavel && <p className="m-0 text-sm text-ink-700">{e.direcionamento}</p>}
         <Impacto valor={e.impactoMensal} />
+        {e.naoRecomendado && <Aviso tom="erro">{e.naoRecomendado.texto}</Aviso>}
         {!e.viavel ? (
           <Aviso tom="atencao">{e.motivoInviavel}</Aviso>
         ) : (
           <>
             <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
-              <Numero rotulo="Reduzir" valor={`${e.horasReduzir}h`} legenda="por semana, com a equipe atual" />
-              <Numero rotulo="Horário da loja" valor={`${e.horasSemana}h`} legenda={`por semana · hoje ${c.atual.horasSemana}h`} />
               <Numero
-                rotulo="Venda cortada"
-                valor={sem ? "—" : brl(e.vendaCortadaMes)}
-                legenda={sem ? semVenda(c) : "por mês (estimativa)"}
+                rotulo="Dias a fechar"
+                valor={e.diasFechar.length}
+                legenda={e.diasFechar.length === 0 ? "nenhum: a equipe já cobre" : e.diasFechar.map((d) => NOMES_DIA[d.dia]).join(", ")}
               />
-              <Numero
-                rotulo="Margem cortada"
-                valor={sem ? "—" : brl(e.margemCortadaMes)}
-                legenda={sem ? semVenda(c) : "por mês (estimativa)"}
-              />
+              <Numero rotulo="Horário da loja" valor={`${e.horasSemana}h`} legenda={`por semana · hoje ${c.atual.horasSemana}h (${e.horasReduzir}h a menos)`} />
+              {dono && (
+                <Numero rotulo="Venda que deixa de entrar" valor={sem ? "—" : brl(e.vendaCortadaMes)} legenda={sem ? semVenda(c) : "por mês (estimativa)"} />
+              )}
+              {dono && (
+                <Numero rotulo="Margem perdida" valor={sem ? "—" : brl(e.margemCortadaMes)} legenda={sem ? semVenda(c) : "por mês (estimativa)"} />
+              )}
             </div>
-            {e.cortes.length > 0 && (
+            {e.diasFechar.length > 0 && (
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse text-sm min-w-[480px]">
                   <thead>
-                    <tr><th className={TH}>Dia</th><th className={TH}>Deixa de abrir</th><th className={TH}>Venda por semana</th></tr>
+                    <tr>
+                      <th className={TH}>Dia</th>
+                      {dono && <th className={TH}>Venda por mês</th>}
+                      {dono && <th className={TH}>Margem por mês</th>}
+                    </tr>
                   </thead>
                   <tbody>
-                    {e.cortes.map((x) => (
-                      <tr key={`${x.dia}${x.de}`}>
-                        <td className={TD}>{NOMES_DIA[x.dia]}</td>
-                        <td className={TD}>{x.de}–{x.ate}</td>
-                        <td className={TD}>{x.venda === null ? "—" : brl(x.venda)}</td>
+                    {e.diasFechar.map((x) => (
+                      <tr key={x.dia}>
+                        <td className={TD}>{NOMES_DIA[x.dia]}{c.diasProtegidos?.includes(x.dia) && <span className="text-error-600"> · dia protegido</span>}</td>
+                        {dono && <td className={TD}>{x.vendaMes == null ? "—" : brl(x.vendaMes)}</td>}
+                        {dono && <td className={TD}>{x.margemMes == null ? "—" : brl(x.margemMes)}</td>}
                       </tr>
                     ))}
                   </tbody>
@@ -191,6 +204,7 @@ function Economia({ c }) {
               <div className="mb-1 text-[11px] font-bold uppercase tracking-wide text-ink-500">Novo horário</div>
               <HorarioSemana dias={e.horarioSemana} />
             </div>
+            {c.origemVenda && <p className="m-0 text-xs text-ink-500">Origem da venda: {origemTexto[c.origemVenda]}. Dias protegidos (os 3 de maior faturamento): {c.diasProtegidos.length ? c.diasProtegidos.map((d) => NOMES_DIA[d]).join(", ") : "nenhum"}.</p>}
             {e.aviso && <Aviso tom="atencao">{e.aviso}</Aviso>}
           </>
         )}

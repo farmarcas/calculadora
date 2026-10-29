@@ -3,6 +3,7 @@ import type { DiaAberto } from '../regras/capacidade.js';
 import {
   DIAS_PROTEGIDOS_PADRAO,
   diasProtegidos,
+  listaDeDias,
   semValores,
   totaisPorDia,
   vendasPorDia,
@@ -117,5 +118,14 @@ describe('venda e margem por dia da semana', () => {
   it('semValores deixa só o dia, se está aberto e se é protegido', () => {
     const v = vendasPorDia(cadastro.linhas, dias)[5]!;
     expect(semValores(v)).toEqual({ dia: 5, aberto: true, protegido: true });
+  });
+});
+
+describe('listaDeDias', () => {
+  it('escreve a lista em português', () => {
+    expect(listaDeDias([])).toBe('');
+    expect(listaDeDias([6])).toBe('domingo');
+    expect(listaDeDias([0, 6])).toBe('segunda e domingo');
+    expect(listaDeDias([0, 2, 5])).toBe('segunda, quarta e sábado');
   });
 });

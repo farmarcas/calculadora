@@ -84,3 +84,70 @@ export const semValores = (v: VendaDia): VendaDia => ({
   aberto: v.aberto,
   protegido: v.protegido,
 });
+
+// Escolhe os dias a fechar para a equipe atual caber, sem contratar: fecha, um a um, o de menor margem mensal
+// (sem margem informada, a de menor venda), deixando os dias protegidos por último; para quando a equipe cobre
+// o horário, nunca fecha o último dia aberto e, no fim, reabre o que acabou não sendo necessário.
+export const escolherDiasAFechar = (a: {
+  dias: DiaAberto[];
+  porDia: VendaDia[];
+  cobre: (dias: DiaAberto[]) => boolean;
+}) => {
+  const temMargem = a.porDia.some((d) => (d.margemMes ?? 0) > 0);
+  const chave = (dia: number) => {
+    const v = a.porDia[dia]!;
+    return (temMargem ? v.margemMes : v.vendaMes) ?? 0;
+  };
+  const porDiaDaSemana = (x: DiaAberto, y: DiaAberto) => x.dia - y.dia;
+  const ordem = a.dias
+    .map((d) => d.dia)
+    // protegidos por último; depois a menor margem; empate: o dia mais tardio da semana fecha antes
+    .sort(
+      (x, y) =>
+        Number(a.porDia[x]!.protegido) - Number(a.porDia[y]!.protegido) ||
+        chave(x) - chave(y) ||
+        y - x,
+    );
+  let atuais = [...a.dias].sort(porDiaDaSemana);
+  const fechados: number[] = [];
+  for (const dia of ordem) {
+    if (a.cobre(atuais) || atuais.length <= 1) break;
+    atuais = atuais.filter((d) => d.dia !== dia);
+    fechados.push(dia);
+  }
+  const cobre = a.cobre(atuais);
+  if (cobre) {
+    // Reabre, do de maior margem para o de menor, o dia que a equipe consegue cobrir mesmo assim.
+    for (const dia of [...fechados].sort((x, y) => chave(y) - chave(x) || x - y)) {
+      const original = a.dias.find((d) => d.dia === dia)!;
+      const tentativa = [...atuais, original].sort(porDiaDaSemana);
+      if (a.cobre(tentativa)) {
+        atuais = tentativa;
+        fechados.splice(fechados.indexOf(dia), 1);
+      }
+    }
+  }
+  const ordenados = [...fechados].sort((x, y) => x - y);
+  return {
+    cobre,
+    atuais,
+    fechados: ordenados,
+    protegidosAtingidos: ordenados.filter((d) => a.porDia[d]!.protegido),
+  };
+};
+
+export const NOMES_DIA_LONGO = [
+  'segunda',
+  'terça',
+  'quarta',
+  'quinta',
+  'sexta',
+  'sábado',
+  'domingo',
+];
+export const listaDeDias = (dias: number[]) => {
+  const nomes = dias.map((d) => NOMES_DIA_LONGO[d]!);
+  return nomes.length <= 1
+    ? (nomes[0] ?? '')
+    : `${nomes.slice(0, -1).join(', ')} e ${nomes[nomes.length - 1]}`;
+};

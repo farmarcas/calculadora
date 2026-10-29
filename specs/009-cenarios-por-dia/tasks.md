@@ -30,10 +30,10 @@ Segurança do banco: sem migration nesta spec; nada de `down -v` nem `prisma mig
 
 **Teste independente**: equipe que não cobre os sete dias: fecha o de menor margem até caber; só fecha dia protegido como último recurso, marcando "não recomendado".
 
-- [ ] T007 [US1] Teste + `cenarios-dias.ts`: `montarEconomiaDia` (guloso por menor margem mensal, não protegidos primeiro; `naoRecomendado` com os dias atingidos; nunca fecha o último dia aberto; indisponível apontando o Cenário 1; margem perdida; horário novo), com contas à mão
-- [ ] T008 [US1] Casos de borda com testes: equipe já cobre, loja 24 horas, loja que abre só alguns dias, faturamento só mensal (estimativa avisada), sem faturamento nem base (indisponível dizendo o que falta), em `cenarios-dias.test.ts`
-- [ ] T009 [US1] Teste de integração: Cenário 2 nas duas regras, origem da venda, dono × gestor × consulta, em `escala.routes.integration.test.ts`
-- [ ] T010 [P] [US1] Cartão do Cenário 2 (dias a fechar, horário novo, margem perdida só ao dono, "não recomendado", origem da venda, frase-resumo) em `features/diagnostico/Cenarios.jsx`
+- [X] T007 [US1] Teste + `cenarios-dias.ts`: `montarEconomiaDia` (guloso por menor margem mensal, não protegidos primeiro; `naoRecomendado` com os dias atingidos; nunca fecha o último dia aberto; indisponível apontando o Cenário 1; margem perdida; horário novo), com contas à mão
+- [X] T008 [US1] Casos de borda com testes: equipe já cobre, loja 24 horas, loja que abre só alguns dias, faturamento só mensal (estimativa avisada), sem faturamento nem base (indisponível dizendo o que falta), em `cenarios-dias.test.ts`
+- [X] T009 [US1] Teste de integração: Cenário 2 nas duas regras, origem da venda, dono × gestor × consulta, em `escala.routes.integration.test.ts`
+- [X] T010 [P] [US1] Cartão do Cenário 2 (dias a fechar, horário novo, margem perdida só ao dono, "não recomendado", origem da venda, frase-resumo) em `features/diagnostico/Cenarios.jsx`
 
 **Checkpoint**: o Cenário 2 decide por dia.
 

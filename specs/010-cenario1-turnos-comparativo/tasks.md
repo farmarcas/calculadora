@@ -34,11 +34,11 @@ Segurança do banco: sem migration nesta spec; nada de `down -v` nem `prisma mig
 
 **Teste independente**: etapa 1 e adicional corretos entre as duas fases; custo anual = mensal × 12; percentual confere com a conta à mão.
 
-- [ ] T009 [US2] Teste + `src/modules/escala/etapas.ts`: etapa da fase de 42h, da fase de 40h e adicional por cargo (inteiras e horas parciais, nunca negativo)
-- [ ] T010 [US2] Teste + `src/modules/escala/cenarios.ts` e `diagnostico.ts`: faturamento mensal de referência (informado, ou soma dos dias × 52 ÷ 12, ou total da base por dia da semana × 52 ÷ 12), `custoAnual` e `impactoPctFaturamento` no Cenário 1, só para o dono
-- [ ] T011 [US2] Teste de integração: o Diagnóstico devolve `etapas` e os valores novos ao dono; gestor e consulta recebem etapas e contratações, sem nenhum campo em reais, em `escala.routes.integration.test.ts`
-- [ ] T012 [P] [US2] Cenário 1 na tela com as duas etapas, custo mensal e anual e percentual do faturamento, em `features/diagnostico/Cenarios.jsx`
-- [ ] T013 Rodar tudo e commitar a fatia
+- [X] T009 [US2] Teste + `src/modules/escala/etapas.ts`: etapa da fase de 42h, da fase de 40h e adicional por cargo (inteiras e horas parciais, nunca negativo)
+- [X] T010 [US2] Teste + `src/modules/escala/cenarios.ts` e `diagnostico.ts`: faturamento mensal de referência (informado, ou soma dos dias × 52 ÷ 12, ou total da base por dia da semana × 52 ÷ 12), `custoAnual` e `impactoPctFaturamento` no Cenário 1, só para o dono
+- [X] T011 [US2] Teste de integração: o Diagnóstico devolve `etapas` e os valores novos ao dono; gestor e consulta recebem etapas e contratações, sem nenhum campo em reais, em `escala.routes.integration.test.ts`
+- [X] T012 [P] [US2] Cenário 1 na tela com as duas etapas, custo mensal e anual e percentual do faturamento, em `features/diagnostico/Cenarios.jsx`
+- [X] T013 Rodar tudo e commitar a fatia
 
 **Checkpoint**: o Cenário 1 está completo conforme o documento. Segue a spec 009 (fatias 1 a 4).
 

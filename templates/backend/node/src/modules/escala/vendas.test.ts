@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { vendasPorDiaEHora, resumirVendas } from './vendas.js';
+import { faturamentoMensalDe, resumirVendas, vendasPorDiaEHora } from './vendas.js';
 
 describe('resumirVendas', () => {
   it('tira a média por dia e aponta as horas de maior venda', () => {
@@ -34,5 +34,58 @@ describe('vendasPorDiaEHora', () => {
   it('hora sem linha vale zero e sem linhas devolve nulo', () => {
     expect(vendasPorDiaEHora(linhas)!.venda[0]![10]).toBe(0);
     expect(vendasPorDiaEHora([])).toBeNull();
+  });
+});
+
+describe('faturamentoMensalDe', () => {
+  const linha = (data: string, hora: number, venda: number) => ({
+    data,
+    hora,
+    venda,
+    margem: 0,
+    clientes: 0,
+    unidades: 0,
+  });
+
+  it('usa o mensal informado quando existe', () => {
+    expect(
+      faturamentoMensalDe({
+        faturamento: { dias: [1000, null, null, null, null, null, null], mensal: 420000 },
+        vendasBase: [],
+      }),
+    ).toEqual({ valor: 420000, origem: 'mensal' });
+  });
+  it('sem mensal, soma os sete dias × 52 ÷ 12 (5 × 1000 = 5000 → 21666,67)', () => {
+    expect(
+      faturamentoMensalDe({
+        faturamento: { dias: [1000, 1000, 1000, 1000, 1000, null, null], mensal: null },
+        vendasBase: [],
+      }),
+    ).toEqual({ valor: 21666.67, origem: 'dias' });
+  });
+  it('mensal zero conta como não informado', () => {
+    expect(
+      faturamentoMensalDe({
+        faturamento: { dias: [100, null, null, null, null, null, null], mensal: 0 },
+        vendasBase: [],
+      })?.origem,
+    ).toBe('dias');
+  });
+  it('sem faturamento, usa o total semanal da base × 52 ÷ 12 (terça média 200 → 866,67)', () => {
+    // duas terças (01/09 e 08/09/2026) com 100 e 300 na hora 9: média 200 por terça
+    const r = faturamentoMensalDe({
+      faturamento: null,
+      vendasBase: [linha('2026-09-01', 9, 100), linha('2026-09-08', 9, 300)],
+    });
+    expect(r).toEqual({ valor: 866.67, origem: 'base' });
+  });
+  it('sem nada, nenhum valor', () => {
+    expect(faturamentoMensalDe({ faturamento: null, vendasBase: [] })).toBeNull();
+    expect(
+      faturamentoMensalDe({
+        faturamento: { dias: new Array(7).fill(null), mensal: null },
+        vendasBase: [],
+      }),
+    ).toBeNull();
   });
 });

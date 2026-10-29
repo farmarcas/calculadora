@@ -9,7 +9,8 @@ import type { TabelaParametros } from '../regras/parametros.js';
 import { montarQuadroTurnos } from './quadro-turnos.js';
 import { avisosDeTurnos, exigenciasDaLoja, type TurnosLoja } from '../regras/turnos.js';
 import type { Faturamento } from '../cadastros/faturamento.js';
-import { resumirVendas, type VendaLinha } from './vendas.js';
+import { montarEtapas } from './etapas.js';
+import { faturamentoMensalDe, resumirVendas, type VendaLinha } from './vendas.js';
 import { vendasDoCadastro } from './vendas-cadastro.js';
 
 export type LojaDiag = {
@@ -296,6 +297,9 @@ export const montarDiagnostico = (a: {
     linhasRejeitadas: escala.linhasRejeitadas,
   };
 
+  // Faturamento mensal de referência (só o dono vê o que dele sai): cadastro ou base comercial.
+  const faturamentoRef = faturamentoMensalDe({ faturamento: loja.faturamento, vendasBase: vendas });
+
   const cenariosPorRegra = Object.fromEntries(
     (['r42', 'r40'] as const).map((regraId) => {
       const entrada = {
@@ -309,6 +313,7 @@ export const montarDiagnostico = (a: {
         custos: loja.custos ?? null,
         dono: a.dono === true,
         parametros: a.parametros,
+        faturamentoMensalRef: faturamentoRef?.valor ?? null,
       };
       const cenarios = montarCenarios(entrada);
       return [regraId, { ...cenarios, ...montarExtras(entrada, cenarios) }];
@@ -318,6 +323,17 @@ export const montarDiagnostico = (a: {
   const cenariosSaida = (
     a.dono || origemVendas !== 'cadastro' ? cenariosPorRegra : semValoresDeVenda(cenariosPorRegra)
   ) as typeof cenariosPorRegra;
+
+  // Contratação em etapas: o necessário já na fase de 42h e o adicional para a de 40h.
+  const etapas = montarEtapas({
+    etapa1: cenariosPorRegra.r42.manter.contratacoes,
+    etapa2: cenariosPorRegra.r40.manter.contratacoes,
+    vigencia1: r42.vigencia,
+    vigencia2: r40.vigencia,
+    dono: a.dono === true,
+    custo1: cenariosPorRegra.r42.manter.custoAdicionalMensal,
+    custo2: cenariosPorRegra.r40.manter.custoAdicionalMensal,
+  });
 
   return {
     loja: lojaInfo,
@@ -344,6 +360,7 @@ export const montarDiagnostico = (a: {
     vendas: resumoVendas,
     origemVendas,
     cenarios: cenariosSaida,
+    etapas,
     pontosAtencao: atencao,
     colaboradores: turnos.map((t) => ({
       matricula: t.matricula,

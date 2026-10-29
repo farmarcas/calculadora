@@ -71,10 +71,31 @@ describe('Cenário 1 — manter horários', () => {
     expect(r.manter.custoAdicionalMensal).toBe(7809.52);
   });
 
+  it('custo por ano (mensal × 12) e peso no faturamento mensal, só para o dono', () => {
+    const r = montarCenarios(base({ faturamentoMensalRef: 100000 }));
+    // custo adicional 8200 por mês: × 12 = 98400 por ano; 8200 ÷ 100000 = 8,2% do faturamento
+    expect(r.manter.custoAnual).toBe(98400);
+    expect(r.manter.impactoPctFaturamento).toBe(8.2);
+    expect(r.manter.faturamentoMensalRef).toBe(100000);
+  });
+
+  it('sem faturamento de referência o percentual some; sem custos o anual também', () => {
+    const sem = montarCenarios(base());
+    expect(sem.manter.custoAnual).toBe(98400);
+    expect(sem.manter.impactoPctFaturamento).toBeNull();
+    expect(sem.manter.faturamentoMensalRef).toBeNull();
+    const semCustos = montarCenarios(base({ custos: null, faturamentoMensalRef: 100000 }));
+    expect(semCustos.manter.custoAnual).toBeNull();
+    expect(semCustos.manter.impactoPctFaturamento).toBeNull();
+  });
+
   it('quem não é dono não recebe valores de custo', () => {
     const r = montarCenarios(base({ dono: false }));
     expect('custoAdicionalMensal' in r.manter).toBe(false);
     expect('acrescimoPct' in r.manter).toBe(false);
+    expect('custoAnual' in r.manter).toBe(false);
+    expect('impactoPctFaturamento' in r.manter).toBe(false);
+    expect('faturamentoMensalRef' in r.manter).toBe(false);
     expect('folhaMensal' in r.atual).toBe(false);
   });
 

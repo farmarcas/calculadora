@@ -42,6 +42,34 @@ const Impacto = ({ valor, detalhe = "custo adicional + margem perdida" }) =>
     </p>
   );
 
+const textoContratacao = (c) => {
+  const parcial = c.parcial ? `1 parcial de ${c.parcial.turnos} turno${c.parcial.turnos === 1 ? "" : "s"} (${c.parcial.horas}h)` : "";
+  if (c.inteiras === 0) return `${c.funcao}: ${parcial}`;
+  return `${c.funcao}: ${c.inteiras} inteira${c.inteiras === 1 ? "" : "s"}${parcial ? ` e ${parcial}` : ""}`;
+};
+const textoAdicional = (a) =>
+  `${a.funcao}: ${[a.inteiras > 0 && `+${a.inteiras} inteira${a.inteiras === 1 ? "" : "s"}`, a.horasParciais > 0 && `+${a.horasParciais}h de parcial`].filter(Boolean).join(" e ")}`;
+
+// O que contratar já (fase de 42h) e o que se acrescenta depois (fase de 40h), por cargo.
+function Etapas({ etapas }) {
+  if (!etapas || (etapas.etapa1.length === 0 && etapas.etapa2.length === 0)) return null;
+  const custo = etapas.custoEtapa1Mensal !== undefined;
+  return (
+    <div className="rounded-lg bg-surface-subtle p-4 text-sm flex flex-col gap-2" aria-label="Contratação em etapas">
+      <div>
+        <strong>Etapa 1 · já para a fase de 42h</strong> <span className="text-ink-500">(a partir de {etapas.vigencia1})</span>
+        <div className="text-ink-700">{etapas.etapa1.length ? etapas.etapa1.map(textoContratacao).join(" · ") : "Nada a contratar nesta fase."}</div>
+        {custo && etapas.custoEtapa1Mensal !== null && <div className="text-xs text-ink-500">{brl(etapas.custoEtapa1Mensal)} por mês</div>}
+      </div>
+      <div>
+        <strong>Etapa 2 · adicional para a fase de 40h</strong> <span className="text-ink-500">(a partir de {etapas.vigencia2})</span>
+        <div className="text-ink-700">{etapas.adicional.length ? etapas.adicional.map(textoAdicional).join(" · ") : "Nenhum adicional: a fase de 40h não pede mais gente que a de 42h."}</div>
+        {custo && etapas.custoAdicionalMensal !== null && <div className="text-xs text-ink-500">+{brl(etapas.custoAdicionalMensal)} por mês sobre a etapa 1 ({brl(etapas.custoEtapa2Mensal)} no total)</div>}
+      </div>
+    </div>
+  );
+}
+
 function Manter({ c, atual }) {
   const m = c.manter;
   const dono = m.custoAdicionalMensal !== undefined;
@@ -71,7 +99,18 @@ function Manter({ c, atual }) {
               }
             />
           )}
+          {dono && (
+            <Numero rotulo="Custo por ano" valor={m.custoAnual === null ? "—" : brl(m.custoAnual)} legenda={m.custoAnual === null ? "informe os salários médios em Custos" : "mensal × 12"} />
+          )}
+          {dono && (
+            <Numero
+              rotulo="Peso no faturamento"
+              valor={m.impactoPctFaturamento === null ? "—" : pct(m.impactoPctFaturamento)}
+              legenda={m.faturamentoMensalRef === null ? "informe o faturamento da loja no Cadastro" : `do faturamento mensal (${brl(m.faturamentoMensalRef)})`}
+            />
+          )}
         </div>
+        <Etapas etapas={c._etapas} />
         {m.contratacoes.length > 0 && (
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-sm min-w-[480px]">
@@ -378,10 +417,10 @@ function Recomendacao({ c }) {
 }
 
 // Os cenários da regra escolhida no quadro central (42h ou 40h): a troca é só mudar `regraId` no pai.
-export default function Cenarios({ cenarios: bruto, origemVendas }) {
+export default function Cenarios({ cenarios: bruto, origemVendas, etapas }) {
   if (!bruto) return null;
   // A origem da venda segue junto, para cada cartão explicar de onde vem (ou por que falta) o valor.
-  const cenarios = { ...bruto, _origem: origemVendas };
+  const cenarios = { ...bruto, _origem: origemVendas, _etapas: etapas };
   return (
     <section aria-label="Cenários de decisão" className="flex flex-col gap-4">
       <div>

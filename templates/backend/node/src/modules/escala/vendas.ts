@@ -72,3 +72,23 @@ export const vendasPorDiaEHora = (linhas: VendaLinha[]): VendaDiaHora | null => 
   }
   return { venda, margem, dias: new Set(linhas.map((l) => l.data)).size };
 };
+
+const SEMANAS_NO_MES = 52 / 12;
+
+// Faturamento mensal de referência (para o impacto em % do faturamento): o mensal informado no cadastro;
+// senão a soma dos sete dias × 52 ÷ 12; senão o total semanal da base comercial × 52 ÷ 12; senão nenhum.
+export const faturamentoMensalDe = (a: {
+  faturamento: { dias: (number | null)[]; mensal: number | null } | null | undefined;
+  vendasBase: VendaLinha[];
+}): { valor: number; origem: 'mensal' | 'dias' | 'base' } | null => {
+  const f = a.faturamento;
+  if (f?.mensal && f.mensal > 0) return { valor: arred(f.mensal), origem: 'mensal' };
+  const somaDias = (f?.dias ?? []).reduce<number>((s, v) => s + (v ?? 0), 0);
+  if (somaDias > 0) return { valor: arred(somaDias * SEMANAS_NO_MES), origem: 'dias' };
+  const vb = vendasPorDiaEHora(a.vendasBase);
+  if (vb) {
+    const semana = vb.venda.reduce((s, dia) => s + dia.reduce((x, v) => x + v, 0), 0);
+    if (semana > 0) return { valor: arred(semana * SEMANAS_NO_MES), origem: 'base' };
+  }
+  return null;
+};

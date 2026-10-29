@@ -25,5 +25,5 @@ Resposta, em `cenarios.r42` / `cenarios.r40`:
   "premissas": { "recaptura": 0, "margemPct": 28, "fatorDiaNovo": 50, "diasProtegidos": 3, "limiteParcial": 3 }
 }
 ```
-Na raiz do Diagnóstico: `etapas.r42` / `etapas.r40` por cargo (`etapa1`, `adicional`).
+Na raiz do Diagnóstico: `etapas` = `{ etapa1 (fase de 42h), etapa2 (fase de 40h), adicional [{ funcao, inteiras, horasParciais }], vigencia1, vigencia2 }`; para o dono, também `custoEtapa1Mensal`, `custoEtapa2Mensal` e `custoAdicionalMensal`.
 - Para `SCHEDULE_MANAGER` e `SCHEDULE_VIEWER`: sem `custoAnual`, `impactoPctFaturamento`, `faturamentoMensalRef`, `custoFolhaMensal`, `margemMes`, `resultadoLiquidoMensal` e sem `premissas.margemPct`.

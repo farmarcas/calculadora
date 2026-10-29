@@ -194,7 +194,7 @@ export default function Diagnostico({ diag, podeEscrever, onEnviar, onSimular })
       <QuadroCentral diag={diag} regraId={regraId} onRegra={setRegraId} podeEscrever={podeEscrever} onEnviar={onEnviar} />
 
       <QuadroTurnos quadro={diag.quadroTurnos} />
-      <Cenarios cenarios={diag.cenarios?.[regraId]} origemVendas={diag.origemVendas} />
+      <Cenarios cenarios={diag.cenarios?.[regraId]} origemVendas={diag.origemVendas} etapas={diag.etapas} />
 
       <Cartao titulo="Quadro por função" subtitulo="Só entram no cálculo colaboradores com função de escala">
         <table className="w-full border-collapse text-sm">

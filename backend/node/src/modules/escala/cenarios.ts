@@ -39,6 +39,10 @@ export type CenarioManter = {
   // Só para o dono; nulos quando faltam os custos.
   custoAdicionalMensal?: number | null;
   acrescimoPct?: number | null;
+  // Só para o dono: custo por ano (mensal × 12) e quanto pesa no faturamento mensal de referência.
+  custoAnual?: number | null;
+  impactoPctFaturamento?: number | null;
+  faturamentoMensalRef?: number | null;
 };
 
 export type Corte = {
@@ -107,6 +111,8 @@ export type EntradaCenarios = {
   vendasDoCadastro?: boolean;
   // Parâmetros legais em uso (jornada, dias, divisor); sem eles valem os de hoje.
   parametros?: TabelaParametros;
+  // Faturamento mensal de referência (cadastro ou base comercial), para o impacto em % do faturamento.
+  faturamentoMensalRef?: number | null;
   custos: Custos | null;
   dono: boolean;
 };
@@ -230,6 +236,11 @@ const montarManter = (e: EntradaCenarios, linhas: LinhaFuncao[], folha: number |
     manter.custoAdicionalMensal = custo;
     manter.acrescimoPct =
       custo !== null && folha !== null && folha > 0 ? pct((custo / folha) * 100) : null;
+    const fat = e.faturamentoMensalRef ?? null;
+    manter.custoAnual = custo === null ? null : arred(custo * 12);
+    manter.faturamentoMensalRef = fat;
+    manter.impactoPctFaturamento =
+      custo !== null && fat !== null && fat > 0 ? pct((custo / fat) * 100) : null;
   }
   return manter;
 };

@@ -59,7 +59,7 @@ O cenário "Estender horário" passa a sugerir **abrir um dia da semana hoje fec
 
 1. **Given** um dia fechado e capacidade sobrando, **When** abro o Cenário 4, **Then** vejo o dia a abrir, o horário sugerido e a margem mensal estimada para o dia.
 2. **Given** que não há dia fechado, ou não há sobra de capacidade, **Then** o cenário diz o motivo.
-3. **Given** que o faturamento do dia fechado não é conhecido (nunca vendeu), **Then** a margem do dia é uma estimativa a partir dos dias abertos e vem avisada como referência, não como previsão.
+3. **Given** que o faturamento do dia fechado não é conhecido (nunca vendeu), **Then** a margem do dia é uma estimativa (50% da média dos dias abertos) e vem avisada como referência, não como previsão.
 4. **Given** o dia sugerido, **Then** a equipe cobre o dia (horas, turnos e farmacêutico) sem nova contratação.
 
 ---
@@ -112,7 +112,7 @@ Quem avalia pode informar a **parte da venda de um dia fechado que migra para os
 - **FR-003**: O Cenário 2 MUST fechar dias, escolhendo o de menor margem mensal a cada passo, até a equipe atual cobrir o horário sem contratação (horas, turnos e farmacêutico), ou declarar que não é possível.
 - **FR-004**: O Cenário 3 MUST avaliar todas as combinações de dias abertos e fechados que mantenham ao menos um dia aberto e respeitem a cobertura do farmacêutico, calculando para cada uma as contratações necessárias, e escolher a de maior `margem dos dias abertos − custo adicional de folha`.
 - **FR-005**: O Cenário 3 MUST desempatar por menos contratações e depois por menos dias fechados, e MUST informar quando o melhor resultado coincide com o Cenário 1 ou o Cenário 2.
-- **FR-006**: O Cenário 4 MUST sugerir abrir um dia fechado somente quando a equipe do Cenário 1 o cobrir sem nova contratação; a margem do dia, quando sem histórico, MUST ser estimada pela média dos dias abertos e avisada como referência.
+- **FR-006**: O Cenário 4 MUST sugerir abrir um dia fechado somente quando a equipe do Cenário 1 o cobrir sem nova contratação; a margem do dia, quando sem histórico, MUST ser estimada (50% da média dos dias abertos) e avisada como referência.
 - **FR-007**: Os cenários MUST NOT sugerir fechar os três dias de maior faturamento; quando só isso resolveria, MUST marcar o cenário como "não recomendado" e dizer qual dia.
 - **FR-008**: Os cenários MUST NOT propor cortes ou extensões de uma hora nas pontas do dia.
 - **FR-009**: Cada cenário MUST mostrar a origem da venda (cadastro, base comercial ou estimativa) e MUST trazer uma frase-resumo da lógica.
@@ -146,6 +146,8 @@ Quem avalia pode informar a **parte da venda de um dia fechado que migra para os
 - **Dias protegidos = os 3 de maior faturamento**, valor fixo nesta entrega (o documento chama de "horas protegidas" e permite parametrizar; aqui é por dia e fica sem tela de edição).
 - **Recaptura padrão 0%** (conservador), editável de 0% a 30% na própria tela dos cenários.
 - **Horário sugerido para abrir um dia fechado** = o horário do dia aberto mais curto da loja, como já ocorre hoje.
+- **Margem de um dia fechado sem histórico** = 50% da média dos dias abertos (conservador, como o Cenário 4 anterior fazia com o dia reaberto), sempre avisada como referência e nunca como previsão.
+- **Valores em R$ de venda e margem só para o dono**, em qualquer origem de venda (hoje gestor e consulta ainda veem venda e margem quando há base comercial; passam a não ver, para valer o mesmo em todos os casos).
 - **Fora do escopo**: percentual de venda por turno, corte de turnos de ponta dentro do dia, curva padrão por hora, regra do domingo, custo completo (encargos por regime, provisões), horas extras e o comparativo em tabela. Estão no relatório de gap.
 - **Os valores dos cenários 2, 3 e 4 mudam** em relação à versão por hora (o selo da loja 001, hoje em "Foco em economia" com R$ 8.710, pode mudar); isso é esperado e será explicado na tela.
 - Decisões técnicas (algoritmo, estrutura) ficam para o plano.

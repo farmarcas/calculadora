@@ -176,7 +176,7 @@ function Vendas({ vendas }) {
 }
 
 export default function Diagnostico({ diag, podeEscrever, onEnviar, onSimular, simulando, onPremissas }) {
-  const [regraId, setRegraId] = useState("r40");
+  const [regraId, setRegraId] = useState("r42");
 
   if (diag.status === "pendente")
     return (

@@ -1,72 +1,139 @@
-import { Cartao, Ficha } from "../../components/ui/index.jsx";
+import { Ficha } from "../../components/ui/index.jsx";
 
-const NOMES_DIA = ["segunda", "terça", "quarta", "quinta", "sexta", "sábado", "domingo"];
-const TH = "text-left text-[11px] font-bold uppercase tracking-wide text-ink-500 px-4 py-3 align-bottom";
-const TD = "px-4 py-3 border-t border-line align-top";
+const NOMES_DIA = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
 const brl = (n) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
 const pct = (n) => `${String(n).replace(".", ",")}%`;
+const sinal = (n) => (n > 0 ? "+" : n < 0 ? "−" : "");
+const mod = (n) => brl(Math.abs(n));
+const hh = (t) => (t ? `${t.slice(0, 2)}h` : "");
 
-const STATUS = { viavel: ["ok", "Viável"], nao_recomendado: ["atencao", "Não recomendado"], inviavel: ["erro", "Inviável"] };
+const STATUS = { nao_recomendado: ["atencao", "Não recomendado"], inviavel: ["erro", "Inviável"] };
 
 const textoContratacao = (c) => {
-  const parcial = c.parcial ? `1 parcial de ${c.parcial.turnos} turno${c.parcial.turnos === 1 ? "" : "s"} (${c.parcial.horas}h)` : "";
-  if (c.inteiras === 0) return `${c.funcao}: ${parcial}`;
-  return `${c.funcao}: ${c.inteiras} inteira${c.inteiras === 1 ? "" : "s"}${parcial ? ` e ${parcial}` : ""}`;
+  const parcial = c.parcial ? `1 ${c.funcao.toLowerCase()} parcial de ${c.parcial.horas}h` : "";
+  if (c.inteiras === 0) return parcial;
+  return `${c.inteiras} ${c.funcao.toLowerCase()}${c.inteiras === 1 ? "" : "s"} inteiro${c.inteiras === 1 ? "" : "s"}${parcial ? ` e ${parcial}` : ""}`;
 };
 
-// Valor em reais (só o dono recebe); nulo quando falta dado.
-const dinheiro = (v, sinal = false) => (v === null ? "—" : `${sinal && v > 0 ? "+" : ""}${brl(v)}`);
+// "Seg fechado (antes 07h–22h)" · "Seg, qua e qui fechados" · "Horário mantido".
+const mudancaDeHorario = (dias, horarioAtual) => {
+  if (dias.length === 0) return "Horário mantido";
+  const nome = (d) => NOMES_DIA[d];
+  if (dias.length === 1) {
+    const h = horarioAtual?.find((x) => x.dia === dias[0]);
+    return `${nome(dias[0])} fechado${h?.abre ? ` (antes ${hh(h.abre)}–${hh(h.fecha)})` : ""}`;
+  }
+  const lista = dias.map((d, i) => (i === 0 ? nome(d) : nome(d).toLowerCase()));
+  return `${lista.slice(0, -1).join(", ")} e ${lista[lista.length - 1]} fechados`;
+};
 
-// Os cenários 1, 2 e 3 lado a lado para a fase escolhida; o de maior resultado fica destacado, sem esconder os outros.
-export default function Comparativo({ comparativo }) {
-  if (!comparativo) return null;
-  const { cenarios, destaque } = comparativo;
-  const dono = cenarios[0].custoFolhaMensal !== undefined;
-  const linhas = [
-    { rotulo: "Contratações por cargo", celula: (c) => (c.contratacoes.length ? c.contratacoes.map((x) => <div key={x.funcao}>{textoContratacao(x)}</div>) : "Nenhuma") },
-    { rotulo: "Dias fechados", celula: (c) => (c.diasFechar.length ? c.diasFechar.map((d) => NOMES_DIA[d]).join(", ") : "Nenhum") },
-    { rotulo: "Horas abertas por semana", celula: (c) => `${c.horasSemana}h` },
-    ...(dono
-      ? [
-          { rotulo: "Custo de folha por mês", celula: (c) => dinheiro(c.custoFolhaMensal) },
-          { rotulo: "Margem perdida por mês", celula: (c) => dinheiro(c.margemMes) },
-          { rotulo: "Resultado líquido por mês (frente a hoje)", celula: (c) => dinheiro(c.resultadoLiquidoMensal, true) },
-          { rotulo: "Impacto no faturamento", celula: (c) => (c.impactoPctFaturamento === null ? "—" : pct(c.impactoPctFaturamento)) },
-        ]
-      : []),
-    {
-      rotulo: "Status",
-      celula: (c) => (c.status ? <Ficha tom={STATUS[c.status][0]}>{STATUS[c.status][1]}</Ficha> : <span className="text-ink-500">Sem dados</span>),
-    },
-    { rotulo: "Alertas", celula: (c) => (c.alertas.length ? c.alertas.map((a, i) => <div key={i} className="text-xs text-ink-700">{a}</div>) : <span className="text-ink-500">—</span>) },
-  ];
+const Linha = ({ rotulo, children, tom }) => (
+  <div className="flex items-start justify-between gap-4 px-5 py-3 border-t border-line text-sm">
+    <span className="text-ink-500 shrink-0">{rotulo}</span>
+    <span className={`text-right font-medium ${tom ?? "text-ink-900"}`}>{children}</span>
+  </div>
+);
+
+function Cartao({ posicao, coluna, foco, horarioAtual, horasManter, destaque, dono, ehReferencia, resultadoRef }) {
+  const c = coluna;
+  const status = c.status && STATUS[c.status];
+  const saldo = dono ? c.resultadoLiquidoMensal : undefined;
+  const dif = c.horasSemana - horasManter;
   return (
-    <Cartao titulo="Comparativo dos cenários" subtitulo="Os três caminhos lado a lado para a regra escolhida. Os cenários 4 e 5 ficam abaixo, à parte.">
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse text-sm min-w-[720px]" aria-label="Comparativo dos cenários 1, 2 e 3">
-          <thead>
-            <tr>
-              <th className={TH} />
-              {cenarios.map((c, i) => (
-                <th key={c.id} className={`${TH} ${destaque === c.id ? "bg-surface-subtle" : ""}`}>
-                  <div className="text-sm normal-case tracking-normal text-ink-900">Cenário {i + 1} · {c.nome}</div>
-                  {destaque === c.id && <Ficha tom="ok">Maior resultado líquido</Ficha>}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {linhas.map((l) => (
-              <tr key={l.rotulo}>
-                <th scope="row" className={`${TD} text-left text-xs font-medium text-ink-500`}>{l.rotulo}</th>
-                {cenarios.map((c) => (
-                  <td key={c.id} className={`${TD} ${destaque === c.id ? "bg-surface-subtle" : ""}`}>{l.celula(c)}</td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+    <article className={`flex flex-col bg-surface-card rounded-card overflow-hidden border ${destaque ? "border-2 border-system-500" : "border-line"} shadow-card`} aria-label={`Cenário ${posicao}: ${c.nome}`}>
+      <header className="px-5 pt-4 pb-3">
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="m-0 flex items-center gap-2 text-base font-medium">
+            <span className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-system-500 text-white text-xs font-bold">{posicao}</span>
+            {c.nome}
+          </h3>
+          {destaque && <span className="rounded-full bg-system-500 px-3 py-1 text-xs font-medium text-white">Cenário sugerido</span>}
+        </div>
+        <p className="mt-2 mb-0 text-xs text-ink-500">{foco}</p>
+        {status && <div className="mt-2"><Ficha tom={status[0]}>{status[1]}</Ficha></div>}
+      </header>
+
+      {dono && (
+        <div className={`px-5 py-3 border-l-4 ${saldo == null ? "bg-surface-subtle border-ink-300" : saldo < 0 ? "bg-error-50 border-error-500" : "bg-success-50 border-success-600"}`}>
+          <div className="text-[11px] font-bold uppercase tracking-wide text-ink-700">Saldo mensal estimado</div>
+          <div className="flex items-end justify-between gap-3">
+            <span className="text-xs text-ink-500">−(folha adicional + margem perdida)</span>
+            <span className={`text-2xl font-bold ${saldo == null ? "text-ink-500" : saldo < 0 ? "text-error-600" : "text-success-600"}`}>
+              {saldo == null ? "—" : `${saldo < 0 ? "−" : saldo > 0 ? "+" : ""}${mod(saldo)}`}
+            </span>
+          </div>
+        </div>
+      )}
+
+      <Linha rotulo="Contratações">
+        {c.contratacoes.length ? c.contratacoes.map((x) => <div key={x.funcao}>{textoContratacao(x)}</div>) : "Nenhuma"}
+      </Linha>
+      {dono && (
+        <>
+          <Linha rotulo="Folha adicional" tom={c.folhaAdicionalMensal > 0 ? "text-error-600" : undefined}>
+            {c.folhaAdicionalMensal == null ? "—" : c.folhaAdicionalMensal === 0 ? "R$ 0" : `${mod(c.folhaAdicionalMensal)} por mês`}
+          </Linha>
+          <Linha rotulo="Faturamento perdido" tom={c.faturamentoPerdidoMensal > 0 ? "text-error-600" : undefined}>
+            {c.faturamentoPerdidoMensal == null ? "—" : c.faturamentoPerdidoMensal === 0 ? "R$ 0" : `${mod(c.faturamentoPerdidoMensal)} por mês${c.faturamentoPerdidoPct != null ? ` · ${pct(c.faturamentoPerdidoPct)}` : ""}`}
+          </Linha>
+          <Linha rotulo="Margem perdida" tom={c.margemMes < 0 ? "text-error-600" : undefined}>
+            {c.margemMes == null ? "—" : c.margemMes === 0 ? "R$ 0" : `${mod(c.margemMes)} por mês`}
+          </Linha>
+        </>
+      )}
+      <Linha rotulo="Mudança de horário" tom={c.diasFechar.length ? "text-attention-700" : undefined}>{mudancaDeHorario(c.diasFechar, horarioAtual)}</Linha>
+      <Linha rotulo="Horas abertas">
+        {c.horasSemana}h por semana{dif !== 0 && <span className="text-attention-700"> ({sinal(dif)}{Math.abs(dif)}h)</span>}
+      </Linha>
+      <Linha rotulo="Ociosidade das contratações" tom={c.ociosidadePct ? "text-attention-700" : undefined}>
+        {c.ociosidadePct == null ? "—" : `${pct(c.ociosidadePct)} das horas contratadas`}
+      </Linha>
+      {dono && (
+        <Linha rotulo="Ganho × manter horários" tom={ehReferencia ? "text-ink-500" : c.ganhoFrenteManterMensal > 0 ? "text-success-600" : c.ganhoFrenteManterMensal < 0 ? "text-error-600" : undefined}>
+          {ehReferencia ? "Referência" : c.ganhoFrenteManterMensal == null ? "—" : `${sinal(c.ganhoFrenteManterMensal)}${mod(c.ganhoFrenteManterMensal)} por mês`}
+        </Linha>
+      )}
+
+      {c.alertas.length > 0 && (
+        <div className="mt-auto px-5 py-3 border-t border-line bg-surface-subtle text-xs text-ink-700 flex flex-col gap-1">
+          {c.alertas.map((a, i) => <div key={i}>{a}</div>)}
+        </div>
+      )}
+    </article>
+  );
+}
+
+// Os cenários 1, 2 e 3 lado a lado para a regra escolhida. Só o dono recebe os valores em reais e o cenário sugerido.
+export default function Comparativo({ comparativo, cenarios }) {
+  if (!comparativo) return null;
+  const { cenarios: colunas, destaque } = comparativo;
+  const dono = colunas[0].custoFolhaMensal !== undefined;
+  const horarioAtual = cenarios?.manter?.horarioSemana;
+  const focos = { manter: cenarios?.manter?.foco, economia: cenarios?.economia?.foco, equilibrio: cenarios?.equilibrio?.foco };
+  const horasManter = colunas.find((c) => c.id === "manter").horasSemana;
+  return (
+    <section aria-label="Cenários sugeridos" className="flex flex-col gap-3">
+      <div>
+        <h2 className="m-0 text-base font-medium">Cenários sugeridos</h2>
+        <p className="mt-1 mb-0 text-xs text-ink-500">
+          Para a regra de {cenarios?.regra?.nome ?? "referência"}, com o quadro{dono ? ", os salários" : ""} e as vendas já cadastrados. São estimativas: nada altera o cadastro.
+        </p>
       </div>
-    </Cartao>
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {colunas.map((c, i) => (
+          <Cartao
+            key={c.id}
+            posicao={i + 1}
+            coluna={c}
+            foco={focos[c.id]}
+            horarioAtual={horarioAtual}
+            horasManter={horasManter}
+            destaque={destaque === c.id}
+            dono={dono}
+            ehReferencia={c.id === "manter"}
+          />
+        ))}
+      </div>
+    </section>
   );
 }

@@ -31,6 +31,43 @@ describe('comparativo dos cenários 1, 2 e 3', () => {
     expect(comparar().cenarios.map((c) => c.id)).toEqual(['manter', 'economia', 'equilibrio']);
   });
 
+  it('campos dos cartões (dono): folha adicional, faturamento perdido e ganho frente a manter horários, à mão', () => {
+    const r = comparar();
+    // Venda por mês = soma semanal × 52 ÷ 12. Cenário 2 fecha seg, ter, qua e qui: (1000+1200+900+1100) × 52 ÷ 12 = 18200.
+    expect(col(r, 'manter')).toMatchObject({
+      folhaAdicionalMensal: 14000,
+      faturamentoPerdidoMensal: 0,
+      faturamentoPerdidoPct: 0,
+      ganhoFrenteManterMensal: 0,
+    });
+    expect(col(r, 'economia')).toMatchObject({
+      folhaAdicionalMensal: 0,
+      faturamentoPerdidoMensal: 18200,
+      faturamentoPerdidoPct: 36.4,
+      ganhoFrenteManterMensal: 9450,
+    });
+    // Cenário 3 fecha seg, qua e qui: (1000+900+1100) × 52 ÷ 12 = 13000; folha adicional 2000; −5250 − (−14000) = 8750.
+    expect(col(r, 'equilibrio')).toMatchObject({
+      folhaAdicionalMensal: 2000,
+      faturamentoPerdidoMensal: 13000,
+      faturamentoPerdidoPct: 26,
+      ganhoFrenteManterMensal: 8750,
+    });
+  });
+
+  it('ociosidade das contratações aparece para todos; sem contratação fica nula; valores em reais só para o dono', () => {
+    const r = comparar();
+    expect(col(r, 'manter').ociosidadePct).not.toBeNull();
+    expect(col(r, 'economia').ociosidadePct).toBeNull();
+    const naoDono = comparar({ dono: false });
+    for (const c of naoDono.cenarios) {
+      expect(c).not.toHaveProperty('folhaAdicionalMensal');
+      expect(c).not.toHaveProperty('faturamentoPerdidoMensal');
+      expect(c).not.toHaveProperty('ganhoFrenteManterMensal');
+    }
+    expect(col(naoDono, 'manter').ociosidadePct).not.toBeNull();
+  });
+
   it('valores do dono conferidos à mão: 1 farmacêutico de 40h, salário de 10000, faturamento de 50000', () => {
     const r = comparar();
     // Folha atual: 1 × 10000.

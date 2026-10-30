@@ -1,3 +1,4 @@
+import { PARAMETROS_PADRAO } from '../regras/parametros.js';
 import { passa, verificarRegra, type DiaAberto, type LinhaFuncao } from '../regras/capacidade.js';
 import { FUNCOES_PADRAO_MINIMO, REGRA_IDS, regraPara, type RegraId } from '../regras/perfis.js';
 import { faixasDaSemana, normalizarHorarios, type HorariosSemana } from '../cadastros/horarios.js';
@@ -179,6 +180,9 @@ export const montarDiagnostico = (a: {
     const funcoes = verificarRegra(regra, dias, exigencias, pessoas, {
       limiteParcial: prem.limiteParcial,
       regraAtual: regraPara('atual', loja.convencao8h24, a.parametros),
+      // Só o dono vê o custo da sugestão.
+      custos: a.dono ? (loja.custos ?? null) : null,
+      divisor: (a.parametros ?? PARAMETROS_PADRAO)[id].divisor,
     });
     return {
       id,

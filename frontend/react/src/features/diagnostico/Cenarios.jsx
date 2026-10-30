@@ -43,7 +43,7 @@ const Impacto = ({ valor, detalhe = "custo adicional + margem perdida" }) =>
   );
 
 const textoContratacao = (c) => {
-  const parcial = c.parcial ? `1 parcial de ${c.parcial.turnos} turno${c.parcial.turnos === 1 ? "" : "s"} (${c.parcial.horas}h)` : "";
+  const parcial = c.parcial ? `1 parcial de ${c.parcial.horas}h` : "";
   if (c.inteiras === 0) return `${c.funcao}: ${parcial}`;
   return `${c.funcao}: ${c.inteiras} inteira${c.inteiras === 1 ? "" : "s"}${parcial ? ` e ${parcial}` : ""}`;
 };
@@ -120,16 +120,16 @@ function Manter({ c, atual }) {
               <tbody>
                 {m.contratacoes.map((x) => (
                   <tr key={x.funcao}>
-                    <td className={TD}>{x.funcao}</td>
+                    <td className={TD}>{x.funcao}{x.motivo === "meta" && <span className="ml-1 text-xs text-ink-500">(meta)</span>}</td>
                     <td className={TD}>
                       <strong>{x.pessoas}</strong> {x.pessoas === 1 ? "pessoa" : "pessoas"}
                       <span className="text-ink-500">
                         {x.inteiras > 0 && ` · ${x.inteiras} inteira${x.inteiras === 1 ? "" : "s"}`}
-                        {x.parcial && ` · 1 parcial de ${x.parcial.turnos} turno${x.parcial.turnos === 1 ? "" : "s"} (${x.parcial.horas}h)`}
+                        {x.parcial && ` · 1 parcial de ${x.parcial.horas}h`}
                         {x.ajustado && " · ajustado pelas horas"}
                       </span>
                     </td>
-                    <td className={TD}>{x.horasContratadas}h</td>
+                    <td className={TD}>{x.horasContratadas}h <span className="text-ink-500">· {x.horasOciosas}h ociosas</span></td>
                     <td className={TD}>{pct(x.ociosidadePct)}</td>
                   </tr>
                 ))}
@@ -296,12 +296,12 @@ function Equilibrio({ c }) {
                   <tbody>
                     {q.contratacoes.map((x) => (
                       <tr key={x.funcao}>
-                        <td className={TD}>{x.funcao}</td>
+                        <td className={TD}>{x.funcao}{x.motivo === "meta" && <span className="ml-1 text-xs text-ink-500">(meta)</span>}</td>
                         <td className={TD}>
                           <strong>{x.pessoas}</strong> {x.pessoas === 1 ? "pessoa" : "pessoas"}
                           <span className="text-ink-500">
                             {x.inteiras > 0 && ` · ${x.inteiras} inteira${x.inteiras === 1 ? "" : "s"}`}
-                            {x.parcial && ` · 1 parcial de ${x.parcial.turnos} turno${x.parcial.turnos === 1 ? "" : "s"} (${x.parcial.horas}h)`}
+                            {x.parcial && ` · 1 parcial de ${x.parcial.horas}h`}
                           </span>
                         </td>
                         <td className={TD}>{pct(x.ociosidadePct)}</td>
@@ -436,7 +436,7 @@ function Reduzir({ c }) {
               <tbody>
                 {q.cargos.map((x) => (
                   <tr key={x.funcao}>
-                    <td className={TD}>{x.funcao}</td>
+                    <td className={TD}>{x.funcao}{x.motivo === "meta" && <span className="ml-1 text-xs text-ink-500">(meta)</span>}</td>
                     <td className={TD}>{x.pessoasHoje}</td>
                     <td className={TD}>{x.pessoasNecessarias}</td>
                     <td className={TD}>{x.excedente > 0 ? <strong>{x.excedente}</strong> : 0}</td>

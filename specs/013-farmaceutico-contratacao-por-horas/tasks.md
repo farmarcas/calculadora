@@ -52,12 +52,12 @@ Segurança do banco: só uma migration que acrescenta uma coluna (fatia 6); nada
 
 **Teste independente**: no navegador, a Porto Feliz mostra o gap de 54 h, a sugestão "1 integral + 1 parcial de 14 h", horas usadas e ociosas, custo e o aviso do CRF.
 
-- [ ] T024 [US3] `features/diagnostico/Diagnostico.jsx`: "Déficit e contratações por função" passa a mostrar, por cargo, necessidade ou meta, capacidade, gap em horas, a sugestão (parcial, integral, integral + parcial), horas contratadas, usadas e ociosas (%), custo (só dono) e a marca "obrigatória" ou "para manter o nível de hoje"
-- [ ] T025 [US3] `features/diagnostico/QuadroCentral.jsx`: o quadro central fala em horas de gap do farmacêutico, com os turnos como apoio; sem "falta de atendente ou caixa"
-- [ ] T026 [US2] `features/diagnostico/Configuracao.jsx` e `TurnosLoja.jsx`: o mínimo dos cargos que não são farmacêutico vira "Meta (opcional)", com texto explicando que sem meta vale o nível de hoje; farmacêutico segue ao menos 1
-- [ ] T027 [US6] `features/diagnostico/Comparativo.jsx` e `Cenarios.jsx`: contratações por horas ("1 farmacêutico integral e 1 parcial de 14 h"), ociosidade, selo "meta" nas contratações que não são obrigatórias; gestor sem valores em reais
-- [ ] T028 Conferir no navegador (dono e gestor): Porto Feliz nas regras de 42 h e 40 h; loja do GE 216 sem atendente; loja 001; telas largas e estreitas
-- [ ] T029 Rodar tudo e commitar a fatia
+- [x] T024 [US3] `features/diagnostico/Diagnostico.jsx`: "Déficit e contratações por função" passa a mostrar, por cargo, necessidade ou meta, capacidade, gap em horas, a sugestão (parcial, integral, integral + parcial), horas contratadas, usadas e ociosas (%), custo (só dono) e a marca "obrigatória" ou "para manter o nível de hoje"
+- [x] T025 [US3] `features/diagnostico/QuadroCentral.jsx`: o quadro central fala em horas de gap do farmacêutico, com os turnos como apoio; sem "falta de atendente ou caixa"
+- [x] T026 [US2] `features/diagnostico/Configuracao.jsx` e `TurnosLoja.jsx`: o mínimo dos cargos que não são farmacêutico vira "Meta (opcional)", com texto explicando que sem meta vale o nível de hoje; farmacêutico segue ao menos 1
+- [x] T027 [US6] `features/diagnostico/Comparativo.jsx` e `Cenarios.jsx`: contratações por horas ("1 farmacêutico integral e 1 parcial de 14 h"), ociosidade, selo "meta" nas contratações que não são obrigatórias; gestor sem valores em reais
+- [x] T028 Conferir no navegador (dono e gestor): Porto Feliz nas regras de 42 h e 40 h; loja do GE 216 sem atendente; loja 001; telas largas e estreitas
+- [x] T029 Rodar tudo e commitar a fatia
 
 ## Phase 6: Fatia 5 — Parcial com dias, horários e aviso do CRF (US4)
 

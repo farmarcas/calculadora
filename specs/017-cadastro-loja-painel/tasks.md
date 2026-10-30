@@ -13,9 +13,9 @@
 - [x] T008 Rodar tudo e commitar a fatia
 
 ## Fatia 3 — Salvar tudo (servidor) (US3)
-- [ ] T009 `PUT /lojas/:id/painel`: esquemas e validação completa antes de gravar; ordem configuração, custos, loja; resposta com loja, situação e avisos
-- [ ] T010 Testes de integração: grava tudo junto; erro em um bloco não grava nada; permissões (faturamento e custos só dono; código e CNPJ só operador); Cadastro de outro GE não é afetado
-- [ ] T011 Rodar tudo e commitar a fatia
+- [x] T009 `PUT /lojas/:id/painel`: esquemas e validação completa antes de gravar; ordem configuração, custos, loja; resposta com loja, situação e avisos
+- [x] T010 Testes de integração: grava tudo junto; erro em um bloco não grava nada; permissões (faturamento e custos só dono; código e CNPJ só operador); Cadastro de outro GE não é afetado
+- [x] T011 Rodar tudo e commitar a fatia
 
 ## Fatia 4 — Tela: casca, lista e rascunho (US1, US3, US7)
 - [ ] T012 `features/cadastro-loja/CadastroLojaPage.jsx`: cabeçalho, abas de página, aviso fixo (chave), cartão 400 px + detalhe, altura estável com rolagem interna, descida para telas separadas abaixo de ~1100 px

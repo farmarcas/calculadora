@@ -8,6 +8,7 @@ import Comparativo from "./Comparativo.jsx";
 
 const TH = "text-left text-[11px] font-bold uppercase tracking-wide text-ink-500 px-6 py-3";
 const TD = "px-6 py-3 border-t border-line";
+const DIAS = ["seg", "ter", "qua", "qui", "sex", "sáb", "dom"];
 const hh = (h) => `${String(h).padStart(2, "0")}h`;
 const brl = (v) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
 // Datas "AAAA-MM-DD" não têm fuso: formatar sem passar por Date evita mostrar o dia anterior.
@@ -106,6 +107,13 @@ function Contratacoes({ regras, regraId: id, podeEscrever, onSimular }) {
                 <td className={TD}>
                   <strong>{texto(l.sugestao)}</strong>
                   {l.alternativa && <div className="text-xs text-ink-500">Alternativa: parcial de {horas(l.alternativa.parcialH)} com até {horas(l.alternativa.extrasH)} de hora extra por semana (menos ociosidade)</div>}
+                  {l.sugestao.distribuicao && l.sugestao.distribuicao.blocos.length > 0 && (
+                    <div className="mt-1 text-xs text-ink-700">
+                      <span className="font-medium">{l.sugestao.distribuicao.estimativa ? "Dias e horários (sugestão de partida)" : "Dias e horários que cobrem o descoberto"}: </span>
+                      {l.sugestao.distribuicao.blocos.map((b) => `${DIAS[b.dia]} ${b.de}–${b.ate}`).join(" · ")}
+                      {l.sugestao.distribuicao.semLugarH > 0 && <span className="text-ink-500"> · {horas(l.sugestao.distribuicao.semLugarH)} do parcial passam do que está descoberto: ajuste os horários na escala</span>}
+                    </div>
+                  )}
                   {l.sugestao.avisos.map((av) => <div key={av} className="mt-1 text-xs text-attention-700">{av}</div>)}
                 </td>
                 <td className={TD}>{horas(l.sugestao.horasContratadas)} · {horas(l.sugestao.horasUsadas)} · {horas(l.sugestao.horasOciosas)} ({String(l.sugestao.ociosidadePct).replace(".", ",")}%)</td>

@@ -247,6 +247,16 @@ describe('escala (rotas)', () => {
     expect(dono.r40.atual).toMatchObject({ horasSemana: 66, pessoas: 1, folhaMensal: 11200 });
     expect(dono.r40.vendasBase).toBeNull();
 
+    // Dias e horários do parcial: a farmacêutica cobre 08h–17h; descoberto de segunda a sexta das 17h às 20h (3 h por dia,
+    // 15 h no total); o sábado (8h–14h) já está coberto. Das 26 h do parcial cabem 15 h; o resto não tem lugar.
+    const regras = (await reqGe().get(url).set(admin)).body.regras;
+    const farm = regras.find((r: { id: string }) => r.id === 'r40').funcoes[0];
+    expect(farm.sugestao.distribuicao).toEqual({
+      blocos: [0, 1, 2, 3, 4].map((dia) => ({ dia, de: '17:00', ate: '20:00', horas: 3 })),
+      estimativa: false,
+      semLugarH: 11,
+    });
+
     for (const h of [
       { 'X-Perfil': 'SCHEDULE_MANAGER', 'X-GE': GE_INICIAL_ID },
       { 'X-Perfil': 'SCHEDULE_VIEWER', 'X-GE': GE_INICIAL_ID },

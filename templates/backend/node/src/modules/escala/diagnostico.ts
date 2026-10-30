@@ -1,4 +1,5 @@
 import { PARAMETROS_PADRAO } from '../regras/parametros.js';
+import { distribuirParcial } from './distribuir-parcial.js';
 import { passa, verificarRegra, type DiaAberto, type LinhaFuncao } from '../regras/capacidade.js';
 import { FUNCOES_PADRAO_MINIMO, REGRA_IDS, regraPara, type RegraId } from '../regras/perfis.js';
 import { faixasDaSemana, normalizarHorarios, type HorariosSemana } from '../cadastros/horarios.js';
@@ -177,12 +178,31 @@ export const montarDiagnostico = (a: {
 
   const regras = REGRA_IDS.map((id: RegraId) => {
     const regra = regraPara(id, loja.convencao8h24, a.parametros);
-    const funcoes = verificarRegra(regra, dias, exigencias, pessoas, {
+    const brutas = verificarRegra(regra, dias, exigencias, pessoas, {
       limiteParcial: prem.limiteParcial,
       regraAtual: regraPara('atual', loja.convencao8h24, a.parametros),
       // Só o dono vê o custo da sugestão.
       custos: a.dono ? (loja.custos ?? null) : null,
       divisor: (a.parametros ?? PARAMETROS_PADRAO)[id].divisor,
+    });
+    // Dias e horários do contrato parcial, a partir de quem já cobre o cargo em cada hora.
+    const funcoes = brutas.map((f) => {
+      if (!f.sugestao?.parcialH) return f;
+      const doCargo = noCalculo.filter((t) => t.funcao === f.funcao) as TurnoPessoa[];
+      const comExigencia = f.origemMeta === 'lei' || f.origemMeta === 'dono';
+      const distribuicao = distribuirParcial(
+        dias,
+        doCargo,
+        f.sugestao.parcialH,
+        Math.max(1, f.minimo),
+        !comExigencia || doCargo.length === 0,
+      );
+      // As pessoas cobrem o horário na escala de hoje, mas a regra pede folgas: o parcial entra nos dias de maior
+      // horário, como estimativa (a redistribuição das pessoas vem depois).
+      const final = distribuicao.blocos.length
+        ? distribuicao
+        : distribuirParcial(dias, [], f.sugestao.parcialH, Math.max(1, f.minimo), true);
+      return { ...f, sugestao: { ...f.sugestao, distribuicao: final } };
     });
     return {
       id,

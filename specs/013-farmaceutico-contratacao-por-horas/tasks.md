@@ -63,10 +63,10 @@ Segurança do banco: só uma migration que acrescenta uma coluna (fatia 6); nada
 
 **Teste independente**: o parcial de 14 h de farmacêutico mostra os dias e as faixas que cobre e o aviso do CRF; o de outro cargo mostra os dias e as faixas, sem o aviso.
 
-- [ ] T030 [US4] Teste + `src/modules/escala/distribuir-parcial.ts`: dado o horário aberto e quem já cobre o cargo em cada hora (escala importada ou horário do cadastro), aloca as horas do parcial em blocos de até 8 h por dia, nos dias de maior descoberto, em até 5 dias; contas à mão (parcial de 14 h sobre dias com 6 h descobertas)
-- [ ] T031 [US4] `sugestao.parcial.distribuicao` na resposta do Diagnóstico e nos cenários; aviso do CRF só para farmacêutico parcial (texto exato do pedido); sem dado de presença, a distribuição usa os dias de maior descoberto estimado e diz que é uma sugestão
-- [ ] T032 [US4] Tela: dias e horários do parcial na tabela de contratações e no cartão do Cenário 1; aviso do CRF em destaque
-- [ ] T033 [US4] Teste de integração e conferência no navegador; rodar tudo e commitar a fatia
+- [x] T030 [US4] Teste + `src/modules/escala/distribuir-parcial.ts`: dado o horário aberto e quem já cobre o cargo em cada hora (escala importada ou horário do cadastro), aloca as horas do parcial em blocos de até 8 h por dia, nos dias de maior descoberto, em até 5 dias; contas à mão (parcial de 14 h sobre dias com 6 h descobertas)
+- [x] T031 [US4] `sugestao.parcial.distribuicao` na resposta do Diagnóstico e nos cenários; aviso do CRF só para farmacêutico parcial (texto exato do pedido); sem dado de presença, a distribuição usa os dias de maior descoberto estimado e diz que é uma sugestão
+- [x] T032 [US4] Tela: dias e horários do parcial na tabela de contratações e no cartão do Cenário 1; aviso do CRF em destaque
+- [x] T033 [US4] Teste de integração e conferência no navegador; rodar tudo e commitar a fatia
 
 ## Phase 7: Fatia 6 — Redistribuição, horário fixo e fechamento (US5)
 

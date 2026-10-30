@@ -385,7 +385,8 @@ describe('simulações (rotas)', () => {
   });
 
   describe('custo na comparação', () => {
-    const custos = { salarioMedio: { Farmacêutico: 8000, Atendimento: 2000 }, encargosPct: 50 };
+    // Sem regime cadastrado a loja usa o Lucro Presumido: encargos de 62,2% (fator 1,622).
+    const custos = { salarioMedio: { Farmacêutico: 8000, Atendimento: 2000 } };
     const salvarCustos = (c: object = custos) =>
       reqGe().put(`/api/v1/lojas/${lojaId}/custos`).set(admin).send(c);
     const gravada = async (nome: string, corpo: object = {}) => {
@@ -412,18 +413,18 @@ describe('simulações (rotas)', () => {
       const r = await comparar([a.id, b.id]);
       expect(r.status).toBe(200);
       const [ra, rb] = r.body.simulacoes;
-      // A: 2 farmacêuticos × 8.000 × 1,5 = 24.000
+      // A: 2 farmacêuticos × 8.000 × 1,622 = 25.952
       expect(ra.custo).toMatchObject({
         informado: true,
-        mensal: 24000,
-        anual: 288000,
+        mensal: 25952,
+        anual: 311424,
         diferencaMensalFrenteEmUso: null,
       });
-      // B: + vaga de 24h = 8.000 × 24 × 5 ÷ 200 × 1,5 = 7.200
+      // B: + vaga de 24h = 8.000 × 24 × 5 ÷ 200 × 1,622 = 7.785,60
       expect(rb.custo).toMatchObject({
-        mensal: 31200,
-        anual: 374400,
-        diferencaMensalFrenteEmUso: 7200,
+        mensal: 33737.6,
+        anual: 404851.2,
+        diferencaMensalFrenteEmUso: 7785.6,
       });
       expect(rb.sintese).toContain('a mais por mês');
       expect(rb.sintese).toContain('exige contratar 1 vaga(s)');
@@ -440,7 +441,7 @@ describe('simulações (rotas)', () => {
       ]) {
         const r = await comparar([a.id, b.id], h);
         expect(r.status).toBe(200);
-        expect(JSON.stringify(r.body)).not.toMatch(/custo|24000|mensal/);
+        expect(JSON.stringify(r.body)).not.toMatch(/custo|25952|mensal/);
         expect((await reqGe().get(`/api/v1/simulacoes/${a.id}`).set(h)).body.custo).toBeUndefined();
       }
     });
@@ -449,7 +450,7 @@ describe('simulações (rotas)', () => {
       const a = await gravada('Plano A');
       await salvarCustos();
       expect((await reqGe().get(`/api/v1/simulacoes/${a.id}`).set(admin)).body.custo.mensal).toBe(
-        24000,
+        25952,
       );
     });
 
@@ -464,7 +465,7 @@ describe('simulações (rotas)', () => {
     });
 
     it('função sem salário informado: avisa qual falta e não soma parcial', async () => {
-      await salvarCustos({ salarioMedio: { Atendimento: 2000 }, encargosPct: 50 });
+      await salvarCustos({ salarioMedio: { Atendimento: 2000 } });
       const a = await gravada('Plano A');
       const b = await gravada('Plano B');
       const c = (await comparar([a.id, b.id])).body.simulacoes[0].custo;
@@ -479,14 +480,11 @@ describe('simulações (rotas)', () => {
     it('a simulação gravada usa o retrato dos custos de quando foi gravada', async () => {
       await salvarCustos();
       const a = await gravada('Plano A');
-      await salvarCustos({
-        salarioMedio: { Farmacêutico: 20000, Atendimento: 2000 },
-        encargosPct: 50,
-      });
+      await salvarCustos({ salarioMedio: { Farmacêutico: 20000, Atendimento: 2000 } });
       const d = (await reqGe().get(`/api/v1/simulacoes/${a.id}`).set(admin)).body;
-      expect(d.custo.mensal).toBe(24000);
+      expect(d.custo.mensal).toBe(25952); // o retrato do momento de gravar: 2 × 8.000 × 1,622
       const novo = (await criar({ nome: 'Rascunho novo', regra: 'r40' })).body;
-      expect(novo.custo.mensal).toBe(60000); // rascunho usa os custos de hoje
+      expect(novo.custo.mensal).toBe(64880); // rascunho usa os custos de hoje: 2 × 20.000 × 1,622
     });
   });
 

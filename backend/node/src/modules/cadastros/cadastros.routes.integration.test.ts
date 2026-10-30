@@ -560,7 +560,9 @@ describe('cadastros (rotas)', () => {
       const l = await loja('070');
       expect(l?.convencao8h24).toBe(true);
       expect(l?.minimos).toEqual({ Atendimento: 2, Farmacêutico: 2 });
-      expect(l?.custos).toEqual({ salarioMedio: { Atendimento: 2100 }, encargosPct: 66 });
+      // o encargo vem do regime da loja: a coluna "Encargos (%)" da planilha (66) é ignorada e avisada
+      expect(l?.custos).toEqual({ salarioMedio: { Atendimento: 2100 } });
+      expect(ok.body.avisos.join(' ')).toContain('Encargos (%) foi ignorada');
       expect(l?.faturamento).toMatchObject({ mensal: 300000 });
       const fs = await prisma.funcionario.findMany({ orderBy: { matricula: 'asc' } });
       expect(fs.map((f) => [f.matricula, f.horarioFixo])).toEqual([
@@ -585,18 +587,15 @@ describe('cadastros (rotas)', () => {
       const l = await loja('070');
       expect(l?.convencao8h24).toBe(true);
       expect(l?.minimos).toEqual({ Caixa: 1, Atendimento: 3 });
-      // encargos ficam os que a loja já tinha
-      expect(l?.custos).toEqual({
-        salarioMedio: { Caixa: 1900, Atendimento: 2100 },
-        encargosPct: 50,
-      });
+      // os salários se mesclam; o percentual digitado do formato antigo não é guardado
+      expect(l?.custos).toEqual({ salarioMedio: { Caixa: 1900, Atendimento: 2100 } });
     });
 
-    it('salário sem encargos (e a loja sem encargos gravados) não grava custo e avisa', async () => {
+    it('salário sem encargos grava o salário: o encargo agora vem do regime da loja', async () => {
       const buf = await planilha([['070', 'Loja Setenta', '', '', '', '2100', '', '']], [], cabL);
       const { ok } = await importar(admin, buf);
-      expect(ok.body.avisos.join(' ')).toContain('faltam os encargos');
-      expect((await loja('070'))?.custos).toBeNull();
+      expect(ok.body.avisos.join(' ')).not.toContain('Encargos');
+      expect((await loja('070'))?.custos).toEqual({ salarioMedio: { Atendimento: 2100 } });
     });
 
     it('o dono não cria loja: código inexistente vira erro com a linha da planilha', async () => {

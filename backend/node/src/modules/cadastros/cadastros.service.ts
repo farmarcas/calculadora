@@ -37,14 +37,14 @@ export type CadastrosRepository = {
   configuracaoDaLoja: (id: string) => Promise<{
     convencao8h24: boolean;
     minimos: Record<string, number>;
-    custos: { salarioMedio: Record<string, number>; encargosPct: number } | null;
+    custos: { salarioMedio: Record<string, number>; encargos?: object } | null;
   }>;
   gravarConfiguracao: (
     id: string,
     c: {
       convencao8h24?: boolean;
       minimos?: Record<string, number>;
-      custos?: { salarioMedio: Record<string, number>; encargosPct: number };
+      custos?: { salarioMedio: Record<string, number>; encargos?: object };
     },
   ) => Promise<void>;
   removerLoja: (id: string) => Promise<void>;
@@ -342,18 +342,18 @@ export const makeCadastrosService = (repo: CadastrosRepository, auditar: Auditor
         if (configuracao.minimos)
           grava.minimos = { ...atual.minimos, ...(configuracao.minimos as Record<string, number>) };
         if (dono && configuracao.custos) {
-          const encargosPct = configuracao.custos.encargosPct ?? atual.custos?.encargosPct;
-          if (encargosPct === undefined)
+          // O encargo vem do regime tributário da loja: a coluna "Encargos (%)" da planilha não vale mais.
+          if (configuracao.custos.encargosPct !== undefined)
             avisos.push(
-              `Loja ${l.codigo}: o salário médio não foi gravado porque faltam os encargos (%). Informe os encargos na planilha.`,
+              `Loja ${l.codigo}: a coluna Encargos (%) foi ignorada, o encargo agora vem do regime tributário da loja.`,
             );
-          else
+          if (Object.keys(configuracao.custos.salarioMedio).length)
             grava.custos = {
+              ...(atual.custos ?? {}),
               salarioMedio: {
                 ...(atual.custos?.salarioMedio ?? {}),
                 ...(configuracao.custos.salarioMedio as Record<string, number>),
               },
-              encargosPct,
             };
         }
         if (Object.keys(grava).length) await repo.gravarConfiguracao(lojaId, grava);

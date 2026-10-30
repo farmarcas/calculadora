@@ -5,6 +5,7 @@ import { passa, verificarRegra, type DiaAberto, type LinhaFuncao } from '../regr
 import { FUNCOES_PADRAO_MINIMO, REGRA_IDS, regraPara, type RegraId } from '../regras/perfis.js';
 import { faixasDaSemana, normalizarHorarios, type HorariosSemana } from '../cadastros/horarios.js';
 import type { Custos } from '../custos/custos.schemas.js';
+import type { ResultadoEncargos } from '../regras/encargos.js';
 import { cobertura, type TurnoPessoa } from './cobertura.js';
 import { montarCenarios } from './cenarios.js';
 import { montarExtras, type ExtrasRegra } from './cenarios-extras.js';
@@ -30,6 +31,9 @@ export type LojaDiag = {
   turnos?: TurnosLoja | null;
   // Só para o cálculo de custo (visível apenas ao dono); nunca sai no diagnóstico.
   custos?: Custos | null;
+  // Encargos do regime da loja (total, composição, regime usado); só para o dono, junto da folha.
+  encargos?: ResultadoEncargos | null;
+  regimeTributario?: string | null;
   // Faturamento do cadastro: só vira venda do diagnóstico quando não há base comercial.
   faturamento?: Faturamento | null;
 };

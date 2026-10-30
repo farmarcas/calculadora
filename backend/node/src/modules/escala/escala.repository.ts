@@ -3,6 +3,8 @@ import { prisma } from '../../shared/database/prisma.js';
 import { NotFoundError } from '../../shared/errors/not-found-error.js';
 import { hojeISO, tabelaVigente, type TabelaParametros } from '../regras/parametros.js';
 import type { TurnosLoja } from '../regras/turnos.js';
+import { custosEfetivos, tabelaEncargosDeHoje } from '../custos/encargos-loja.js';
+import type { CustosGravados } from '../custos/custos.schemas.js';
 import { parametrosRepository } from '../parametros/parametros.repository.js';
 import { normalizarHorarios } from '../cadastros/horarios.js';
 import type { CargaMeta, LojaDiag, TurnoDiag } from './diagnostico.js';
@@ -139,6 +141,12 @@ export const escalaRepository = (geId: string) => {
     async lojaParaDiagnostico(id: string): Promise<LojaDiag | null> {
       const l = await prisma.loja.findFirst({ where: { id, geId, ...ativo } });
       if (!l) return null;
+      // O encargo vem do regime tributário da loja (com os ajustes dela), não de um percentual digitado.
+      const efetivos = custosEfetivos(
+        l.custos as unknown as CustosGravados | null,
+        l.regimeTributario,
+        await tabelaEncargosDeHoje(),
+      );
       return {
         id: l.id,
         codigo: l.codigo,
@@ -147,7 +155,9 @@ export const escalaRepository = (geId: string) => {
         convencao8h24: l.convencao8h24,
         minimos: l.minimos as LojaDiag['minimos'],
         turnos: l.turnos as unknown as TurnosLoja | null,
-        custos: l.custos as unknown as LojaDiag['custos'],
+        custos: efetivos?.custos ?? null,
+        encargos: efetivos?.encargos ?? null,
+        regimeTributario: l.regimeTributario,
         faturamento: l.faturamento as unknown as LojaDiag['faturamento'],
       };
     },

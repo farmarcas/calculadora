@@ -8,11 +8,11 @@
 - [x] T005 Rodar tudo e commitar a fatia
 
 ## Fatia 2 — Ligação nos cálculos (US1, US2, US4)
-- [ ] T006 `custosEfetivos`: total do regime (com ajustes da loja) no lugar do percentual digitado, onde a loja é carregada (diagnóstico, cenários, simulações, custos)
-- [ ] T007 Regime ausente/inválido: Presumido + `alertaRegime` na resposta; rota para gravar o regime escolhido
-- [ ] T008 Ajustes por loja (RAT, FAP, rescisão) em `custos.encargos`, com validação e "restaurar padrão"
-- [ ] T009 Testes de integração: mudar o regime muda a folha; ajuste de uma loja não afeta outra
-- [ ] T010 Rodar tudo e commitar a fatia
+- [x] T006 `custosEfetivos`: total do regime (com ajustes da loja) no lugar do percentual digitado, onde a loja é carregada (diagnóstico, cenários, simulações, custos)
+- [x] T007 Regime ausente/inválido: Presumido + `alertaRegime` na resposta; rota para gravar o regime escolhido
+- [x] T008 Ajustes por loja (RAT, FAP, rescisão) em `custos.encargos`, com validação e "restaurar padrão"
+- [x] T009 Testes de integração: mudar o regime muda a folha; ajuste de uma loja não afeta outra
+- [x] T010 Rodar tudo e commitar a fatia
 
 ## Fatia 3 — Tela, planilha e antes/depois (US5)
 - [ ] T011 `QuadroCentral`: "Salários + encargos {total}% ({regime})", "Ver composição", alerta e seletor de regime, nota do contador

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { horariosEntrada } from '../cadastros/cadastros.schemas.js';
 
 const vazio = z.object({}).strict();
 const id = z.object({ id: z.string().uuid() }).strict();
@@ -56,6 +57,8 @@ export const listarReq = req(
   z.object({ descartadas: z.enum(['0', '1']).default('0') }).strict(),
 );
 export const porIdReq = req(vazio.default({}), id);
+// "Salvar como cenário N": grava e dá o nome "Cenário N"; sem isso, grava com o nome que já tem.
+export const gravarReq = req(z.object({ comoCenario: z.boolean().optional() }).strict().default({}), id);
 export const criarReq = req(
   z
     .object({
@@ -79,6 +82,11 @@ export const editarReq = req(
       turnos: z.array(turnoSchema).max(500).optional(),
       vagas: z.array(vagaSchema).max(20).optional(),
       desligados: z.array(z.string().min(1).max(30)).max(100).optional(),
+      // Horário simulado (só nesta simulação, nunca no Cadastro); null volta ao horário do Cadastro.
+      horarios: horariosEntrada
+        .refine((h) => h.dias.some((d) => d.aberta), { message: 'Deixe ao menos um dia aberto' })
+        .nullable()
+        .optional(),
     })
     .strict()
     .refine((b) => Object.keys(b).length > 0, { message: 'Informe ao menos um campo' }),

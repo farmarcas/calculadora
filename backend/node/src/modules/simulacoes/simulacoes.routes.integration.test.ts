@@ -562,4 +562,125 @@ describe('simulações (rotas)', () => {
       expect(mudou.status).toBe('em_uso'); // nada muda sozinho
     });
   });
+  describe('horário simulado (spec 016)', () => {
+    const semana = (fecha: string) => ({
+      versao: 2,
+      dias: [0, 1, 2, 3, 4]
+        .map(() => ({ aberta: true, abre: '08:00', fecha }))
+        .concat([{ aberta: false } as never, { aberta: false } as never]),
+    });
+    const editar = (id: string, body: object, h: Record<string, string> = admin) =>
+      reqGe().put(`/api/v1/simulacoes/${id}`).set(h).send(body);
+
+    it('trazer o resultado: horas abertas iguais ao Cadastro enquanto o horário não muda', async () => {
+      const sim = (await criar()).body;
+      expect(sim.resultado.horario.mudou).toBe(false);
+      expect(sim.resultado.horasAbertas).toBe(60);
+      expect(sim.resultado.horasAbertasAntes).toBe(60);
+    });
+
+    it('editar o horário recalcula e não mexe no Cadastro; null volta ao Cadastro', async () => {
+      const sim = (await criar()).body;
+      const e = await editar(sim.id, { horarios: semana('18:00') });
+      expect(e.status).toBe(200);
+      expect(e.body.resultado.horasAbertas).toBe(50);
+      expect(e.body.resultado.horasAbertasAntes).toBe(60);
+      expect(e.body.resultado.horario.dias[0]).toMatchObject({ fecha: '18:00', alterado: true });
+      expect(e.body.diasAbertos[0]).toEqual({ dia: 0, abre: 8, fecha: 18 });
+      const lista = (await reqGe().get('/api/v1/lojas').set(admin)).body.data;
+      const loja = lista.find((x: { id: string }) => x.id === lojaId);
+      expect(loja.horarios.dias[0].fecha).toBe('20:00');
+      const volta = await editar(sim.id, { horarios: null });
+      expect(volta.body.resultado.horasAbertas).toBe(60);
+      expect(volta.body.resultado.horario.mudou).toBe(false);
+    });
+
+    it('recusa fechamento antes da abertura e semana toda fechada', async () => {
+      const sim = (await criar()).body;
+      const ruim = await editar(sim.id, { horarios: semana('07:00') });
+      expect(ruim.status).toBe(400);
+      const fechada = await editar(sim.id, {
+        horarios: { versao: 2, dias: Array.from({ length: 7 }, () => ({ aberta: false })) },
+      });
+      expect(fechada.status).toBe(400);
+    });
+
+    it('não edita o horário de simulação gravada (409)', async () => {
+      const sim = (await criar()).body;
+      await reqGe().post(`/api/v1/simulacoes/${sim.id}/gravar`).set(admin);
+      const e = await editar(sim.id, { horarios: semana('18:00') });
+      expect(e.status).toBe(409);
+    });
+
+    it('o horário simulado fica congelado ao gravar', async () => {
+      const sim = (await criar()).body;
+      await editar(sim.id, { horarios: semana('19:00') });
+      // 19h: farmacêuticas cobrem 08–14 e 14–20; sem erro de cobertura.
+      const g = await reqGe().post(`/api/v1/simulacoes/${sim.id}/gravar`).set(admin);
+      expect(g.status).toBe(200);
+      expect(g.body.diasAbertos[0]).toEqual({ dia: 0, abre: 8, fecha: 19 });
+    });
+
+    it('gestor edita; quem só consulta não; valores em reais só para o dono', async () => {
+      const sim = (await criar()).body;
+      const gestor = { 'X-Perfil': 'SCHEDULE_MANAGER', 'X-GE': GE_INICIAL_ID };
+      const viewer = { 'X-Perfil': 'SCHEDULE_VIEWER', 'X-GE': GE_INICIAL_ID };
+      const g = await editar(sim.id, { horarios: semana('18:00') }, gestor);
+      expect(g.status).toBe(200);
+      expect(g.body.resultado).not.toHaveProperty('impactoMensal');
+      expect(g.body.resultado).not.toHaveProperty('vendaQueSai');
+      expect((await editar(sim.id, { horarios: semana('17:00') }, viewer)).status).toBe(403);
+      const dono = await reqGe().get(`/api/v1/simulacoes/${sim.id}`).set(admin);
+      expect(dono.body.resultado).toHaveProperty('impactoMensal');
+    });
+  });
+  describe('número do cenário (spec 016)', () => {
+    const gravarComo = (id: string, h: Record<string, string> = admin) =>
+      reqGe().post(`/api/v1/simulacoes/${id}/gravar`).set(h).send({ comoCenario: true });
+
+    it('o rascunho já sabe o próximo número; salvar como cenário dá o nome e o número, em sequência', async () => {
+      const a = (await criar({ nome: 'Base A', regra: 'r40' })).body;
+      expect(a.proximoNumeroCenario).toBe(1);
+      const g1 = await gravarComo(a.id);
+      expect(g1.status).toBe(200);
+      expect(g1.body).toMatchObject({ status: 'gravada', numeroCenario: 1, nome: 'Cenário 1' });
+      expect(g1.body).not.toHaveProperty('proximoNumeroCenario');
+      const b = (await criar({ nome: 'Base B', regra: 'r40' })).body;
+      expect(b.proximoNumeroCenario).toBe(2);
+      const g2 = await gravarComo(b.id);
+      expect(g2.body).toMatchObject({ numeroCenario: 2, nome: 'Cenário 2' });
+    });
+
+    it('gravar sem "comoCenario" mantém o nome mas também numera', async () => {
+      const a = (await criar({ nome: 'Meu nome', regra: 'r40' })).body;
+      const g = await reqGe().post(`/api/v1/simulacoes/${a.id}/gravar`).set(admin);
+      expect(g.body).toMatchObject({ nome: 'Meu nome', numeroCenario: 1 });
+    });
+
+    it('a numeração é por loja', async () => {
+      const a = (await criar({ nome: 'Base A', regra: 'r40' })).body;
+      await gravarComo(a.id);
+      const outra = await postLoja({ codigo: '002', nome: 'Outra', horarios: { semana: { abre: '08:00', fecha: '20:00' } } });
+      expect(outra.status).toBe(201);
+      const r = await reqGe().get(`/api/v1/lojas/${outra.body.id}/simulacoes`).set(admin);
+      expect(r.body.data).toEqual([]);
+    });
+
+    it('só o dono marca como em uso; gestor salva o cenário', async () => {
+      const gestor = { 'X-Perfil': 'SCHEDULE_MANAGER', 'X-GE': GE_INICIAL_ID };
+      const a = (await criar({ nome: 'Base A', regra: 'r40' })).body;
+      const g = await gravarComo(a.id, gestor);
+      expect(g.status).toBe(200);
+      expect((await reqGe().post(`/api/v1/simulacoes/${a.id}/aprovar`).set(gestor).send({})).status).toBe(403);
+      const ok = await reqGe().post(`/api/v1/simulacoes/${a.id}/aprovar`).set(admin).send({});
+      expect(ok.body).toMatchObject({ status: 'em_uso', numeroCenario: 1 });
+    });
+
+    it('a lista traz o número do cenário', async () => {
+      const a = (await criar({ nome: 'Base A', regra: 'r40' })).body;
+      await gravarComo(a.id);
+      const l = await reqGe().get(`/api/v1/lojas/${lojaId}/simulacoes`).set(admin);
+      expect(l.body.data[0]).toMatchObject({ numeroCenario: 1 });
+    });
+  });
 });

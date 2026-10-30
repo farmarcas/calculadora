@@ -50,3 +50,33 @@ body { margin: 0; background: var(--surface-page); color: var(--ink-900); font-f
 @container diag (max-width: 479px) {
   .diag-numeros { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* Tela de simulação: 3 passos à esquerda e painel de resultado (360 px) à direita, por LARGURA DO CONTEÚDO.
+   Abaixo de 1100 px o painel desce para depois do passo 3 e deixa de ser fixo. */
+.sim-conteiner { container-type: inline-size; container-name: sim; }
+.sim-grade { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; align-items: start; }
+.sim-painel { position: static; }
+/* A coluna dos passos tem a sua própria medida: o painel de 360 px já tirou espaço dela. */
+.sim-esq { container-type: inline-size; container-name: passos; }
+@container sim (min-width: 1100px) {
+  .sim-grade { grid-template-columns: minmax(0, 1fr) 360px; gap: 24px; }
+  .sim-painel { position: sticky; top: 16px; }
+}
+/* Passo 1: lista de horários (300 px) e gráfico lado a lado a partir de 720 px de conteúdo. */
+.sim-passo1 { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; align-items: start; }
+@container passos (min-width: 680px) { .sim-passo1 { grid-template-columns: 300px minmax(0, 1fr); } }
+/* Passo 2: tabela de contratações. Estreita: um bloco por função, com rótulos; média (600 px): 3 colunas;
+   larga (900 px): as 5 colunas do desenho. */
+.sim-contr-cab { display: none; }
+.sim-contr-linha { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-areas: "fn" "sit" "con" "res" "cus"; gap: 12px; padding: 16px 24px; border-top: 1px solid var(--border-subtle); }
+.sim-rot { font-size: 12px; font-weight: 700; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 4px; }
+.a-fn { grid-area: fn; } .a-sit { grid-area: sit; } .a-con { grid-area: con; } .a-res { grid-area: res; } .a-cus { grid-area: cus; }
+@container passos (min-width: 600px) {
+  .sim-contr-linha { grid-template-columns: 160px minmax(0, 1fr) 160px; grid-template-areas: "fn con res" "sit con cus"; gap: 12px 16px; align-items: start; }
+  .a-cus { text-align: right; }
+}
+@container passos (min-width: 900px) {
+  .sim-contr-cab { display: grid; grid-template-columns: 150px 170px minmax(0, 1fr) 170px 100px; gap: 16px; }
+  .sim-contr-linha { grid-template-columns: 150px 170px minmax(0, 1fr) 170px 100px; grid-template-areas: "fn sit con res cus"; gap: 16px; }
+  .sim-rot { display: none; }
+}

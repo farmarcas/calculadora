@@ -1,4 +1,4 @@
-import type { Prisma } from '../../generated/prisma/client.js';
+import { Prisma } from '../../generated/prisma/client.js';
 import { prisma } from '../../shared/database/prisma.js';
 import { NotFoundError } from '../../shared/errors/not-found-error.js';
 import type { Custos } from '../custos/custos.schemas.js';
@@ -41,6 +41,9 @@ export type SimulacaoRegistro = {
   quadro: PessoaSim[];
   premissas: Premissas | null;
   resultado: unknown;
+  // Horário simulado do rascunho; nulo = igual ao Cadastro.
+  horarios: unknown;
+  numeroCenario: number | null;
   criadaEm: Date;
   gravadaEm: Date | null;
   aprovadaPor: string | null;
@@ -62,6 +65,8 @@ const mapear = (s: Linha): SimulacaoRegistro => ({
   quadro: s.quadro as unknown as PessoaSim[],
   premissas: s.premissas as unknown as Premissas | null,
   resultado: s.resultado,
+  horarios: s.horarios,
+  numeroCenario: s.numeroCenario,
   criadaEm: s.criadaEm,
   gravadaEm: s.gravadaEm,
   aprovadaPor: s.aprovadaPor,
@@ -146,6 +151,7 @@ export const simulacoesRepository = (geId: string) => ({
         aprovadaEm: true,
         vigenciaInicio: true,
         resultado: true,
+        numeroCenario: true,
       },
     });
     return rows.map((r) => ({ ...r, status: doBanco[r.status] }));
@@ -153,7 +159,14 @@ export const simulacoesRepository = (geId: string) => ({
 
   async atualizarRascunho(
     id: string,
-    d: { nome?: string; regra?: string; turnos?: TurnoSim[]; quadro?: PessoaSim[] },
+    d: {
+      nome?: string;
+      regra?: string;
+      turnos?: TurnoSim[];
+      quadro?: PessoaSim[];
+      // undefined = não mexe; null = volta ao Cadastro.
+      horarios?: unknown;
+    },
   ) {
     await prisma.$transaction(async (tx) => {
       await tx.simulacao.update({
@@ -162,6 +175,9 @@ export const simulacoesRepository = (geId: string) => ({
           ...(d.nome ? { nome: d.nome } : {}),
           ...(d.regra ? { regra: d.regra } : {}),
           ...(d.quadro ? { quadro: d.quadro as unknown as Prisma.InputJsonValue } : {}),
+          ...(d.horarios !== undefined
+            ? { horarios: d.horarios === null ? Prisma.JsonNull : (d.horarios as Prisma.InputJsonValue) }
+            : {}),
         },
       });
       if (d.turnos) {
@@ -173,10 +189,25 @@ export const simulacoesRepository = (geId: string) => ({
     });
   },
 
-  async gravar(id: string, premissas: Premissas, resultado: unknown) {
+  // Próximo número de cenário da loja: maior já dado + 1.
+  async proximoNumeroCenario(lojaId: string) {
+    const r = await prisma.simulacao.aggregate({
+      where: { lojaId, loja: { geId } },
+      _max: { numeroCenario: true },
+    });
+    return (r._max.numeroCenario ?? 0) + 1;
+  },
+
+  async gravar(
+    id: string,
+    premissas: Premissas,
+    resultado: unknown,
+    cenario?: { numero: number; nome: string },
+  ) {
     await prisma.simulacao.update({
       where: { id },
       data: {
+        ...(cenario ? { numeroCenario: cenario.numero, nome: cenario.nome } : {}),
         status: 'GRAVADA',
         premissas: premissas as unknown as Prisma.InputJsonValue,
         resultado: resultado as Prisma.InputJsonValue,

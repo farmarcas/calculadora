@@ -3,6 +3,7 @@ import { ConflictError } from '../../shared/errors/conflict-error.js';
 import { NotFoundError } from '../../shared/errors/not-found-error.js';
 import { ValidationError } from '../../shared/errors/validation-error.js';
 import { normalizarHorarios } from '../cadastros/horarios.js';
+import { calcularResultado } from './resultado.js';
 import { diasAbertos, type LojaDiag } from '../escala/diagnostico.js';
 import type { EscalaRepository } from '../escala/escala.repository.js';
 import { FUNCOES_PADRAO_MINIMO, regraPara, type RegraId } from '../regras/perfis.js';
@@ -60,8 +61,9 @@ export const makeSimulacoesService = (
 
   // Rascunho usa o cadastro da loja ao vivo; gravada usa as premissas congeladas.
   const contexto = (s: SimulacaoRegistro, l: LojaDiag) => {
+    // O horário simulado (rascunho) vale no lugar do Cadastro; nunca grava na loja.
     const p: Premissas = s.premissas ?? {
-      horarios: l.horarios,
+      horarios: normalizarHorarios(s.horarios) ?? l.horarios,
       minimos: exigenciasDaLoja({ ...FUNCOES_PADRAO_MINIMO, ...(l.minimos ?? {}) }, l.turnos),
       convencao8h24: l.convencao8h24,
       custos: l.custos ?? null,
@@ -123,6 +125,21 @@ export const makeSimulacoesService = (
     const l = await loja(s.lojaId);
     const { c, avaliacao } = avaliar(s, l);
     const motivosDesatualizada = await desatualizacao(s, l);
+    const dono = perfil === 'TENANT_ADMIN';
+    const base = await lojas.baseAtiva(s.lojaId);
+    const resultado = calcularResultado({
+      regraId: s.regra as RegraId,
+      regra: c.regra,
+      regraAtual: regraPara('atual', c.premissas.convencao8h24, tabela),
+      dias: c.dias,
+      diasCadastro: diasAbertos(l.horarios),
+      minimos: c.premissas.minimos,
+      quadro: s.quadro,
+      vendas: base?.vendas ?? [],
+      custos: custosDaSimulacao(c.premissas.custos, l),
+      parametros: tabela,
+      dono,
+    });
     return {
       id: s.id,
       lojaId: s.lojaId,
@@ -138,6 +155,17 @@ export const makeSimulacoesService = (
         dias: c.regra.dias,
       },
       origemId: s.origemId,
+      numeroCenario: s.numeroCenario,
+      // Para o cabeçalho da tela: nome da loja, regime e (só o dono) o total de encargos.
+      loja: {
+        nome: l.nome,
+        regime: l.encargos?.regime ?? l.regimeTributario ?? null,
+        ...(dono ? { encargosPct: l.encargos?.totalPct ?? null } : {}),
+      },
+      // Número do botão "Salvar como cenário N" (só enquanto é rascunho).
+      ...(s.status === 'rascunho'
+        ? { proximoNumeroCenario: await repo.proximoNumeroCenario(s.lojaId) }
+        : {}),
       autor: s.autor,
       criadaEm: s.criadaEm,
       gravadaEm: s.gravadaEm,
@@ -151,6 +179,7 @@ export const makeSimulacoesService = (
       quadro: s.quadro,
       turnos: s.turnos,
       avaliacao,
+      resultado,
       // Custo só sai para o dono do grupo: para os outros o campo nem existe.
       ...(perfil === 'TENANT_ADMIN'
         ? {
@@ -283,6 +312,7 @@ export const makeSimulacoesService = (
         turnos?: TurnoSim[];
         vagas?: VagaEntrada[];
         desligados?: string[];
+        horarios?: unknown;
       },
       perfil: string,
     ) {
@@ -324,13 +354,27 @@ export const makeSimulacoesService = (
           });
       }
       if (turnos) validarTurnos({ ...s, quadro: quadro ?? s.quadro }, turnos);
-      await repo.atualizarRascunho(id, { nome: b.nome, regra: b.regra, turnos, quadro });
+      await repo.atualizarRascunho(id, {
+        nome: b.nome,
+        regra: b.regra,
+        turnos,
+        quadro,
+        horarios: b.horarios,
+      });
+      if (b.horarios !== undefined)
+        await auditar({
+          acao: 'simulacao.horario-ajustado',
+          perfil,
+          alvoTipo: 'simulacao',
+          alvoId: id,
+          detalhe: { voltouAoCadastro: b.horarios === null },
+        });
       if (b.turnos)
         await auditar({ acao: 'simulacao.ajustada', perfil, alvoTipo: 'simulacao', alvoId: id });
       return detalhe(await simulacao(id), perfil);
     },
 
-    async gravar(id: string, perfil: string) {
+    async gravar(id: string, perfil: string, comoCenario = false) {
       const s = await simulacao(id);
       if (s.status !== 'rascunho')
         throw new ConflictError('Só rascunho pode ser gravado.', 'SIMULACAO_NAO_EDITAVEL');
@@ -345,6 +389,11 @@ export const makeSimulacoesService = (
         id,
         { ...c.premissas, regra: s.regra },
         { erros: 0, avisos: avaliacao.avisos.length, porPessoa: avaliacao.porPessoa },
+        // Todo cenário salvo ganha um número da loja (1, 2, 3…); só "Salvar como cenário" troca o nome.
+        await (async () => {
+          const numero = await repo.proximoNumeroCenario(s.lojaId);
+          return { numero, nome: comoCenario ? `Cenário ${numero}` : s.nome };
+        })(),
       );
       await auditar({ acao: 'simulacao.gravada', perfil, alvoTipo: 'simulacao', alvoId: id });
       return detalhe(await simulacao(id), perfil);

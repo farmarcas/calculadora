@@ -6,7 +6,7 @@ import EnviarPlanilhas from "./EnviarPlanilhas.jsx";
 import GradeTab from "../grade/GradeTab.jsx";
 import { cuidaDoGrupo } from "../../api/perfis.js";
 
-export default function EscalaPage({ perfil }) {
+export default function EscalaPage({ perfil, onIrCadastros }) {
   const podeEscrever = cuidaDoGrupo(perfil);
   const [lojas, setLojas] = useState([]);
   const [lojaId, setLojaId] = useState("");
@@ -73,7 +73,7 @@ export default function EscalaPage({ perfil }) {
       <Abas opcoes={[["diagnostico", "Diagnóstico"], ["grade", "Simulações"]]} valor={aba} onChange={setAba} rotulo="Seções da Escala" />
 
       {!diag && !erro && aba !== "grade" && <p className="text-sm text-ink-500">Carregando…</p>}
-      {diag && aba === "diagnostico" && <Diagnostico diag={diag} podeEscrever={podeEscrever} onEnviar={() => setEnviando(true)} onRecarregar={carregar} onSimular={(id) => { setAbrirSim(id); setAba("grade"); }} />}
+      {diag && aba === "diagnostico" && <Diagnostico diag={diag} podeEscrever={podeEscrever} onEnviar={() => setEnviando(true)} onRecarregar={carregar} onDefinirFuncao={onIrCadastros} onSimular={(id) => { setAbrirSim(id); setAba("grade"); }} />}
       {aba === "grade" && <GradeTab lojaId={lojaId} perfil={perfil} podeEscrever={podeEscrever} abrirId={abrirSim} />}
       {enviando && <EnviarPlanilhas onClose={() => setEnviando(false)} onConcluido={carregar} />}
     </>

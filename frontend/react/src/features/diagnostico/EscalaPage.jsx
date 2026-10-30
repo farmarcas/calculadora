@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../../api/client.js";
-import { Abas, Aviso, Botao, Cartao, entrada } from "../../components/ui/index.jsx";
+import { Abas, Aviso, Botao, Cartao, Dica, entrada } from "../../components/ui/index.jsx";
 import Diagnostico from "./Diagnostico.jsx";
 import EnviarPlanilhas from "./EnviarPlanilhas.jsx";
 import GradeTab from "../grade/GradeTab.jsx";
 import { cuidaDoGrupo } from "../../api/perfis.js";
+
+// Mesmo texto que o servidor devolve em `avisoEstimativa`; vale enquanto o diagnóstico ainda carrega.
+const AVISO_ESTIMATIVA = "Este resultado é uma estimativa. Valide com o seu contador e com a convenção coletiva do sindicato antes de decidir.";
 
 export default function EscalaPage({ perfil, onIrCadastros }) {
   const podeEscrever = cuidaDoGrupo(perfil);
@@ -54,7 +57,10 @@ export default function EscalaPage({ perfil, onIrCadastros }) {
     <>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="m-0 text-2xl font-bold">Escala</h1>
+          <h1 className="m-0 flex items-center gap-2 text-2xl font-bold">
+            Escala de Trabalho
+            <Dica rotulo="Aviso sobre a estimativa" largura={340}>{diag?.avisoEstimativa ?? AVISO_ESTIMATIVA}</Dica>
+          </h1>
           <p className="mt-1 mb-0 text-sm text-ink-500">Diagnóstico da escala atual frente às regras de 42h e 40h (EC 141/2026).</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">

@@ -1,4 +1,5 @@
-import { useEffect } from "react";
+import { useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 // Alquimia DS · Button: 40 px (normal) ou 32 px (pequeno), 14 px / 12 px em negrito, raio de 4 px.
 // primario = primary-filled · secundario = primary-outline · texto = primary-unfilled (ação de linha: pequeno).
@@ -128,5 +129,47 @@ export function Modal({ titulo, onClose, children, largo = false }) {
         <div className="p-6">{children}</div>
       </div>
     </div>
+  );
+}
+
+// Dica ("i"): abre ao passar o mouse, ao focar com o teclado e ao tocar; Esc fecha. O balão fica num portal com posição fixa,
+// então nenhum quadro com overflow corta ele. `rotulo` é o nome acessível do botão; `children` é o conteúdo do balão.
+export function Dica({ rotulo, children, largura = 320, className = "" }) {
+  const id = useId();
+  const botao = useRef(null);
+  const [pos, setPos] = useState(null);
+  const abrir = () => {
+    const r = botao.current?.getBoundingClientRect();
+    if (!r) return;
+    const w = Math.min(largura, window.innerWidth - 16);
+    setPos({ top: r.bottom + 8, left: Math.max(8, Math.min(window.innerWidth - w - 8, r.left + r.width / 2 - w / 2)), largura: w });
+  };
+  const fechar = () => setPos(null);
+  return (
+    <>
+      <button
+        ref={botao}
+        type="button"
+        aria-label={rotulo}
+        aria-describedby={pos ? id : undefined}
+        aria-expanded={!!pos}
+        onMouseEnter={abrir}
+        onMouseLeave={fechar}
+        onFocus={abrir}
+        onBlur={fechar}
+        onClick={() => (pos ? fechar() : abrir())}
+        onKeyDown={(e) => e.key === "Escape" && fechar()}
+        className={`inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-[var(--text-secondary)] bg-transparent p-0 text-[10px] leading-none font-bold text-[var(--text-secondary)] cursor-pointer hover:text-[var(--color-primary)] hover:border-[var(--color-primary)] focus-visible:outline-2 focus-visible:outline-[var(--border-focus)] ${className}`}
+      >
+        i
+      </button>
+      {pos &&
+        createPortal(
+          <div id={id} role="tooltip" className="fixed z-50 rounded-card border border-line bg-[var(--surface-card)] p-3 shadow-pop text-left text-sm font-normal normal-case text-[var(--text-secondary)]" style={{ top: pos.top, left: pos.left, width: pos.largura }}>
+            {children}
+          </div>,
+          document.body,
+        )}
+    </>
   );
 }

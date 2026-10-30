@@ -44,6 +44,27 @@ export const gerarModelo = async (): Promise<Buffer> => {
     [
       'Horários no formato HH:MM. Use apenas dados fictícios enquanto o parecer de proteção de dados não existir.',
     ],
+    [''],
+    ['Aba Lojas: configuração para o cálculo da Escala'],
+    ['"Convenção permite 8h24": Sim ou Não. Define se a regra de 42h cabe em 5 dias.'],
+    [
+      '"Meta de <função>": quantas pessoas por hora a loja quer ter. Em branco vale o nível de hoje; Farmacêutico é sempre ao menos 1.',
+    ],
+    [
+      '"Salário médio" e "Encargos (%)": só o dono do grupo grava; para os outros perfis essas colunas são ignoradas. O encargo é obrigatório para os custos serem gravados.',
+    ],
+    ['"Faturamento" e "Margem": também só o dono grava.'],
+    [''],
+    ['Aba Funcionários'],
+    [
+      '"Horário fixo": Sim ou Não. Quem tem horário fixo não é remanejado na redistribuição da escala.',
+    ],
+    [''],
+    ['Quem importa o quê'],
+    [
+      'O operador cria e atualiza lojas. O dono atualiza as lojas que já existem (horário, faturamento, margem e configuração), mas não cria loja nem muda código ou CNPJ. O gestor importa só a equipe.',
+    ],
+    ['Coluna em branco mantém o que já está cadastrado: vazio nunca apaga.'],
   ]);
   ajuda.getColumn(1).width = 110;
   return Buffer.from(await wb.xlsx.writeBuffer());

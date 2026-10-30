@@ -13,6 +13,29 @@ describe('inferirMapeamento', () => {
     expect(mapeamento.funcionarios?.colunas.loja).toBe(2);
   });
 
+  it('o modelo novo é reconhecido inteiro: configuração, custos e horário fixo entram no mapeamento', async () => {
+    const abas = await lerPlanilha(await gerarModelo(), 'modelo.xlsx');
+    const { mapeamento } = inferirMapeamento(abas.filter((a) => a.nome !== 'Como preencher'));
+    const lojas = mapeamento.lojas!.colunas;
+    for (const chave of [
+      'convencao_8h24',
+      'meta_farmaceutico',
+      'meta_atendimento',
+      'meta_caixa',
+      'meta_apoio',
+      'meta_perfumaria',
+      'salario_farmaceutico',
+      'salario_atendimento',
+      'salario_caixa',
+      'salario_apoio',
+      'salario_perfumaria',
+      'encargos_pct',
+    ])
+      expect(lojas[chave], chave).not.toBeNull();
+    expect(mapeamento.funcionarios!.colunas.horario_fixo).not.toBeNull();
+    expect(mapeamento.funcionarios!.colunas.horario_fixo).not.toBeUndefined();
+  });
+
   it('entende colunas com outros nomes, outra ordem e abas com outros títulos', () => {
     const { mapeamento } = inferirMapeamento([
       {

@@ -15,6 +15,7 @@ import { lerDias, lerHora } from '../escala/interpretar.js';
 import { normalizar } from '../planilhas/normalizar.js';
 import { decimalParaHora, semanalDeMensal } from './carga.js';
 import { faturamentoDaLinha, type Faturamento } from './faturamento.js';
+import { configuracaoDaLinha, lerSimNao, type ConfiguracaoLinha } from './configuracao.js';
 
 // Aceita "Simples Nacional", "Lucro Presumido", "Lucro Real" (e variações); qualquer outra coisa fica em branco.
 export const interpretarRegime = (texto: string) => {
@@ -36,6 +37,8 @@ export type LojaInput = {
   regimeTributario?: 'simples' | 'presumido' | 'real';
   faturamento?: Faturamento;
   horarios?: HorariosSemana;
+  // Convenção, metas e custos (a gravação decide o que o perfil de quem importa pode gravar).
+  configuracao?: ConfiguracaoLinha;
 };
 export type FuncionarioInput = {
   matricula: string;
@@ -50,6 +53,7 @@ export type FuncionarioInput = {
   saida?: string;
   dias?: number[];
   regime?: string;
+  horarioFixo?: boolean;
 };
 export type ErroLinha = { aba: string; linha: number; motivo: string };
 export type Processado = {
@@ -158,6 +162,8 @@ export const processarLinhas = (abas: Aba[], mapa: Mapeamento): Processado => {
       if (h.erro) return erro(h.erro);
       const fat = faturamentoDaLinha((chave) => celula(l, mapa.lojas!, chave));
       if (fat.erro) return erro(fat.erro);
+      const conf = configuracaoDaLinha((chave) => celula(l, mapa.lojas!, chave));
+      if (conf.erro) return erro(conf.erro);
       vistosLoja.add(codigo);
       out.lojas.push({
         codigo,
@@ -169,6 +175,7 @@ export const processarLinhas = (abas: Aba[], mapa: Mapeamento): Processado => {
         regimeTributario: interpretarRegime(celula(l, mapa.lojas!, 'regime_tributario')),
         faturamento: fat.faturamento,
         horarios: h.horarios,
+        configuracao: conf.configuracao,
       });
     });
   }
@@ -208,6 +215,8 @@ export const processarLinhas = (abas: Aba[], mapa: Mapeamento): Processado => {
       const diasTxt = celula(l, m, 'dias');
       const dias = diasTxt ? lerDias(diasTxt) : null;
       if (diasTxt && !dias) return erro('Dias trabalhados inválidos');
+      const fixo = lerSimNao(celula(l, m, 'horario_fixo'));
+      if (Number.isNaN(fixo)) return erro('Horário fixo: use Sim ou Não');
       const cargo = celula(l, m, 'cargo') || undefined;
       vistosMat.add(matricula);
       out.funcionarios.push({
@@ -223,6 +232,7 @@ export const processarLinhas = (abas: Aba[], mapa: Mapeamento): Processado => {
         saida: saida === null ? undefined : decimalParaHora(saida!),
         dias: dias ?? undefined,
         regime: celula(l, m, 'regime') || undefined,
+        horarioFixo: fixo === null ? undefined : (fixo as boolean),
       });
     });
   }

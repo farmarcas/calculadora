@@ -3,6 +3,7 @@ import { api } from "../../api/client.js";
 import { Aviso, Botao, Campo, Cartao, entrada } from "../../components/ui/index.jsx";
 import FaturamentoLoja, { erroDeFaturamento, faturamentoParaApi, faturamentoParaEdicao } from "./FaturamentoLoja.jsx";
 import EquipeLoja from "./EquipeLoja.jsx";
+import ConfiguracaoLoja from "./ConfiguracaoLoja.jsx";
 import HorarioSemana, { erroDeHorario, paraApi, paraEdicao } from "./HorarioSemana.jsx";
 import { cuidaDoGrupo, ehOperador, formatarCnpj } from "../../api/perfis.js";
 
@@ -27,6 +28,7 @@ export default function FormLoja({ registro, perfil, onClose, onSalvo }) {
   const [fat, setFat] = useState(() => faturamentoParaEdicao(registro?.faturamento));
   const [mexeuNoHorario, setMexeuNoHorario] = useState(false);
   const [erro, setErro] = useState(null);
+  const [aba, setAba] = useState("dados");
   const set = (k) => (e) => setV({ ...v, [k]: e.target.value });
 
   const salvar = async (e) => {
@@ -61,6 +63,24 @@ export default function FormLoja({ registro, perfil, onClose, onSalvo }) {
         <h1 className="mt-2 mb-0 text-2xl font-bold">{registro ? `Editar loja · ${registro.nome}` : "Nova loja"}</h1>
         {registro && <p className="mt-1 mb-0 text-sm text-ink-500">Código {registro.codigo}{registro.cnpj ? ` · CNPJ ${formatarCnpj(registro.cnpj)}` : ""}</p>}
       </div>
+      {registro && (
+        <div className="flex gap-6 border-b border-line" role="tablist" aria-label="Seções da loja">
+          {[["dados", "Dados da loja"], ["funcionarios", `Funcionários e configuração`]].map(([id, r]) => (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              aria-selected={aba === id}
+              onClick={() => setAba(id)}
+              className={`py-3 text-sm font-medium ${aba === id ? "text-ink-900" : "text-ink-500"}`}
+              style={{ boxShadow: aba === id ? "inset 0 -2px 0 0 #006FF7" : "none" }}
+            >
+              {r}
+            </button>
+          ))}
+        </div>
+      )}
+      {aba === "dados" && (
       <form onSubmit={salvar} className="flex flex-col gap-6">
         {erro && <Aviso>{erro}</Aviso>}
         <Cartao titulo="Dados da loja">
@@ -92,11 +112,17 @@ export default function FormLoja({ registro, perfil, onClose, onSalvo }) {
           <Botao onClick={salvar}>Salvar</Botao>
         </div>
       </form>
-      {registro ? (
-        <EquipeLoja lojaId={registro.id} podeEscrever={cuidaDoGrupo(perfil)} />
-      ) : (
-        <p className="m-0 text-xs text-ink-500">Salve a loja para cadastrar a equipe dela aqui.</p>
       )}
+      {registro && aba === "funcionarios" && (
+        <>
+          <EquipeLoja lojaId={registro.id} podeEscrever={cuidaDoGrupo(perfil)} />
+          <div>
+            <h2 className="m-0 mb-3 text-base font-bold">Configuração da loja</h2>
+            <ConfiguracaoLoja lojaId={registro.id} perfil={perfil} podeEscrever={cuidaDoGrupo(perfil)} />
+          </div>
+        </>
+      )}
+      {!registro && <p className="m-0 text-xs text-ink-500">Salve a loja para cadastrar a equipe e configurar o cálculo dela aqui.</p>}
     </div>
   );
 }

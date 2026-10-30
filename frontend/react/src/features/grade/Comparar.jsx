@@ -142,7 +142,7 @@ export default function Comparar({ lojaId, ids, onVoltar, onAprovar, podeAprovar
             </tbody>
           </table>
         </div>
-        {semCustos && <div className="px-6 py-3 border-t border-line"><Aviso tom="atencao">Custos não informados: preencha o salário médio por função em Cadastros › Configuração para ver os valores.</Aviso></div>}
+        {semCustos && <div className="px-6 py-3 border-t border-line"><Aviso tom="atencao">Custos não informados: preencha o salário médio por função em Cadastros › Lojas › Editar › Funcionários e configuração para ver os valores.</Aviso></div>}
         {faltam.length > 0 && <div className="px-6 py-3 border-t border-line"><Aviso tom="atencao">Falta o salário médio de: {faltam.join(", ")}. Sem ele, o total não é mostrado.</Aviso></div>}
         {temCusto && <p className="m-0 px-6 py-3 text-xs text-ink-500 border-t border-line">Estimativa gerencial por média de função. Quem já é contratado mantém o salário; vaga nova custa proporcional à carga. Valores das regras ainda sem validação jurídica.</p>}
       </Cartao>

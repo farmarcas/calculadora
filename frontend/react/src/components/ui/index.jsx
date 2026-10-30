@@ -126,7 +126,7 @@ export function Segmentado({ opcoes = [], valor, onChange, rotulo, desabilitado 
 }
 
 // Passo numerado de uma tela em etapas: círculo de 24 px, título e subtítulo.
-export const Passo = ({ numero, titulo, subtitulo, children }) => (
+export const Passo = ({ numero, titulo, subtitulo, semMargem = false, children }) => (
   <section aria-labelledby={`passo-${numero}`} className="rounded-card border border-[var(--border-subtle)] bg-[var(--surface-card)] shadow-card">
     <header className="flex items-start gap-3 px-6 pt-5 pb-4">
       <span aria-hidden="true" className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--neutral-dark-900)] text-xs font-bold text-white">{numero}</span>
@@ -135,7 +135,7 @@ export const Passo = ({ numero, titulo, subtitulo, children }) => (
         {subtitulo && <p className="m-0 mt-0.5 text-sm text-[var(--text-secondary)]">{subtitulo}</p>}
       </div>
     </header>
-    <div className="px-6 pb-6">{children}</div>
+    <div className={semMargem ? "" : "px-6 pb-6"}>{children}</div>
   </section>
 );
 

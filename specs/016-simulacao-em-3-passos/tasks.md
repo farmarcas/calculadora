@@ -26,6 +26,6 @@
 - [x] T017 Rodar a tela em 1440/1100/768/420 e commitar a fatia
 
 ## Fatia 5 — Passos 2 e 3 (US4, US5)
-- [ ] T018 `PassoContratacoes.jsx`: tabela por função, botões + Integral 40h / Parcial 16h / Parcial 24h, Remover, resultado, custo, rodapé com total e "Sem hora extra"
-- [ ] T019 `PassoEscala.jsx`: grade por função com cores, Folga, Fechada, "Ver mais N pessoas", clique no dia abre o ajuste por hora (reaproveita `Grade.jsx`)
-- [ ] T020 Conferência final: SC-001 a SC-005, rolagem horizontal, teclado, README, tela antiga fora do fluxo; rodar tudo e commitar
+- [x] T018 `PassoContratacoes.jsx`: tabela por função, botões + Integral 40h / Parcial 16h / Parcial 24h, Remover, resultado, custo, rodapé com total e "Sem hora extra"
+- [x] T019 `PassoEscala.jsx`: grade por função com cores, Folga, Fechada, "Ver mais N pessoas", clique no dia abre o ajuste por hora (reaproveita `Grade.jsx`)
+- [x] T020 Conferência final: SC-001 a SC-005, rolagem horizontal, teclado, README, tela antiga fora do fluxo; rodar tudo e commitar

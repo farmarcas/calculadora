@@ -30,3 +30,12 @@ export const minutos = (t) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3));
 
 // Valor curto para o rótulo do gráfico: 1.700 → "1,7 mil".
 export const curto = (n) => (n >= 1000 ? `${(n / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} mil` : Math.round(n).toLocaleString("pt-BR"));
+
+// Cor de cada função, a mesma na tabela de contratações e na escala da semana.
+export const COR_FUNCAO = {
+  "Farmacêutico": "var(--func-success-100)",
+  Atendimento: "var(--system-100)",
+  Caixa: "var(--func-attention-100)",
+};
+export const corDaFuncao = (f) => COR_FUNCAO[f] ?? "var(--surface-muted)";
+export const ORDEM_FUNCOES = ["Farmacêutico", "Atendimento", "Caixa"];

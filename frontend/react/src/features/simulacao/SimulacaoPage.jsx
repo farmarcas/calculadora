@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { api } from "../../api/client.js";
-import { Aviso, Botao, Passo } from "../../components/ui/index.jsx";
+import { Aviso, Botao } from "../../components/ui/index.jsx";
 import Aprovar from "../grade/Aprovar.jsx";
-import Vagas from "../grade/Vagas.jsx";
 import BarraParametros from "./BarraParametros.jsx";
 import PainelResultado from "./PainelResultado.jsx";
+import PassoContratacoes from "./PassoContratacoes.jsx";
+import PassoEscala from "./PassoEscala.jsx";
 import PassoHorario from "./PassoHorario.jsx";
 import useSimulacao from "./useSimulacao.js";
 
@@ -98,14 +99,10 @@ export default function SimulacaoPage({ id, perfil, podeEscrever, aviso, onVolta
       <BarraParametros sim={sim} editavel={editavel} modoHorario={modoHorario} onModoHorario={trocarModo} onRegra={(regra) => salvar({ regra })} />
 
       <div className="sim-grade">
-        <div className="flex flex-col gap-4 min-w-0">
+        <div className="sim-esq flex flex-col gap-4 min-w-0">
           <PassoHorario sim={sim} editavel={editavel} modo={modoHorario} onSalvarHorarios={(horarios) => salvar({ horarios })} />
-          <Passo numero={2} titulo="Contratações por função" subtitulo="Contratação simulada não cria funcionário.">
-            <Vagas quadro={sim.quadro} editavel={editavel} onSalvar={salvar} />
-          </Passo>
-          <Passo numero={3} titulo="Escala da semana" subtitulo="Entrada e saída de cada pessoa.">
-            <p className="m-0 text-sm text-[var(--text-secondary)]">{sim.quadro.filter((p) => !p.desligado).length} pessoas no quadro. A grade por função chega numa etapa seguinte.</p>
-          </Passo>
+          <PassoContratacoes sim={sim} editavel={editavel} dono={dono} onSalvar={salvar} />
+          <PassoEscala sim={sim} editavel={editavel} onSalvarTurnos={(turnos) => salvar({ turnos })} />
         </div>
         <PainelResultado sim={sim} calculando={calculando} modoHorario={modoHorario} dono={dono} podeEscrever={podeEscrever} salvando={salvando} onSalvar={salvarComoCenario} onClonar={clonar} />
       </div>

@@ -258,8 +258,14 @@ export default function Diagnostico({ diag, podeEscrever, onEnviar, onSimular })
       <QuadroCentral diag={diag} regraId={regraId} onRegra={setRegraId} podeEscrever={podeEscrever} onEnviar={onEnviar} />
 
       {/* Logo depois do diagnóstico: os caminhos lado a lado e, abaixo, o detalhe de cada cenário. */}
-      <Comparativo comparativo={diag.cenarios?.[regraId]?.comparativo} cenarios={diag.cenarios?.[regraId]} />
-      <Cenarios cenarios={diag.cenarios?.[regraId]} origemVendas={diag.origemVendas} etapas={diag.etapas} />
+      {regraId === "atual" ? (
+        <Aviso tom="neutro">Os cenários de economia e equilíbrio valem para as regras que vêm aí (42h e 40h). Escolha uma delas acima para vê-los. Aqui você vê como a loja está hoje, na regra de 44h.</Aviso>
+      ) : (
+        <>
+          <Comparativo comparativo={diag.cenarios?.[regraId]?.comparativo} cenarios={diag.cenarios?.[regraId]} />
+          <Cenarios cenarios={diag.cenarios?.[regraId]} origemVendas={diag.origemVendas} etapas={diag.etapas} />
+        </>
+      )}
 
       <QuadroTurnos quadro={diag.quadroTurnos} />
 

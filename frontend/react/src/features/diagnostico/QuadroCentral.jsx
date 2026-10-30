@@ -34,22 +34,24 @@ function Numero({ rotulo, valor, legenda, tom = "neutro" }) {
 // O quadro central da aba: a frase do diagnóstico e, logo abaixo, os números grandes
 // (da regra escolhida e dos pontos de atenção). É a primeira coisa que a pessoa lê.
 export default function QuadroCentral({ diag, regraId, onRegra, podeEscrever, onEnviar }) {
-  const regras = diag.regras.filter((r) => r.id !== "atual");
+  const regras = diag.regras;
   const regra = diag.regras.find((r) => r.id === regraId);
   const atual = diag.regras.find((r) => r.id === "atual");
   const n = diag.numeros;
   const folha = diag.folhaMensal;
   const comLacunas = n.faixasSemFarmaceutico + n.faixasAbaixoDoMinimo > 0;
 
+  const nomeRegra = regra.id === "atual" ? "44h (hoje)" : regra.nome;
+
   const chip = regra.passa
     ? comLacunas
-      ? ["atencao", `Passa na regra de ${regra.nome}, com faixas descobertas`]
-      : ["ok", `Passa na regra de ${regra.nome}`]
-    : ["erro", `Falta na regra de ${regra.nome}`];
+      ? ["atencao", `Passa na regra de ${nomeRegra}, com faixas descobertas`]
+      : ["ok", `Passa na regra de ${nomeRegra}`]
+    : ["erro", `Falta na regra de ${nomeRegra}`];
 
   const manchete = regra.passa
-    ? `Na regra de ${regra.nome}, o quadro atual cobre as horas e os turnos da loja.`
-    : `Na regra de ${regra.nome}, faltam ${juntar(faltas(regra, "horas"))}.`;
+    ? `Na regra de ${nomeRegra}, o quadro atual cobre as horas e os turnos da loja.`
+    : `Na regra de ${nomeRegra}, faltam ${juntar(faltas(regra, "horas"))}.`;
   const hoje = atual.passa
     ? "Hoje, na regra atual (44h): o quadro cobre as horas e os turnos."
     : `Hoje, na regra atual (44h): já faltam ${juntar(faltas(atual, "horas"))}.`;
@@ -67,7 +69,7 @@ export default function QuadroCentral({ diag, regraId, onRegra, podeEscrever, on
               onClick={() => onRegra(r.id)}
               className={`px-4 py-2 text-sm font-medium ${regraId === r.id ? "bg-ink-900 text-white" : "text-ink-700 hover:bg-surface-subtle"}`}
             >
-              {r.nome} · a partir de {r.vigencia}
+              {r.id === "atual" ? "44h · hoje" : `${r.nome} · a partir de ${r.vigencia}`}
             </button>
           ))}
         </div>
@@ -80,7 +82,7 @@ export default function QuadroCentral({ diag, regraId, onRegra, podeEscrever, on
           <Ficha tom={chip[0]}>{chip[1]}</Ficha>
         </div>
         <h3 className="m-0 text-xl font-bold">{manchete}</h3>
-        <p className="m-0 text-sm text-ink-700">{hoje}</p>
+        {regra.id !== "atual" && <p className="m-0 text-sm text-ink-700">{hoje}</p>}
 
         <div className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(180px,1fr))]">
           {folha &&
@@ -93,7 +95,7 @@ export default function QuadroCentral({ diag, regraId, onRegra, podeEscrever, on
             ) : (
               <Numero rotulo="Folha mensal atual" valor="—" legenda="informe os custos em Cadastros › Configuração" />
             ))}
-          <Numero rotulo="Turnos de farmacêutico em falta" valor={regra.resumo.turnosEmFalta} legenda={`apoio ao gap em horas · regra de ${regra.nome}`} tom={regra.resumo.turnosEmFalta > 0 ? "erro" : "ok"} />
+          <Numero rotulo="Turnos de farmacêutico em falta" valor={regra.resumo.turnosEmFalta} legenda={`apoio ao gap em horas · regra de ${nomeRegra}`} tom={regra.resumo.turnosEmFalta > 0 ? "erro" : "ok"} />
           <Numero rotulo="Saldo de horas" valor={`${sinal(regra.resumo.saldoHoras)}h`} legenda="por semana · capacidade − necessidade ou meta" tom={regra.resumo.saldoHoras < 0 ? "atencao" : "neutro"} />
           <Numero rotulo="Contratações sugeridas" valor={regra.resumo.contratar} legenda={regra.resumo.contratar === 1 ? "pessoa (veja o detalhe abaixo)" : "pessoas (veja o detalhe abaixo)"} tom={regra.resumo.contratar > 0 ? "atencao" : "ok"} />
           <Numero rotulo="Funcionários" valor={n.colaboradoresNoCalculo} legenda="no cálculo da escala atual" />

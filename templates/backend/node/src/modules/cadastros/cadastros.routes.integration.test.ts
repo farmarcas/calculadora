@@ -665,6 +665,38 @@ describe('cadastros (rotas)', () => {
       expect(l?.faturamento).toBeNull();
     });
 
+    it('volume: o dono atualiza 40 lojas e 60 funcionários com uma só planilha em poucos segundos (SC-002)', async () => {
+      const codigos = Array.from({ length: 40 }, (_, i) => String(100 + i));
+      for (const c of codigos) await postLoja({ codigo: c, nome: `Loja ${c}` });
+      const lojas = codigos.map((c, i) => [
+        c,
+        `Loja ${c}`,
+        i % 2 ? 'Sim' : 'Não',
+        '2',
+        '1',
+        '2100',
+        '66',
+        '250000',
+      ]);
+      const funcs = Array.from({ length: 60 }, (_, i) => [
+        `V${i}`,
+        `Pessoa ${i}`,
+        codigos[i % 40]!,
+        i % 3 ? 'Não' : 'Sim',
+      ]);
+      const inicio = Date.now();
+      const { ok } = await importar(admin, await planilha(lojas, funcs, cabL, cabF));
+      const segundos = (Date.now() - inicio) / 1000;
+      expect(ok.status).toBe(200);
+      expect(ok.body.erros).toEqual([]);
+      expect(ok.body.lojas).toEqual({ novos: 0, atualizados: 40 });
+      expect(ok.body.funcionarios).toEqual({ novos: 60, atualizados: 0 });
+      expect(segundos).toBeLessThan(20);
+      expect((await loja('101'))?.convencao8h24).toBe(true);
+      expect((await loja('100'))?.convencao8h24).toBe(false);
+      expect(await prisma.funcionario.count({ where: { horarioFixo: true } })).toBe(20);
+    });
+
     it('planilha antiga, sem as colunas novas, importa como antes e não apaga a configuração', async () => {
       const id = (await loja('070'))!.id;
       await reqGe()

@@ -36,9 +36,9 @@
 
 ## Fatia 4 — Fechamento
 
-- [ ] T017 Conferência com uma planilha real: baixar o modelo, preencher algumas lojas do grupo 216 e a equipe, importar como dono e conferir a edição das lojas (tempo para as 37 lojas abaixo de 1 minuto, SC-002)
-- [ ] T018 Documentação: README (importação em massa, colunas novas, quem importa o quê), `scripts/sync-templates.sh`, `scripts/check-repo.sh`
-- [ ] T019 Conferência final: `npm test`, `npm run test:integration`, `npm run lint`, `npx tsc --noEmit`, build do `web`, `quickstart.md` do começo ao fim; commitar
+- [x] T017 Conferência com uma planilha real: baixar o modelo, preencher algumas lojas do grupo 216 e a equipe, importar como dono e conferir a edição das lojas (tempo para as 37 lojas abaixo de 1 minuto, SC-002)
+- [x] T018 Documentação: README (importação em massa, colunas novas, quem importa o quê), `scripts/sync-templates.sh`, `scripts/check-repo.sh`
+- [x] T019 Conferência final: `npm test`, `npm run test:integration`, `npm run lint`, `npx tsc --noEmit`, build do `web`, `quickstart.md` do começo ao fim; commitar
 
 ## Dependências e ordem
 

@@ -3,11 +3,10 @@ import { api, baixarModelo } from "../../api/client.js";
 import { Aviso, Botao, Cartao, Ficha } from "../../components/ui/index.jsx";
 import FormLoja from "./FormLoja.jsx";
 import ImportarPlanilha from "./ImportarPlanilha.jsx";
-import ConfiguracaoLoja from "./ConfiguracaoLoja.jsx";
 import ParametrosLegais from "../parametros/ParametrosLegais.jsx";
 import { cuidaDoGrupo, editaLoja, ehOperador, formatarCnpj } from "../../api/perfis.js";
 
-const SECOES = [["cadastro", "Lojas e funcionários"], ["configuracao", "Configuração da loja"], ["parametros", "Parâmetros legais"]];
+const SECOES = [["cadastro", "Lojas"], ["parametros", "Parâmetros legais"]];
 
 const TH = "text-left text-[11px] font-bold uppercase tracking-wide text-ink-500 px-6 py-3";
 const TD = "px-6 py-3 border-t border-line";
@@ -89,7 +88,6 @@ export default function CadastrosPage({ perfil }) {
         ))}
       </div>
 
-      {secao === "configuracao" && <ConfiguracaoLoja perfil={perfil} podeEscrever={podeEscrever} />}
       {secao === "parametros" && <ParametrosLegais perfil={perfil} />}
 
       {secao === "cadastro" && (<>

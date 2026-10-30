@@ -17,12 +17,12 @@
 
 **Teste independente**: o dono atualiza lojas existentes e a loja fica como na edição manual; loja inexistente vira erro; o gestor ignora a aba Lojas com aviso.
 
-- [ ] T006 [US2] `cadastros/cadastros.repository.ts`: método para gravar configuração (convenção, metas com mescla) e custos (salário com mescla e encargos) da loja; `horarioFixo` no criar e atualizar funcionário
-- [ ] T007 [US3] `cadastros/cadastros.service.ts` (`confirmarImportacao`): operador como hoje; dono só atualiza lojas existentes (loja nova = erro "Loja não cadastrada: só o operador cria lojas"; código e CNPJ diferentes ignorados com aviso); gestor ignora a aba Lojas com aviso; salário, encargos, faturamento e margem só do dono, citados nos avisos para os demais
-- [ ] T008 [US2] Custos incompletos: salário sem encargos (e sem encargos gravados) não grava custo e avisa; vazio nunca apaga
-- [ ] T009 [US4] Resumo: campo `avisos` e `linha` real nos erros de loja e de funcionário (hoje `linha: 0`); auditoria cita avisos
-- [ ] T010 [US3] Testes de integração (`cadastros.routes.integration.test.ts`): operador cria e atualiza; dono atualiza horário, margem, convenção, metas e custos de loja existente e recebe erro para loja nova; gestor importa equipe e a aba Lojas é ignorada com aviso; vazio mantém; planilha antiga funciona; horário fixo gravado; o resultado é o mesmo da edição manual (SC-003)
-- [ ] T011 Rodar tudo e commitar a fatia
+- [x] T006 [US2] `cadastros/cadastros.repository.ts`: método para gravar configuração (convenção, metas com mescla) e custos (salário com mescla e encargos) da loja; `horarioFixo` no criar e atualizar funcionário
+- [x] T007 [US3] `cadastros/cadastros.service.ts` (`confirmarImportacao`): operador como hoje; dono só atualiza lojas existentes (loja nova = erro "Loja não cadastrada: só o operador cria lojas"; código e CNPJ diferentes ignorados com aviso); gestor ignora a aba Lojas com aviso; salário, encargos, faturamento e margem só do dono, citados nos avisos para os demais
+- [x] T008 [US2] Custos incompletos: salário sem encargos (e sem encargos gravados) não grava custo e avisa; vazio nunca apaga
+- [x] T009 [US4] Resumo: campo `avisos` e `linha` real nos erros de loja e de funcionário (hoje `linha: 0`); auditoria cita avisos
+- [x] T010 [US3] Testes de integração (`cadastros.routes.integration.test.ts`): operador cria e atualiza; dono atualiza horário, margem, convenção, metas e custos de loja existente e recebe erro para loja nova; gestor importa equipe e a aba Lojas é ignorada com aviso; vazio mantém; planilha antiga funciona; horário fixo gravado; o resultado é o mesmo da edição manual (SC-003)
+- [x] T011 Rodar tudo e commitar a fatia
 
 ## Fatia 3 — Tela (US1 + US4)
 

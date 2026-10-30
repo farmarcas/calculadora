@@ -39,6 +39,8 @@ export type LojaInput = {
   horarios?: HorariosSemana;
   // Convenção, metas e custos (a gravação decide o que o perfil de quem importa pode gravar).
   configuracao?: ConfiguracaoLinha;
+  // Linha da planilha (para citar nos avisos e erros da gravação).
+  linha?: number;
 };
 export type FuncionarioInput = {
   matricula: string;
@@ -54,6 +56,7 @@ export type FuncionarioInput = {
   dias?: number[];
   regime?: string;
   horarioFixo?: boolean;
+  linha?: number;
 };
 export type ErroLinha = { aba: string; linha: number; motivo: string };
 export type Processado = {
@@ -176,6 +179,7 @@ export const processarLinhas = (abas: Aba[], mapa: Mapeamento): Processado => {
         faturamento: fat.faturamento,
         horarios: h.horarios,
         configuracao: conf.configuracao,
+        linha: n,
       });
     });
   }
@@ -233,6 +237,7 @@ export const processarLinhas = (abas: Aba[], mapa: Mapeamento): Processado => {
         dias: dias ?? undefined,
         regime: celula(l, m, 'regime') || undefined,
         horarioFixo: fixo === null ? undefined : (fixo as boolean),
+        linha: n,
       });
     });
   }

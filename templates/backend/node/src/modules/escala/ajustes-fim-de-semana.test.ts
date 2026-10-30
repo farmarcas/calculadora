@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { DiaAberto } from '../regras/capacidade.js';
 import {
+  estadosPermitidos,
   perdaMensal,
   sequenciaFimDeSemana,
   TRAVAS,
@@ -222,5 +223,45 @@ describe('sequência do fim de semana', () => {
     const r = seq(60, {}, util); // 70 h hoje, não cobre com 60 h
     expect(r).toMatchObject({ cobre: false, parou: 'fim_de_semana', passos: [] });
     expect(r.faltaH).toBe(10);
+  });
+});
+
+describe('estadosPermitidos (Cenário 3)', () => {
+  const dia = (d: number, abre = 8, fecha = 22) => ({ dia: d, abre, fecha });
+  const venda = (dia: number, vendaMes: number, protegido = false) => ({
+    dia,
+    vendaMes,
+    protegido,
+  });
+
+  it('só o fim de semana muda: sábado não protegido tem 14 h → original, 10 reduções (até 4 h) e fechado', () => {
+    const dias = [0, 1, 2, 3, 4, 5].map((d) => dia(d));
+    // vendas pequenas no sábado para nenhuma trava de perda cortar estados
+    const porDia = [0, 1, 2, 3, 4, 5].map((d) => venda(d, d === 5 ? 100 : 10000));
+    const estados = estadosPermitidos({ dias, porDia });
+    // sábado: 1 (hoje) + 10 (reduzir de 1 a 10 h) + 1 (fechar) = 12; mas a trava de horas (85% de 84 = 71,4 h) corta
+    // quem passa de 12,6 h de corte: fechar (14 h) fica de fora → 11 estados
+    expect(estados).toHaveLength(11);
+    expect(estados[0]).toEqual(dias);
+    for (const e of estados)
+      for (const d of [0, 1, 2, 3, 4]) expect(e.find((x) => x.dia === d)).toEqual(dia(d));
+  });
+
+  it('dia protegido só reduz; a perda máxima de 10% corta as reduções grandes', () => {
+    const dias = [0, 1, 2, 3, 4, 5].map((d) => dia(d));
+    // faturamento 7 × 1000 + sábado 3000 = 9000 → 10% = 900; sábado: 3000 ÷ 14 por hora = 214,29 → até 4 h (857,14)
+    const porDia = [0, 1, 2, 3, 4, 5].map((d) => venda(d, d === 5 ? 3000 : 1200, d === 5));
+    const estados = estadosPermitidos({ dias, porDia });
+    const sabados = estados.map((e) => e.find((x) => x.dia === 5)?.fecha);
+    expect(sabados).toEqual([22, 21, 20, 19, 18]);
+    expect(sabados).not.toContain(undefined);
+  });
+
+  it('com sábado e domingo abertos e não protegidos: combina as opções dos dois dias, respeitando as travas', () => {
+    const dias = [0, 1, 2, 3, 4, 5, 6].map((d) => dia(d, 8, 12)); // 4 h por dia: não dá para reduzir, só fechar
+    const porDia = [0, 1, 2, 3, 4, 5, 6].map((d) => venda(d, 1000));
+    const estados = estadosPermitidos({ dias, porDia });
+    // fechar sábado e/ou domingo: 4 combinações; perda de fechar um = 1000 ÷ 7000 = 14,3% > 10% → só o original passa
+    expect(estados).toHaveLength(1);
   });
 });

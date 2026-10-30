@@ -387,10 +387,12 @@ describe('Cenário 2 — reduzir o fim de semana antes de fechar dias (spec 012)
   });
 });
 
-describe('Cenário 3 — equilíbrio por enumeração dos dias', () => {
+describe('Cenário 3 — equilíbrio com as travas do fim de semana (spec 012)', () => {
   const dias = (abre: number, fecha: number, lista: number[]) =>
     lista.map((dia) => ({ dia, abre, fecha }));
-  // Segunda a sábado, 8h às 22h: 84h e 12 turnos por semana. Margem por dia (25%): 250, 300, 225, 275, 375 e 500.
+  // Segunda a sábado, 8h às 22h: 84h por semana. Margem por dia (25%, por mês): 1083,33, 1300, 975, 1191,67, 1625 e 2166,67.
+  // Protegidos (os três de maior venda): terça, sexta e sábado. Só o sábado está aberto no fim de semana: pode reduzir até
+  // 5 h (a perda de 10% de 33366,67 permite 5 h de 619,05 por hora) e, por ser protegido, nunca fechar. Segunda a sexta nunca mudam.
   const seisDias = dias(8, 22, [0, 1, 2, 3, 4, 5]);
   const fat = [1000, 1200, 900, 1100, 1500, 2000, null];
   const vendasDe = (f: (number | null)[] = fat, margemPct: number | null = 25) =>
@@ -410,29 +412,51 @@ describe('Cenário 3 — equilíbrio por enumeração dos dias', () => {
       }),
     );
 
-  it('fecha a quarta e não contrata: custa 975 de margem e evita 1000 de folha', () => {
-    // 2 farmacêuticos de 40h para 84h: manter tudo pede 1 parcial de 4h (10000 × 4 × 5 ÷ 200 = 1000).
-    // Fechar a quarta (225 × 52 ÷ 12 = 975) cobre sem contratar. Fechar também a segunda só perderia mais margem.
+  it('2 farmacêuticos de 40h: reduz o sábado 3 h e contrata só 1 h de parcial; nunca fecha dia útil', () => {
+    // Capacidade 80 h para 84 h. Reduzir o sábado de h horas deixa um gap de (4 − h) h, a 250 por hora de parcial
+    // (10000 × 5 ÷ 200), mais a margem perdida (154,76 por hora cortada): h=0 → 1000; h=1 → 904,76; h=2 → 809,52;
+    // h=3 → 250 + 464,29 = 714,29 (o melhor); h=4 → a conta de turnos volta a exigir 16 h de parcial (4000); h=5 → ainda pior.
     const r = eq();
     const e = r.equilibrio;
     expect(e.indisponivel).toBeNull();
-    expect(e.diasFechar.map((d) => d.dia)).toEqual([2]);
-    expect(e.pessoasContratar).toBe(0);
-    expect(e.margemCortadaMes).toBe(975);
-    expect(e.custoAdicionalMensal).toBe(0);
-    expect(e.impactoMensal).toBe(975);
+    expect(e.diasFechar).toEqual([]);
+    expect(e.passos).toEqual([
+      {
+        tipo: 'reduzir',
+        dia: 5,
+        horas: 3,
+        de: { abre: '08:00', fecha: '22:00' },
+        para: { abre: '08:00', fecha: '19:00' },
+      },
+    ]);
+    expect(e.horariosAjustados).toEqual([
+      {
+        dia: 5,
+        antes: { abre: '08:00', fecha: '22:00' },
+        depois: { abre: '08:00', fecha: '19:00' },
+      },
+    ]);
+    expect(e.contratacoes).toMatchObject([{ funcao: 'Farmacêutico', inteiras: 0, parcialH: 1 }]);
+    expect(e.custoAdicionalMensal).toBe(250);
+    expect(e.margemCortadaMes).toBe(464.29);
+    expect(e.vendaCortadaMes).toBe(1857.14);
+    expect(e.impactoMensal).toBe(714.29);
+    expect(e.horasSemana).toBe(81);
+    expect(e.horasReduzir).toBe(3);
     expect(e.coincideComManter).toBe(false);
-    // O Cenário 2 agora só mexe no fim de semana (spec 012): não coincide com este caminho. O Cenário 3 recebe as
-    // mesmas travas na fatia 4 da spec 012; até lá ele segue enumerando os dias.
     expect(e.coincideComEconomia).toBe(false);
-    expect(e.resumo).toContain('Fechando quarta e sem contratar ninguém');
+    expect(e.resumo).toContain('Sábado fecha 3 h mais cedo');
     expect(e.resumo).toContain('economiza');
-    expect(e.horasSemana).toBe(70);
+    // segunda a sexta ficam com o horário de hoje
+    for (const d of [0, 1, 2, 3, 4])
+      expect(e.horarioSemana[d]).toMatchObject({ abre: '08:00', fecha: '22:00' });
+    expect(e.horarioSemana[5]).toMatchObject({ abre: '08:00', fecha: '19:00' });
   });
 
-  it('quando contratar custa menos que a margem de qualquer dia, o equilíbrio é contratar tudo', () => {
-    // salário de 1000: manter tudo custa 1000 × 4 × 5 ÷ 200 = 100 < 975 (a menor margem de dia fechável)
+  it('quando contratar custa menos que a margem de qualquer corte, o equilíbrio é contratar tudo', () => {
+    // salário de 1000: manter tudo custa 1000 × 4 × 5 ÷ 200 = 100, menos que a margem de 1 h do sábado (154,76)
     const e = eq({ custos: custos(1000) }).equilibrio;
+    expect(e.passos).toEqual([]);
     expect(e.diasFechar).toEqual([]);
     expect(e.coincideComManter).toBe(true);
     expect(e.contratacoes).toMatchObject([{ funcao: 'Farmacêutico', inteiras: 0, parcialH: 4 }]);
@@ -442,33 +466,26 @@ describe('Cenário 3 — equilíbrio por enumeração dos dias', () => {
     expect(e.resultadoMensal).toBe(8241.67);
   });
 
-  it('combina fechar dias e contratar: 1 farmacêutico de 40h fecha segunda, quarta e quinta e contrata 1 parcial de 2h', () => {
-    // Todos abertos: faltam 44 h → 1 integral + 1 parcial de 4h = 11000. Fechando segunda, quarta e quinta (os três livres)
-    // sobram 3 dias de 14h (42h): faltam 2 h → 1 parcial de 2h = 500; margem perdida 1083,33 + 975 + 1191,67 = 3250.
+  it('1 farmacêutico de 40h: reduz o sábado 4 h e ainda contrata 1 integral; custa menos que manter tudo', () => {
+    // Manter tudo: faltam 44 h → 1 integral + 1 parcial de 4h = 11000. Reduzindo o sábado 4 h (80 h abertas) falta 40 h
+    // → 1 integral = 10000, mais a margem de 4 h (154,76 × 4 = 619,05): impacto 10619,05 < 11000. A 5 h (limite da
+    // trava de perda) ficam 39 h faltando e já não compensa.
     const r = eq({ pessoas: farm(40) });
     const e = r.equilibrio;
-    expect(e.diasFechar.map((d) => d.dia)).toEqual([0, 2, 3]);
-    expect(e.contratacoes).toMatchObject([
-      { funcao: 'Farmacêutico', inteiras: 0, parcial: { turnos: 1, horas: 2 } },
-    ]);
-    expect(e.custoAdicionalMensal).toBe(500);
-    expect(e.margemCortadaMes).toBe(3250);
-    expect(e.impactoMensal).toBe(3750);
+    expect(e.passos).toMatchObject([{ tipo: 'reduzir', dia: 5, horas: 4 }]);
+    expect(e.contratacoes).toMatchObject([{ funcao: 'Farmacêutico', inteiras: 1, parcial: null }]);
+    expect(e.custoAdicionalMensal).toBe(10000);
+    expect(e.margemCortadaMes).toBe(619.05);
+    expect(e.impactoMensal).toBe(10619.05);
+    expect(e.horasSemana).toBe(80);
     expect(e.coincideComManter).toBe(false);
-    expect(e.coincideComEconomia).toBe(false);
-    expect(e.resumo).toContain('Fechando segunda, quarta e quinta');
-    expect(e.resumo).toContain('contratando 1 Farmacêutico (1 parcial de 2h)');
-    expect(e.resumo).toContain('economiza');
-    // nunca fecha dia protegido (terça, sexta e sábado)
-    expect(r.diasProtegidos).toEqual([1, 4, 5]);
-    // domina o Cenário 1 (manter tudo: 11000); o Cenário 2 é "não recomendado" e fica de fora
+    expect(e.resumo).toContain('Sábado fecha 4 h mais cedo');
     expect(r.manter.impactoMensal).toBe(11000);
     expect(e.impactoMensal!).toBeLessThanOrEqual(r.manter.impactoMensal!);
-    // 1 farmacêutico de 40h: reduzir o fim de semana não chega perto de cobrir 84 h (Cenário 2 não resolve sozinho)
-    expect(r.economia.naoResolveSozinho).toBe(true);
+    expect(r.diasProtegidos).toEqual([1, 4, 5]);
   });
 
-  it('é de fato o mínimo: nenhuma combinação dos dias livres tem impacto menor (conferência independente)', () => {
+  it('é de fato o mínimo: nenhuma redução do sábado dentro das travas tem impacto menor (conferência independente)', () => {
     const entrada = base({
       minimos: { Farmacêutico: 1 },
       dias: seisDias,
@@ -477,49 +494,69 @@ describe('Cenário 3 — equilíbrio por enumeração dos dias', () => {
       custos: custos(),
     });
     const regra = regraPara('r40', false);
-    const margemMes = [1083.33, 1300, 975, 1191.67, 1625, 2166.67];
-    const livres = [0, 2, 3]; // os protegidos (terça, sexta, sábado) não entram
-    const impactos = [0, 1, 2, 3, 4, 5, 6, 7].map((mascara) => {
-      const fechados = livres.filter((_, i) => mascara & (1 << i));
-      const abertos = seisDias.filter((d) => !fechados.includes(d.dia));
+    const margemPorHora = 2166.67 / 14;
+    const impactos = [0, 1, 2, 3, 4, 5].map((h) => {
+      const abertos = seisDias.map((d) => (d.dia === 5 ? { ...d, fecha: d.fecha - h } : d));
       const linhas = verificarRegra(regra, abertos, entrada.minimos, entrada.pessoas);
       const custo = custoDasVagas('r40', contratacoesDe(linhas), linhas, entrada.custos) ?? 0;
-      return custo + fechados.reduce((s, d) => s + margemMes[d]!, 0);
+      return custo + margemPorHora * h;
     });
-    expect(Math.min(...impactos)).toBeCloseTo(3750, 2);
+    expect(Math.min(...impactos)).toBeCloseTo(10619.05, 1);
     expect(eq({ pessoas: farm(40) }).equilibrio.impactoMensal!).toBeCloseTo(
       Math.min(...impactos),
-      2,
+      1,
     );
   });
 
-  it('empate no impacto: menos contratações, depois menos dias fechados, depois os dias mais tardios', () => {
-    // seis dias iguais (1000): protegidos = sábado, sexta e quinta; livres = segunda, terça e quarta, com a mesma margem
-    // (1083,33). Com salário de 20000 o parcial de 4h custa 2000, mais que um dia: fechar qualquer um cobre sem contratar;
-    // o mais tardio é a quarta.
-    const e = eq({ vendas: vendasDe(new Array(7).fill(1000)), custos: custos(20000) }).equilibrio;
-    expect(e.diasFechar.map((d) => d.dia)).toEqual([2]);
-    // (o Cenário 2 só mexe no fim de semana desde a spec 012)
-    expect(e.coincideComEconomia).toBe(false);
+  it('nunca fecha dia útil nem passa das travas, mesmo quando fechar a terça sairia mais barato', () => {
+    // margem baixíssima nos dias úteis e salário altíssimo: fechar segunda, quarta ou quinta seria o melhor antes da spec 012
+    const e = eq({ custos: custos(50000) }).equilibrio;
+    expect(e.diasFechar.every((d) => d.dia >= 5)).toBe(true);
+    for (const d of [0, 1, 2, 3, 4]) expect(e.horarioSemana[d]!.aberto).toBe(true);
+    // perda de até 10% do faturamento (33366,67) e ao menos 85% das 84 h
+    expect(e.vendaCortadaMes!).toBeLessThanOrEqual(3336.67);
+    expect(e.horasSemana).toBeGreaterThanOrEqual(71.4);
   });
 
-  it('a recaptura reduz a margem perdida (20% de 975 = 780)', () => {
+  it('com domingo aberto e não protegido: pode reduzir ou fechar o domingo', () => {
+    // sete dias, domingo vende pouco (700): é o corte mais barato; 2 farmacêuticos de 40 h para 98 h
+    const sete = dias(8, 22, [0, 1, 2, 3, 4, 5, 6]);
+    const f7 = [1000, 1200, 900, 1100, 1500, 2000, 700];
+    const e = eq({
+      dias: sete,
+      vendas: vendasDoCadastro({ dias: f7, mensal: null, margemPct: 25 }, sete)!.linhas,
+    }).equilibrio;
+    expect(e.passos.every((p) => p.dia >= 5)).toBe(true);
+    expect(e.passos.some((p) => p.dia === 6)).toBe(true);
+  });
+
+  it('empate no impacto: menos contratações, depois menos dias fechados, depois menos horas cortadas', () => {
+    // salário altíssimo e dias iguais: nenhum corte permitido (até 5 h do sábado) cobre sem contratar, então
+    // vence quem corta menos horas entre os que custam o mesmo
+    const e = eq({ custos: custos(0.01) }).equilibrio;
+    expect(e.passos).toEqual([]);
+    expect(e.coincideComManter).toBe(true);
+  });
+
+  it('a recaptura reduz a margem perdida (20% de 464,29 = 371,43)', () => {
     const e = eq({ recaptura: 0.2 }).equilibrio;
-    expect(e.diasFechar.map((d) => d.dia)).toEqual([2]);
-    expect(e.margemCortadaMes).toBe(780);
-    expect(e.impactoMensal).toBe(780);
+    expect(e.passos).toMatchObject([{ tipo: 'reduzir', dia: 5, horas: 3 }]);
+    expect(e.margemCortadaMes).toBe(371.43);
+    expect(e.vendaCortadaMes).toBe(1485.71);
+    expect(e.impactoMensal).toBe(621.43);
   });
 
-  it('quem não é dono vê os dias e as contratações, sem valores em reais', () => {
+  it('quem não é dono vê os passos e as contratações, sem valores em reais', () => {
     const e = eq({ dono: false }).equilibrio;
-    expect(e.diasFechar).toEqual([{ dia: 2 }]);
+    expect(e.diasFechar).toEqual([]);
+    expect(e.passos).toMatchObject([{ tipo: 'reduzir', dia: 5, horas: 3 }]);
     expect('custoAdicionalMensal' in e).toBe(false);
     expect('acrescimoPct' in e).toBe(false);
     expect('resultadoMensal' in e).toBe(false);
     expect(e.resumo).not.toContain('R$');
   });
 
-  it('loja de um só dia: nunca fecha o último dia aberto', () => {
+  it('loja de um só dia útil: nada a cortar, coincide com o Cenário 1', () => {
     const um = dias(8, 22, [2]);
     const e = eq({
       dias: um,
@@ -530,6 +567,7 @@ describe('Cenário 3 — equilíbrio por enumeração dos dias', () => {
       )!.linhas,
     }).equilibrio;
     expect(e.diasFechar).toEqual([]);
+    expect(e.passos).toEqual([]);
     expect(e.coincideComManter).toBe(true);
   });
 

@@ -51,12 +51,12 @@ Segurança do banco: sem migration nesta spec; nada de `down -v` nem `prisma mig
 
 **Teste independente**: o Equilíbrio nunca fecha dia útil nem passa do teto de perda; entre as opções permitidas escolhe a de menor impacto.
 
-- [ ] T021 [US5] Teste + `ajustes-fim-de-semana.ts`: gerar os estados permitidos (cada dia de fim de semana: original, reduzido de 1 em 1 h até 4 h, fechado quando não protegido) já filtrados pelas travas
-- [ ] T022 [US5] `src/modules/escala/cenarios.ts` (`montarEquilibrio`) e `cenarios-dias.ts` (`melhorCombinacao`): avaliar só os estados permitidos e escolher o de menor impacto (custo adicional + margem perdida), com o desempate atual (menos contratações, menos cortes); `coincideComManter` e `coincideComEconomia` seguem valendo; texto descreve a redução
-- [ ] T023 [US5] Refazer à mão as expectativas dos testes do Cenário 3 que esperavam dia útil fechado; teste de integração: o Equilíbrio nunca fecha segunda a sexta e respeita 10% e 85%
-- [ ] T024 [US5] Tela do Cenário 3 (`Comparativo.jsx` e `Cenarios.jsx`): mostra as reduções do fim de semana como o Cenário 2
-- [ ] T025 Documentação: README (nova regra do Cenário 2 e 3, as travas, o status "Não resolve sozinho", a margem em branco), `scripts/sync-templates.sh`, `scripts/check-repo.sh`
-- [ ] T026 Conferência final: `npm test`, `npm run test:integration`, `npm run lint`, `npx tsc --noEmit`, build do `web`, `quickstart.md` do começo ao fim, cenários 1, 4 e 5 sem mudança de resultado; commitar
+- [x] T021 [US5] Teste + `ajustes-fim-de-semana.ts`: gerar os estados permitidos (cada dia de fim de semana: original, reduzido de 1 em 1 h até 4 h, fechado quando não protegido) já filtrados pelas travas
+- [x] T022 [US5] `src/modules/escala/cenarios.ts` (`montarEquilibrio`) e `cenarios-dias.ts` (`melhorCombinacao`): avaliar só os estados permitidos e escolher o de menor impacto (custo adicional + margem perdida), com o desempate atual (menos contratações, menos cortes); `coincideComManter` e `coincideComEconomia` seguem valendo; texto descreve a redução
+- [x] T023 [US5] Refazer à mão as expectativas dos testes do Cenário 3 que esperavam dia útil fechado; teste de integração: o Equilíbrio nunca fecha segunda a sexta e respeita 10% e 85%
+- [x] T024 [US5] Tela do Cenário 3 (`Comparativo.jsx` e `Cenarios.jsx`): mostra as reduções do fim de semana como o Cenário 2
+- [x] T025 Documentação: README (nova regra do Cenário 2 e 3, as travas, o status "Não resolve sozinho", a margem em branco), `scripts/sync-templates.sh`, `scripts/check-repo.sh`
+- [x] T026 Conferência final: `npm test`, `npm run test:integration`, `npm run lint`, `npx tsc --noEmit`, build do `web`, `quickstart.md` do começo ao fim, cenários 1, 4 e 5 sem mudança de resultado; commitar
 
 ## Dependências e ordem
 

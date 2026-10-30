@@ -47,12 +47,13 @@ describe('comparativo dos cenários 1, 2 e 3', () => {
       faturamentoPerdidoPct: 9.3,
       ganhoFrenteManterMensal: 10226.19,
     });
-    // Cenário 3 fecha seg, qua e qui: (1000+900+1100) × 52 ÷ 12 = 13000 (26% de 50000); folha adicional 500; −3750 + 11000.
+    // Cenário 3 reduz o sábado 4 h (como o Cenário 2, mas contratando 1 integral): venda perdida 2476,19 (5% de 50000);
+    // folha adicional 10000; resultado −(10000 + 619,05) = −10619,05; ganho frente a manter: −10619,05 + 11000.
     expect(col(r, 'equilibrio')).toMatchObject({
-      folhaAdicionalMensal: 500,
-      faturamentoPerdidoMensal: 13000,
-      faturamentoPerdidoPct: 26,
-      ganhoFrenteManterMensal: 7250,
+      folhaAdicionalMensal: 10000,
+      faturamentoPerdidoMensal: 2476.19,
+      faturamentoPerdidoPct: 5,
+      ganhoFrenteManterMensal: 380.95,
     });
   });
 
@@ -107,18 +108,25 @@ describe('comparativo dos cenários 1, 2 e 3', () => {
     ]);
     expect(e2.alertas.join(' ')).toContain('faltam 39 h');
     expect(e2.alertas.join(' ')).toContain('Cenário 3');
-    // Cenário 3: fecha segunda, quarta e quinta e contrata 1 parcial de 2h (500): folha 10500, margem −3250, impacto 3750.
+    // Cenário 3: reduz o sábado 4 h (08h–18h) e contrata 1 integral (10000): folha 20000, margem −619,05, impacto 10619,05.
     const e3 = col(r, 'equilibrio');
     expect(e3).toMatchObject({
       status: 'viavel',
-      diasFechar: [0, 2, 3],
-      custoFolhaMensal: 10500,
-      margemMes: -3250,
-      resultadoLiquidoMensal: -3750,
-      impactoPctFaturamento: 7.5,
+      diasFechar: [],
+      custoFolhaMensal: 20000,
+      margemMes: -619.05,
+      resultadoLiquidoMensal: -10619.05,
+      impactoPctFaturamento: 21.2,
     });
-    expect(e3.contratacoes[0]).toMatchObject({ inteiras: 0, parcial: { turnos: 1, horas: 2 } });
-    expect(e3.horasSemana).toBe(42);
+    expect(e3.contratacoes[0]).toMatchObject({ inteiras: 1, parcial: null });
+    expect(e3.horasSemana).toBe(80);
+    expect(e3.ajustes).toEqual([
+      {
+        dia: 5,
+        antes: { abre: '08:00', fecha: '22:00' },
+        depois: { abre: '08:00', fecha: '18:00' },
+      },
+    ]);
   });
 
   it('destaca o de maior resultado líquido (o mesmo do selo) sem esconder os outros', () => {
@@ -246,7 +254,7 @@ describe('comparativo dos cenários 1, 2 e 3', () => {
       ])
         expect(campo in c).toBe(false);
     }
-    expect(col(r, 'equilibrio')).toMatchObject({ status: 'viavel', diasFechar: [0, 2, 3] });
+    expect(col(r, 'equilibrio')).toMatchObject({ status: 'viavel', diasFechar: [] });
     expect(col(r, 'economia')).toMatchObject({ status: 'nao_resolve', faltaH: 39 });
     expect(col(r, 'economia').ajustes).toHaveLength(1);
     expect(JSON.stringify(r)).not.toContain('R$');

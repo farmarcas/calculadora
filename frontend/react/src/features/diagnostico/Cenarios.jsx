@@ -268,13 +268,22 @@ function Equilibrio({ c }) {
           <>
             <p className="m-0 text-sm text-ink-700">{q.direcionamento}</p>
             <Impacto valor={q.impactoMensal} />
-            {q.coincideComManter && <Aviso tom="neutro">O equilíbrio para esta loja é o mesmo do Cenário 1: contratar tudo e manter todos os dias abertos.</Aviso>}
-            {q.coincideComEconomia && <Aviso tom="neutro">O equilíbrio para esta loja é o mesmo do Cenário 2: fechar os dias e não contratar ninguém.</Aviso>}
+            {q.coincideComManter && <Aviso tom="neutro">O equilíbrio para esta loja é o mesmo do Cenário 1: contratar tudo e manter o horário de hoje.</Aviso>}
+            {q.coincideComEconomia && <Aviso tom="neutro">O equilíbrio para esta loja é o mesmo do Cenário 2: mexer no fim de semana e não contratar ninguém.</Aviso>}
+            {q.passos?.length > 0 && (
+              <div>
+                <div className="mb-1 text-[11px] font-bold uppercase tracking-wide text-ink-500">O que muda no fim de semana</div>
+                <ol className="m-0 pl-5 text-sm text-ink-700">
+                  {q.passos.map((p, i) => <li key={i}>{fraseDoPasso(p)}</li>)}
+                </ol>
+                <p className="mt-1 mb-0 text-xs text-ink-500">Segunda a sexta ficam como hoje. Dias de maior faturamento só reduzem, nunca fecham.</p>
+              </div>
+            )}
             <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
               <Numero
-                rotulo="Dias a fechar"
-                valor={q.diasFechar.length}
-                legenda={q.diasFechar.length === 0 ? "nenhum dia" : q.diasFechar.map((d) => NOMES_DIA[d.dia]).join(", ")}
+                rotulo="Fim de semana"
+                valor={q.passos?.length ?? 0}
+                legenda={!q.passos?.length ? "horário de hoje" : q.passos.length === 1 ? "mudança no horário" : "mudanças no horário"}
               />
               <Numero rotulo="Contratar" valor={q.pessoasContratar} legenda={q.pessoasContratar === 1 ? "pessoa" : q.pessoasContratar === 0 ? "nada a contratar" : "pessoas"} />
               {dono && <Numero rotulo="Margem perdida" valor={q.margemCortadaMes === null ? "—" : brl(q.margemCortadaMes)} legenda="por mês (estimativa)" />}

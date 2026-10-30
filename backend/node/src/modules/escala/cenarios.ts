@@ -9,7 +9,6 @@ import type { PessoaSim } from '../simulacoes/avaliar.js';
 import {
   DIAS_PROTEGIDOS_PADRAO,
   listaDeDias,
-  melhorCombinacao,
   NOMES_DIA_LONGO,
   semValores,
   vendasPorDia,
@@ -17,6 +16,8 @@ import {
   type VendaDia,
 } from './cenarios-dias.js';
 import {
+  melhorEstado,
+  passosDe,
   perdaMensal,
   sequenciaFimDeSemana,
   TRAVAS,
@@ -129,6 +130,11 @@ export type CenarioEquilibrio = {
   pessoasContratar: number;
   ociosidadePct: number;
   margemCortadaMes: number | null;
+  // Venda mensal que deixa de entrar com as reduções e fechamentos (só o dono recebe).
+  vendaCortadaMes: number | null;
+  // O que o cenário muda no fim de semana (reduções e fechamentos) e os horários resultantes.
+  passos: PassoCenario[];
+  horariosAjustados: HorarioAjustado[];
   // Só para o dono.
   custoAdicionalMensal?: number | null;
   acrescimoPct?: number | null;
@@ -520,6 +526,9 @@ const montarEquilibrio = (
     pessoasContratar: 0,
     ociosidadePct: 0,
     margemCortadaMes: null,
+    vendaCortadaMes: null,
+    passos: [] as PassoCenario[],
+    horariosAjustados: [] as HorarioAjustado[],
   };
   const foco = 'Equilibrar contratação e dias abertos';
   const indisponivel = (motivo: 'custos' | 'vendas', texto: string): CenarioEquilibrio => ({
@@ -553,12 +562,13 @@ const montarEquilibrio = (
 
   const recaptura = Math.min(0.3, Math.max(0, e.recaptura ?? 0));
   const fica = 1 - recaptura;
-  const melhor = melhorCombinacao({
+  const hoje = [...e.dias].sort((x, y) => x.dia - y.dia);
+  const melhor = melhorEstado({
     dias: e.dias,
-    protegidos: porDia.filter((d) => d.protegido).map((d) => d.dia),
+    porDia,
     margemMes: (dia) => porDia[dia]!.margemMes! * fica,
-    avaliar: (abertos) => {
-      const linhas = verificarRegra(regra, abertos, e.minimos, e.pessoas, opcoesDoMotor(e, regra));
+    avaliar: (dias) => {
+      const linhas = verificarRegra(regra, dias, e.minimos, e.pessoas, opcoesDoMotor(e, regra));
       const cs = contratacoesDe(linhas);
       return {
         linhas,
@@ -571,24 +581,31 @@ const montarEquilibrio = (
   const { linhas, cs, custo } = melhor.avaliacao;
   const fechados = melhor.fechados;
   const margemPerdida = arred(melhor.perdida);
-  const horasSemana = horasDaSemana(melhor.abertos);
+  const horasSemana = horasDaSemana(melhor.dias);
+  const passos = passosDe(hoje, melhor.dias).map(passoTxt);
+  const horariosAjustados: HorarioAjustado[] = passos.map((p) => ({
+    dia: p.dia,
+    antes: p.de,
+    depois: p.tipo === 'reduzir' ? p.para : null,
+  }));
   const igualEconomia =
     economia.viavel &&
     economia.naoRecomendado === null &&
-    economia.diasFechar.length > 0 &&
+    passos.length > 0 &&
     melhor.avaliacao.pessoas === 0 &&
-    economia.diasFechar.length === fechados.length &&
-    economia.diasFechar.every((d) => fechados.includes(d.dia));
+    JSON.stringify(economia.horariosAjustados) === JSON.stringify(horariosAjustados);
   const resultado: CenarioEquilibrio = {
     indisponivel: null,
-    coincideComManter: fechados.length === 0,
+    coincideComManter: passos.length === 0,
     coincideComEconomia: igualEconomia,
     foco,
     direcionamento: '',
     resumo: '',
     horasReduzir: arred(horasDaSemana(e.dias) - horasSemana),
     horasSemana,
-    horarioSemana: horarioDaSemana(melhor.abertos),
+    horarioSemana: horarioDaSemana(melhor.dias),
+    passos,
+    horariosAjustados,
     diasFechar: fechados.map((dia) => ({
       dia,
       ...(e.dono
@@ -602,6 +619,7 @@ const montarEquilibrio = (
     pessoasContratar: melhor.avaliacao.pessoas,
     ociosidadePct: ociosidadeTotal(linhas, cs),
     margemCortadaMes: margemPerdida,
+    vendaCortadaMes: arred(perdaMensal(hoje, melhor.dias, porDia) * fica),
   };
   if (e.dono) {
     resultado.custoAdicionalMensal = arred(custo);
@@ -610,21 +628,21 @@ const montarEquilibrio = (
     resultado.resultadoMensal = arred(margemAbertaHoje - melhor.perdida - custo);
   }
   const lista = listaContratacoes(cs);
-  const nomes = listaDeDias(fechados);
+  const acoes = passos.map(fraseDoPasso).join('; ');
   const economiaNaFolha =
     e.dono && custoManter !== null && custoManter - custo > 0.005
       ? ` você economiza ${brl(custoManter - custo)} por mês de folha frente a manter tudo e perde ${brl(margemPerdida)} de margem`
       : '';
   resultado.resumo = resultado.coincideComManter
-    ? 'O equilíbrio para esta loja é contratar tudo e manter todos os dias abertos.'
+    ? 'O equilíbrio para esta loja é contratar tudo e manter o horário de hoje.'
     : igualEconomia
-      ? `O equilíbrio para esta loja é fechar ${nomes}: a equipe atual cobre o resto e você não contrata ninguém.`
-      : `Fechando ${nomes} e ${cs.length ? `contratando ${lista}` : 'sem contratar ninguém'},${economiaNaFolha || ' você paga menos folha do que perde de margem'}.`;
+      ? `O equilíbrio para esta loja é: ${acoes}. A equipe atual cobre o resto e você não contrata ninguém.`
+      : `${acoes}, ${cs.length ? `contratando ${lista}` : 'sem contratar ninguém'},${economiaNaFolha || ' você paga menos folha do que perde de margem'}.`;
   resultado.direcionamento = resultado.coincideComManter
-    ? 'Nenhum dia vende menos do que custa cobri-lo: o equilíbrio é o mesmo do Cenário 1, mantendo todos os dias abertos.'
+    ? 'Nenhuma redução do fim de semana compensa o custo de cobrir o horário: o equilíbrio é o mesmo do Cenário 1, mantendo o horário de hoje.'
     : igualEconomia
       ? `${resultado.resumo} Este é o mesmo caminho do Cenário 2.`
-      : `${resultado.resumo} É a combinação de dias abertos e contratações de menor impacto financeiro: a que mais compensa entre todas as testadas.`;
+      : `${resultado.resumo} É a combinação de horários de fim de semana e contratações de menor impacto financeiro entre as permitidas (segunda a sexta não mudam; perda máxima de ${TRAVAS.perdaMaxPct}% do faturamento e ao menos ${TRAVAS.horasMinPct}% das horas de hoje).`;
   return resultado;
 };
 

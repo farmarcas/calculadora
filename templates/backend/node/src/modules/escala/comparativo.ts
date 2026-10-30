@@ -162,7 +162,7 @@ export const montarComparativo = (e: EntradaCenarios, c: CenariosRegra): Compara
     contratacoes: equilibrio.contratacoes,
     diasFechar: equilibrio.diasFechar.map((d) => d.dia),
     horasSemana: equilibrio.horasSemana,
-    ajustes: [],
+    ajustes: equilibrio.horariosAjustados,
     faltaH: null,
     status: equilibrio.indisponivel ? null : 'viavel',
     alertas: alertasEq,
@@ -172,7 +172,7 @@ export const montarComparativo = (e: EntradaCenarios, c: CenariosRegra): Compara
       : valores(
           equilibrio.custoAdicionalMensal ?? null,
           equilibrio.margemCortadaMes,
-          vendaPerdidaDe(equilibrio.diasFechar),
+          equilibrio.vendaCortadaMes,
         )),
   };
 
@@ -190,12 +190,6 @@ export const montarComparativo = (e: EntradaCenarios, c: CenariosRegra): Compara
   if (e.dono) r.destaque = c.destaque ?? null;
   return r;
 };
-
-// Soma da venda mensal dos dias que o cenário fecha; nula se algum dia não tem valor.
-const vendaPerdidaDe = (dias: { vendaMes?: number | null }[]) =>
-  dias.every((d) => typeof d.vendaMes === 'number')
-    ? dias.reduce((s, d) => s + (d.vendaMes as number), 0)
-    : null;
 
 function alertas(lista: string[], texto: string) {
   if (!lista.includes(texto)) lista.push(texto);

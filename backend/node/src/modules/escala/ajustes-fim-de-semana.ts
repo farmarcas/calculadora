@@ -124,7 +124,7 @@ const reduzir = (
 };
 
 // Resume as mudanças entre o horário de hoje e o final em passos legíveis: reduções (por dia) e fechamentos.
-const passosDe = (hoje: DiaAberto[], final: DiaAberto[]): Passo[] => {
+export const passosDe = (hoje: DiaAberto[], final: DiaAberto[]): Passo[] => {
   const reduzidos: Passo[] = [];
   const fechados: Passo[] = [];
   for (const d of hoje.filter((x) => FIM_DE_SEMANA.includes(x.dia))) {
@@ -202,4 +202,84 @@ export const sequenciaFimDeSemana = (a: EntradaSequencia): ResultadoSequencia =>
   // Uma trava (perda ou horas) explica melhor do que "nada mais a mexer": vale se alguma fase parou nela.
   const trava = paradas.find((p) => p === 'perda' || p === 'horas');
   return resultado(final, false, trava ?? 'fim_de_semana');
+};
+
+// Fração de cada dia que deixa de abrir (0 = igual a hoje, 1 = fechado), para ponderar um valor mensal por dia.
+const perdaPonderada = (hoje: DiaAberto[], atual: DiaAberto[], valorMes: (dia: number) => number) =>
+  hoje.reduce((s, d) => {
+    const agora = atual.find((x) => x.dia === d.dia);
+    return s + valorMes(d.dia) * (1 - (agora ? horasDoDia(agora) : 0) / horasDoDia(d));
+  }, 0);
+
+// Todos os horários que o Cenário 3 pode testar: segunda a sexta ficam como hoje; cada dia de fim de semana aberto pode
+// ficar como hoje, fechar mais cedo de 1 em 1 h (sobrando ao menos 4 h) ou, se não for dia protegido, fechar. Já vêm
+// filtrados pelas travas (perda máxima de faturamento e piso de horas). O primeiro é sempre o horário de hoje.
+export const estadosPermitidos = (a: {
+  dias: DiaAberto[];
+  porDia: EntradaSequencia['porDia'];
+}): DiaAberto[][] => {
+  const hoje = [...a.dias].sort(porDiaDaSemana);
+  const protegido = (dia: number) => a.porDia.find((v) => v.dia === dia)?.protegido ?? false;
+  const fixos = hoje.filter((d) => !FIM_DE_SEMANA.includes(d.dia));
+  const opcoes = hoje
+    .filter((d) => FIM_DE_SEMANA.includes(d.dia))
+    .map((d) => {
+      const lista: (DiaAberto | null)[] = [d];
+      for (let h = 1; horasDoDia(d) - h >= TRAVAS.horasMinDia - 1e-9; h++)
+        lista.push({ ...d, fecha: d.fecha - h });
+      if (!protegido(d.dia)) lista.push(null);
+      return lista;
+    });
+  let estados: DiaAberto[][] = [[]];
+  for (const lista of opcoes)
+    estados = estados.flatMap((e) => lista.map((o) => (o ? [...e, o] : e)));
+  return estados
+    .map((e) => [...fixos, ...e].sort(porDiaDaSemana))
+    .filter((e) => e.length > 0 && violacao(hoje, e, a.porDia) === null);
+};
+
+export type EstadoEscolhido<T> = {
+  dias: DiaAberto[];
+  fechados: number[];
+  avaliacao: T;
+  perdida: number;
+  impacto: number;
+  horasCortadas: number;
+};
+
+const MESMO_VALOR = 0.005; // meio centavo: abaixo disso, empate
+
+// O estado permitido de menor impacto (custo adicional de folha + margem perdida). Empate: menos contratações, depois
+// menos dias fechados, depois menos horas cortadas, depois o primeiro na ordem de teste (o mais próximo de hoje).
+export const melhorEstado = <T extends { custo: number; pessoas: number }>(a: {
+  dias: DiaAberto[];
+  porDia: EntradaSequencia['porDia'];
+  margemMes: (dia: number) => number;
+  avaliar: (dias: DiaAberto[]) => T;
+}): EstadoEscolhido<T> => {
+  const hoje = [...a.dias].sort(porDiaDaSemana);
+  let melhor: EstadoEscolhido<T> | null = null;
+  for (const dias of estadosPermitidos(a)) {
+    const avaliacao = a.avaliar(dias);
+    const perdida = perdaPonderada(hoje, dias, a.margemMes);
+    const atual: EstadoEscolhido<T> = {
+      dias,
+      fechados: hoje.filter((d) => !dias.some((x) => x.dia === d.dia)).map((d) => d.dia),
+      avaliacao,
+      perdida,
+      impacto: avaliacao.custo + perdida,
+      horasCortadas: horasDe(hoje) - horasDe(dias),
+    };
+    const ganha =
+      melhor === null ||
+      (Math.abs(atual.impacto - melhor.impacto) >= MESMO_VALOR
+        ? atual.impacto < melhor.impacto
+        : atual.avaliacao.pessoas !== melhor.avaliacao.pessoas
+          ? atual.avaliacao.pessoas < melhor.avaliacao.pessoas
+          : atual.fechados.length !== melhor.fechados.length
+            ? atual.fechados.length < melhor.fechados.length
+            : atual.horasCortadas < melhor.horasCortadas - 1e-9);
+    if (ganha) melhor = atual;
+  }
+  return melhor!;
 };

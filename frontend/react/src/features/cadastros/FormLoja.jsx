@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { api } from "../../api/client.js";
-import { Aviso, Botao, Campo, Modal, entrada } from "../../components/ui/index.jsx";
+import { Aviso, Botao, Campo, Cartao, entrada } from "../../components/ui/index.jsx";
 import FaturamentoLoja, { erroDeFaturamento, faturamentoParaApi, faturamentoParaEdicao } from "./FaturamentoLoja.jsx";
 import EquipeLoja from "./EquipeLoja.jsx";
 import HorarioSemana, { erroDeHorario, paraApi, paraEdicao } from "./HorarioSemana.jsx";
@@ -55,29 +55,36 @@ export default function FormLoja({ registro, perfil, onClose, onSalvo }) {
   };
 
   return (
-    <Modal titulo={registro ? "Editar loja" : "Nova loja"} onClose={onClose} largo>
-      <form onSubmit={salvar} className="flex flex-col gap-4">
+    <div className="flex flex-col gap-6">
+      <div>
+        <Botao tipo="texto" onClick={onClose}>← Voltar para a lista de lojas</Botao>
+        <h1 className="mt-2 mb-0 text-2xl font-bold">{registro ? `Editar loja · ${registro.nome}` : "Nova loja"}</h1>
+        {registro && <p className="mt-1 mb-0 text-sm text-ink-500">Código {registro.codigo}{registro.cnpj ? ` · CNPJ ${formatarCnpj(registro.cnpj)}` : ""}</p>}
+      </div>
+      <form onSubmit={salvar} className="flex flex-col gap-6">
         {erro && <Aviso>{erro}</Aviso>}
-        <div className="grid grid-cols-2 gap-4">
-          <Campo rotulo={registro && !operador ? "Código (só o operador altera)" : "Código *"}><input required className={entrada} value={v.codigo} onChange={set("codigo")} disabled={!!registro && !operador} /></Campo>
-          <Campo rotulo="Nome *"><input required minLength={2} className={entrada} value={v.nome} onChange={set("nome")} /></Campo>
-          <Campo rotulo={cnpjEditavel ? (registro ? "CNPJ" : "CNPJ *") : "CNPJ (só o operador altera)"}>
-            <input className={entrada} required={!registro} value={v.cnpj} onChange={set("cnpj")} disabled={!cnpjEditavel} placeholder={!v.cnpj && !cnpjEditavel ? "CNPJ pendente" : undefined} />
-          </Campo>
-          <Campo rotulo="Cidade"><input className={entrada} value={v.cidade} onChange={set("cidade")} /></Campo>
-          <Campo rotulo="UF">
-            <select className={entrada} value={v.uf} onChange={set("uf")}>
-              <option value="">—</option>
-              {UFS.map((u) => <option key={u} value={u}>{u}</option>)}
-            </select>
-          </Campo>
-          <Campo rotulo="Bandeira"><input className={entrada} value={v.marca} onChange={set("marca")} /></Campo>
-          <Campo rotulo="Regime tributário">
-            <select className={entrada} value={v.regimeTributario} onChange={set("regimeTributario")}>
-              {REGIMES.map(([valor, rotulo]) => <option key={valor} value={valor}>{rotulo}</option>)}
-            </select>
-          </Campo>
-        </div>
+        <Cartao titulo="Dados da loja">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 px-6 py-4">
+            <Campo rotulo={registro && !operador ? "Código (só o operador altera)" : "Código *"}><input required className={entrada} value={v.codigo} onChange={set("codigo")} disabled={!!registro && !operador} /></Campo>
+            <Campo rotulo="Nome *"><input required minLength={2} className={entrada} value={v.nome} onChange={set("nome")} /></Campo>
+            <Campo rotulo={cnpjEditavel ? (registro ? "CNPJ" : "CNPJ *") : "CNPJ (só o operador altera)"}>
+              <input className={entrada} required={!registro} value={v.cnpj} onChange={set("cnpj")} disabled={!cnpjEditavel} placeholder={!v.cnpj && !cnpjEditavel ? "CNPJ pendente" : undefined} />
+            </Campo>
+            <Campo rotulo="Cidade"><input className={entrada} value={v.cidade} onChange={set("cidade")} /></Campo>
+            <Campo rotulo="UF">
+              <select className={entrada} value={v.uf} onChange={set("uf")}>
+                <option value="">—</option>
+                {UFS.map((u) => <option key={u} value={u}>{u}</option>)}
+              </select>
+            </Campo>
+            <Campo rotulo="Bandeira"><input className={entrada} value={v.marca} onChange={set("marca")} /></Campo>
+            <Campo rotulo="Regime tributário">
+              <select className={entrada} value={v.regimeTributario} onChange={set("regimeTributario")}>
+                {REGIMES.map(([valor, rotulo]) => <option key={valor} value={valor}>{rotulo}</option>)}
+              </select>
+            </Campo>
+          </div>
+        </Cartao>
         {dono && <FaturamentoLoja valor={fat} onChange={setFat} />}
         <HorarioSemana dias={dias} onChange={(d) => { setDias(d); setMexeuNoHorario(true); }} />
         <div className="flex justify-end gap-2">
@@ -86,10 +93,10 @@ export default function FormLoja({ registro, perfil, onClose, onSalvo }) {
         </div>
       </form>
       {registro ? (
-        <div className="mt-4"><EquipeLoja lojaId={registro.id} podeEscrever={cuidaDoGrupo(perfil)} /></div>
+        <EquipeLoja lojaId={registro.id} podeEscrever={cuidaDoGrupo(perfil)} />
       ) : (
-        <p className="m-0 mt-4 text-xs text-ink-500">Salve a loja para cadastrar a equipe dela aqui.</p>
+        <p className="m-0 text-xs text-ink-500">Salve a loja para cadastrar a equipe dela aqui.</p>
       )}
-    </Modal>
+    </div>
   );
 }

@@ -74,9 +74,9 @@ const VALOR = "text-sm leading-5 font-bold text-[var(--text-strong)] text-right"
 
 // Linha da tabela do miolo: rótulo à esquerda, valor à direita, na mesma altura nos três cartões.
 const LinhaTabela = ({ rotulo, children, ultima, alta }) => (
-  <div className={`flex items-center justify-between gap-4 ${alta ? "min-h-[60px]" : "min-h-11"} ${ultima ? "" : "border-b border-line"}`}>
-    <span className={`${ROTULO} shrink-0`}>{rotulo}</span>
-    <span className="min-w-0">{children}</span>
+  <div className={`flex flex-wrap items-center justify-between gap-x-4 gap-y-1 py-1 ${alta ? "min-h-[60px]" : "min-h-11"} ${ultima ? "" : "border-b border-line"}`}>
+    <span className={ROTULO}>{rotulo}</span>
+    <span className="min-w-0 max-w-full ml-auto">{children}</span>
   </div>
 );
 
@@ -111,13 +111,13 @@ function Cartao({ posicao, c, descricao, horarioAtual, horasManter, sugerido, me
   return (
     <section
       aria-labelledby={idTitulo}
-      className={`flex flex-col gap-4 rounded-card bg-[var(--surface-card)] shadow-card mb-4 min-[1200px]:mb-0 min-[1200px]:grid min-[1200px]:grid-rows-subgrid ${sugerido ? "border-2 border-[var(--system-500)] p-[22px]" : "border border-[var(--border-subtle)] p-6"}`}
-      style={{ gridRow: `span ${faixas}` }}
+      className={`cenarios-cartao rounded-card bg-[var(--surface-card)] shadow-card ${sugerido ? "border-2 border-[var(--system-500)] p-[22px]" : "border border-[var(--border-subtle)] p-6"}`}
+      style={{ "--faixas": faixas }}
     >
       {/* 1 · título */}
-      <h3 id={idTitulo} className="m-0 flex h-6 items-center gap-3 text-[18px] leading-[23.4px] font-bold text-[var(--text-strong)]">
+      <h3 id={idTitulo} className="m-0 flex min-h-6 items-center gap-3 text-[18px] leading-[23.4px] font-bold text-[var(--text-strong)]">
         <span aria-hidden="true" className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-btn text-sm leading-6 font-bold text-white ${sugerido ? "bg-[var(--color-primary)]" : "bg-[var(--neutral-dark-900)]"}`}>{posicao}</span>
-        <span className="truncate">{c.nome}</span>
+        <span className="min-w-0 break-words">{c.nome}</span>
       </h3>
 
       {/* 2 · pills */}
@@ -172,7 +172,7 @@ function Cartao({ posicao, c, descricao, horarioAtual, horasManter, sugerido, me
 
       {/* 7 a 10 · tabela do miolo */}
       <LinhaTabela rotulo="Horário">
-        <span className={`${VALOR} block truncate`} title={horario}>{horario}</span>
+        <span className={`${VALOR} block break-words`} title={horario}>{horario}</span>
       </LinhaTabela>
       <LinhaTabela rotulo="Horas abertas">
         <span className={VALOR}>
@@ -255,7 +255,7 @@ export default function Comparativo({ comparativo, cenarios, lojaId, podeEscreve
   };
 
   return (
-    <section aria-label="Cenários sugeridos" className="flex flex-col gap-4">
+    <section aria-label="Cenários sugeridos" className="cenarios-conteiner flex flex-col gap-4">
       <div>
         <h2 className="m-0 text-xl leading-[26px] font-bold text-[var(--text-strong)]">Cenários sugeridos</h2>
         <p className="mt-1 mb-0 text-sm leading-5 text-[var(--text-secondary)]">
@@ -263,7 +263,7 @@ export default function Comparativo({ comparativo, cenarios, lojaId, podeEscreve
         </p>
       </div>
       {erro && <Aviso>{erro}</Aviso>}
-      <div className="grid grid-cols-1 min-[1200px]:grid-cols-3 gap-x-4">
+      <div className="cenarios-grade">
         {colunas.map((c, i) => (
           <Cartao
             key={c.id}

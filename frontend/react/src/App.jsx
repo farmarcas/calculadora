@@ -19,6 +19,14 @@ export default function App() {
   const [aberto, setAberto] = useState(() => window.innerWidth >= 768);
   const [tela, setTela] = useState("cadastros");
 
+  // Ao estreitar a janela (ou girar o celular) o menu recolhe sozinho; ao alargar, abre.
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 768px)");
+    const ajustar = (e) => setAberto(e.matches);
+    mq.addEventListener("change", ajustar);
+    return () => mq.removeEventListener("change", ajustar);
+  }, []);
+
   // Sem login (o SSO virá depois): o papel e o grupo são escolhidos aqui, só para demonstração.
   const carregarGes = useCallback(async () => {
     try {
@@ -71,7 +79,7 @@ export default function App() {
         </ul>
       </nav>
       <div className="flex-1 min-w-0 flex flex-col">
-        <header className="bg-white border-b border-line flex flex-wrap items-center justify-between gap-x-6 gap-y-2 px-6 py-3 min-h-16">
+        <header className="bg-white border-b border-line flex flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 sm:px-6 py-3 min-h-16">
           <span className="text-ink-500 text-sm">
             Escala · {atual.rotulo}
             {geAtual && atual.id !== "grupos" && <strong className="ml-2 text-ink-900" data-testid="ge-atual">· {geAtual.nome}</strong>}
@@ -105,7 +113,7 @@ export default function App() {
             </label>
           </div>
         </header>
-        <main className="p-6 flex flex-col gap-6">
+        <main className="p-4 sm:p-6 flex flex-col gap-6">
           {atual.id === "grupos" && <GruposPage geAtual={ge} onAbrir={(id) => { escolherGe(id); setTela("cadastros"); }} onMudou={carregarGes} />}
           {/* Trocar de grupo recarrega a tela inteira: nada do grupo anterior fica. */}
           {atual.id === "cadastros" && <CadastrosPage key={ge} perfil={perfil} />}

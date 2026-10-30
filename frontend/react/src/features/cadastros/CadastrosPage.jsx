@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Abas, Aviso, Botao, IconeUpload } from "../../components/ui/index.jsx";
 import CadastroLojaPage from "../cadastro-loja/CadastroLojaPage.jsx";
-import FormLoja from "./FormLoja.jsx";
 import ImportarPlanilha from "./ImportarPlanilha.jsx";
 import ParametrosLegais from "../parametros/ParametrosLegais.jsx";
 import { cuidaDoGrupo, ehOperador } from "../../api/perfis.js";
@@ -13,13 +12,8 @@ export default function CadastrosPage({ perfil }) {
   const operador = ehOperador(perfil);
   const podeEscrever = cuidaDoGrupo(perfil);
   const [secao, setSecao] = useState("cadastro");
-  const [novaLoja, setNovaLoja] = useState(false);
   const [importando, setImportando] = useState(false);
   const [versao, setVersao] = useState(0);
-
-  // Cadastrar loja (operador) ainda usa o formulário em página inteira; o modo "Nova loja" do painel chega em outra etapa.
-  if (novaLoja)
-    return <FormLoja registro={null} perfil={perfil} onClose={() => setNovaLoja(false)} onSalvo={() => { setNovaLoja(false); setVersao((v) => v + 1); }} />;
 
   return (
     <>
@@ -38,7 +32,7 @@ export default function CadastrosPage({ perfil }) {
       <Abas opcoes={SECOES} valor={secao} onChange={setSecao} rotulo="Seções do cadastro" />
 
       {secao === "parametros" && <ParametrosLegais perfil={perfil} />}
-      {secao === "cadastro" && <CadastroLojaPage key={versao} perfil={perfil} onNova={() => setNovaLoja(true)} />}
+      {secao === "cadastro" && <CadastroLojaPage key={versao} perfil={perfil} />}
 
       {importando && <ImportarPlanilha podeLojas={operador || perfil === "TENANT_ADMIN"} operador={operador} onClose={() => setImportando(false)} onConcluido={() => setVersao((v) => v + 1)} />}
     </>

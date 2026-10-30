@@ -4,7 +4,7 @@ import { cuidaDoGrupo, editaLoja, ehOperador, formatarCnpj } from "../../api/per
 import AbaDados from "./AbaDados.jsx";
 import { errosDaLoja } from "./calculos.js";
 import { ABAS } from "./config.js";
-import EquipeLoja from "../cadastros/EquipeLoja.jsx";
+import AbaEquipe from "./AbaEquipe.jsx";
 import ConfiguracaoLoja from "../cadastros/ConfiguracaoLoja.jsx";
 
 const IconeAtencao = () => (
@@ -12,7 +12,7 @@ const IconeAtencao = () => (
 );
 
 // Detalhe da loja escolhida: cabeçalho com a situação e o motivo, 3 abas e o rodapé com o contador e "Salvar alterações".
-export default function DetalheLoja({ lojaId, aba, onAba, perfil, painel, carregando, erro, rascunho, onVoltar }) {
+export default function DetalheLoja({ lojaId, aba, onAba, perfil, painel, carregando, erro, rascunho, onVoltar, aoMudarEquipe }) {
   const [tentou, setTentou] = useState(false);
   useEffect(() => setTentou(false), [lojaId]);
   const dono = perfil === "TENANT_ADMIN";
@@ -75,7 +75,7 @@ export default function DetalheLoja({ lojaId, aba, onAba, perfil, painel, carreg
 
       <div className="flex-1 px-6 py-6">
         {aba === "dados" && <AbaDados painel={painel} rascunho={rascunho} dono={dono} operador={operador} podeEditar={podeEditar} mostrarErros={tentou} />}
-        {aba === "equipe" && <EquipeLoja lojaId={lojaId} podeEscrever={podeEquipe} />}
+        {aba === "equipe" && <AbaEquipe lojaId={lojaId} podeEscrever={podeEquipe} aoMudar={aoMudarEquipe} />}
         {aba === "regras" && <ConfiguracaoLoja lojaId={lojaId} perfil={perfil} podeEscrever={podeEquipe} />}
       </div>
 

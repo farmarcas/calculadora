@@ -30,9 +30,9 @@
 - [x] T019 `ResumoMensal.jsx`: mensal informado, soma dos dias, margem, alerta de 10% com "Usar R$ …"; validações em texto; perfis sem faturamento não veem a coluna; conferir e commitar a fatia
 
 ## Fatia 6 — Aba Equipe e Nova loja (US4, US6)
-- [ ] T020 `AbaEquipe.jsx`: busca, "Importar equipe", tabela com CPF mascarado, "Fora do cálculo", editar e remover
-- [ ] T021 `FormFuncionario.jsx`: nome, CPF (dígitos verificadores), cargo, carga mensal, entrada, saída, dias; erros em texto; salva na hora com aviso; remover com confirmação e "Desfazer"
-- [ ] T022 Modo "Nova loja" (operador): dados editáveis, abas Equipe e Regras desabilitadas até gravar; conferir e commitar a fatia
+- [x] T020 `AbaEquipe.jsx`: busca, "Importar equipe", tabela com CPF mascarado, "Fora do cálculo", editar e remover
+- [x] T021 `FormFuncionario.jsx`: nome, CPF (dígitos verificadores), cargo, carga mensal, entrada, saída, dias; erros em texto; salva na hora com aviso; remover com confirmação e "Desfazer"
+- [x] T022 Modo "Nova loja" (operador): dados editáveis, abas Equipe e Regras desabilitadas até gravar; conferir e commitar a fatia
 
 ## Fatia 7 — Aba Regras e custos (US5)
 - [ ] T023 `AbaRegras.jsx`: Custos (só dono) com encargos recolhidos e ajuste de RAT, FAP e rescisão; Convenção coletiva com a chave "Não permite / Permite"

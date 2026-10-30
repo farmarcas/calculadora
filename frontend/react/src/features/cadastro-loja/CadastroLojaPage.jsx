@@ -4,6 +4,7 @@ import { ehOperador } from "../../api/perfis.js";
 import { AVISO_DADOS_FICTICIOS, LARGURA_DUAS_COLUNAS } from "./config.js";
 import DetalheLoja from "./DetalheLoja.jsx";
 import ListaLojas from "./ListaLojas.jsx";
+import NovaLoja from "./NovaLoja.jsx";
 import { confirmarSaida } from "./guardaSaida.js";
 import { gravarUrl, lerUrl } from "./urlDaLoja.js";
 import { lojaParaApi } from "./calculos.js";
@@ -13,7 +14,8 @@ import useRascunhoLoja from "./useRascunhoLoja.js";
 const PARA_API = { loja: lojaParaApi };
 
 // Lista de lojas (esquerda) e a loja escolhida (direita) no mesmo cartão. Abaixo de ~1100 px de largura viram duas telas.
-export default function CadastroLojaPage({ perfil, onNova }) {
+export default function CadastroLojaPage({ perfil }) {
+  const [nova, setNova] = useState(false);
   const inicial = useRef(lerUrl());
   const [lojaId, setLojaId] = useState(inicial.current.loja ?? null);
   const [aba, setAba] = useState(inicial.current.aba);
@@ -38,8 +40,9 @@ export default function CadastroLojaPage({ perfil, onNova }) {
   useEffect(() => { largoRef.current = largo; }, [largo]);
   useEffect(() => gravarUrl({ tela: "cadastros", loja: lojaId, aba }), [lojaId, aba]);
 
-  const carregarPainel = useCallback(async (id) => {
-    setCarregando(true);
+  // `silencioso`: atualiza em segundo plano (sem trocar o detalhe por um esqueleto), p. ex. depois de mexer na equipe.
+  const carregarPainel = useCallback(async (id, silencioso = false) => {
+    if (!silencioso) setCarregando(true);
     setErro(null);
     try {
       setPainel(await api(`/lojas/${id}/painel`));
@@ -68,7 +71,8 @@ export default function CadastroLojaPage({ perfil, onNova }) {
   const rascunho = useRascunhoLoja(lojaId, { aoSalvar, paraApi: PARA_API });
 
   const selecionar = (id) => {
-    if (id !== lojaId && !confirmarSaida()) return;
+    if ((id !== lojaId || nova) && !confirmarSaida()) return;
+    setNova(false);
     setLojaId(id);
     setAba("dados");
     setVista("detalhe");
@@ -90,11 +94,17 @@ export default function CadastroLojaPage({ perfil, onNova }) {
       <div ref={caixa} className="cl-conteiner" data-vista={vista} data-largo={largo}>
         <div className="cl-cartao">
           <div className="cl-lista">
-            <ListaLojas lojaId={lojaId} versao={versao} podeCriar={ehOperador(perfil)} onSelecionar={selecionar} onNova={onNova} onCarregou={aoCarregarLista} />
+            <ListaLojas lojaId={lojaId} versao={versao} podeCriar={ehOperador(perfil)} onSelecionar={selecionar} onNova={() => { if (!confirmarSaida()) return; setNova(true); setVista("detalhe"); }} onCarregou={aoCarregarLista} />
           </div>
           <div className="cl-detalhe">
+            {nova ? (
+              <NovaLoja onCancelar={() => { if (confirmarSaida()) { setNova(false); setVista("lista"); } }} onVoltar={() => { if (confirmarSaida()) { setNova(false); setVista("lista"); } }}
+                onCriada={(l) => { setNova(false); setLojaId(l.id); setAba("dados"); setVista("detalhe"); setVersao((v) => v + 1); }} />
+            ) : (
             <DetalheLoja lojaId={lojaId} aba={aba} onAba={setAba} perfil={perfil} painel={painel} carregando={carregando} erro={erro} rascunho={rascunho}
+              aoMudarEquipe={() => { setVersao((v) => v + 1); if (lojaId) carregarPainel(lojaId, true); }}
               onVoltar={() => { if (confirmarSaida()) setVista("lista"); }} />
+            )}
           </div>
         </div>
       </div>

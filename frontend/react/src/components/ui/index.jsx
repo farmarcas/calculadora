@@ -127,6 +127,15 @@ export function Segmentado({ opcoes = [], valor, onChange, rotulo, desabilitado 
   );
 }
 
+// Aviso curto no canto da tela (role="status"), com uma ação opcional (ex.: "Desfazer"). Quem usa decide quando some.
+export const Toast = ({ mensagem, acao, onFechar }) => (
+  <div role="status" aria-live="polite" className="fixed bottom-6 left-1/2 z-50 flex max-w-[90vw] -translate-x-1/2 items-center gap-4 rounded-card bg-[var(--neutral-dark-900)] px-4 py-3 text-sm text-white shadow-pop">
+    <span>{mensagem}</span>
+    {acao && <button type="button" onClick={acao.fn} className="border-0 bg-transparent p-0 text-sm font-bold text-white underline cursor-pointer">{acao.rotulo}</button>}
+    <button type="button" aria-label="Fechar aviso" onClick={onFechar} className="border-0 bg-transparent p-0 text-lg leading-none text-white cursor-pointer">×</button>
+  </div>
+);
+
 // Chave liga/desliga (role="switch"). O rótulo precisa estar visível ao lado; `rotulo` é o nome para quem usa leitor de tela.
 export const Chave = ({ marcado, onChange, rotulo, desabilitado = false, id }) => (
   <button

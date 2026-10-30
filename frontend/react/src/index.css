@@ -115,3 +115,20 @@ body { margin: 0; background: var(--surface-page); color: var(--ink-900); font-f
   .cl-func-rot { display: none; }
   .cl-func-horas { text-align: right; }
 }
+
+/* Aba Equipe: tabela em colunas a partir de 860 px de detalhe; abaixo, cada pessoa vira um bloco com rótulos. */
+.cl-grid4 { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+@container det (min-width: 560px) { .cl-grid4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@container det (min-width: 900px) { .cl-grid4 { grid-template-columns: 1.4fr 1fr 1fr 1fr; } }
+.cl-eq-cab { display: none; }
+.cl-eq-linha { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 12px; align-items: center; }
+.cl-eq-linha > :first-child { grid-column: 1 / -1; }
+.cl-eq-linha > :last-child { grid-column: 1 / -1; justify-content: flex-start; }
+.cl-eq-rot { display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-secondary); }
+@container det (min-width: 860px) {
+  .cl-eq-cab { display: grid; grid-template-columns: var(--eq-cols); gap: 12px; align-items: center; }
+  .cl-eq-linha { grid-template-columns: var(--eq-cols); gap: 12px; min-height: 60px; }
+  .cl-eq-linha > :first-child { grid-column: auto; }
+  .cl-eq-linha > :last-child { grid-column: auto; justify-content: flex-end; }
+  .cl-eq-rot { display: none; }
+}

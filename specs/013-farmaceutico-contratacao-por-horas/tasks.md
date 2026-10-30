@@ -7,18 +7,18 @@ Segurança do banco: só uma migration que acrescenta uma coluna (fatia 6); nada
 
 ## Phase 1: Setup
 
-- [ ] T001 Conferir o branch `feat/farmaceutico-contratacao-por-horas`, o ambiente de pé e os testes verdes (`npm test`, `npm run test:integration`), anotando as contagens; guardar o "antes" da Porto Feliz (regras 42 h e 40 h: gap de farmacêutico, contratação, custo) em `specs/013-farmaceutico-contratacao-por-horas/antes-porto-feliz.md`
+- [X] T001 Conferir o branch `feat/farmaceutico-contratacao-por-horas`, o ambiente de pé e os testes verdes (`npm test`, `npm run test:integration`), anotando as contagens; guardar o "antes" da Porto Feliz (regras 42 h e 40 h: gap de farmacêutico, contratação, custo) em `specs/013-farmaceutico-contratacao-por-horas/antes-porto-feliz.md`
 
 ## Phase 2: Fatia 1 — Núcleo por horas (US1 a US3, puro) 🎯 MVP
 
 **Teste independente**: gap de 10 h dá parcial de 10 h; 30 h dá parcial de 30 h; 35 h dá integral; 54 h dá 1 integral de 40 h + parcial de 14 h, sem ociosidade.
 
-- [ ] T002 [US2] Teste + `src/modules/regras/gap-horas.ts`: meta por cargo (padrão = soma de `min(carga, jornada da regra atual)` das pessoas do cargo; meta do dono = `mínimo × horas abertas`, que substitui o padrão; cargo sem ninguém e sem meta = 0), capacidade (soma de `min(carga, teto efetivo da regra)`) e `gapH = max(0, necessidade − capacidade)`; farmacêutico com necessidade = horas abertas; escala da meta pelas horas abertas do cenário (`horas do cenário ÷ horas de hoje`)
-- [ ] T003 [US3] Teste + `src/modules/regras/contratacao-horas.ts`: constante `PARCIAL = { maxHorasSemana: 30, variante: { baseH: 26, extrasMaxH: 6 }, extrasAdicionalPct: 50 }`; para gap `g` e jornada integral `J`, testar `n` integrais de `floor(g/J)` a `ceil(g/J)` com resto `r` virando no máximo um parcial se `0 < r ≤ 30`; escolher menos horas ociosas e, em empate, menor custo; gap ≤ 30 h = 1 parcial
-- [ ] T004 [US3] Teste à mão do núcleo: 10 h → parcial 10 h; 30 h → parcial 30 h; 35 h → 1 integral (ociosidade 5 h); 54 h → 1 integral + parcial 14 h (ociosidade 0); 70 h → 1 integral + parcial 30 h; 75 h → 2 integrais; 80 h → 2 integrais; nunca parcial acima de 30 h
-- [ ] T005 [US3] Variante secundária: resto entre 30 h e 32 h vira parcial de 26 h + até 6 h extras só quando reduz a ociosidade, marcada `com_hora_extra`; teste à mão (ex.: gap de 32 h)
-- [ ] T006 [US3] Horas contratadas, usadas, ociosas e `ociosidadePct` por sugestão; custo: parcial `salário × h × 5 ÷ divisor × (1 + encargos)`, integral com a jornada efetiva, hora extra × 1,5; sem salário o custo fica nulo e as horas continuam; teste à mão com o salário de R$ 4.722, encargos de 66% e divisor 210 (parcial de 14 h = R$ 2.612,84; integral de 40 h = R$ 7.465,25)
-- [ ] T007 Rodar tudo (`npm test`, `npm run lint`, `npx tsc --noEmit`) e commitar a fatia
+- [X] T002 [US2] Teste + `src/modules/regras/gap-horas.ts`: meta por cargo (padrão = soma de `min(carga, jornada da regra atual)` das pessoas do cargo; meta do dono = `mínimo × horas abertas`, que substitui o padrão; cargo sem ninguém e sem meta = 0), capacidade (soma de `min(carga, teto efetivo da regra)`) e `gapH = max(0, necessidade − capacidade)`; farmacêutico com necessidade = horas abertas; escala da meta pelas horas abertas do cenário (`horas do cenário ÷ horas de hoje`)
+- [X] T003 [US3] Teste + `src/modules/regras/contratacao-horas.ts`: constante `PARCIAL = { maxHorasSemana: 30, variante: { baseH: 26, extrasMaxH: 6 }, extrasAdicionalPct: 50 }`; para gap `g` e jornada integral `J`, testar `n` integrais de `floor(g/J)` a `ceil(g/J)` com resto `r` virando no máximo um parcial se `0 < r ≤ 30`; escolher menos horas ociosas e, em empate, menor custo; gap ≤ 30 h = 1 parcial
+- [X] T004 [US3] Teste à mão do núcleo: 10 h → parcial 10 h; 30 h → parcial 30 h; 35 h → 1 integral (ociosidade 5 h); 54 h → 1 integral + parcial 14 h (ociosidade 0); 70 h → 1 integral + parcial 30 h; 75 h → 2 integrais; 80 h → 2 integrais; nunca parcial acima de 30 h
+- [X] T005 [US3] Variante secundária: resto entre 30 h e 32 h vira parcial de 26 h + até 6 h extras só quando reduz a ociosidade, marcada `com_hora_extra`; teste à mão (ex.: gap de 32 h)
+- [X] T006 [US3] Horas contratadas, usadas, ociosas e `ociosidadePct` por sugestão; custo: parcial `salário × h × 5 ÷ divisor × (1 + encargos)`, integral com a jornada efetiva, hora extra × 1,5; sem salário o custo fica nulo e as horas continuam; teste à mão com o salário de R$ 4.722, encargos de 66% e divisor 210 (parcial de 14 h = R$ 2.612,84; integral de 40 h = R$ 7.465,26; o custo é somado sem arredondar parcelas e arredondado uma vez, como o sistema já faz: 2 integrais = R$ 14.930,51)
+- [X] T007 Rodar tudo (`npm test`, `npm run lint`, `npx tsc --noEmit`) e commitar a fatia
 
 **Checkpoint**: as duas regras novas existem, puras e provadas com números à mão.
 

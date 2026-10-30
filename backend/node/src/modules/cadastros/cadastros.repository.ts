@@ -45,17 +45,21 @@ const comoLoja = (
     uf: string | null;
     marca: string | null;
     horarios: unknown;
+    _count?: { funcionarios: number };
   } & Record<string, unknown>,
 ) =>
   ({
     ...r,
+    // Funcionários ativos da loja (contados no banco, não na página de funcionários que a tela carrega).
+    funcionarios: r._count?.funcionarios,
+    _count: undefined,
     cnpj: r.cnpj ?? undefined,
     cidade: r.cidade ?? undefined,
     uf: r.uf ?? undefined,
     marca: r.marca ?? undefined,
     horarios: normalizarHorarios(r.horarios) ?? undefined,
     horariosResumo: resumoHorarios(normalizarHorarios(r.horarios)),
-  }) as LojaRegistro;
+  }) as unknown as LojaRegistro;
 const comoFunc = (r: Record<string, unknown>) => {
   const base = Object.fromEntries(
     Object.entries(r).map(([k, v]) => [k, v === null && k !== 'funcaoEscala' ? undefined : v]),
@@ -97,7 +101,7 @@ export const cadastrosRepository = (geId: string): CadastrosRepository => ({
     const [rows, total] = await prisma.$transaction([
       prisma.loja.findMany({
         where,
-        select: lojaSel,
+        select: { ...lojaSel, _count: { select: { funcionarios: { where: ativo } } } },
         orderBy: { codigo: 'asc' },
         skip: (page - 1) * pageSize,
         take: pageSize,

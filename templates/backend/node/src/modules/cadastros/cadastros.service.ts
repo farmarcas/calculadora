@@ -12,7 +12,12 @@ import { semanalDeMensal } from './carga.js';
 import { soDigitos } from './documentos.js';
 import { processarLinhas, type FuncionarioInput, type LojaInput } from './processar.js';
 
-export type LojaRegistro = LojaBody & { id: string; horariosResumo?: string };
+export type LojaRegistro = LojaBody & {
+  id: string;
+  horariosResumo?: string;
+  // Quantos funcionários ativos a loja tem (só na listagem).
+  funcionarios?: number;
+};
 export type FuncionarioRegistro = Omit<FuncionarioBody, 'funcaoEscala'> & {
   id: string;
   funcaoEscala: string | null;

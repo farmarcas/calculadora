@@ -20,7 +20,6 @@ export default function CadastrosPage({ perfil }) {
   const podeEditarLoja = editaLoja(perfil);
   const [secao, setSecao] = useState("cadastro");
   const [lojas, setLojas] = useState({ data: [], meta: { total: 0 } });
-  const [funcs, setFuncs] = useState({ data: [], meta: { total: 0 } });
   const [busca, setBusca] = useState("");
   const [erro, setErro] = useState(null);
   const [form, setForm] = useState(null); // { tipo, registro }
@@ -30,9 +29,7 @@ export default function CadastrosPage({ perfil }) {
     setErro(null);
     try {
       const q = new URLSearchParams({ pageSize: "100", ...(busca ? { busca } : {}) });
-      const [l, f] = await Promise.all([api(`/lojas?${q}`), api(`/funcionarios?${q}`)]);
-      setLojas(l);
-      setFuncs(f);
+      setLojas(await api(`/lojas?${q}`));
     } catch (e) {
       setErro(e.message);
     }
@@ -132,7 +129,7 @@ export default function CadastrosPage({ perfil }) {
                     <td className={TD}>{l.cnpj ? formatarCnpj(l.cnpj) : <Ficha tom="atencao">CNPJ pendente</Ficha>}</td>
                     <td className={TD}>{l.uf || "—"}</td>
                     <td className={TD}>{l.horariosResumo ?? "—"}</td>
-                    <td className={TD}>{funcs.data.filter((f) => f.lojaId === l.id).length}</td>
+                    <td className={TD}>{l.funcionarios ?? 0}</td>
                     <td className={`${TD} text-right`}>
                       {podeEditarLoja && <Botao tipo="texto" onClick={() => setForm({ tipo: "loja", registro: l })}>Editar</Botao>}
                       {operador && <Botao tipo="texto" onClick={() => remover("lojas", l)}>Remover</Botao>}

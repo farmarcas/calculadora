@@ -476,29 +476,9 @@ describe('cadastros (rotas)', () => {
       expect((await post({ ...fat, dias: [1, 2] })).status).toBe(400);
     });
 
-    it('importar lojas é do operador, e o faturamento da planilha só vale quando quem envia é o dono', async () => {
+    it('o faturamento da planilha só vale quando quem envia é o dono; o operador importa a loja e o valor é ignorado com aviso', async () => {
       const cab = ['Cód_Loja', 'Nome_Loja', 'Fat_Seg', 'Fat_Mensal', 'Margem_Pct'];
       const buf = await planilha([['050', 'Loja P', '10000', '300000', '25']], [], cab);
-      // Dono e gestor importam só a equipe: a aba de lojas nem é oferecida e, se forçada, é recusada.
-      const doOperador = (
-        await reqGe()
-          .post('/api/v1/importacoes/cadastro')
-          .set(operador)
-          .attach('arquivo', buf, 'f.xlsx')
-      ).body.mapeamento;
-      for (const perfil of [admin, gestor]) {
-        const up = await reqGe()
-          .post('/api/v1/importacoes/cadastro')
-          .set(perfil)
-          .attach('arquivo', buf, 'f.xlsx');
-        expect(up.body.mapeamento.lojas).toBeNull();
-        const rec = await reqGe()
-          .post(`/api/v1/importacoes/cadastro/${up.body.id}/confirmar`)
-          .set(perfil)
-          .send({ mapeamento: doOperador });
-        expect(rec.status).toBe(403);
-      }
-      // O operador importa as lojas, mas não é o dono: valor em reais da planilha é ignorado.
       const up = await reqGe()
         .post('/api/v1/importacoes/cadastro')
         .set(operador)
@@ -513,9 +493,224 @@ describe('cadastros (rotas)', () => {
         .set(operador)
         .send({ mapeamento: up.body.mapeamento });
       expect(ok.status).toBe(200);
+      expect(ok.body.lojas).toEqual({ novos: 1, atualizados: 0 });
+      expect(ok.body.avisos.join(' ')).toContain('só o dono do grupo grava');
       expect((await prisma.loja.findFirst({ where: { codigo: '050' } }))?.faturamento).toBeNull();
+      // O dono, na mesma loja que já existe, grava o faturamento e a margem.
+      const up2 = await reqGe()
+        .post('/api/v1/importacoes/cadastro')
+        .set(admin)
+        .attach('arquivo', buf, 'f.xlsx');
+      expect(up2.body.mapeamento.lojas).not.toBeNull();
+      const ok2 = await reqGe()
+        .post(`/api/v1/importacoes/cadastro/${up2.body.id}/confirmar`)
+        .set(admin)
+        .send({ mapeamento: up2.body.mapeamento });
+      expect(ok2.body.lojas).toEqual({ novos: 0, atualizados: 1 });
+      expect(
+        (await prisma.loja.findFirst({ where: { codigo: '050' } }))?.faturamento,
+      ).toMatchObject({ mensal: 300000, margemPct: 25 });
     });
   });
+  describe('importação em massa: configuração da loja e horário fixo (spec 014)', () => {
+    const gestor = { 'X-Perfil': 'SCHEDULE_MANAGER', 'X-GE': GE_INICIAL_ID };
+    const cabL = [
+      'Código da loja',
+      'Nome da loja',
+      'Convenção permite 8h24 (Sim/Não)',
+      'Meta de Atendimento (pessoas por hora)',
+      'Meta de Farmacêutico (pessoas por hora)',
+      'Salário médio de Atendimento',
+      'Encargos (%)',
+      'Faturamento médio mensal',
+    ];
+    const cabF = ['Matrícula', 'Nome', 'Código da loja de lotação', 'Horário fixo (Sim/Não)'];
+    const importar = async (perfil: Record<string, string>, buf: Buffer) => {
+      const up = await reqGe()
+        .post('/api/v1/importacoes/cadastro')
+        .set(perfil)
+        .attach('arquivo', buf, 'f.xlsx');
+      const ok = await reqGe()
+        .post(`/api/v1/importacoes/cadastro/${up.body.id}/confirmar`)
+        .set(perfil)
+        .send({ mapeamento: up.body.mapeamento });
+      return { up, ok };
+    };
+    const loja = (codigo: string) => prisma.loja.findFirst({ where: { codigo } });
+
+    beforeEach(async () => {
+      await postLoja({ codigo: '070', nome: 'Loja Setenta' });
+    });
+
+    it('o dono atualiza loja existente (configuração, custos, faturamento) e a equipe com horário fixo', async () => {
+      const buf = await planilha(
+        [['070', 'Loja Setenta', 'Sim', '2', '2', '2100', '66', '300000']],
+        [
+          ['H1', 'Ana', '070', 'Sim'],
+          ['H2', 'Bia', '070', 'Não'],
+        ],
+        cabL,
+        cabF,
+      );
+      const { ok } = await importar(admin, buf);
+      expect(ok.status).toBe(200);
+      expect(ok.body.lojas).toEqual({ novos: 0, atualizados: 1 });
+      expect(ok.body.funcionarios).toEqual({ novos: 2, atualizados: 0 });
+      expect(ok.body.erros).toEqual([]);
+      const l = await loja('070');
+      expect(l?.convencao8h24).toBe(true);
+      expect(l?.minimos).toEqual({ Atendimento: 2, Farmacêutico: 2 });
+      expect(l?.custos).toEqual({ salarioMedio: { Atendimento: 2100 }, encargosPct: 66 });
+      expect(l?.faturamento).toMatchObject({ mensal: 300000 });
+      const fs = await prisma.funcionario.findMany({ orderBy: { matricula: 'asc' } });
+      expect(fs.map((f) => [f.matricula, f.horarioFixo])).toEqual([
+        ['H1', true],
+        ['H2', false],
+      ]);
+    });
+
+    it('é o mesmo resultado da edição manual: mescla metas e salários, vazio nunca apaga', async () => {
+      await reqGe()
+        .put(`/api/v1/lojas/${(await loja('070'))!.id}/configuracao`)
+        .set(admin)
+        .send({ minimos: { Caixa: 1, Atendimento: 1 }, convencao8h24: true });
+      await reqGe()
+        .put(`/api/v1/lojas/${(await loja('070'))!.id}/custos`)
+        .set(admin)
+        .send({ salarioMedio: { Caixa: 1900 }, encargosPct: 50 });
+      // só o salário de atendimento e a meta de atendimento; o resto vem vazio
+      const buf = await planilha([['070', 'Loja Setenta', '', '3', '', '2100', '', '']], [], cabL);
+      const { ok } = await importar(admin, buf);
+      expect(ok.body.erros).toEqual([]);
+      const l = await loja('070');
+      expect(l?.convencao8h24).toBe(true);
+      expect(l?.minimos).toEqual({ Caixa: 1, Atendimento: 3 });
+      // encargos ficam os que a loja já tinha
+      expect(l?.custos).toEqual({
+        salarioMedio: { Caixa: 1900, Atendimento: 2100 },
+        encargosPct: 50,
+      });
+    });
+
+    it('salário sem encargos (e a loja sem encargos gravados) não grava custo e avisa', async () => {
+      const buf = await planilha([['070', 'Loja Setenta', '', '', '', '2100', '', '']], [], cabL);
+      const { ok } = await importar(admin, buf);
+      expect(ok.body.avisos.join(' ')).toContain('faltam os encargos');
+      expect((await loja('070'))?.custos).toBeNull();
+    });
+
+    it('o dono não cria loja: código inexistente vira erro com a linha da planilha', async () => {
+      const buf = await planilha(
+        [
+          ['070', 'Loja Setenta', 'Não', '', '', '', '', ''],
+          ['071', 'Loja Nova', 'Não', '', '', '', '', ''],
+        ],
+        [],
+        cabL,
+      );
+      const { ok } = await importar(admin, buf);
+      expect(ok.body.lojas).toEqual({ novos: 0, atualizados: 1 });
+      expect(ok.body.erros).toEqual([
+        { aba: 'Filiais', linha: 3, motivo: 'Loja 071 não cadastrada: só o operador cria lojas' },
+      ]);
+      expect(await loja('071')).toBeNull();
+    });
+
+    it('o dono não muda o CNPJ: o valor da planilha é ignorado com aviso', async () => {
+      const cnpj = '11.222.333/0001-81';
+      await reqGe()
+        .patch(`/api/v1/lojas/${(await loja('070'))!.id}`)
+        .set(operador)
+        .send({ cnpj });
+      const buf = await planilha(
+        [['070', 'Loja Setenta', '12.345.678/0001-95']],
+        [],
+        ['Código da loja', 'Nome da loja', 'CNPJ'],
+      );
+      const { ok } = await importar(admin, buf);
+      expect(ok.body.avisos.join(' ')).toContain('CNPJ da planilha foi ignorado');
+      expect((await loja('070'))?.cnpj).toBe('11222333000181');
+    });
+
+    it('o gestor importa a equipe; a aba Lojas é ignorada com aviso e nada de loja muda', async () => {
+      const buf = await planilha(
+        [['070', 'Loja Setenta', 'Sim', '5', '', '2100', '66', '999999']],
+        [['G1', 'Gil', '070', 'Sim']],
+        cabL,
+        cabF,
+      );
+      const up = await reqGe()
+        .post('/api/v1/importacoes/cadastro')
+        .set(gestor)
+        .attach('arquivo', buf, 'f.xlsx');
+      expect(up.body.mapeamento.lojas).toBeNull();
+      // Mesmo com o mapeamento de lojas forçado (como se viesse do operador), o servidor ignora a aba para o gestor.
+      const doOperador = (
+        await reqGe()
+          .post('/api/v1/importacoes/cadastro')
+          .set(operador)
+          .attach('arquivo', buf, 'f.xlsx')
+      ).body.mapeamento;
+      const ok = await reqGe()
+        .post(`/api/v1/importacoes/cadastro/${up.body.id}/confirmar`)
+        .set(gestor)
+        .send({ mapeamento: doOperador });
+      expect(ok.status).toBe(200);
+      expect(ok.body.funcionarios.novos).toBe(1);
+      expect(ok.body.lojas).toEqual({ novos: 0, atualizados: 0 });
+      expect(ok.body.avisos.join(' ')).toContain('A aba Lojas foi ignorada');
+      const l = await loja('070');
+      expect(l?.convencao8h24).toBe(false);
+      expect(l?.custos).toBeNull();
+      expect(l?.faturamento).toBeNull();
+    });
+
+    it('volume: o dono atualiza 40 lojas e 60 funcionários com uma só planilha em poucos segundos (SC-002)', async () => {
+      const codigos = Array.from({ length: 40 }, (_, i) => String(100 + i));
+      for (const c of codigos) await postLoja({ codigo: c, nome: `Loja ${c}` });
+      const lojas = codigos.map((c, i) => [
+        c,
+        `Loja ${c}`,
+        i % 2 ? 'Sim' : 'Não',
+        '2',
+        '1',
+        '2100',
+        '66',
+        '250000',
+      ]);
+      const funcs = Array.from({ length: 60 }, (_, i) => [
+        `V${i}`,
+        `Pessoa ${i}`,
+        codigos[i % 40]!,
+        i % 3 ? 'Não' : 'Sim',
+      ]);
+      const inicio = Date.now();
+      const { ok } = await importar(admin, await planilha(lojas, funcs, cabL, cabF));
+      const segundos = (Date.now() - inicio) / 1000;
+      expect(ok.status).toBe(200);
+      expect(ok.body.erros).toEqual([]);
+      expect(ok.body.lojas).toEqual({ novos: 0, atualizados: 40 });
+      expect(ok.body.funcionarios).toEqual({ novos: 60, atualizados: 0 });
+      expect(segundos).toBeLessThan(20);
+      expect((await loja('101'))?.convencao8h24).toBe(true);
+      expect((await loja('100'))?.convencao8h24).toBe(false);
+      expect(await prisma.funcionario.count({ where: { horarioFixo: true } })).toBe(20);
+    });
+
+    it('planilha antiga, sem as colunas novas, importa como antes e não apaga a configuração', async () => {
+      const id = (await loja('070'))!.id;
+      await reqGe()
+        .put(`/api/v1/lojas/${id}/configuracao`)
+        .set(admin)
+        .send({ minimos: { Caixa: 2 } });
+      const buf = await planilha([['070', 'Loja Setenta']], [['A1', 'Ana', '070', 'Caixa']]);
+      const { ok } = await importar(admin, buf);
+      expect(ok.status).toBe(200);
+      expect(ok.body.erros).toEqual([]);
+      expect((await loja('070'))?.minimos).toEqual({ Caixa: 2 });
+    });
+  });
+
   describe('equipe da loja: carga mensal, horário, CPF', () => {
     const consulta = { 'X-Perfil': 'SCHEDULE_VIEWER', 'X-GE': GE_INICIAL_ID };
     let lojaId: string;

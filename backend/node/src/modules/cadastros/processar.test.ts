@@ -183,3 +183,72 @@ describe('equipe: carga mensal, horário e dias', () => {
     expect(r.funcionarios[0]?.entrada).toBeUndefined();
   });
 });
+
+describe('importação em massa: configuração da loja e horário fixo', () => {
+  const m = {
+    lojas: {
+      aba: 'L',
+      colunas: {
+        codigo: 0,
+        nome: 1,
+        convencao_8h24: 2,
+        meta_atendimento: 3,
+        salario_apoio: 4,
+        encargos_pct: 5,
+      },
+    },
+    funcionarios: {
+      aba: 'F',
+      colunas: { matricula: 0, nome: 1, loja: 2, horario_fixo: 3 },
+    },
+  };
+  const rodar = (lojas: string[][], funcs: string[][] = []) =>
+    processarLinhas(
+      [
+        { nome: 'L', cabecalhos: [], linhas: lojas },
+        { nome: 'F', cabecalhos: [], linhas: funcs },
+      ],
+      m,
+    );
+
+  it('a loja traz a configuração lida; sem as colunas preenchidas, não traz nada', () => {
+    const r = rodar([
+      ['001', 'Centro', 'Sim', '2', '1900', '66'],
+      ['002', 'Norte', '', '', '', ''],
+    ]);
+    expect(r.erros).toEqual([]);
+    expect(r.lojas[0]?.configuracao).toEqual({
+      convencao8h24: true,
+      minimos: { Atendimento: 2 },
+      custos: { salarioMedio: { Apoio: 1900 }, encargosPct: 66 },
+    });
+    expect(r.lojas[1]?.configuracao).toBeUndefined();
+  });
+
+  it('valor inválido na configuração recusa só aquela loja e cita a linha', () => {
+    const r = rodar([
+      ['001', 'Centro', 'talvez', '', '', ''],
+      ['002', 'Norte', 'Não', '', '', ''],
+    ]);
+    expect(r.lojas.map((l) => l.codigo)).toEqual(['002']);
+    expect(r.erros).toEqual([{ aba: 'L', linha: 2, motivo: 'Convenção 8h24: use Sim ou Não' }]);
+  });
+
+  it('funcionário: horário fixo Sim, Não e em branco (mantém)', () => {
+    const r = rodar(
+      [],
+      [
+        ['F1', 'Ana', '001', 'Sim'],
+        ['F2', 'Bia', '001', 'Não'],
+        ['F3', 'Cris', '001', ''],
+        ['F4', 'Dani', '001', 'quem sabe'],
+      ],
+    );
+    expect(r.funcionarios.map((f) => [f.matricula, f.horarioFixo])).toEqual([
+      ['F1', true],
+      ['F2', false],
+      ['F3', undefined],
+    ]);
+    expect(r.erros).toEqual([{ aba: 'F', linha: 5, motivo: 'Horário fixo: use Sim ou Não' }]);
+  });
+});

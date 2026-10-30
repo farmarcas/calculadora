@@ -95,6 +95,69 @@ const CAMPOS_FATURAMENTO: CampoDef[] = [
   },
 ];
 
+const FUNCOES_CONFIG: [string, string][] = [
+  ['farmaceutico', 'Farmacêutico'],
+  ['atendimento', 'Atendimento'],
+  ['caixa', 'Caixa'],
+  ['apoio', 'Apoio'],
+  ['perfumaria', 'Perfumaria'],
+];
+const semAcento = (t: string) => t.normalize('NFD').replace(/\p{M}/gu, '');
+const ehSimNao = (v: string) => /^(sim|nao|não|s|n|x|true|false|1|0|yes|no)$/i.test(v.trim());
+
+// Configuração da loja para o cálculo da Escala: convenção, meta de pessoas por hora de cada função e, só para o dono,
+// salário médio por função e encargos. Coluna vazia mantém o que a loja já tem.
+const CAMPOS_CONFIGURACAO: CampoDef[] = [
+  {
+    chave: 'convencao_8h24',
+    rotulo: 'Convenção permite 8h24 (Sim/Não)',
+    obrigatorio: false,
+    exemplo: 'Não',
+    sinonimos: [
+      'convencao 8h24',
+      'convencao permite 8h24',
+      'permite 8h24',
+      '8h24',
+      'convencao coletiva',
+      'convencao',
+    ],
+    conteudo: ehSimNao,
+  },
+  ...FUNCOES_CONFIG.map(([k, nome]) => ({
+    chave: `meta_${k}`,
+    rotulo: `Meta de ${nome} (pessoas por hora)`,
+    obrigatorio: false,
+    exemplo: k === 'farmaceutico' ? '1' : '',
+    sinonimos: [`meta ${k}`, `meta de ${k}`, `minimo ${k}`, `minimo de ${k}`, `${k} meta`],
+    conteudo: (v: string) => /^\d{1,2}$/.test(v.trim()),
+  })),
+  ...FUNCOES_CONFIG.map(([k, nome]) => ({
+    chave: `salario_${k}`,
+    rotulo: `Salário médio de ${nome}`,
+    obrigatorio: false,
+    exemplo: k === 'farmaceutico' ? '6000' : k === 'atendimento' ? '2100' : '',
+    sinonimos: [
+      `salario ${k}`,
+      `salario medio ${k}`,
+      `salario medio de ${k}`,
+      `salario ${semAcento(nome).toLowerCase()}`,
+    ],
+  })),
+  {
+    chave: 'encargos_pct',
+    rotulo: 'Encargos (%)',
+    obrigatorio: false,
+    exemplo: '66',
+    sinonimos: [
+      'encargos',
+      'encargos pct',
+      'encargos %',
+      'encargos sociais',
+      'percentual de encargos',
+    ],
+  },
+];
+
 export const CAMPOS_LOJA: CampoDef[] = [
   {
     chave: 'codigo',
@@ -167,6 +230,7 @@ export const CAMPOS_LOJA: CampoDef[] = [
     sinonimos: ['regime tributario', 'regime', 'tributacao', 'regime_tributario'],
   },
   ...CAMPOS_FATURAMENTO,
+  ...CAMPOS_CONFIGURACAO,
   {
     chave: 'loja_24h',
     rotulo: 'Loja 24 horas (Sim/Não)',
@@ -342,6 +406,14 @@ export const CAMPOS_FUNCIONARIO: CampoDef[] = [
     obrigatorio: false,
     exemplo: 'Seg a Sex',
     sinonimos: ['dias', 'dias trabalho', 'dias_trabalho', 'dias trabalhados', 'dias da semana'],
+  },
+  {
+    chave: 'horario_fixo',
+    rotulo: 'Horário fixo (Sim/Não)',
+    obrigatorio: false,
+    exemplo: 'Não',
+    sinonimos: ['horario fixo', 'horario_fixo', 'fixo', 'nao remanejar', 'turno fixo'],
+    conteudo: ehSimNao,
   },
   {
     chave: 'regime',

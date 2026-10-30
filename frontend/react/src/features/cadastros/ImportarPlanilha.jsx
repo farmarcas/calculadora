@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { api } from "../../api/client.js";
-import { Aviso, Botao, Ficha, Modal, entrada } from "../../components/ui/index.jsx";
+import { api, baixarModelo } from "../../api/client.js";
+import { Aviso, Botao, Ficha, IconeUpload, Modal, entrada } from "../../components/ui/index.jsx";
 
 const confianca = (c) => (c >= 0.85 ? ["ok", "entendi bem"] : c > 0 ? ["atencao", "confira"] : ["erro", "não entendi"]);
 
@@ -53,7 +53,7 @@ function Mapa({ titulo, parte, abas, campos, sugestoes, valor, onChange }) {
   );
 }
 
-export default function ImportarPlanilha({ onClose, onConcluido, podeLojas = false }) {
+export default function ImportarPlanilha({ onClose, onConcluido, podeLojas = false, operador = false }) {
   const [prev, setPrev] = useState(null);
   const [mapa, setMapa] = useState(null);
   const [resumo, setResumo] = useState(null);
@@ -92,14 +92,28 @@ export default function ImportarPlanilha({ onClose, onConcluido, podeLojas = fal
   };
 
   return (
-    <Modal titulo="Importar planilha" onClose={onClose} largo>
+    <Modal titulo="Importar em massa" onClose={onClose} largo>
       <div className="flex flex-col gap-4">
         {erro && <Aviso>{erro}</Aviso>}
 
         {!prev && (
-          <div className="flex flex-col gap-3">
-            <p className="m-0 text-sm text-ink-700">Envie a planilha preenchida (.xlsx ou .csv). Se ela não seguir o modelo, o sistema tenta entender sozinho e mostra o que entendeu antes de gravar.</p>
-            <input type="file" accept=".xlsx,.csv" onChange={enviar} disabled={ocupado} aria-label="Arquivo da planilha" />
+          <div className="flex flex-col gap-4">
+            <p className="m-0 text-sm text-ink-700">
+              A planilha tem duas abas para preencher: <strong>Lojas</strong> (dados, horário, faturamento e configuração) e <strong>Funcionários</strong> (a equipe de cada loja).
+              {" "}{operador ? "Você cria e atualiza lojas." : podeLojas ? "Você atualiza as lojas que já existem; loja nova é criada pelo operador." : "Você importa a equipe; a aba Lojas é ignorada."}
+              {" "}Coluna em branco mantém o que já está cadastrado.
+            </p>
+            <div>
+              <Botao tipo="secundario" onClick={baixarModelo}>Baixar planilha modelo</Botao>
+            </div>
+            <div className="flex flex-col gap-2">
+              <p className="m-0 text-sm text-ink-700">Envie a planilha preenchida (.xlsx ou .csv). Se ela não seguir o modelo, o sistema tenta entender sozinho e mostra o que entendeu antes de gravar.</p>
+              <label className="inline-flex items-center gap-2 text-sm font-bold text-system-500 cursor-pointer">
+                <IconeUpload />Escolher arquivo
+                <input type="file" accept=".xlsx,.csv" onChange={enviar} disabled={ocupado} aria-label="Arquivo da planilha" className="sr-only" />
+              </label>
+              {ocupado && <span className="text-sm text-ink-500">Lendo a planilha…</span>}
+            </div>
           </div>
         )}
 
@@ -121,6 +135,11 @@ export default function ImportarPlanilha({ onClose, onConcluido, podeLojas = fal
             <Aviso tom="ok">
               Lojas: {resumo.lojas.novos} novas, {resumo.lojas.atualizados} atualizadas. Funcionários: {resumo.funcionarios.novos} novos, {resumo.funcionarios.atualizados} atualizados.
             </Aviso>
+            {resumo.avisos?.length > 0 && (
+              <Aviso tom="atencao">
+                <ul className="m-0 pl-5">{resumo.avisos.map((a, i) => <li key={i}>{a}</li>)}</ul>
+              </Aviso>
+            )}
             {resumo.erros.length > 0 && (
               <div>
                 <p className="m-0 mb-2 text-sm font-medium">{resumo.erros.length} linha(s) não entraram:</p>

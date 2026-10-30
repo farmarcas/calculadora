@@ -34,6 +34,19 @@ export type CadastrosRepository = {
   cnpjEmUso: (cnpj: string, exceto?: string) => Promise<boolean>;
   criarLoja: (i: LojaBody) => Promise<LojaRegistro>;
   atualizarLoja: (id: string, i: Partial<LojaBody>) => Promise<LojaRegistro>;
+  configuracaoDaLoja: (id: string) => Promise<{
+    convencao8h24: boolean;
+    minimos: Record<string, number>;
+    custos: { salarioMedio: Record<string, number>; encargosPct: number } | null;
+  }>;
+  gravarConfiguracao: (
+    id: string,
+    c: {
+      convencao8h24?: boolean;
+      minimos?: Record<string, number>;
+      custos?: { salarioMedio: Record<string, number>; encargosPct: number };
+    },
+  ) => Promise<void>;
   removerLoja: (id: string) => Promise<void>;
   contarFuncionariosDaLoja: (lojaId: string) => Promise<number>;
   listarFuncionarios: (f: Filtro) => Promise<{ data: FuncionarioRegistro[]; total: number }>;
@@ -52,6 +65,8 @@ export type ResumoImportacao = {
   lojas: { novos: number; atualizados: number };
   funcionarios: { novos: number; atualizados: number };
   erros: { aba: string; linha: number; motivo: string }[];
+  // O que foi ignorado ou ajustado sem travar a importação (permissão, CNPJ diferente, custo incompleto).
+  avisos: string[];
 };
 
 const pagina = <T>(r: { data: T[]; total: number }, f: Filtro): Pagina<T> => ({
@@ -90,6 +105,17 @@ const prepararFuncionario = async <T extends Partial<FuncionarioBody>>(
       throw new ConflictError('Já existe funcionário com esse CPF nesta loja', 'CPF_DUPLICADO');
   }
   return preparado;
+};
+
+// O operador recebe o que o sistema entendeu. O dono recebe a aba Lojas só quando ela tem as colunas obrigatórias (uma planilha
+// só de equipe também parece "lojas" para a inferência e não deve exigir colunas de loja); o gestor importa só a equipe.
+const mapeamentoOferecido = (m: Mapeamento, perfil: string): Mapeamento => {
+  if (perfil === 'PLATFORM_OPERATOR') return m;
+  if (perfil !== 'TENANT_ADMIN' || !m.lojas) return { ...m, lojas: null };
+  const completa = CAMPOS_LOJA.filter((c) => c.obrigatorio).every(
+    (c) => m.lojas!.colunas[c.chave] != null,
+  );
+  return completa ? m : { ...m, lojas: null };
 };
 
 export const makeCadastrosService = (repo: CadastrosRepository, auditar: Auditor) => ({
@@ -199,9 +225,8 @@ export const makeCadastrosService = (repo: CadastrosRepository, auditar: Auditor
         total: a.linhas.length,
         amostra: a.linhas.slice(0, 5),
       })),
-      // Quem cuida de um GE importa só a equipe: a aba de lojas nem é oferecida.
-      mapeamento:
-        perfil === 'PLATFORM_OPERATOR' ? inf.mapeamento : { ...inf.mapeamento, lojas: null },
+      // A aba de lojas é oferecida ao operador e ao dono do grupo; o gestor importa só a equipe.
+      mapeamento: mapeamentoOferecido(inf.mapeamento, perfil),
       sugestoes: inf.sugestoes,
       campos: {
         lojas: CAMPOS_LOJA.map(({ chave, rotulo, obrigatorio, legado }) => ({
@@ -243,51 +268,101 @@ export const makeCadastrosService = (repo: CadastrosRepository, auditar: Auditor
     }
     if (!mapeamento.lojas && !mapeamento.funcionarios)
       throw new ValidationError('Indique ao menos uma aba (Lojas ou Funcionários).');
-    // As lojas vêm da plataforma: quem cuida de um GE importa só a equipe.
-    if (mapeamento.lojas && perfil !== 'PLATFORM_OPERATOR')
-      throw new AppError('Só quem cuida da plataforma importa lojas', 403, 'SEM_PERMISSAO');
-
     const proc = processarLinhas(imp.abas, mapeamento);
+    const operador = perfil === 'PLATFORM_OPERATOR';
+    const dono = perfil === 'TENANT_ADMIN';
+    // Quem importa lojas: o operador (cria e atualiza) e o dono (só atualiza as que existem). Os demais perfis importam só a equipe.
+    const avisos: string[] = [];
+    let lojasDaPlanilha = proc.lojas as LojaInput[];
+    if (mapeamento.lojas && !operador && !dono) {
+      lojasDaPlanilha = [];
+      avisos.push(
+        'A aba Lojas foi ignorada: só o operador e o dono do grupo importam lojas. A equipe foi importada normalmente.',
+      );
+    }
     const resumo: ResumoImportacao = {
       lojas: { novos: 0, atualizados: 0 },
       funcionarios: { novos: 0, atualizados: 0 },
       erros: [...proc.erros],
+      avisos,
     };
+    const abaLojas = mapeamento.lojas?.aba ?? 'Lojas';
+    const semPermissaoDeValores = new Set<string>();
 
     const lojaIds = new Map<string, string>();
-    for (const loja of proc.lojas as LojaInput[]) {
-      // Faturamento em planilha só vale quando quem importa é o dono.
-      const { faturamento: _fat, ...semFat } = loja;
-      const l: LojaInput = perfil === 'TENANT_ADMIN' ? loja : semFat;
+    for (const loja of lojasDaPlanilha) {
+      const { linha, configuracao, faturamento, ...dados } = loja;
+      const n = linha ?? 0;
+      const erro = (motivo: string) => resumo.erros.push({ aba: abaLojas, linha: n, motivo });
+      const l = { ...dados } as LojaInput;
+      // Faturamento, margem, salário e encargos são valores em reais: só o dono grava.
+      if (dono && faturamento) l.faturamento = faturamento;
+      if (!dono && (faturamento || configuracao?.custos)) semPermissaoDeValores.add(l.codigo);
+
+      const existente = await repo.buscarLojaPorCodigo(l.codigo);
+      if (!existente && !operador) {
+        erro(`Loja ${l.codigo} não cadastrada: só o operador cria lojas`);
+        continue;
+      }
+      if (!operador) {
+        // O CNPJ identifica a loja na carga da plataforma: o dono não muda.
+        if (l.cnpj && normalizarCnpj(l.cnpj) !== (existente?.cnpj ?? undefined))
+          avisos.push(
+            `Loja ${l.codigo}: o CNPJ da planilha foi ignorado (só o operador altera o CNPJ).`,
+          );
+        delete l.cnpj;
+      }
       if (l.cnpj) {
         if (!validarCnpj(l.cnpj)) {
-          resumo.erros.push({
-            aba: mapeamento.lojas!.aba,
-            linha: 0,
-            motivo: `Loja ${l.codigo}: CNPJ inválido`,
-          });
+          erro(`Loja ${l.codigo}: CNPJ inválido`);
           continue;
         }
         l.cnpj = normalizarCnpj(l.cnpj);
       }
-      const existente = await repo.buscarLojaPorCodigo(l.codigo);
       if (l.cnpj && (await repo.cnpjEmUso(l.cnpj, existente?.id))) {
-        resumo.erros.push({
-          aba: mapeamento.lojas!.aba,
-          linha: 0,
-          motivo: `Loja ${l.codigo}: este CNPJ já está cadastrado`,
-        });
+        erro(`Loja ${l.codigo}: este CNPJ já está cadastrado`);
         continue;
       }
+      let lojaId: string;
       if (existente) {
         await repo.atualizarLoja(existente.id, l);
-        lojaIds.set(l.codigo, existente.id);
+        lojaId = existente.id;
         resumo.lojas.atualizados++;
       } else {
-        lojaIds.set(l.codigo, (await repo.criarLoja(l)).id);
+        lojaId = (await repo.criarLoja(l)).id;
         resumo.lojas.novos++;
       }
+      lojaIds.set(l.codigo, lojaId);
+
+      if (configuracao) {
+        const atual = await repo.configuracaoDaLoja(lojaId);
+        const grava: Parameters<CadastrosRepository['gravarConfiguracao']>[1] = {};
+        if (configuracao.convencao8h24 !== undefined)
+          grava.convencao8h24 = configuracao.convencao8h24;
+        if (configuracao.minimos)
+          grava.minimos = { ...atual.minimos, ...(configuracao.minimos as Record<string, number>) };
+        if (dono && configuracao.custos) {
+          const encargosPct = configuracao.custos.encargosPct ?? atual.custos?.encargosPct;
+          if (encargosPct === undefined)
+            avisos.push(
+              `Loja ${l.codigo}: o salário médio não foi gravado porque faltam os encargos (%). Informe os encargos na planilha.`,
+            );
+          else
+            grava.custos = {
+              salarioMedio: {
+                ...(atual.custos?.salarioMedio ?? {}),
+                ...(configuracao.custos.salarioMedio as Record<string, number>),
+              },
+              encargosPct,
+            };
+        }
+        if (Object.keys(grava).length) await repo.gravarConfiguracao(lojaId, grava);
+      }
     }
+    if (semPermissaoDeValores.size)
+      avisos.push(
+        `Faturamento, margem, salário médio e encargos foram ignorados em ${semPermissaoDeValores.size} loja(s): só o dono do grupo grava esses valores.`,
+      );
 
     for (const f of proc.funcionarios as FuncionarioInput[]) {
       const lojaId =
@@ -295,13 +370,14 @@ export const makeCadastrosService = (repo: CadastrosRepository, auditar: Auditor
       if (!lojaId) {
         resumo.erros.push({
           aba: mapeamento.funcionarios!.aba,
-          linha: 0,
+          linha: f.linha ?? 0,
           motivo: `Funcionário ${f.matricula}: loja ${f.lojaCodigo} não existe`,
         });
         continue;
       }
-      const { lojaCodigo: _omit, ...dados } = f;
+      const { lojaCodigo: _omit, linha: _linha, ...dados } = f;
       void _omit;
+      void _linha;
       const corpo = { ...dados, lojaId };
       const existente = await repo.buscarFuncionarioPorMatricula(f.matricula);
       if (existente) {
@@ -324,6 +400,7 @@ export const makeCadastrosService = (repo: CadastrosRepository, auditar: Auditor
         lojas: resumo.lojas,
         funcionarios: resumo.funcionarios,
         erros: resumo.erros.length,
+        avisos: resumo.avisos.length,
       },
     });
     return resumo;

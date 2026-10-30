@@ -143,6 +143,29 @@ export const cadastrosRepository = (geId: string): CadastrosRepository => ({
       }),
     );
   },
+  // Configuração e custos atuais da loja, para a importação mesclar só o que veio preenchido.
+  async configuracaoDaLoja(id) {
+    const l = await prisma.loja.findFirst({
+      where: { id, geId, ...ativo },
+      select: { convencao8h24: true, minimos: true, custos: true },
+    });
+    return {
+      convencao8h24: l?.convencao8h24 ?? false,
+      minimos: (l?.minimos as Record<string, number> | null) ?? {},
+      custos:
+        (l?.custos as { salarioMedio: Record<string, number>; encargosPct: number } | null) ?? null,
+    };
+  },
+  async gravarConfiguracao(id, c) {
+    await prisma.loja.update({
+      where: { id, geId },
+      data: limpa({
+        convencao8h24: c.convencao8h24,
+        minimos: c.minimos as never,
+        custos: c.custos as never,
+      }),
+    });
+  },
   async removerLoja(id) {
     await prisma.loja.update({ where: { id, geId }, data: { deletedAt: new Date() } });
   },

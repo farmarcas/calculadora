@@ -9,6 +9,7 @@ import {
   normalizarTurnos,
   validarTurnos,
   type TurnoLoja,
+  type ModoMinimo,
   type TurnosLoja,
 } from '../regras/turnos.js';
 import { diasAbertos, montarDiagnostico } from './diagnostico.js';
@@ -269,7 +270,12 @@ export const makeEscalaService = (repo: EscalaRepository, auditar: Auditor) => {
 
     async configurar(
       lojaId: string,
-      c: { convencao8h24?: boolean; minimos?: Record<string, number>; turnos?: TurnoLoja[] | null },
+      c: {
+        convencao8h24?: boolean;
+        minimos?: Record<string, number>;
+        turnos?: TurnoLoja[] | null;
+        modoMinimo?: ModoMinimo;
+      },
       perfil: string,
     ) {
       const loja = await repo.lojaParaDiagnostico(lojaId);
@@ -280,9 +286,11 @@ export const makeEscalaService = (repo: EscalaRepository, auditar: Auditor) => {
         const normalizados = normalizarTurnos(c.turnos);
         const erros = validarTurnos(normalizados, diasAbertos(loja.horarios));
         if (erros.length) throw new ValidationError(erros.join(' '));
-        turnos = { versao: 1, turnos: normalizados };
-      }
-      await repo.atualizarConfiguracao(lojaId, { ...c, turnos });
+        const modo = c.modoMinimo ?? loja.turnos?.modo;
+        turnos = { versao: 1, ...(modo ? { modo } : {}), turnos: normalizados };
+      } else if (c.modoMinimo && loja.turnos) turnos = { ...loja.turnos, modo: c.modoMinimo };
+      const { modoMinimo: _modo, ...resto } = c;
+      await repo.atualizarConfiguracao(lojaId, { ...resto, turnos });
       await auditar({
         acao: 'loja.configuracao',
         perfil,

@@ -1127,28 +1127,44 @@ describe('escala (rotas)', () => {
       expect(volta.body.config.turnos).toBeNull();
     });
 
-    it('recusa sobreposição, buraco, fora do horário, mais de 6 turnos e farmacêutico 0', async () => {
+    it('aceita turnos que se sobrepõem, que passam do horário e que deixam buraco; recusa mais de 6 turnos e farmacêutico 0', async () => {
       const msg = async (turnos: object[]) => {
         const r = await configurar({ turnos });
         expect(r.status).toBe(400);
         return JSON.stringify(r.body);
       };
-      expect(
-        await msg([turno('A', '08:00', '15:00', {}), turno('B', '14:00', '20:00', {})]),
-      ).toContain('se sobrepõem');
-      expect(
-        await msg([turno('A', '08:00', '13:00', {}), turno('B', '14:00', '20:00', {})]),
-      ).toContain('Falta um turno entre 13:00 e 14:00');
-      expect(await msg([turno('A', '07:00', '20:00', {})])).toContain('antes da abertura');
-      expect(await msg([turno('A', '08:00', '21:00', {})])).toContain('depois do fechamento');
+      const aceita = async (turnos: object[]) => {
+        const r = await configurar({ turnos });
+        expect(r.status).toBe(200);
+        return r.body.config;
+      };
+      await aceita([turno('A', '08:00', '15:00', {}), turno('B', '14:00', '20:00', {})]);
+      await aceita([turno('A', '07:00', '21:00', {})]);
+      // Buraco não é erro: vira aviso informativo.
+      const c = await aceita([turno('A', '08:00', '13:00', {}), turno('B', '14:00', '20:00', {})]);
+      expect(c.turnosAvisos.join(' ')).toContain('Sem turno entre 13:00 e 14:00');
       expect(
         await msg(Array.from({ length: 7 }, (_, i) => turno(`T${i}`, '08:00', '09:00', {}))),
       ).toBeTruthy();
       expect(await msg([turno('A', '08:00', '20:00', { Farmacêutico: 0 })])).toContain(
         'farmacêutico é 1',
       );
-      const nada = await reqGe().get(`/api/v1/lojas/${lojaId}/diagnostico`);
-      expect(nada.body.config.turnos).toBeNull();
+    });
+
+    it('modo do mínimo: "unico" guarda os turnos sem usá-los e volta sem apagar nada', async () => {
+      await configurar({ turnos: tres });
+      const u = await configurar({ modoMinimo: 'unico' });
+      expect(u.status).toBe(200);
+      expect(u.body.config.modoMinimo).toBe('unico');
+      expect(u.body.config.turnos).toHaveLength(3);
+      expect(u.body.config.turnosAvisos).toEqual([]);
+      const t = await configurar({ modoMinimo: 'turnos' });
+      expect(t.body.config.modoMinimo).toBe('turnos');
+      expect(t.body.config.turnos).toHaveLength(3);
+      // Trocar os turnos mantém o modo escolhido.
+      await configurar({ modoMinimo: 'unico' });
+      const novos = await configurar({ turnos: [turno('X', '08:00', '20:00', {})] });
+      expect(novos.body.config.modoMinimo).toBe('unico');
     });
 
     it('consulta não configura turnos', async () => {
@@ -1301,7 +1317,7 @@ describe('escala (rotas)', () => {
         .send({ horarios: { semana: { abre: '08:00', fecha: '22:00' } } });
       const r = (await reqGe().get(`/api/v1/lojas/${lojaId}/diagnostico`)).body;
       expect(r.config.turnos).toHaveLength(3);
-      expect(r.config.turnosAvisos.join(' ')).toContain('Falta um turno entre 20:00 e 22:00');
+      expect(r.config.turnosAvisos.join(' ')).toContain('Sem turno entre 20:00 e 22:00');
     });
   });
 });

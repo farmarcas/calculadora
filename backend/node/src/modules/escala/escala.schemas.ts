@@ -38,6 +38,8 @@ export const configuracaoReq = req(
         .optional(),
       // Lista de turnos (a validação contra o horário da loja é no serviço) ou nulo para voltar ao mínimo único.
       turnos: z.array(turnoSchema).max(6).nullable().optional(),
+      // Qual mínimo vale: o dos turnos ou o único do dia (o outro fica guardado).
+      modoMinimo: z.enum(['turnos', 'unico']).optional(),
     })
     .strict()
     .refine((b) => Object.keys(b).length > 0, { message: 'Informe ao menos um campo' })

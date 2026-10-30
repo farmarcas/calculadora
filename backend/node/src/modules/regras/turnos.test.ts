@@ -3,6 +3,7 @@ import type { DiaAberto } from './capacidade.js';
 import { requisitos } from './requisitos.js';
 import {
   avisosDeTurnos,
+  coberturaDeTurnos,
   exigenciasDaLoja,
   normalizarTurnos,
   validarTurnos,
@@ -38,25 +39,35 @@ describe('validarTurnos', () => {
     expect(validarTurnos([t('Dia todo', '08:00', '20:00')], dias(8, 20))).toEqual([]);
   });
 
-  it('avisa sobreposição, buraco e fora do horário, em português', () => {
-    const sobrepoe = [t('A', '08:00', '15:00'), t('B', '14:00', '20:00')];
-    expect(validarTurnos(sobrepoe, dias(8, 20)).join(' ')).toContain(
-      'se sobrepõem entre 14:00 e 15:00',
-    );
-    const buraco = [t('A', '08:00', '13:00'), t('B', '14:00', '20:00')];
-    expect(validarTurnos(buraco, dias(8, 20)).join(' ')).toContain(
-      'Falta um turno entre 13:00 e 14:00',
-    );
-    const cedo = [t('A', '07:00', '20:00')];
-    expect(validarTurnos(cedo, dias(8, 20)).join(' ')).toContain('começa antes da abertura');
-    const tarde = [t('A', '08:00', '21:00')];
-    expect(validarTurnos(tarde, dias(8, 20)).join(' ')).toContain('termina depois do fechamento');
-    expect(validarTurnos([t('A', '08:00', '18:00')], dias(8, 20)).join(' ')).toContain(
-      'Falta um turno entre 18:00 e 20:00',
-    );
-    expect(validarTurnos([t('A', '10:00', '20:00')], dias(8, 20)).join(' ')).toContain(
-      'Falta um turno entre 08:00 e 10:00',
-    );
+  it('aceita turnos que se sobrepõem, que começam antes da abertura e que terminam depois do fechamento', () => {
+    expect(validarTurnos([t('A', '08:00', '15:00'), t('B', '14:00', '20:00')], dias(8, 20))).toEqual([]);
+    expect(validarTurnos([t('A', '07:00', '20:00')], dias(8, 20))).toEqual([]);
+    expect(validarTurnos([t('A', '08:00', '22:00')], dias(8, 20))).toEqual([]);
+  });
+
+  it('buraco não é erro: vira faixa sem turno (informativo)', () => {
+    expect(validarTurnos([t('A', '08:00', '13:00'), t('B', '14:00', '20:00')], dias(8, 20))).toEqual([]);
+    expect(
+      coberturaDeTurnos([t('A', '08:00', '13:00'), t('B', '14:00', '20:00')], dias(8, 20)),
+    ).toEqual([{ dias: [0, 1, 2, 3, 4], de: 13, ate: 14 }]);
+    expect(coberturaDeTurnos([t('A', '08:00', '18:00')], dias(8, 20))).toEqual([
+      { dias: [0, 1, 2, 3, 4], de: 18, ate: 20 },
+    ]);
+    expect(coberturaDeTurnos([t('A', '10:00', '20:00')], dias(8, 20))).toEqual([
+      { dias: [0, 1, 2, 3, 4], de: 8, ate: 10 },
+    ]);
+  });
+
+  it('cobertura completa não tem faixa; turno que passa do horário não cria faixa', () => {
+    expect(coberturaDeTurnos(tres, dias(8, 20))).toEqual([]);
+    expect(coberturaDeTurnos([t('A', '06:00', '23:00')], dias(8, 20))).toEqual([]);
+  });
+
+  it('cobertura por dia: o sábado fecha mais cedo e agrupa dias com a mesma faixa', () => {
+    const d = [...dias(8, 20, 5), { dia: 5, abre: 8, fecha: 14 }];
+    expect(coberturaDeTurnos([t('A', '08:00', '14:00')], d)).toEqual([
+      { dias: [0, 1, 2, 3, 4], de: 14, ate: 20 },
+    ]);
   });
 
   it('recusa nome repetido ou vazio, início igual ao fim, mais de 6 turnos e farmacêutico 0', () => {
@@ -87,9 +98,8 @@ describe('validarTurnos', () => {
     const noite = [t('Dia', '06:00', '22:00'), t('Noite', '22:00', '06:00')];
     expect(validarTurnos(noite, dias(0, 24, 7))).toEqual([]);
     const buraco = [t('Dia', '06:00', '22:00'), t('Noite', '22:00', '05:00')];
-    expect(validarTurnos(buraco, dias(0, 24, 7)).join(' ')).toContain(
-      'Falta um turno entre 05:00 e 06:00',
-    );
+    expect(validarTurnos(buraco, dias(0, 24, 7))).toEqual([]);
+    expect(coberturaDeTurnos(buraco, dias(0, 24, 7))[0]).toMatchObject({ de: 5, ate: 6 });
     expect(validarTurnos([t('Tudo', '00:00', '24:00')], dias(0, 24, 7))).toEqual([]);
     expect(validarTurnos([t('Tudo', '00:00', '00:00')], dias(0, 24, 7)).join(' ')).toContain(
       'iguais',
@@ -99,9 +109,11 @@ describe('validarTurnos', () => {
   it('avisos de turnos gravados: o horário mudou e deixaram de caber', () => {
     expect(avisosDeTurnos({ versao: 1, turnos: tres }, dias(8, 20))).toEqual([]);
     expect(avisosDeTurnos({ versao: 1, turnos: tres }, dias(8, 22)).join(' ')).toContain(
-      'Falta um turno entre 20:00 e 22:00',
+      'Sem turno entre 20:00 e 22:00',
     );
     expect(avisosDeTurnos(null, dias(8, 22))).toEqual([]);
+    // Modo "mínimo único": os turnos ficam guardados e não geram aviso.
+    expect(avisosDeTurnos({ versao: 1, modo: 'unico', turnos: tres }, dias(8, 22))).toEqual([]);
   });
 });
 
@@ -143,3 +155,47 @@ describe('normalizarTurnos e exigenciasDaLoja', () => {
     expect(r.emHora('Atendimento', 0, 10)).toBe(1);
   });
 });
+
+describe('sobreposição e modo do mínimo', () => {
+  it('onde dois turnos se sobrepõem, vale o maior mínimo por cargo (não soma)', () => {
+    const turnos = {
+      versao: 1 as const,
+      turnos: [
+        t('Manhã', '08:00', '15:00', { Atendimento: 2 }),
+        t('Tarde', '12:00', '20:00', { Atendimento: 3, Caixa: 1 }),
+      ],
+    };
+    const r = requisitos(exigenciasDaLoja({ Farmacêutico: 1 }, turnos));
+    expect(r.emHora('Atendimento', 0, 9)).toBe(2);
+    expect(r.emHora('Atendimento', 0, 13)).toBe(3); // sobreposição: o maior, não 2 + 3
+    expect(r.emHora('Caixa', 0, 13)).toBe(1);
+    expect(r.emHora('Atendimento', 0, 18)).toBe(3);
+    expect(r.emHora('Farmacêutico', 0, 13)).toBe(1);
+  });
+
+  it('hora sem nenhum turno cai no mínimo único (reserva)', () => {
+    const turnos = { versao: 1 as const, turnos: [t('A', '08:00', '12:00', { Atendimento: 3 })] };
+    const r = requisitos(exigenciasDaLoja({ Farmacêutico: 1, Atendimento: 1 }, turnos));
+    expect(r.emHora('Atendimento', 0, 9)).toBe(3);
+    expect(r.emHora('Atendimento', 0, 15)).toBe(1);
+  });
+
+  it('turno que passa do horário da loja só conta dentro das horas abertas', () => {
+    const turnos = { versao: 1 as const, turnos: [t('Longo', '06:00', '23:00', { Atendimento: 2 })] };
+    const m = exigenciasDaLoja({ Farmacêutico: 1 }, turnos);
+    const r = requisitos(m);
+    // O motor só olha as horas abertas (08–20): a necessidade são 12h × 2, não 17h × 2.
+    expect(r.emHora('Atendimento', 0, 8)).toBe(2);
+    expect(r.emHora('Atendimento', 0, 22)).toBe(2);
+  });
+
+  it('modo "unico": a exigência é o mínimo único e os turnos continuam guardados', () => {
+    const m = { Farmacêutico: 1, Atendimento: 1 };
+    const turnos = { versao: 1 as const, modo: 'unico' as const, turnos: tres };
+    expect(exigenciasDaLoja(m, turnos)).toBe(m);
+    // Sem modo, ou com modo "turnos", os turnos valem como antes.
+    expect(exigenciasDaLoja(m, { versao: 1, turnos: tres })).not.toBe(m);
+    expect(exigenciasDaLoja(m, { versao: 1, modo: 'turnos', turnos: tres })).not.toBe(m);
+  });
+});
+

@@ -1,11 +1,11 @@
 # Tarefas: Cadastro de loja em painel único
 
 ## Fatia 1 — Regras de turno e modo do mínimo (servidor) (US5)
-- [ ] T001 `requisitos.ts`: `emHora` usa o maior mínimo por cargo entre as fatias que contêm a hora; `reserva` só sem fatia
-- [ ] T002 `turnos.ts`: `validarTurnos` sem erro de sobreposição, de início antes da abertura nem de fim depois do fechamento; `coberturaDeTurnos(turnos, dias)` com as faixas sem turno (dia a dia); `avisosDeTurnos` passa a devolver essas faixas em texto
-- [ ] T003 `modo` ('turnos' | 'unico') no JSON de turnos; `exigenciasDaLoja` ignora os turnos em modo 'unico'; configuração aceita `modoMinimo` e devolve `avisosDeTurnos`
-- [ ] T004 Testes à mão: sobreposição pega o maior mínimo; turno que passa do horário conta só a parte aberta; buraco vira aviso (não erro); modo único ignora turnos sem apagá-los; turnos antigos seguem iguais
-- [ ] T005 Ajustar os testes antigos que esperavam erro de sobreposição/buraco; rodar tudo e commitar a fatia
+- [x] T001 `requisitos.ts`: `emHora` usa o maior mínimo por cargo entre as fatias que contêm a hora; `reserva` só sem fatia
+- [x] T002 `turnos.ts`: `validarTurnos` sem erro de sobreposição, de início antes da abertura nem de fim depois do fechamento; `coberturaDeTurnos(turnos, dias)` com as faixas sem turno (dia a dia); `avisosDeTurnos` passa a devolver essas faixas em texto
+- [x] T003 `modo` ('turnos' | 'unico') no JSON de turnos; `exigenciasDaLoja` ignora os turnos em modo 'unico'; configuração aceita `modoMinimo` e devolve `avisosDeTurnos`
+- [x] T004 Testes à mão: sobreposição pega o maior mínimo; turno que passa do horário conta só a parte aberta; buraco vira aviso (não erro); modo único ignora turnos sem apagá-los; turnos antigos seguem iguais
+- [x] T005 Ajustar os testes antigos que esperavam erro de sobreposição/buraco; rodar tudo e commitar a fatia
 
 ## Fatia 2 — Lista com situação, filtros e CNPJ (servidor) (US1)
 - [ ] T006 `cadastros/situacao.ts`: `situacaoDoCadastro(loja, equipe)` (Completo/Revisar + motivo) e testes (cada motivo, faturamento por dia aberto, divergência > 10%, sem farmacêutico)

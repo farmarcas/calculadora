@@ -157,6 +157,7 @@ export const montarDiagnostico = (a: {
     convencao8h24: loja.convencao8h24,
     minimos,
     turnos: loja.turnos?.turnos ?? null,
+    modoMinimo: loja.turnos?.modo ?? 'turnos',
     turnosAvisos: avisosDeTurnos(loja.turnos, dias),
   };
   const lojaInfo = {

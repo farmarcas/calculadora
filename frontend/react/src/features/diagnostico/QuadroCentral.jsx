@@ -1,6 +1,5 @@
 import { useRef } from "react";
-import { Botao } from "../../components/ui/index.jsx";
-import { AlertaRegime, ComposicaoEncargos, NOME_REGIME, pct } from "./Encargos.jsx";
+import { AlertaRegime, DicaComposicao, NOME_REGIME, pct } from "./Encargos.jsx";
 import { calculoDaRegra, estadoDoCard, hojeSP, horas, isoDeVigencia, saldoTxt } from "./cardDiagnostico.js";
 
 const brl = (v) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
@@ -85,10 +84,13 @@ function Barras({ regras, selecionada }) {
   );
 }
 
-function Celula({ rotulo, valor, sub, children }) {
+function Celula({ rotulo, valor, sub, dica, children }) {
   return (
     <div className="bg-[var(--surface-card)] p-4 flex flex-col gap-1 min-w-0">
-      <div className={ROTULO}>{rotulo}</div>
+      <div className={`${ROTULO} flex items-center gap-1.5`}>
+        {rotulo}
+        {dica}
+      </div>
       <div className="text-[28px] leading-9 font-bold text-[var(--text-strong)]">{valor}</div>
       {sub && <div className="text-xs leading-4 text-[var(--text-secondary)]">{sub}</div>}
       {children}
@@ -107,8 +109,6 @@ export default function QuadroCentral({ diag, regraId, onRegra, podeEscrever, on
   const folha = diag.folhaMensal;
   const baseEnviada = !!diag.fontes?.base;
   const mostrarNota = sel.jornada !== 44 && !diag.config?.convencao8h24;
-
-  const verContratacoes = () => document.getElementById("contratacoes")?.scrollIntoView({ behavior: "smooth", block: "start" });
 
   // Pendências: as que existem vão para a esquerda do rodapé; a frase da direita só cita o que está em dia.
   const pendencias = [];
@@ -152,17 +152,12 @@ export default function QuadroCentral({ diag, regraId, onRegra, podeEscrever, on
           </div>
 
           <div className="grid grid-cols-2 gap-px bg-[var(--border-subtle)] border border-line rounded-card overflow-hidden">
-            <Celula rotulo="Contratações sugeridas" valor={c ? (c.contratacoes > 0 ? plural(c.contratacoes, "pessoa", "pessoas") : "Nenhuma") : "—"} sub={c ? null : "Sem cálculo para esta regra"}>
-              {c && c.contratacoes > 0 && (
-                <div className="mt-1">
-                  <Botao className="!h-8 !px-3 !text-sm !font-medium" onClick={verContratacoes}>Ver contratações</Botao>
-                </div>
-              )}
-            </Celula>
+            <Celula rotulo="Contratações sugeridas" valor={c ? (c.contratacoes > 0 ? plural(c.contratacoes, "pessoa", "pessoas") : "Nenhuma") : "—"} sub={c ? null : "Sem cálculo para esta regra"} />
             <Celula rotulo="Turnos de farmacêutico" valor={c ? `${c.turnosAcobrir} a cobrir` : "—"} sub={c ? `Por semana, na regra de ${sel.jornada}h` : "Sem cálculo para esta regra"} />
             {folha?.informado ? (
               <Celula
                 rotulo="Folha mensal atual"
+                dica={folha.encargos && folha.mensal !== null ? <DicaComposicao encargos={folha.encargos} /> : null}
                 valor={folha.mensal === null ? "—" : brl(folha.mensal)}
                 sub={folha.mensal === null ? `Falta o salário médio de ${folha.faltamInformar.join(", ")}` : `Salários + encargos de ${pct(folha.encargosPct)}${folha.encargos ? ` (${NOME_REGIME[folha.encargos.regime]})` : ""} · ${plural(n.colaboradoresNoCalculo, "funcionário", "funcionários")}`}
               />
@@ -201,10 +196,9 @@ export default function QuadroCentral({ diag, regraId, onRegra, podeEscrever, on
         </div>
       </div>
 
-      {folha?.informado && folha.encargos && (
-        <div className="flex flex-col gap-3 px-1">
-          {folha.alertaRegime && <AlertaRegime lojaId={diag.loja.id} texto={folha.alertaRegime} onSalvo={onRecarregar} />}
-          <ComposicaoEncargos encargos={folha.encargos} />
+      {folha?.informado && folha.alertaRegime && (
+        <div className="px-1">
+          <AlertaRegime lojaId={diag.loja.id} texto={folha.alertaRegime} onSalvo={onRecarregar} />
         </div>
       )}
     </section>

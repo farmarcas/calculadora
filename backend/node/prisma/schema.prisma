@@ -22,3 +22,355 @@ model User {
 
   @@map("users")
 }
+
+// Grupo Econômico (GE): o empresário e o seu conjunto de lojas; é a fronteira de todos os dados (spec 011).
+// Funcionários, cargas, simulações e ponto pertencem ao GE pela loja.
+model GrupoEconomico {
+  id            String   @id @default(uuid(7)) @db.Uuid
+  nome          String
+  // Número do "Grupo Econômico" na plataforma; único.
+  identificacao String   @unique
+  responsavel   String?
+  ativo         Boolean  @default(true)
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  lojas                Loja[]
+  funcionarios         Funcionario[]
+  importacoesCadastro  ImportacaoCadastro[]
+  auditoria            Auditoria[]
+
+  @@map("grupos_economicos")
+}
+
+// Escala (M4) — cadastro por planilha. Cada loja pertence a um GE. O código é único dentro do GE e o CNPJ (só dígitos)
+// no sistema todo, entre lojas ativas; esses índices parciais vivem no SQL da migration.
+model Loja {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  geId      String    @map("ge_id") @db.Uuid
+  codigo    String
+  nome      String
+  // 14 dígitos; nulo só nas lojas antigas ("CNPJ pendente").
+  cnpj      String?
+  uf        String?
+  marca     String?
+  cidade    String?
+  // simples | presumido | real. Informativo: não entra em nenhum cálculo.
+  regimeTributario String? @map("regime_tributario")
+  // Faturamento médio: { dias: [seg…dom], mensal, margemPct }. Só o dono vê.
+  faturamento   Json?
+  // Horário de funcionamento: { semana: {abre, fecha}, sabado: {...}, domingo: {...} }
+  horarios  Json?
+  // Configuração do diagnóstico: convenção que permite 8h24/dia e mínimo de pessoas por função.
+  convencao8h24 Boolean   @default(false) @map("convencao_8h24")
+  minimos       Json?
+  // Turnos da loja e o mínimo por cargo em cada um: { versao: 1, turnos: [{ nome, inicio, fim, minimos }] }. Nulo = só o mínimo único acima.
+  turnos        Json?
+  // Salário médio por função, encargos e regime tributário. Só o dono do grupo vê. Sem valor padrão.
+  custos        Json?
+  // Limites que marcam a simulação em uso como desatualizada (hora extra e aderência). Nulo = padrão.
+  alertas       Json?
+  // Retrato dos valores do último Excel da plataforma, para saber o que o empresário corrigiu depois.
+  ultimaCarga   Json?     @map("ultima_carga")
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  ge           GrupoEconomico @relation(fields: [geId], references: [id])
+  funcionarios Funcionario[]
+  cargas       Carga[]
+  simulacoes   Simulacao[]
+  importacoesPonto ImportacaoPonto[]
+  batidas      Batida[]
+
+  @@index([geId])
+  @@map("lojas")
+}
+
+model Funcionario {
+  id            String    @id @default(uuid(7)) @db.Uuid
+  // GE da loja, copiado dela: é o que permite a matrícula ser única dentro do GE (índice parcial na migration).
+  geId          String    @map("ge_id") @db.Uuid
+  matricula     String
+  nome          String
+  cpf           String?
+  lojaId        String    @map("loja_id") @db.Uuid
+  cargo         String?
+  // Farmacêutico, Atendimento, Caixa, Apoio, Perfumaria; nulo = fora do cálculo de escala.
+  funcaoEscala  String?   @map("funcao_escala")
+  cargaSemanalH Int?      @map("carga_semanal_h")
+  // Carga mensal digitada; a semanal é derivada (mensal ÷ 5).
+  cargaMensalH  Int?      @map("carga_mensal_h")
+  // Horário atual digitado (horas decimais, 8.5 = 08:30) e dias da semana (0 = segunda … 6 = domingo).
+  entrada       Float?
+  saida         Float?
+  dias          Int[]     @default([])
+  regime        String?
+  deletedAt     DateTime? @map("deleted_at") @db.Timestamptz(3)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  loja Loja           @relation(fields: [lojaId], references: [id])
+  ge   GrupoEconomico @relation(fields: [geId], references: [id])
+
+  @@index([lojaId])
+  @@index([geId])
+  @@map("funcionarios")
+}
+
+enum ImportacaoStatus {
+  AGUARDANDO_CONFIRMACAO @map("aguardando_confirmacao")
+  CONFIRMADA             @map("confirmada")
+
+  @@map("importacao_status")
+}
+
+// Planilha recebida: guarda as linhas lidas até a pessoa confirmar o mapeamento.
+model ImportacaoCadastro {
+  id            String           @id @default(uuid(7)) @db.Uuid
+  // Nulo na carga de lojas da plataforma (o arquivo traz vários GEs).
+  geId          String?          @map("ge_id") @db.Uuid
+  // cadastro | carga_lojas
+  tipo          String           @default("cadastro")
+  arquivo       String
+  status        ImportacaoStatus @default(AGUARDANDO_CONFIRMACAO)
+  abas          Json
+  mapeamento    Json?
+  resumo        Json?
+  criadoEm      DateTime         @default(now()) @map("criado_em") @db.Timestamptz(3)
+  confirmadoEm  DateTime?        @map("confirmado_em") @db.Timestamptz(3)
+
+  ge GrupoEconomico? @relation(fields: [geId], references: [id], onDelete: Restrict)
+
+  @@index([geId])
+  @@map("importacoes_cadastro")
+}
+
+model Auditoria {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  geId      String?  @map("ge_id") @db.Uuid
+  acao      String
+  perfil    String
+  alvoTipo  String   @map("alvo_tipo")
+  alvoId    String?  @map("alvo_id")
+  detalhe   Json?
+  criadoEm  DateTime @default(now()) @map("criado_em") @db.Timestamptz(3)
+
+  ge GrupoEconomico? @relation(fields: [geId], references: [id], onDelete: Restrict)
+
+  @@index([alvoTipo, alvoId])
+  @@index([geId])
+  @@map("auditoria")
+}
+
+enum CargaTipo {
+  ESCALA @map("escala")
+  BASE   @map("base")
+
+  @@map("carga_tipo")
+}
+
+// Arquivo recebido para uma loja. Só a carga ativa vale; as antigas ficam como histórico.
+model Carga {
+  id               String    @id @default(uuid(7)) @db.Uuid
+  lojaId           String    @map("loja_id") @db.Uuid
+  tipo             CargaTipo
+  arquivo          String
+  recebidaEm       DateTime  @default(now()) @map("recebida_em") @db.Timestamptz(3)
+  linhasAceitas    Int       @map("linhas_aceitas")
+  linhasRejeitadas Int       @map("linhas_rejeitadas")
+  periodoInicio    DateTime? @map("periodo_inicio") @db.Date
+  periodoFim       DateTime? @map("periodo_fim") @db.Date
+  ativa            Boolean   @default(true)
+
+  loja   Loja         @relation(fields: [lojaId], references: [id])
+  turnos TurnoAtual[]
+  vendas VendaHora[]
+
+  @@index([lojaId, tipo, ativa])
+  @@map("cargas")
+}
+
+// Escala atual de um colaborador: mesmo turno em cada dia trabalhado. Horas em decimal (8.5 = 08:30).
+model TurnoAtual {
+  id           String  @id @default(uuid(7)) @db.Uuid
+  cargaId      String  @map("carga_id") @db.Uuid
+  matricula    String
+  nome         String
+  funcao       String?
+  tipoEscala   String? @map("tipo_escala")
+  dias         Int[]
+  entrada      Float
+  iniIntervalo Float?  @map("ini_intervalo")
+  fimIntervalo Float?  @map("fim_intervalo")
+  saida        Float
+  cargaH       Float   @map("carga_h")
+  // ok | fora_calculo | erro
+  status       String
+  motivo       String?
+  cadastrado   Boolean
+
+  carga Carga @relation(fields: [cargaId], references: [id], onDelete: Cascade)
+
+  @@index([cargaId])
+  @@map("turnos_atuais")
+}
+
+// Vendas somadas por data e hora da loja.
+model VendaHora {
+  id       String   @id @default(uuid(7)) @db.Uuid
+  cargaId  String   @map("carga_id") @db.Uuid
+  data     DateTime @db.Date
+  hora     Int
+  venda    Float
+  margem   Float
+  clientes Int
+  unidades Int
+
+  carga Carga @relation(fields: [cargaId], references: [id], onDelete: Cascade)
+
+  @@index([cargaId])
+  @@map("vendas_hora")
+}
+
+enum SimulacaoStatus {
+  RASCUNHO    @map("rascunho")
+  GRAVADA     @map("gravada")
+  EM_USO      @map("em_uso")
+  SUBSTITUIDA @map("substituida")
+  DESCARTADA  @map("descartada")
+
+  @@map("simulacao_status")
+}
+
+// Uma loja, uma pergunta e uma resposta. Rascunho é editável; ao gravar, premissas e resultado congelam.
+model Simulacao {
+  id         String          @id @default(uuid(7)) @db.Uuid
+  lojaId     String          @map("loja_id") @db.Uuid
+  nome       String
+  status     SimulacaoStatus @default(RASCUNHO)
+  // atual | r42 | r40
+  regra      String
+  origemId   String?         @map("origem_id") @db.Uuid
+  autor      String
+  // Pessoas da simulação: [{ matricula, nome, funcao, cargaH }]
+  quadro     Json
+  // Horário, mínimos e convenção congelados ao gravar.
+  premissas  Json?
+  resultado  Json?
+  criadaEm   DateTime        @default(now()) @map("criada_em") @db.Timestamptz(3)
+  gravadaEm  DateTime?       @map("gravada_em") @db.Timestamptz(3)
+  aprovadaPor     String?   @map("aprovada_por")
+  aprovadaEm      DateTime? @map("aprovada_em") @db.Timestamptz(3)
+  vigenciaInicio  DateTime? @map("vigencia_inicio") @db.Date
+  substituidaEm   DateTime? @map("substituida_em") @db.Timestamptz(3)
+  atualizadaEm DateTime      @updatedAt @map("atualizada_em") @db.Timestamptz(3)
+
+  loja   Loja              @relation(fields: [lojaId], references: [id])
+  turnos SimulacaoTurno[]
+
+  @@index([lojaId, status])
+  @@map("simulacoes")
+}
+
+// Um turno de uma pessoa num dia (0 = segunda). Horas em decimal (8.25 = 08:15).
+model SimulacaoTurno {
+  id           String  @id @default(uuid(7)) @db.Uuid
+  simulacaoId  String  @map("simulacao_id") @db.Uuid
+  matricula    String
+  dia          Int
+  entrada      Float
+  saida        Float
+  iniIntervalo Float?  @map("ini_intervalo")
+  fimIntervalo Float?  @map("fim_intervalo")
+
+  simulacao Simulacao @relation(fields: [simulacaoId], references: [id], onDelete: Cascade)
+
+  @@index([simulacaoId])
+  @@map("simulacao_turnos")
+}
+
+enum ImportacaoPontoStatus {
+  PROCESSADO     @map("processado")
+  COM_PENDENCIAS @map("com_pendencias")
+  REJEITADO      @map("rejeitado")
+
+  @@map("importacao_ponto_status")
+}
+
+// Um arquivo AFD enviado (inclusive os rejeitados, para o log).
+model ImportacaoPonto {
+  id               String                @id @default(uuid(7)) @db.Uuid
+  lojaId           String                @map("loja_id") @db.Uuid
+  arquivo          String
+  hash             String
+  cnpj             String?
+  periodoInicio    DateTime?             @map("periodo_inicio") @db.Date
+  periodoFim       DateTime?             @map("periodo_fim") @db.Date
+  batidasAceitas   Int                   @default(0) @map("batidas_aceitas")
+  batidasRepetidas Int                   @default(0) @map("batidas_repetidas")
+  batidasPendentes Int                   @default(0) @map("batidas_pendentes")
+  status           ImportacaoPontoStatus
+  motivoRejeicao   String?               @map("motivo_rejeicao")
+  autor            String
+  criadoEm         DateTime              @default(now()) @map("criado_em") @db.Timestamptz(3)
+
+  loja    Loja     @relation(fields: [lojaId], references: [id])
+  batidas Batida[]
+
+  @@index([lojaId, criadoEm])
+  @@map("importacoes_ponto")
+}
+
+enum BatidaSituacao {
+  OK        @map("ok")
+  PENDENTE  @map("pendente")
+  VINCULADA @map("vinculada")
+  IGNORADA  @map("ignorada")
+
+  @@map("batida_situacao")
+}
+
+// Uma marcação de ponto. Única por loja, CPF, data e minuto: reenviar o arquivo não duplica.
+// O CPF é dado pessoal: só sai mascarado pela API (e só com dados fictícios até o parecer de LGPD).
+model Batida {
+  id               String         @id @default(uuid(7)) @db.Uuid
+  lojaId           String         @map("loja_id") @db.Uuid
+  importacaoId     String         @map("importacao_id") @db.Uuid
+  cpf              String
+  data             DateTime       @db.Date
+  minuto           Int
+  nsr              Int
+  situacao         BatidaSituacao @default(OK)
+  // cpf_desconhecido | sem_lotacao | dia_sem_escala
+  motivoPendencia  String?        @map("motivo_pendencia")
+  matricula        String?
+  resolvidaPor     String?        @map("resolvida_por")
+  resolvidaEm      DateTime?      @map("resolvida_em") @db.Timestamptz(3)
+  motivoIgnorar    String?        @map("motivo_ignorar")
+
+  loja       Loja            @relation(fields: [lojaId], references: [id])
+  importacao ImportacaoPonto @relation(fields: [importacaoId], references: [id])
+
+  @@unique([lojaId, cpf, data, minuto])
+  @@index([lojaId, data])
+  @@index([lojaId, situacao])
+  @@map("batidas")
+}
+
+// Parâmetros legais por fase (atual 44h, r42, r40), para todo o grupo. Nunca se edita uma versão: alterar cria outra.
+model ParametroLegal {
+  id                   String   @id @default(uuid(7)) @db.Uuid
+  fase                 String
+  jornadaSemanalH      Float    @map("jornada_semanal_h")
+  horasDiaMax          Float    @map("horas_dia_max")
+  horasDiaMaxConvencao Float?   @map("horas_dia_max_convencao")
+  diasTrabalho         Int      @map("dias_trabalho")
+  divisor              Float
+  vigenciaInicio       DateTime @map("vigencia_inicio") @db.Date
+  criadoPor            String   @map("criado_por")
+  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([fase, vigenciaInicio])
+  @@map("parametros_legais")
+}

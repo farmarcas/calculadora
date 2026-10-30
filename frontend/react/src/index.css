@@ -25,3 +25,28 @@ body { margin: 0; background: var(--surface-page); color: var(--ink-900); font-f
   #area-impressao { position: absolute; inset: 0; padding: 16px; background: #fff; }
   .nao-imprimir { display: none !important; }
 }
+
+/* Layout por LARGURA DO CONTEÚDO (container queries), não da janela: o menu lateral e as margens tiram espaço, então a janela
+   pode ser larga e o conteúdo, estreito. Vale para o card do diagnóstico e para os cartões de cenários. */
+
+/* Cartões de cenários: 1 coluna até 1000 px de conteúdo; depois 3 colunas com as faixas alinhadas por subgrid. */
+.cenarios-conteiner { container-type: inline-size; container-name: cenarios; }
+.cenarios-grade { display: grid; grid-template-columns: minmax(0, 1fr); column-gap: 16px; }
+.cenarios-cartao { display: flex; flex-direction: column; gap: 16px; min-width: 0; margin-bottom: 16px; }
+.cenarios-cartao > * { min-width: 0; }
+@container cenarios (min-width: 1000px) {
+  .cenarios-grade { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .cenarios-cartao { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: subgrid; grid-row: span var(--faixas, 11); margin-bottom: 0; }
+}
+
+/* Card do diagnóstico: o texto e os números ficam lado a lado a partir de 760 px de conteúdo; abaixo de 480 px, os quatro
+   números empilham numa coluna. */
+.diag-conteiner { container-type: inline-size; container-name: diag; }
+.diag-grade { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px 32px; align-items: start; }
+.diag-numeros { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@container diag (min-width: 760px) {
+  .diag-grade { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@container diag (max-width: 479px) {
+  .diag-numeros { grid-template-columns: minmax(0, 1fr); }
+}

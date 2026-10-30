@@ -26,7 +26,7 @@ function Abas({ regras, valor, onChange }) {
     refs.current[j]?.focus();
   };
   return (
-    <div role="tablist" aria-label="Regra do diagnóstico" className="flex overflow-x-auto border border-line rounded-btn bg-[var(--surface-card)]">
+    <div role="tablist" aria-label="Regra do diagnóstico" className="flex overflow-hidden border border-line rounded-btn bg-[var(--surface-card)]">
       {regras.map((r, i) => {
         const ativa = r.id === valor;
         return (
@@ -39,7 +39,7 @@ function Abas({ regras, valor, onChange }) {
             tabIndex={ativa ? 0 : -1}
             onClick={() => onChange(r.id)}
             onKeyDown={(e) => onKey(e, i)}
-            className={`min-h-11 px-5 py-1.5 text-left whitespace-nowrap border-0 cursor-pointer focus-visible:outline-2 focus-visible:outline-[var(--border-focus)] ${ativa ? "bg-[var(--neutral-dark-900)] text-white" : "bg-transparent text-[var(--text-secondary)]"}`}
+            className={`min-h-11 min-w-0 flex-1 sm:flex-none px-3 sm:px-5 py-1.5 text-left border-0 cursor-pointer focus-visible:outline-2 focus-visible:outline-[var(--border-focus)] ${ativa ? "bg-[var(--neutral-dark-900)] text-white" : "bg-transparent text-[var(--text-secondary)]"}`}
           >
             <span className="block text-sm leading-[18px] font-bold">Regra de {r.jornada}h</span>
             <span className="block text-xs leading-4 font-normal">{r.jornada === 44 ? "em vigor hoje" : r.iso && r.iso <= hojeSP() ? "em vigor" : `a partir de ${r.vigenciaTxt}`}</span>
@@ -134,14 +134,14 @@ export default function QuadroCentral({ diag, regraId, onRegra, podeEscrever, on
   const detalhes = `Horas do pior dia sem farmacêutico: ${n.faixasSemFarmaceutico} · horas abaixo da meta: ${n.faixasAbaixoDoMinimo} · linhas rejeitadas na importação: ${n.linhasRejeitadas}`;
 
   return (
-    <section aria-label="Diagnóstico da escala" className="flex flex-col gap-4">
+    <section aria-label="Diagnóstico da escala" className="diag-conteiner flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
         <h2 className="m-0 text-xl leading-[26px] font-bold text-[var(--text-strong)]">Diagnóstico da escala</h2>
         <Abas regras={regras} valor={sel.id} onChange={onRegra} />
       </div>
 
       <div className="bg-[var(--surface-card)] border border-line rounded-card shadow-card p-6 flex flex-col gap-4">
-        <div className="grid grid-cols-1 min-[900px]:grid-cols-2 gap-x-8 gap-y-6 items-start">
+        <div className="diag-grade">
           <div className="flex flex-col gap-3 min-w-0">
             <span className="self-start rounded-full px-3 py-1 text-xs leading-4 font-bold text-[var(--neutral-dark-900)]" style={{ background: estado.fundo }}>
               {estado.pill}
@@ -151,7 +151,7 @@ export default function QuadroCentral({ diag, regraId, onRegra, podeEscrever, on
             <Barras regras={regras} selecionada={sel} />
           </div>
 
-          <div className="grid grid-cols-2 gap-px bg-[var(--border-subtle)] border border-line rounded-card overflow-hidden">
+          <div className="diag-numeros gap-px bg-[var(--border-subtle)] border border-line rounded-card overflow-hidden">
             <Celula rotulo="Contratações sugeridas" valor={c ? (c.contratacoes > 0 ? plural(c.contratacoes, "pessoa", "pessoas") : "Nenhuma") : "—"} sub={c ? null : "Sem cálculo para esta regra"} />
             <Celula rotulo="Turnos de farmacêutico" valor={c ? `${c.turnosAcobrir} a cobrir` : "—"} sub={c ? `Por semana, na regra de ${sel.jornada}h` : "Sem cálculo para esta regra"} />
             {folha?.informado ? (

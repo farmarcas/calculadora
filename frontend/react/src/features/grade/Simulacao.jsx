@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, baixarArquivo } from "../../api/client.js";
-import { Aviso, Botao, Cartao, Ficha, entrada } from "../../components/ui/index.jsx";
+import { Aviso, Botao, Cartao, Ficha, entrada, TH as TH_BASE } from "../../components/ui/index.jsx";
 import Aprovar from "./Aprovar.jsx";
 import Grade from "./Grade.jsx";
 import Vagas from "./Vagas.jsx";
@@ -8,7 +8,7 @@ import { NOMES_DIA, hhmm, horasLiquidas, lerHhmm } from "./tempo.js";
 
 const STATUS = { rascunho: ["atencao", "Rascunho"], gravada: ["ok", "Gravada"], em_uso: ["ok", "Em uso"], substituida: ["neutro", "Substituída"], descartada: ["neutro", "Descartada"] };
 const REGRAS = [["atual", "44h (atual)"], ["r42", "42h"], ["r40", "40h"]];
-const TH = "text-left text-[11px] font-bold uppercase tracking-wide text-ink-500 px-4 py-2";
+const TH = `${TH_BASE} px-4 py-2`;
 
 export default function Simulacao({ id, perfil, podeEscrever, onMudou, onAbrir }) {
   const [sim, setSim] = useState(null);

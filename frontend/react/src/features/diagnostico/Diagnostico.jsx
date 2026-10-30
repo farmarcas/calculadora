@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { api } from "../../api/client.js";
-import { Aviso, Botao, Cartao, Ficha } from "../../components/ui/index.jsx";
+import { Aviso, Botao, Cartao, Ficha, TH as TH_BASE, TD as TD_BASE } from "../../components/ui/index.jsx";
 import QuadroCentral from "./QuadroCentral.jsx";
 import Cenarios from "./Cenarios.jsx";
 import QuadroTurnos from "./QuadroTurnos.jsx";
 import Comparativo from "./Comparativo.jsx";
 
-const TH = "text-left text-[11px] font-bold uppercase tracking-wide text-ink-500 px-6 py-3";
-const TD = "px-6 py-3 border-t border-line";
+const TH = `${TH_BASE} px-6 py-3`;
+const TD = `${TD_BASE} px-6 py-3`;
 const DIAS = ["seg", "ter", "qua", "qui", "sex", "sáb", "dom"];
 const hh = (h) => `${String(h).padStart(2, "0")}h`;
 const brl = (v) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });

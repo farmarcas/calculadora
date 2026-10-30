@@ -1,10 +1,10 @@
-import { Aviso, Cartao, Ficha } from "../../components/ui/index.jsx";
+import { Aviso, Cartao, Ficha, TH as TH_BASE, TD as TD_BASE } from "../../components/ui/index.jsx";
 
 const brl = (v) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
 const pct = (v) => `${String(v).replace(".", ",")}%`;
 const NOMES_DIA = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
-const TH = "text-left text-[11px] font-bold uppercase tracking-wide text-ink-500 px-4 py-2";
-const TD = "px-4 py-2 border-t border-line";
+const TH = `${TH_BASE} px-4 py-2`;
+const TD = `${TD_BASE} px-4 py-2`;
 
 // Quando o valor de venda não vem: sem nenhuma fonte, ou escondido de quem não é o dono (venda estimada pelo cadastro).
 const semVenda = (c) =>

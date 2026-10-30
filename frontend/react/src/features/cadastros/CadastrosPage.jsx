@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, baixarModelo } from "../../api/client.js";
-import { Aviso, Botao, Cartao, Ficha } from "../../components/ui/index.jsx";
+import { Abas, Aviso, Botao, Cartao, Ficha, TH as TH_BASE, TD as TD_BASE } from "../../components/ui/index.jsx";
 import FormLoja from "./FormLoja.jsx";
 import ImportarPlanilha from "./ImportarPlanilha.jsx";
 import ParametrosLegais from "../parametros/ParametrosLegais.jsx";
@@ -8,8 +8,8 @@ import { cuidaDoGrupo, editaLoja, ehOperador, formatarCnpj } from "../../api/per
 
 const SECOES = [["cadastro", "Lojas"], ["parametros", "Parâmetros legais"]];
 
-const TH = "text-left text-[11px] font-bold uppercase tracking-wide text-ink-500 px-6 py-3";
-const TD = "px-6 py-3 border-t border-line";
+const TH = `${TH_BASE} px-6 py-3`;
+const TD = `${TD_BASE} px-6 py-3`;
 
 
 export default function CadastrosPage({ perfil }) {
@@ -73,20 +73,7 @@ export default function CadastrosPage({ perfil }) {
       {perfil === "SCHEDULE_VIEWER" && <Aviso tom="neutro">Você está como "Somente consulta": não pode criar, editar nem importar.</Aviso>}
       {erro && <Aviso>{erro}</Aviso>}
 
-      <div className="flex gap-6 border-b border-line" role="tablist" aria-label="Seções do cadastro">
-        {SECOES.map(([id, r]) => (
-          <button
-            key={id}
-            role="tab"
-            aria-selected={secao === id}
-            onClick={() => setSecao(id)}
-            className={`py-3 text-sm font-medium ${secao === id ? "text-ink-900" : "text-ink-500"}`}
-            style={{ boxShadow: secao === id ? "inset 0 -2px 0 0 #006FF7" : "none" }}
-          >
-            {r}
-          </button>
-        ))}
-      </div>
+      <Abas opcoes={SECOES} valor={secao} onChange={setSecao} rotulo="Seções do cadastro" />
 
       {secao === "parametros" && <ParametrosLegais perfil={perfil} />}
 

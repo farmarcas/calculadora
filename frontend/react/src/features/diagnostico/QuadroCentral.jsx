@@ -1,137 +1,212 @@
-import { Botao, Ficha } from "../../components/ui/index.jsx";
+import { useRef } from "react";
+import { Botao } from "../../components/ui/index.jsx";
 import { AlertaRegime, ComposicaoEncargos, NOME_REGIME, pct } from "./Encargos.jsx";
+import { calculoDaRegra, estadoDoCard, hojeSP, horas, isoDeVigencia, saldoTxt } from "./cardDiagnostico.js";
 
 const brl = (v) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
-const NOME_FUNCAO = { Farmacêutico: "farmacêutico", Atendimento: "atendimento", Caixa: "caixa", Apoio: "apoio", Perfumaria: "perfumaria" };
-const sinal = (n) => (n < 0 ? `−${Math.abs(n)}` : n > 0 ? `+${n}` : "0");
+const plural = (n, um, varios) => `${n} ${n === 1 ? um : varios}`;
+const RAIA = { 44: "Hoje · 44h", 42: "42h", 40: "40h" };
+const ROTULO = "text-xs leading-4 font-bold uppercase text-[var(--neutral-mid-300)]";
+const LINK = "font-medium text-[var(--color-primary)] hover:text-[var(--color-primary-hover)] bg-transparent border-0 p-0 cursor-pointer text-sm underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-[var(--border-focus)]";
 
-// "2 turnos de farmacêutico, 5 de atendimento e 2 de caixa"
-const juntar = (itens) => (itens.length <= 1 ? (itens[0] ?? "") : `${itens.slice(0, -1).join(", ")} e ${itens[itens.length - 1]}`);
-const faltas = (regra, preferir) =>
-  regra.funcoes
-    .filter((f) => f.falta && f.obrigatorio)
-    .map((f) => {
-      const t = -f.saldoT;
-      const h = -f.saldoH;
-      const nome = NOME_FUNCAO[f.funcao] ?? f.funcao.toLowerCase();
-      const turnos = `${t} ${t === 1 ? "turno" : "turnos"} de ${nome}`;
-      const horas = `${h}h de ${nome}`;
-      if (preferir === "turnos") return t > 0 ? turnos : horas;
-      return h > 0 ? horas : turnos;
-    });
+// As três regras com o que o card precisa de cada uma.
+const regrasDoCard = (diag) =>
+  diag.regras.map((r) => {
+    const jornada = r.id === "atual" ? 44 : r.id === "r42" ? 42 : 40;
+    const iso = isoDeVigencia(r.vigencia);
+    return { id: r.id, jornada, iso, vigenciaTxt: r.vigencia, calculo: calculoDaRegra(r), regra: r };
+  });
 
-const COR = { erro: "text-error-600", atencao: "text-attention-700", ok: "text-success-600", neutro: "text-ink-900" };
-
-function Numero({ rotulo, valor, legenda, tom = "neutro" }) {
+function Abas({ regras, valor, onChange }) {
+  const refs = useRef([]);
+  const onKey = (e, i) => {
+    if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+    e.preventDefault();
+    const j = (i + (e.key === "ArrowRight" ? 1 : regras.length - 1)) % regras.length;
+    onChange(regras[j].id);
+    refs.current[j]?.focus();
+  };
   return (
-    <div className="border border-line rounded-card bg-white px-4 py-4 min-w-0">
-      <div className="text-[11px] font-bold uppercase tracking-wide text-ink-500">{rotulo}</div>
-      <div className={`mt-2 text-[28px] leading-8 font-bold ${COR[tom]}`}>{valor}</div>
-      <div className="mt-1 text-xs text-ink-500">{legenda}</div>
+    <div role="tablist" aria-label="Regra do diagnóstico" className="flex overflow-x-auto border border-line rounded-btn bg-[var(--surface-card)]">
+      {regras.map((r, i) => {
+        const ativa = r.id === valor;
+        return (
+          <button
+            key={r.id}
+            ref={(el) => (refs.current[i] = el)}
+            role="tab"
+            type="button"
+            aria-selected={ativa}
+            tabIndex={ativa ? 0 : -1}
+            onClick={() => onChange(r.id)}
+            onKeyDown={(e) => onKey(e, i)}
+            className={`min-h-11 px-5 py-1.5 text-left whitespace-nowrap border-0 cursor-pointer focus-visible:outline-2 focus-visible:outline-[var(--border-focus)] ${ativa ? "bg-[var(--neutral-dark-900)] text-white" : "bg-transparent text-[var(--text-secondary)]"}`}
+          >
+            <span className="block text-sm leading-[18px] font-bold">Regra de {r.jornada}h</span>
+            <span className="block text-xs leading-4 font-normal">{r.jornada === 44 ? "em vigor hoje" : r.iso && r.iso <= hojeSP() ? "em vigor" : `a partir de ${r.vigenciaTxt}`}</span>
+          </button>
+        );
+      })}
     </div>
   );
 }
 
-// O quadro central da aba: a frase do diagnóstico e, logo abaixo, os números grandes
-// (da regra escolhida e dos pontos de atenção). É a primeira coisa que a pessoa lê.
-export default function QuadroCentral({ diag, regraId, onRegra, podeEscrever, onEnviar, onRecarregar }) {
-  const regras = diag.regras;
-  const regra = diag.regras.find((r) => r.id === regraId);
-  const atual = diag.regras.find((r) => r.id === "atual");
+function Barras({ regras, selecionada }) {
+  const maior = Math.max(0, ...regras.map((r) => r.calculo?.gap ?? 0));
+  const g44 = regras.find((r) => r.jornada === 44)?.calculo?.gap;
+  return (
+    <div className="flex flex-col gap-2">
+      <div className={ROTULO}>Horas de farmacêutico que faltam por semana</div>
+      {regras.map((r) => {
+        const ativa = r.id === selecionada.id;
+        const sem = !r.calculo;
+        const gap = r.calculo?.gap ?? 0;
+        const cor = r.jornada === 44 ? "var(--neutral-mid-100)" : gap > 0 ? "var(--func-warning-300)" : "var(--func-success-300)";
+        return (
+          <div key={r.id} className="flex items-center gap-3">
+            <span className={`w-20 shrink-0 text-sm ${ativa ? "font-bold text-[var(--text-strong)]" : "font-normal text-[var(--text-secondary)]"}`}>{RAIA[r.jornada]}</span>
+            {sem ? (
+              <span className="h-3 flex-1 max-w-[280px] rounded-btn border border-dashed border-[var(--border-strong)]" role="img" aria-label="sem cálculo" />
+            ) : (
+              <span className="h-3 flex-1 max-w-[280px] rounded-btn bg-[var(--surface-subtle)] overflow-hidden" role="img" aria-label={`${horas(gap)} por semana na regra de ${r.jornada}h`}>
+                <span className="block h-full rounded-btn" style={{ width: `${maior ? (gap / maior) * 100 : 0}%`, background: ativa || r.jornada === 44 ? cor : "var(--neutral-mid-100)" }} />
+              </span>
+            )}
+            <span className="text-sm leading-5 font-bold text-[var(--text-strong)]">
+              {sem ? "—" : horas(gap)}
+              {!sem && r.jornada !== 44 && g44 != null && gap !== g44 && (
+                <span className="font-normal text-[var(--text-secondary)]"> ({gap - g44 > 0 ? "+" : "−"}{horas(Math.abs(gap - g44))})</span>
+              )}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function Celula({ rotulo, valor, sub, children }) {
+  return (
+    <div className="bg-[var(--surface-card)] p-4 flex flex-col gap-1 min-w-0">
+      <div className={ROTULO}>{rotulo}</div>
+      <div className="text-[28px] leading-9 font-bold text-[var(--text-strong)]">{valor}</div>
+      {sub && <div className="text-xs leading-4 text-[var(--text-secondary)]">{sub}</div>}
+      {children}
+    </div>
+  );
+}
+
+// O quadro central da aba Diagnóstico: a resposta primeiro ("quanto falta de farmacêutico e o que faço?"), depois a evolução
+// 44h → 42h → 40h, os números de apoio (com a folha) e, no fim, as pendências.
+export default function QuadroCentral({ diag, regraId, onRegra, podeEscrever, onEnviar, onRecarregar, onDefinirFuncao }) {
+  const regras = regrasDoCard(diag);
+  const sel = regras.find((r) => r.id === regraId) ?? regras[0];
+  const c = sel.calculo;
+  const estado = estadoDoCard(sel, regras);
   const n = diag.numeros;
   const folha = diag.folhaMensal;
-  const comLacunas = n.faixasSemFarmaceutico + n.faixasAbaixoDoMinimo > 0;
+  const baseEnviada = !!diag.fontes?.base;
+  const mostrarNota = sel.jornada !== 44 && !diag.config?.convencao8h24;
 
-  const nomeRegra = regra.id === "atual" ? "44h (hoje)" : regra.nome;
+  const verContratacoes = () => document.getElementById("contratacoes")?.scrollIntoView({ behavior: "smooth", block: "start" });
 
-  const chip = regra.passa
-    ? comLacunas
-      ? ["atencao", `Passa na regra de ${nomeRegra}, com faixas descobertas`]
-      : ["ok", `Passa na regra de ${nomeRegra}`]
-    : ["erro", `Falta na regra de ${nomeRegra}`];
-
-  const manchete = regra.passa
-    ? `Na regra de ${nomeRegra}, o quadro atual cobre as horas e os turnos da loja.`
-    : `Na regra de ${nomeRegra}, faltam ${juntar(faltas(regra, "horas"))}.`;
-  const hoje = atual.passa
-    ? "Hoje, na regra atual (44h): o quadro cobre as horas e os turnos."
-    : `Hoje, na regra atual (44h): já faltam ${juntar(faltas(atual, "horas"))}.`;
+  // Pendências: as que existem vão para a esquerda do rodapé; a frase da direita só cita o que está em dia.
+  const pendencias = [];
+  if (n.foraDoCalculo > 0)
+    pendencias.push({
+      chave: "fora",
+      texto: `${plural(n.foraDoCalculo, "colaborador está", "colaboradores estão")} sem função de escala e fora do cálculo.`,
+      acao: onDefinirFuncao && <button type="button" className={LINK} onClick={onDefinirFuncao}>Definir função</button>,
+    });
+  if (n.faixasSemFarmaceutico > 0)
+    pendencias.push({ chave: "semfarm", texto: `${plural(n.faixasSemFarmaceutico, "hora", "horas")} do pior dia ficam sem farmacêutico.` });
+  if (n.faixasAbaixoDoMinimo > 0)
+    pendencias.push({ chave: "meta", texto: `${plural(n.faixasAbaixoDoMinimo, "hora", "horas")} do pior dia ficam abaixo da meta.` });
+  if (n.linhasRejeitadas > 0)
+    pendencias.push({ chave: "linhas", texto: `${plural(n.linhasRejeitadas, "linha rejeitada", "linhas rejeitadas")} na importação da escala.` });
+  const emDia = [
+    n.faixasSemFarmaceutico === 0 && "cobertura de farmacêutico",
+    n.faixasAbaixoDoMinimo === 0 && "metas",
+    n.linhasRejeitadas === 0 && "importação",
+  ].filter(Boolean);
+  const fraseEmDia =
+    emDia.length === 3 ? "Sem pendências em cobertura, metas e importação." : emDia.length ? `Sem pendências em ${emDia.slice(0, -1).join(", ")}${emDia.length > 1 ? " e " : ""}${emDia[emDia.length - 1]}.` : null;
+  const detalhes = `Horas do pior dia sem farmacêutico: ${n.faixasSemFarmaceutico} · horas abaixo da meta: ${n.faixasAbaixoDoMinimo} · linhas rejeitadas na importação: ${n.linhasRejeitadas}`;
 
   return (
-    <section aria-label="Diagnóstico central" className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center gap-3">
-        <h2 className="m-0 text-base font-bold">Diagnóstico diante da regra</h2>
-        <div className="flex border border-line rounded-input overflow-hidden bg-white" role="group" aria-label="Regra do diagnóstico">
-          {regras.map((r) => (
-            <button
-              key={r.id}
-              type="button"
-              aria-pressed={regraId === r.id}
-              onClick={() => onRegra(r.id)}
-              className={`px-4 py-2 text-sm font-medium ${regraId === r.id ? "bg-ink-900 text-white" : "text-ink-700 hover:bg-surface-subtle"}`}
-            >
-              {r.id === "atual" ? "44h · hoje" : `${r.nome} · a partir de ${r.vigencia}`}
-            </button>
-          ))}
-        </div>
-        <span className="text-xs text-ink-500">{regra.descricao}</span>
+    <section aria-label="Diagnóstico da escala" className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+        <h2 className="m-0 text-xl leading-[26px] font-bold text-[var(--text-strong)]">Diagnóstico da escala</h2>
+        <Abas regras={regras} valor={sel.id} onChange={onRegra} />
       </div>
 
-      <div className="bg-surface-card border border-line rounded-card shadow-card p-6 flex flex-col gap-4">
-        <div className="flex flex-wrap items-center gap-3">
-          <span className="text-[11px] font-bold uppercase tracking-wide text-ink-500">Diagnóstico</span>
-          <Ficha tom={chip[0]}>{chip[1]}</Ficha>
-        </div>
-        <h3 className="m-0 text-xl font-bold">{manchete}</h3>
-        {regra.id !== "atual" && <p className="m-0 text-sm text-ink-700">{hoje}</p>}
+      <div className="bg-[var(--surface-card)] border border-line rounded-card shadow-card p-6 flex flex-col gap-4">
+        <div className="grid grid-cols-1 min-[900px]:grid-cols-2 gap-x-8 gap-y-6 items-start">
+          <div className="flex flex-col gap-3 min-w-0">
+            <span className="self-start rounded-full px-3 py-1 text-xs leading-4 font-bold text-[var(--neutral-dark-900)]" style={{ background: estado.fundo }}>
+              {estado.pill}
+            </span>
+            <h3 className="m-0 text-[28px] leading-9 font-bold text-[var(--text-strong)]">{estado.titulo}</h3>
+            <p className="m-0 text-sm leading-5 text-[var(--text-secondary)]">{estado.apoio}</p>
+            <Barras regras={regras} selecionada={sel} />
+          </div>
 
-        <div className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(180px,1fr))]">
-          {folha &&
-            (folha.informado ? (
-              folha.mensal === null ? (
-                <Numero rotulo="Folha mensal atual" valor="—" legenda={`falta o salário médio de ${folha.faltamInformar.join(", ")}`} tom="atencao" />
-              ) : (
-                <Numero rotulo="Folha mensal atual" valor={brl(folha.mensal)} legenda={folha.encargos ? `Salários + encargos ${pct(folha.encargosPct)} (${NOME_REGIME[folha.encargos.regime]})` : `Salários + encargos ${pct(folha.encargosPct)}`} />
-              )
+          <div className="grid grid-cols-2 gap-px bg-[var(--border-subtle)] border border-line rounded-card overflow-hidden">
+            <Celula rotulo="Contratações sugeridas" valor={c ? (c.contratacoes > 0 ? plural(c.contratacoes, "pessoa", "pessoas") : "Nenhuma") : "—"} sub={c ? null : "Sem cálculo para esta regra"}>
+              {c && c.contratacoes > 0 && (
+                <div className="mt-1">
+                  <Botao className="!h-8 !px-3 !text-sm !font-medium" onClick={verContratacoes}>Ver contratações</Botao>
+                </div>
+              )}
+            </Celula>
+            <Celula rotulo="Turnos de farmacêutico" valor={c ? `${c.turnosAcobrir} a cobrir` : "—"} sub={c ? `Por semana, na regra de ${sel.jornada}h` : "Sem cálculo para esta regra"} />
+            {folha?.informado ? (
+              <Celula
+                rotulo="Folha mensal atual"
+                valor={folha.mensal === null ? "—" : brl(folha.mensal)}
+                sub={folha.mensal === null ? `Falta o salário médio de ${folha.faltamInformar.join(", ")}` : `Salários + encargos de ${pct(folha.encargosPct)}${folha.encargos ? ` (${NOME_REGIME[folha.encargos.regime]})` : ""} · ${plural(n.colaboradoresNoCalculo, "funcionário", "funcionários")}`}
+              />
+            ) : folha ? (
+              <Celula rotulo="Folha mensal atual" valor="—" sub="Informe os custos em Cadastro de Loja › Editar › Funcionários e configuração" />
             ) : (
-              <Numero rotulo="Folha mensal atual" valor="—" legenda="informe os custos em Cadastros › Lojas › Editar › Funcionários e configuração" />
+              <Celula rotulo="Funcionários no cálculo" valor={n.colaboradoresNoCalculo} sub="Da escala atual" />
+            )}
+            <Celula rotulo="Equipe toda" valor={c ? saldoTxt(c.saldoHoras) : "—"} sub={c ? "Por semana: capacidade menos necessidade ou meta" : "Sem cálculo para esta regra"} />
+          </div>
+        </div>
+
+        {mostrarNota && (
+          <p className="m-0 text-xs leading-4 text-[var(--text-secondary)]">Sem convenção que permita jornada de 8h24, na prática a escala fica em 40h por semana (5 × 8h).</p>
+        )}
+
+        <div className="border-t border-line pt-3 flex flex-wrap items-center justify-between gap-x-8 gap-y-2">
+          <div className="flex flex-col gap-1">
+            {pendencias.map((p, i) => (
+              <div key={p.chave} className="flex flex-wrap items-center gap-2 text-sm leading-5 text-[var(--text-secondary)]" title={detalhes}>
+                {i === 0 && <span className="rounded-full px-2.5 py-0.5 text-xs leading-4 font-bold text-[var(--neutral-dark-900)] bg-[var(--func-attention-100)]">{plural(pendencias.length, "pendência", "pendências")}</span>}
+                <span>{p.texto}</span>
+                {p.acao}
+              </div>
             ))}
-          <Numero rotulo="Turnos de farmacêutico em falta" valor={regra.resumo.turnosEmFalta} legenda={`apoio ao gap em horas · regra de ${nomeRegra}`} tom={regra.resumo.turnosEmFalta > 0 ? "erro" : "ok"} />
-          <Numero rotulo="Saldo de horas" valor={`${sinal(regra.resumo.saldoHoras)}h`} legenda="por semana · capacidade − necessidade ou meta" tom={regra.resumo.saldoHoras < 0 ? "atencao" : "neutro"} />
-          <Numero rotulo="Contratações sugeridas" valor={regra.resumo.contratar} legenda={regra.resumo.contratar === 1 ? "pessoa (veja o detalhe abaixo)" : "pessoas (veja o detalhe abaixo)"} tom={regra.resumo.contratar > 0 ? "atencao" : "ok"} />
-          <Numero rotulo="Funcionários" valor={n.colaboradoresNoCalculo} legenda="no cálculo da escala atual" />
-        </div>
-
-        {folha?.informado && folha.encargos && (
-          <div className="flex flex-col gap-3">
-            {folha.alertaRegime && <AlertaRegime lojaId={diag.loja.id} texto={folha.alertaRegime} onSalvo={onRecarregar} />}
-            <ComposicaoEncargos encargos={folha.encargos} />
           </div>
-        )}
-
-        <div className="flex flex-col gap-3">
-          <span className="text-[11px] font-bold uppercase tracking-wide text-ink-500">Pontos de atenção</span>
-          <div className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(180px,1fr))]">
-            <Numero rotulo="Faixas sem farmacêutico" valor={n.faixasSemFarmaceutico} legenda="horas do pior dia · a lei exige em todo o horário" tom={n.faixasSemFarmaceutico > 0 ? "erro" : "ok"} />
-            <Numero rotulo="Faixas abaixo da meta" valor={n.faixasAbaixoDoMinimo} legenda="horas do pior dia · meta do dono nas demais funções" tom={n.faixasAbaixoDoMinimo > 0 ? "erro" : "ok"} />
-            <Numero
-              rotulo="Maior venda sem cobertura"
-              valor={n.maiorVendaDescoberta ?? "—"}
-              legenda={n.maiorVendaDescoberta === null ? "precisa da base comercial (hora a hora)" : "das 3 horas de maior venda"}
-              tom={n.maiorVendaDescoberta ? "erro" : n.maiorVendaDescoberta === 0 ? "ok" : "neutro"}
-            />
-            <Numero rotulo="Fora do cálculo" valor={n.foraDoCalculo} legenda="colaboradores sem função de escala" tom={n.foraDoCalculo > 0 ? "atencao" : "ok"} />
-            <Numero rotulo="Linhas rejeitadas" valor={n.linhasRejeitadas} legenda="na importação da escala" tom={n.linhasRejeitadas > 0 ? "atencao" : "ok"} />
+          <div className="text-sm leading-5 text-[var(--text-secondary)]" title={detalhes}>
+            {fraseEmDia && <>{fraseEmDia} </>}
+            {podeEscrever ? (
+              <button type="button" className={LINK} onClick={onEnviar}>{baseEnviada ? "Atualizar base comercial" : "Enviar base comercial"}</button>
+            ) : (
+              <span>{baseEnviada ? "Base comercial enviada" : "Base comercial não enviada"}</span>
+            )}{" "}
+            {!baseEnviada && "(opcional)"}
           </div>
         </div>
-
-        {n.maiorVendaDescoberta === null && podeEscrever && (
-          <div className="flex flex-wrap items-center gap-3 text-xs text-ink-500">
-            O diagnóstico só vê os horários de maior venda com a base comercial (opcional).
-            <Botao tipo="texto" onClick={onEnviar}>Enviar base comercial</Botao>
-          </div>
-        )}
       </div>
+
+      {folha?.informado && folha.encargos && (
+        <div className="flex flex-col gap-3 px-1">
+          {folha.alertaRegime && <AlertaRegime lojaId={diag.loja.id} texto={folha.alertaRegime} onSalvo={onRecarregar} />}
+          <ComposicaoEncargos encargos={folha.encargos} />
+        </div>
+      )}
     </section>
   );
 }

@@ -235,7 +235,7 @@ function Vendas({ vendas }) {
   );
 }
 
-export default function Diagnostico({ diag, podeEscrever, onEnviar, onSimular, onRecarregar }) {
+export default function Diagnostico({ diag, podeEscrever, onEnviar, onSimular, onRecarregar, onDefinirFuncao }) {
   const [regraId, setRegraId] = useState("r42");
 
   if (diag.status === "pendente")
@@ -255,7 +255,7 @@ export default function Diagnostico({ diag, podeEscrever, onEnviar, onSimular, o
   return (
     <div className="flex flex-col gap-6">
       {diag.avisoEstimativa && <Aviso tom="atencao">{diag.avisoEstimativa}</Aviso>}
-      <QuadroCentral diag={diag} regraId={regraId} onRegra={setRegraId} podeEscrever={podeEscrever} onEnviar={onEnviar} onRecarregar={onRecarregar} />
+      <QuadroCentral diag={diag} regraId={regraId} onRegra={setRegraId} podeEscrever={podeEscrever} onEnviar={onEnviar} onRecarregar={onRecarregar} onDefinirFuncao={onDefinirFuncao} />
 
       {/* Logo depois do diagnóstico: os caminhos lado a lado e, abaixo, o detalhe de cada cenário. */}
       {regraId === "atual" ? (
@@ -282,7 +282,9 @@ export default function Diagnostico({ diag, podeEscrever, onEnviar, onSimular, o
 
       <Verificacao regras={diag.regras} />
       <Redistribuicao regra={diag.regras.find((r) => r.id === regraId)} colaboradores={diag.colaboradores} />
-      <Contratacoes regras={diag.regras.map((r) => ({ ...r, lojaId: diag.loja.id }))} regraId={regraId} podeEscrever={podeEscrever} onSimular={onSimular} />
+      <div id="contratacoes" className="scroll-mt-4">
+        <Contratacoes regras={diag.regras.map((r) => ({ ...r, lojaId: diag.loja.id }))} regraId={regraId} podeEscrever={podeEscrever} onSimular={onSimular} />
+      </div>
       <Cobertura cob={diag.cobertura} />
       <Vendas vendas={diag.vendas} />
 

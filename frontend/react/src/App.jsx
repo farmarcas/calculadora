@@ -109,7 +109,7 @@ export default function App() {
           {atual.id === "grupos" && <GruposPage geAtual={ge} onAbrir={(id) => { escolherGe(id); setTela("cadastros"); }} onMudou={carregarGes} />}
           {/* Trocar de grupo recarrega a tela inteira: nada do grupo anterior fica. */}
           {atual.id === "cadastros" && <CadastrosPage key={ge} perfil={perfil} />}
-          {atual.id === "escala" && <EscalaPage key={ge} perfil={perfil} />}
+          {atual.id === "escala" && <EscalaPage key={ge} perfil={perfil} onIrCadastros={() => setTela("cadastros")} />}
         </main>
       </div>
     </div>

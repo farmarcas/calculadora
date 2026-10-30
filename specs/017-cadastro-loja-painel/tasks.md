@@ -18,10 +18,10 @@
 - [x] T011 Rodar tudo e commitar a fatia
 
 ## Fatia 4 — Tela: casca, lista e rascunho (US1, US3, US7)
-- [ ] T012 `features/cadastro-loja/CadastroLojaPage.jsx`: cabeçalho, abas de página, aviso fixo (chave), cartão 400 px + detalhe, altura estável com rolagem interna, descida para telas separadas abaixo de ~1100 px
-- [ ] T013 `ListaLojas.jsx`: busca com atraso, filtros Cadastro e UF, estado vazio com "Limpar filtros", linha acessível por teclado, paginação "1–6 de N" e "Ver mais", carregamento sem pular
-- [ ] T014 `DetalheLoja.jsx` e `useRascunhoLoja.js`: cabeçalho com situação e motivo, 3 abas, rascunho único, contador, "Salvar alterações", "Cancelar", confirmação ao sair, `beforeunload`; `urlDaLoja.js` (loja e aba no endereço)
-- [ ] T015 Ligar em `CadastrosPage` (abas "Lojas" e "Parâmetros legais"); conferir no navegador; commitar a fatia
+- [x] T012 `features/cadastro-loja/CadastroLojaPage.jsx`: cabeçalho, abas de página, aviso fixo (chave), cartão 400 px + detalhe, altura estável com rolagem interna, descida para telas separadas abaixo de ~1100 px
+- [x] T013 `ListaLojas.jsx`: busca com atraso, filtros Cadastro e UF, estado vazio com "Limpar filtros", linha acessível por teclado, paginação "1–6 de N" e "Ver mais", carregamento sem pular
+- [x] T014 `DetalheLoja.jsx` e `useRascunhoLoja.js`: cabeçalho com situação e motivo, 3 abas, rascunho único, contador, "Salvar alterações", "Cancelar", confirmação ao sair, `beforeunload`; `urlDaLoja.js` (loja e aba no endereço)
+- [x] T015 Ligar em `CadastrosPage` (abas "Lojas" e "Parâmetros legais"); conferir no navegador; commitar a fatia
 
 ## Fatia 5 — Aba Dados e funcionamento (US2)
 - [ ] T016 Vitest no front e `calculos.js` com testes: horas do dia (00:00 = meia-noite), soma semanal, mensal × 52 ÷ 12, divergência > 10%

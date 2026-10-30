@@ -80,3 +80,18 @@ body { margin: 0; background: var(--surface-page); color: var(--ink-900); font-f
   .sim-contr-linha { grid-template-columns: 150px 170px minmax(0, 1fr) 170px 100px; grid-template-areas: "fn sit con res cus"; gap: 16px; }
   .sim-rot { display: none; }
 }
+
+/* Cadastro de loja: lista (400 px) e detalhe no mesmo cartão. A lista fica fixa e rola por dentro; o detalhe rola com a página.
+   Abaixo de 1100 px de largura as duas viram telas separadas (data-vista = lista | detalhe). */
+.cl-conteiner { container-type: inline-size; container-name: cl; }
+.cl-cartao { border: 1px solid var(--border-subtle); border-radius: 8px; background: var(--surface-card); box-shadow: var(--shadow-0, none); }
+.cl-lista { height: min(640px, calc(100vh - 32px)); }
+.cl-conteiner[data-vista="lista"] .cl-detalhe { display: none; }
+.cl-conteiner[data-vista="detalhe"] .cl-lista { display: none; }
+@container cl (min-width: 1100px) {
+  .cl-cartao { display: grid; grid-template-columns: 400px minmax(0, 1fr); align-items: start; }
+  .cl-conteiner[data-vista] .cl-lista, .cl-conteiner[data-vista] .cl-detalhe { display: block; }
+  .cl-lista { position: sticky; top: 16px; }
+  .cl-detalhe { border-left: 1px solid var(--border-subtle); min-height: 640px; }
+  .cl-voltar { display: none; }
+}

@@ -92,7 +92,7 @@ export default function SimulacaoPage({ id, perfil, podeEscrever, aviso, onVolta
         )}
       </div>
 
-      {aviso && <Aviso tom="ok">{aviso}</Aviso>}
+      {aviso && <Aviso tom={/salvo/.test(aviso) ? "ok" : "neutro"}>{aviso}</Aviso>}
       {erro && <Aviso>{erro}</Aviso>}
       {sim.desatualizada && <Aviso tom="atencao">Simulação em uso desatualizada: {sim.motivosDesatualizada.join(" ")} Clone, ajuste e marque a nova como em uso.</Aviso>}
 

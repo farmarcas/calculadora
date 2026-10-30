@@ -35,6 +35,9 @@ describe('Cenário 1 — manter horários', () => {
         parcial: { turnos: 1, horas: 4 },
         parcialH: 4,
         horasContratadas: 4,
+        horasUsadas: 4,
+        horasOciosas: 0,
+        motivo: 'obrigatoria',
         ociosidadePct: 0,
         ajustado: false,
       },
@@ -45,6 +48,9 @@ describe('Cenário 1 — manter horários', () => {
         parcial: { turnos: 1, horas: 4 },
         parcialH: 4,
         horasContratadas: 44,
+        horasUsadas: 44,
+        horasOciosas: 0,
+        motivo: 'meta',
         ociosidadePct: 0,
         ajustado: false,
       },
@@ -56,6 +62,25 @@ describe('Cenário 1 — manter horários', () => {
     expect(manter.horasSemana).toBe(84);
     expect(manter.horarioSemana[6]).toEqual({ dia: 6, aberto: false, abre: null, fecha: null });
     expect(manter.horarioSemana[0]).toMatchObject({ aberto: true, abre: '08:00', fecha: '22:00' });
+  });
+
+  it('loja sem atendente nem caixa não fica inviável por isso: só o farmacêutico conta', () => {
+    // Meta do dono de 1 atendente por hora, mas ninguém no cargo: continua sendo meta, o Cenário 2 não é inviável.
+    const r = montarCenarios(
+      base({
+        minimos: { Farmacêutico: 1, Atendimento: 1, Caixa: 1 },
+        pessoas: [
+          { funcao: 'Farmacêutico', cargaH: 44 },
+          { funcao: 'Farmacêutico', cargaH: 44 },
+          { funcao: 'Farmacêutico', cargaH: 44 },
+        ],
+      }),
+    );
+    expect(r.economia.viavel).toBe(true);
+    expect(r.manter.contratacoes.map((c) => [c.funcao, c.motivo])).toEqual([
+      ['Atendimento', 'meta'],
+      ['Caixa', 'meta'],
+    ]);
   });
 
   it('custo adicional e % sobre a folha atual, só para o dono', () => {

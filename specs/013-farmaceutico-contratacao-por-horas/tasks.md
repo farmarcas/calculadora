@@ -38,15 +38,15 @@ Segurança do banco: só uma migration que acrescenta uma coluna (fatia 6); nada
 
 **Teste independente**: os cenários da Porto Feliz abrem com a contratação nova e o custo coerente; o Cenário 2 deixa de ser inviável por falta de Caixa ou Atendimento.
 
-- [ ] T015 [US6] `src/modules/escala/cenarios.ts`: `Contratacao` com `parcial: { horas, turnos }` (turnos só para compatibilidade), `horasUsadas`, `horasOciosas` e `motivo` (`obrigatoria` ou `meta`); `contratacoesDe` e `custoDasVagas` usam as sugestões por horas; Cenário 1 inclui a obrigatória (farmacêutico) e as metas, marcadas
-- [ ] T016 [US6] Cenário 2 cobre só pelo farmacêutico e continua sem contratar; "equipe já cobre" e as travas do fim de semana usam o gap do farmacêutico; o motivo "Não há X no quadro" só vale para o farmacêutico
-- [ ] T017 [US6] Cenário 3 (equilíbrio) e `cenarios-dias.ts`: cada combinação de dias usa a necessidade do farmacêutico e a meta escalada pelas horas abertas; avaliação e custo pela contratação nova
-- [ ] T018 [US6] `src/modules/escala/comparativo.ts`, `etapas.ts` e `cenarios-extras.ts`: contratações por horas, `motivo`, ociosidade e custo; Cenário 5 (reduzir equipe) e Cenário 4 (abrir um dia) com a necessidade nova
-- [ ] T019 [US6] `src/modules/simulacoes/vagas.ts` e `avaliar.ts`: vagas sugeridas pela contratação nova (integral na jornada efetiva, parcial com as horas do gap); simulação em rascunho avalia com a lógica nova
-- [ ] T020 [US6] Refazer à mão, um a um, os testes antigos de cenários, comparativo, extras, etapas, diagnóstico e simulações (`cenarios*.test.ts`, `comparativo.test.ts`, `etapas.test.ts`, `diagnostico.test.ts`, `simulacoes.*.test.ts`), anotando no teste o porquê de cada mudança
+- [x] T015 [US6] `src/modules/escala/cenarios.ts`: `Contratacao` com `parcial: { horas, turnos }` (turnos só para compatibilidade), `horasUsadas`, `horasOciosas` e `motivo` (`obrigatoria` ou `meta`); `contratacoesDe` e `custoDasVagas` usam as sugestões por horas; Cenário 1 inclui a obrigatória (farmacêutico) e as metas, marcadas
+- [x] T016 [US6] Cenário 2 cobre só pelo farmacêutico e continua sem contratar; "equipe já cobre" e as travas do fim de semana usam o gap do farmacêutico; o motivo "Não há X no quadro" só vale para o farmacêutico
+- [x] T017 [US6] Cenário 3 (equilíbrio) e `cenarios-dias.ts`: cada combinação de dias usa a necessidade do farmacêutico e a meta escalada pelas horas abertas; avaliação e custo pela contratação nova
+- [x] T018 [US6] `src/modules/escala/comparativo.ts`, `etapas.ts` e `cenarios-extras.ts`: contratações por horas, `motivo`, ociosidade e custo; Cenário 5 (reduzir equipe) e Cenário 4 (abrir um dia) com a necessidade nova
+- [x] T019 [US6] `src/modules/simulacoes/vagas.ts` e `avaliar.ts`: vagas sugeridas pela contratação nova (integral na jornada efetiva, parcial com as horas do gap); simulação em rascunho avalia com a lógica nova
+- [x] T020 [US6] Refazer à mão, um a um, os testes antigos de cenários, comparativo, extras, etapas, diagnóstico e simulações (`cenarios*.test.ts`, `comparativo.test.ts`, `etapas.test.ts`, `diagnostico.test.ts`, `simulacoes.*.test.ts`), anotando no teste o porquê de cada mudança
 - [ ] T021 [US6] Teste de integração: a loja de teste com 94 h mostra os cenários 1, 2 e 3 coerentes; loja sem Caixa nem Atendimento não deixa o Cenário 2 inviável
-- [ ] T022 Comparar a Porto Feliz antes e depois pela API (regras 42 h e 40 h: turnos em falta, gaps por cargo, contratações sugeridas e custo) e registrar em `specs/013-farmaceutico-contratacao-por-horas/antes-depois-porto-feliz.md`
-- [ ] T023 Rodar tudo (`npm test`, `npm run test:integration`, `npm run lint`, `npx tsc --noEmit`) e commitar a fatia
+- [x] T022 Comparar a Porto Feliz antes e depois pela API (regras 42 h e 40 h: turnos em falta, gaps por cargo, contratações sugeridas e custo) e registrar em `specs/013-farmaceutico-contratacao-por-horas/antes-depois-porto-feliz.md`
+- [x] T023 Rodar tudo (`npm test`, `npm run test:integration`, `npm run lint`, `npx tsc --noEmit`) e commitar a fatia
 
 ## Phase 5: Fatia 4 — Tela (US3)
 

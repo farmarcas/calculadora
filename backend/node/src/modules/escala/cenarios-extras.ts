@@ -6,6 +6,7 @@ import {
   hhmm,
   horarioDaSemana,
   horasDaSemana,
+  opcoesDoMotor,
   vagasDe,
   type CenariosRegra,
   type DiaCenario,
@@ -82,7 +83,7 @@ const montarEstender = (e: EntradaCenarios, c: CenariosRegra): CenarioEstender =
   const vagas = c.manter.contratacoes.flatMap((ct) => vagasDe(ct, cheia));
   const equipe = [...e.pessoas, ...vagas];
   const cobre = (dias: DiaAberto[]) =>
-    passa(verificarRegra(regra, dias, e.minimos, equipe, { limiteParcial: e.limiteParcial }));
+    passa(verificarRegra(regra, dias, e.minimos, equipe, opcoesDoMotor(e, regra)));
   const fator = Math.min(1, Math.max(0, e.fatorDiaNovo ?? FATOR_DIA_NOVO_PADRAO));
 
   const base: CenarioEstender = {
@@ -217,7 +218,7 @@ const pct = (n: number) => Math.round(n * 10) / 10;
 const montarReduzir = (e: EntradaCenarios, c: CenariosRegra): CenarioReduzir => {
   const regra = regraPara(e.regraId, e.convencao8h24, e.parametros);
   const linhaDe = (pessoas: EntradaCenarios['pessoas'], funcao: string) =>
-    verificarRegra(regra, e.dias, e.minimos, pessoas, { limiteParcial: e.limiteParcial }).find(
+    verificarRegra(regra, e.dias, e.minimos, pessoas, opcoesDoMotor(e, regra)).find(
       (l) => l.funcao === funcao,
     );
   const req = requisitos(e.minimos);

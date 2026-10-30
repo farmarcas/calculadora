@@ -9,6 +9,9 @@ const c = (funcao: string, inteiras: number, parcialH: number | null = null): Co
   parcial: parcialH ? { turnos: parcialH / 8, horas: parcialH } : null,
   parcialH,
   horasContratadas: inteiras * 40 + (parcialH ?? 0),
+  horasUsadas: inteiras * 40 + (parcialH ?? 0),
+  horasOciosas: 0,
+  motivo: 'obrigatoria',
   ociosidadePct: 0,
   ajustado: false,
 });

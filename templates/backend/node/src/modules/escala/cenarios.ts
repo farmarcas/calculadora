@@ -1,5 +1,6 @@
 import { passa, verificarRegra, type DiaAberto, type LinhaFuncao } from '../regras/capacidade.js';
-import { regraPara, type RegraId } from '../regras/perfis.js';
+import { regraPara, type Regra, type RegraId } from '../regras/perfis.js';
+import { PARAMETROS_PADRAO } from '../regras/parametros.js';
 import { requisitos, type Minimos } from '../regras/requisitos.js';
 import { calcularCusto } from '../custos/custo.js';
 import type { TabelaParametros } from '../regras/parametros.js';
@@ -39,7 +40,11 @@ export type Contratacao = {
   parcial: { turnos: number; horas: number } | null;
   parcialH: number | null; // horas do parcial (igual a parcial.horas)
   horasContratadas: number;
+  horasUsadas: number;
+  horasOciosas: number;
   ociosidadePct: number;
+  // Obrigatória (farmacêutico, em todas as horas abertas) ou para atingir a meta (dono ou nível de hoje).
+  motivo: 'obrigatoria' | 'meta';
   ajustado: boolean; // a conferência final por horas acrescentou contratação
 };
 
@@ -189,6 +194,16 @@ export const horarioDaSemana = (dias: DiaAberto[]): DiaCenario[] =>
 export const horasDaSemana = (dias: DiaAberto[]) =>
   arred(dias.reduce((s, d) => s + (d.fecha - d.abre), 0));
 
+// O que o motor precisa saber além do quadro: a regra de hoje (nível de hoje dos demais cargos), as horas abertas de
+// hoje (a meta acompanha o horário do cenário), os custos e o divisor da regra.
+export const opcoesDoMotor = (e: EntradaCenarios, regra: Regra) => ({
+  limiteParcial: e.limiteParcial,
+  regraAtual: regraPara('atual', e.convencao8h24, e.parametros),
+  horasAbertasHoje: horasDaSemana(e.dias),
+  custos: e.custos,
+  divisor: (e.parametros ?? PARAMETROS_PADRAO)[regra.id].divisor,
+});
+
 // Contratações por função a partir da verificação da regra (inteiras e, quando sobra pouco, 1 parcial).
 export const contratacoesDe = (linhas: LinhaFuncao[]): Contratacao[] =>
   linhas
@@ -202,6 +217,9 @@ export const contratacoesDe = (linhas: LinhaFuncao[]): Contratacao[] =>
         parcial: l.parcialH ? { turnos: l.parcialTurnos, horas: l.parcialH } : null,
         parcialH: l.parcialH,
         horasContratadas: arred(horasContratadas),
+        horasUsadas: arred(Math.min(horasContratadas, l.faltaH)),
+        horasOciosas: arred(Math.max(0, horasContratadas - l.faltaH)),
+        motivo: l.obrigatorio ? ('obrigatoria' as const) : ('meta' as const),
         ociosidadePct: pct(((horasContratadas - l.faltaH) / horasContratadas) * 100),
         ajustado: l.ajustado,
       };
@@ -350,7 +368,7 @@ const montarEconomia = (
     margemCortadaMes: null,
     aviso: null as string | null,
   };
-  const semGente = linhas.find((l) => l.minimo > 0 && l.pessoas === 0);
+  const semGente = linhas.find((l) => l.obrigatorio && l.pessoas === 0);
   if (semGente)
     return {
       ...base,
@@ -384,9 +402,9 @@ const montarEconomia = (
     dias: e.dias,
     porDia,
     cobre: (dias) =>
-      passa(verificarRegra(regra, dias, e.minimos, e.pessoas, { limiteParcial: e.limiteParcial })),
+      passa(verificarRegra(regra, dias, e.minimos, e.pessoas, opcoesDoMotor(e, regra))),
     faltaH: (dias) =>
-      verificarRegra(regra, dias, e.minimos, e.pessoas, { limiteParcial: e.limiteParcial })
+      verificarRegra(regra, dias, e.minimos, e.pessoas, opcoesDoMotor(e, regra))
         .filter((l) => l.contratar > 0)
         .reduce((s, l) => s + l.faltaH, 0),
   });
@@ -540,9 +558,7 @@ const montarEquilibrio = (
     protegidos: porDia.filter((d) => d.protegido).map((d) => d.dia),
     margemMes: (dia) => porDia[dia]!.margemMes! * fica,
     avaliar: (abertos) => {
-      const linhas = verificarRegra(regra, abertos, e.minimos, e.pessoas, {
-        limiteParcial: e.limiteParcial,
-      });
+      const linhas = verificarRegra(regra, abertos, e.minimos, e.pessoas, opcoesDoMotor(e, regra));
       const cs = contratacoesDe(linhas);
       return {
         linhas,
@@ -614,9 +630,7 @@ const montarEquilibrio = (
 
 export const montarCenarios = (e: EntradaCenarios): CenariosRegra => {
   const regra = regraPara(e.regraId, e.convencao8h24, e.parametros);
-  const linhas = verificarRegra(regra, e.dias, e.minimos, e.pessoas, {
-    limiteParcial: e.limiteParcial,
-  });
+  const linhas = verificarRegra(regra, e.dias, e.minimos, e.pessoas, opcoesDoMotor(e, regra));
   const vb = vendasPorDiaEHora(e.vendas);
   const porDia = vendasPorDia(e.vendas, e.dias, e.diasProtegidos ?? DIAS_PROTEGIDOS_PADRAO);
   const folha = e.dono ? folhaAtual(e.pessoas, e.custos, e.parametros) : null;

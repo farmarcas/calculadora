@@ -178,6 +178,7 @@ export const montarDiagnostico = (a: {
     const regra = regraPara(id, loja.convencao8h24, a.parametros);
     const funcoes = verificarRegra(regra, dias, exigencias, pessoas, {
       limiteParcial: prem.limiteParcial,
+      regraAtual: regraPara('atual', loja.convencao8h24, a.parametros),
     });
     return {
       id,

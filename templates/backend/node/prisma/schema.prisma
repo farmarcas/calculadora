@@ -376,3 +376,23 @@ model ParametroLegal {
   @@index([fase, vigenciaInicio])
   @@map("parametros_legais")
 }
+
+// Encargos da folha por regime tributário. Nunca se edita: uma alteração é sempre uma versão nova (como parametros_legais).
+model ParametroEncargo {
+  id                String   @id @default(uuid(7)) @db.Uuid
+  regime            String
+  inssPatronalPct   Float    @map("inss_patronal_pct")
+  ratPct            Float    @map("rat_pct")
+  fap               Float
+  terceirosPct      Float    @map("terceiros_pct")
+  fgtsPct           Float    @map("fgts_pct")
+  decimoTerceiroPct Float    @map("decimo_terceiro_pct")
+  feriasPct         Float    @map("ferias_pct")
+  rescisaoPct       Float    @map("rescisao_pct")
+  vigenciaInicio    DateTime @map("vigencia_inicio") @db.Date
+  criadoPor         String   @map("criado_por")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([regime, vigenciaInicio])
+  @@map("parametros_encargos")
+}

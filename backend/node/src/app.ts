@@ -13,6 +13,7 @@ import { custosRouter } from './modules/custos/custos.routes.js';
 import { geRouter } from './modules/ge/ge.routes.js';
 import { cargasLojasRouter } from './modules/cargas-lojas/cargas-lojas.routes.js';
 import { parametrosRouter } from './modules/parametros/parametros.routes.js';
+import { encargosRouter } from './modules/parametros/encargos.routes.js';
 import { usersRouter } from './modules/users/users.routes.js';
 import type { UsersRepository } from './modules/users/users.service.js';
 
@@ -54,6 +55,7 @@ export const createApp = (deps: AppDeps = {}) => {
     lerPerfil,
     // Regras legais, grupos e carga de lojas são da plataforma: não pedem o GE.
     parametrosRouter(),
+    encargosRouter(),
     geRouter(),
     cargasLojasRouter(),
     // Daqui para baixo tudo é de um GE: o cabeçalho X-GE é obrigatório e conferido.

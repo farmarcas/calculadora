@@ -57,6 +57,8 @@ export const listarReq = req(
   z.object({ descartadas: z.enum(['0', '1']).default('0') }).strict(),
 );
 export const porIdReq = req(vazio.default({}), id);
+// "Salvar como cenário N": grava e dá o nome "Cenário N"; sem isso, grava com o nome que já tem.
+export const gravarReq = req(z.object({ comoCenario: z.boolean().optional() }).strict().default({}), id);
 export const criarReq = req(
   z
     .object({

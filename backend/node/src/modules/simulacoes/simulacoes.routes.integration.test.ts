@@ -569,7 +569,7 @@ describe('simulações (rotas)', () => {
         .map(() => ({ aberta: true, abre: '08:00', fecha }))
         .concat([{ aberta: false } as never, { aberta: false } as never]),
     });
-    const editar = (id: string, body: object, h: object = admin) =>
+    const editar = (id: string, body: object, h: Record<string, string> = admin) =>
       reqGe().put(`/api/v1/simulacoes/${id}`).set(h).send(body);
 
     it('trazer o resultado: horas abertas iguais ao Cadastro enquanto o horário não muda', async () => {
@@ -632,6 +632,55 @@ describe('simulações (rotas)', () => {
       expect((await editar(sim.id, { horarios: semana('17:00') }, viewer)).status).toBe(403);
       const dono = await reqGe().get(`/api/v1/simulacoes/${sim.id}`).set(admin);
       expect(dono.body.resultado).toHaveProperty('impactoMensal');
+    });
+  });
+  describe('número do cenário (spec 016)', () => {
+    const gravarComo = (id: string, h: Record<string, string> = admin) =>
+      reqGe().post(`/api/v1/simulacoes/${id}/gravar`).set(h).send({ comoCenario: true });
+
+    it('o rascunho já sabe o próximo número; salvar como cenário dá o nome e o número, em sequência', async () => {
+      const a = (await criar({ nome: 'Base A', regra: 'r40' })).body;
+      expect(a.proximoNumeroCenario).toBe(1);
+      const g1 = await gravarComo(a.id);
+      expect(g1.status).toBe(200);
+      expect(g1.body).toMatchObject({ status: 'gravada', numeroCenario: 1, nome: 'Cenário 1' });
+      expect(g1.body).not.toHaveProperty('proximoNumeroCenario');
+      const b = (await criar({ nome: 'Base B', regra: 'r40' })).body;
+      expect(b.proximoNumeroCenario).toBe(2);
+      const g2 = await gravarComo(b.id);
+      expect(g2.body).toMatchObject({ numeroCenario: 2, nome: 'Cenário 2' });
+    });
+
+    it('gravar sem "comoCenario" mantém o nome mas também numera', async () => {
+      const a = (await criar({ nome: 'Meu nome', regra: 'r40' })).body;
+      const g = await reqGe().post(`/api/v1/simulacoes/${a.id}/gravar`).set(admin);
+      expect(g.body).toMatchObject({ nome: 'Meu nome', numeroCenario: 1 });
+    });
+
+    it('a numeração é por loja', async () => {
+      const a = (await criar({ nome: 'Base A', regra: 'r40' })).body;
+      await gravarComo(a.id);
+      const outra = await postLoja({ codigo: '002', nome: 'Outra', horarios: { semana: { abre: '08:00', fecha: '20:00' } } });
+      expect(outra.status).toBe(201);
+      const r = await reqGe().get(`/api/v1/lojas/${outra.body.id}/simulacoes`).set(admin);
+      expect(r.body.data).toEqual([]);
+    });
+
+    it('só o dono marca como em uso; gestor salva o cenário', async () => {
+      const gestor = { 'X-Perfil': 'SCHEDULE_MANAGER', 'X-GE': GE_INICIAL_ID };
+      const a = (await criar({ nome: 'Base A', regra: 'r40' })).body;
+      const g = await gravarComo(a.id, gestor);
+      expect(g.status).toBe(200);
+      expect((await reqGe().post(`/api/v1/simulacoes/${a.id}/aprovar`).set(gestor).send({})).status).toBe(403);
+      const ok = await reqGe().post(`/api/v1/simulacoes/${a.id}/aprovar`).set(admin).send({});
+      expect(ok.body).toMatchObject({ status: 'em_uso', numeroCenario: 1 });
+    });
+
+    it('a lista traz o número do cenário', async () => {
+      const a = (await criar({ nome: 'Base A', regra: 'r40' })).body;
+      await gravarComo(a.id);
+      const l = await reqGe().get(`/api/v1/lojas/${lojaId}/simulacoes`).set(admin);
+      expect(l.body.data[0]).toMatchObject({ numeroCenario: 1 });
     });
   });
 });

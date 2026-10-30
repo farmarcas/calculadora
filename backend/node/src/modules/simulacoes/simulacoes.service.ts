@@ -155,6 +155,11 @@ export const makeSimulacoesService = (
         dias: c.regra.dias,
       },
       origemId: s.origemId,
+      numeroCenario: s.numeroCenario,
+      // Número do botão "Salvar como cenário N" (só enquanto é rascunho).
+      ...(s.status === 'rascunho'
+        ? { proximoNumeroCenario: await repo.proximoNumeroCenario(s.lojaId) }
+        : {}),
       autor: s.autor,
       criadaEm: s.criadaEm,
       gravadaEm: s.gravadaEm,
@@ -363,7 +368,7 @@ export const makeSimulacoesService = (
       return detalhe(await simulacao(id), perfil);
     },
 
-    async gravar(id: string, perfil: string) {
+    async gravar(id: string, perfil: string, comoCenario = false) {
       const s = await simulacao(id);
       if (s.status !== 'rascunho')
         throw new ConflictError('Só rascunho pode ser gravado.', 'SIMULACAO_NAO_EDITAVEL');
@@ -378,6 +383,11 @@ export const makeSimulacoesService = (
         id,
         { ...c.premissas, regra: s.regra },
         { erros: 0, avisos: avaliacao.avisos.length, porPessoa: avaliacao.porPessoa },
+        // Todo cenário salvo ganha um número da loja (1, 2, 3…); só "Salvar como cenário" troca o nome.
+        await (async () => {
+          const numero = await repo.proximoNumeroCenario(s.lojaId);
+          return { numero, nome: comoCenario ? `Cenário ${numero}` : s.nome };
+        })(),
       );
       await auditar({ acao: 'simulacao.gravada', perfil, alvoTipo: 'simulacao', alvoId: id });
       return detalhe(await simulacao(id), perfil);

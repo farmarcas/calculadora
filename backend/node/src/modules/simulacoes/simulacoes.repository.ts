@@ -151,6 +151,7 @@ export const simulacoesRepository = (geId: string) => ({
         aprovadaEm: true,
         vigenciaInicio: true,
         resultado: true,
+        numeroCenario: true,
       },
     });
     return rows.map((r) => ({ ...r, status: doBanco[r.status] }));
@@ -197,11 +198,16 @@ export const simulacoesRepository = (geId: string) => ({
     return (r._max.numeroCenario ?? 0) + 1;
   },
 
-  async gravar(id: string, premissas: Premissas, resultado: unknown, numeroCenario?: number) {
+  async gravar(
+    id: string,
+    premissas: Premissas,
+    resultado: unknown,
+    cenario?: { numero: number; nome: string },
+  ) {
     await prisma.simulacao.update({
       where: { id },
       data: {
-        ...(numeroCenario ? { numeroCenario } : {}),
+        ...(cenario ? { numeroCenario: cenario.numero, nome: cenario.nome } : {}),
         status: 'GRAVADA',
         premissas: premissas as unknown as Prisma.InputJsonValue,
         resultado: resultado as Prisma.InputJsonValue,

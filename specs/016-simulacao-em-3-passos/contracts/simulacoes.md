@@ -20,5 +20,5 @@ Base: `/api/v1`. Cabeçalhos `X-GE` e `X-Perfil` como hoje.
 
 Para quem não é dono, os campos em reais (`impactoMensal`, `folhaExtra`, `horaExtra`, `vendaQueSai`, `margemPerdida`, `custoMensal`, `venda`) não existem.
 
-## `POST /simulacoes/:id/gravar` (existente) — resposta passa a trazer `numeroCenario` e `nome` "Cenário N".
+## `POST /simulacoes/:id/gravar` (existente) — corpo opcional `{ "comoCenario": true }`. Sempre numera (`numeroCenario`, por loja); com `comoCenario` o nome vira "Cenário N". O detalhe do rascunho traz `proximoNumeroCenario` (para o botão "Salvar como cenário N") e a lista traz `numeroCenario`.
 ## `POST /simulacoes/:id/aprovar` (existente) — "Marcar como em uso", só dono.

@@ -64,8 +64,10 @@ export const simulacoesRouter = () => {
     const { params, body } = v<typeof S.editarReq>(res);
     res.json(await s(res).editar(params.id, body, perfilDe(res)));
   });
-  r.post('/simulacoes/:id/gravar', escrita, validate(S.porIdReq), async (_req, res) =>
-    res.json(await s(res).gravar(v<typeof S.porIdReq>(res).params.id, perfilDe(res))),
+  r.post('/simulacoes/:id/gravar', escrita, validate(S.gravarReq), async (_req, res) => {
+    const { params, body } = v<typeof S.gravarReq>(res);
+    res.json(await s(res).gravar(params.id, perfilDe(res), body.comoCenario === true));
+  },
   );
   // Quem aprova: só o dono do grupo (M-D4: gestor de escala não aprova por padrão).
   r.post(

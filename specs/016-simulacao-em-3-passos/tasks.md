@@ -10,9 +10,9 @@
 - [x] T007 Rodar tudo e commitar a fatia
 
 ## Fatia 2 — Numeração, salvar e marcar em uso (US6)
-- [ ] T008 `gravar` dá "Cenário N" (maior N da loja + 1) e devolve `numeroCenario`; rota para o próximo número do botão
-- [ ] T009 Testes: numeração por loja, duas lojas independentes, "marcar em uso" só dono
-- [ ] T010 Rodar tudo e commitar a fatia
+- [x] T008 `gravar` numera (maior N da loja + 1) e, com `comoCenario`, dá o nome "Cenário N"; o próximo número vem no detalhe do rascunho (`proximoNumeroCenario`), sem rota extra
+- [x] T009 Testes: numeração por loja, duas lojas independentes, "marcar em uso" só dono
+- [x] T010 Rodar tudo e commitar a fatia
 
 ## Fatia 3 — Tela: cabeçalho, parâmetros e painel (US1, US6)
 - [ ] T011 `features/simulacao/SimulacaoPage.jsx`: Voltar, título com a loja, "Marcar como em uso", grade `minmax(0,1fr) 360px` com painel fixo por largura do conteúdo (descida abaixo de ~1100 px)

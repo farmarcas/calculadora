@@ -247,6 +247,30 @@ describe('escala (rotas)', () => {
     expect(dono.r40.atual).toMatchObject({ horasSemana: 66, pessoas: 1, folhaMensal: 11200 });
     expect(dono.r40.vendasBase).toBeNull();
 
+    // Dias e horários do parcial: a farmacêutica é redistribuída em 5 dias de 8 h (segunda a sexta, 08h–16h); descoberto de
+    // segunda a sexta das 16h às 20h (4 h por dia) e o sábado inteiro (08h–14h, 6 h) = 26 h. O parcial cabe em até 5 dias:
+    // sábado (6 h) e quatro dias de 4 h = 22 h; 4 h não têm lugar.
+    const regras = (await reqGe().get(url).set(admin)).body.regras;
+    const r40 = regras.find((r: { id: string }) => r.id === 'r40');
+    expect(r40.funcoes[0].sugestao.distribuicao).toEqual({
+      blocos: [
+        ...[0, 1, 2, 3].map((dia) => ({ dia, de: '16:00', ate: '20:00', horas: 4 })),
+        { dia: 5, de: '08:00', ate: '14:00', horas: 6 },
+      ],
+      estimativa: false,
+      semLugarH: 4,
+    });
+    expect(r40.redistribuicao.remanejados).toBe(1);
+    // Loja sem atendente nem caixa: o Cenário 2 não fica inviável por falta desses cargos (só o farmacêutico conta)
+    const c2 = dono.r40.economia;
+    expect(c2.motivoInviavel ?? '').not.toContain('Não há');
+    expect(dono.r40.comparativo.cenarios.map((c: { id: string }) => c.id)).toEqual([
+      'manter',
+      'economia',
+      'equilibrio',
+    ]);
+    expect(r40.redistribuicao.descoberto[0].horas).toBe(26);
+
     for (const h of [
       { 'X-Perfil': 'SCHEDULE_MANAGER', 'X-GE': GE_INICIAL_ID },
       { 'X-Perfil': 'SCHEDULE_VIEWER', 'X-GE': GE_INICIAL_ID },
@@ -434,26 +458,27 @@ describe('escala (rotas)', () => {
     const dono = await cen();
     const e = dono.equilibrio;
     // Segunda a sexta (12h) e sábado (6h): 66h e 11 turnos; 1 farmacêutica de 40h (5 turnos).
-    // Dias livres (não protegidos): segunda, quarta e sábado. De todas as combinações, a melhor fecha os três:
-    // Todas as combinações: manter tudo = parcial de 26h (7280); fechar só a segunda: 54h, gap 14h = 3920 + 1083,33;
-    // fechar segunda e quarta: 42h, gap de 2h → 1 parcial de 2h = 8000 × 2 × 5 ÷ 200 × 1,4 = 560; margem perdida
-    // 1083,33 + 975 = 2058,33; impacto 2618,33 (fechar também o sábado: 2925, pior). Manter tudo: 7280.
+    // Protegidos (maiores vendas): terça, quinta e sexta. O Cenário 3 só mexe no fim de semana (sábado, 6 h, venda de 3466,67
+    // por mês): pode reduzir até 2 h (restam 4 h) e fechar fica de fora pela trava de perda de 10% (12,3%). Manter tudo =
+    // parcial de 26h (7280). Reduzir 1 h: gap 25 h = 7000 + margem de 144,44 = 7144,44. Reduzir 2 h: gap 24 h =
+    // 8000 × 24 × 5 ÷ 200 × 1,4 = 6720 + margem de 288,89 = 7008,89 (o melhor).
     expect(e.indisponivel).toBeNull();
-    expect(e.diasFechar.map((d: { dia: number }) => d.dia)).toEqual([0, 2]);
+    expect(e.diasFechar).toEqual([]);
+    expect(e.passos).toMatchObject([{ tipo: 'reduzir', dia: 5, horas: 2 }]);
     expect(e.contratacoes[0]).toMatchObject({
       funcao: 'Farmacêutico',
       inteiras: 0,
-      parcial: { turnos: 1, horas: 2 },
+      parcial: { horas: 24 },
     });
-    expect(e.custoAdicionalMensal).toBe(560);
-    expect(e.margemCortadaMes).toBe(2058.33);
-    expect(e.impactoMensal).toBe(2618.33);
+    expect(e.custoAdicionalMensal).toBe(6720);
+    expect(e.margemCortadaMes).toBe(288.89);
+    expect(e.impactoMensal).toBe(7008.89);
     expect(dono.manter.impactoMensal).toBe(7280);
     expect(dono.destaque).toBe('equilibrio');
-    expect(e.resumo).toContain('Fechando segunda e quarta');
+    expect(e.resumo).toContain('Sábado fecha 2 h mais cedo');
 
     // Comparativo lado a lado. Folha atual: 8000 × 1,4 = 11200. Faturamento de referência: soma dos dias 6500 ×
-    // 52 ÷ 12 = 28166,67 por mês. Impactos: Cenário 1 = 7280; Cenário 2 = 3250; Cenário 3 = 2618,33.
+    // 52 ÷ 12 = 28166,67 por mês. Impactos: Cenário 1 = 7280; Cenário 2 = 3250; Cenário 3 = 7008,89.
     const comp = dono.comparativo;
     expect(comp.cenarios.map((c: { id: string }) => c.id)).toEqual([
       'manter',
@@ -478,11 +503,11 @@ describe('escala (rotas)', () => {
     });
     expect(por.equilibrio).toMatchObject({
       status: 'viavel',
-      diasFechar: [0, 2],
-      custoFolhaMensal: 11760,
-      margemMes: -2058.33,
-      resultadoLiquidoMensal: -2618.33,
-      impactoPctFaturamento: 9.3,
+      diasFechar: [],
+      custoFolhaMensal: 17920,
+      margemMes: -288.89,
+      resultadoLiquidoMensal: -7008.89,
+      impactoPctFaturamento: 24.9,
     });
     expect(por.economia.alertas.join(' ')).toContain('Cenário 3');
 
@@ -492,7 +517,8 @@ describe('escala (rotas)', () => {
     ]) {
       const r = await cen(h);
       expect(r.equilibrio.indisponivel).toBeNull();
-      expect(r.equilibrio.diasFechar).toEqual([{ dia: 0 }, { dia: 2 }]);
+      expect(r.equilibrio.diasFechar).toEqual([]);
+      expect(r.equilibrio.passos).toMatchObject([{ tipo: 'reduzir', dia: 5, horas: 2 }]);
       expect(r.equilibrio.pessoasContratar).toBe(1);
       for (const campo of [
         'custoAdicionalMensal',
@@ -520,7 +546,7 @@ describe('escala (rotas)', () => {
         ])
           expect(campo in c).toBe(false);
       const texto = JSON.stringify(r);
-      for (const valor of ['2618', '2058', '560', '7280', '18480', '11200', 'R$'])
+      for (const valor of ['7008', '6720', '7280', '18480', '17920', '11200', 'R$'])
         expect(texto).not.toContain(valor);
     }
   });
@@ -903,10 +929,10 @@ describe('escala (rotas)', () => {
       reqGe().get(`${url}${consulta}`).set(perfil);
     const r40 = async (consulta = '', perfil = admin) => (await pedir(consulta, perfil)).body;
 
-    // Sem premissas (padrões): Cenário 2 reduz o sábado em 2 h (margem 288,89); Cenário 3 fecha segunda e quarta (impacto 2618,33)
+    // Sem premissas (padrões): Cenário 2 reduz o sábado em 2 h (margem 288,89); Cenário 3 reduz o sábado 2 h (impacto 7008,89)
     const padrao = await r40();
     expect(padrao.cenarios.r40.economia.margemCortadaMes).toBe(288.89);
-    expect(padrao.cenarios.r40.equilibrio.impactoMensal).toBe(2618.33);
+    expect(padrao.cenarios.r40.equilibrio.impactoMensal).toBe(7008.89);
     expect(padrao.premissas).toMatchObject({
       recaptura: 0,
       fatorDiaNovo: 50,
@@ -916,19 +942,19 @@ describe('escala (rotas)', () => {
       margemPctCadastro: 25,
     });
 
-    // Recaptura de 20%: a margem perdida cai 20% (288,89 → 231,11; Cenário 3: 2058,33 → 1646,66, impacto 560 + 1646,66 = 2206,66)
+    // Recaptura de 20%: a margem perdida cai 20% (288,89 → 231,11; Cenário 3: 288,89 → 231,11, impacto 6720 + 231,11 = 6951,11)
     const rec = await r40('?recaptura=20');
     expect(rec.cenarios.r40.economia.margemCortadaMes).toBe(231.11);
     expect(rec.cenarios.r40.equilibrio).toMatchObject({
-      margemCortadaMes: 1646.66,
-      impactoMensal: 2206.66,
+      margemCortadaMes: 231.11,
+      impactoMensal: 6951.11,
     });
     expect(rec.premissas.recaptura).toBe(20);
 
-    // Margem de 50% (o dobro): margem perdida dobra (577,78); Cenário 3 continua fechando segunda e quarta: 4116,67 + 560 = 4676,67
+    // Margem de 50% (o dobro): margem perdida dobra (577,78); Cenário 3: com a margem dobrada nenhum corte compensa e o equilíbrio é manter tudo (7280)
     const dobro = await r40('?margemPct=50');
     expect(dobro.cenarios.r40.economia.margemCortadaMes).toBe(577.78);
-    expect(dobro.cenarios.r40.equilibrio.impactoMensal).toBe(4676.67);
+    expect(dobro.cenarios.r40.equilibrio.impactoMensal).toBe(7280);
     expect(dobro.premissas).toMatchObject({ margemPct: 50, margemPctCadastro: 25 });
 
     // Limite do parcial: desde a spec 013 o limite é legal (30 h) e esta premissa não muda mais a conta

@@ -41,16 +41,16 @@ export default function Configuracao({ diag, podeEscrever, lojaId, onSalvo, perf
         </label>
       </Cartao>
       <TurnosLoja horarios={diag.loja.horarios} minimosUnicos={min} turnos={turnos} onChange={setTurnos} avisos={diag.config.turnosAvisos} podeEscrever={podeEscrever} />
-      <Cartao titulo="Mínimo de pessoas por função" subtitulo={turnos ? "Mínimo único do dia inteiro: só vale para a hora fora de qualquer turno. Os mínimos dos turnos estão no quadro acima." : "Quantas pessoas precisam estar presentes durante todo o horário de funcionamento"}>
+      <Cartao titulo="Mínimo e metas por função" subtitulo={turnos ? "Meta única do dia inteiro: só vale para a hora fora de qualquer turno. As metas dos turnos estão no quadro acima." : "O farmacêutico é obrigatório em todo o horário. Nos demais cargos a meta é opcional: sem meta vale o nível de hoje"}>
         {FUNCOES.map((f) => (
           <div key={f} className="flex items-center justify-between gap-4 px-6 py-3 border-t border-line first:border-0">
             <div>
               <div className="text-sm font-medium">{f}</div>
-              {f === "Farmacêutico" && <div className="text-xs text-ink-500">Mínimo 1 sempre: a lei exige farmacêutico em todo o horário</div>}
+              {f === "Farmacêutico" ? <div className="text-xs text-ink-500">Mínimo 1 sempre: a lei exige farmacêutico em todo o horário</div> : <div className="text-xs text-ink-500">Meta (opcional): deixe 0 para manter o nível de hoje</div>}
             </div>
             <input
               type="number"
-              aria-label={`Mínimo de ${f}`}
+              aria-label={f === "Farmacêutico" ? `Mínimo de ${f}` : `Meta de ${f}`}
               min={f === "Farmacêutico" ? 1 : 0}
               max={10}
               disabled={!podeEscrever}

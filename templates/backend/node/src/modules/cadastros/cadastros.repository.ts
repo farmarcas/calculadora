@@ -35,6 +35,7 @@ const funcSel = {
   saida: true,
   dias: true,
   regime: true,
+  horarioFixo: true,
 } as const;
 
 const comoLoja = (

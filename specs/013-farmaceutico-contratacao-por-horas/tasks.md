@@ -44,7 +44,7 @@ Segurança do banco: só uma migration que acrescenta uma coluna (fatia 6); nada
 - [x] T018 [US6] `src/modules/escala/comparativo.ts`, `etapas.ts` e `cenarios-extras.ts`: contratações por horas, `motivo`, ociosidade e custo; Cenário 5 (reduzir equipe) e Cenário 4 (abrir um dia) com a necessidade nova
 - [x] T019 [US6] `src/modules/simulacoes/vagas.ts` e `avaliar.ts`: vagas sugeridas pela contratação nova (integral na jornada efetiva, parcial com as horas do gap); simulação em rascunho avalia com a lógica nova
 - [x] T020 [US6] Refazer à mão, um a um, os testes antigos de cenários, comparativo, extras, etapas, diagnóstico e simulações (`cenarios*.test.ts`, `comparativo.test.ts`, `etapas.test.ts`, `diagnostico.test.ts`, `simulacoes.*.test.ts`), anotando no teste o porquê de cada mudança
-- [ ] T021 [US6] Teste de integração: a loja de teste com 94 h mostra os cenários 1, 2 e 3 coerentes; loja sem Caixa nem Atendimento não deixa o Cenário 2 inviável
+- [x] T021 [US6] Teste de integração: a loja de teste com 94 h mostra os cenários 1, 2 e 3 coerentes; loja sem Caixa nem Atendimento não deixa o Cenário 2 inviável
 - [x] T022 Comparar a Porto Feliz antes e depois pela API (regras 42 h e 40 h: turnos em falta, gaps por cargo, contratações sugeridas e custo) e registrar em `specs/013-farmaceutico-contratacao-por-horas/antes-depois-porto-feliz.md`
 - [x] T023 Rodar tudo (`npm test`, `npm run test:integration`, `npm run lint`, `npx tsc --noEmit`) e commitar a fatia
 
@@ -52,34 +52,34 @@ Segurança do banco: só uma migration que acrescenta uma coluna (fatia 6); nada
 
 **Teste independente**: no navegador, a Porto Feliz mostra o gap de 54 h, a sugestão "1 integral + 1 parcial de 14 h", horas usadas e ociosas, custo e o aviso do CRF.
 
-- [ ] T024 [US3] `features/diagnostico/Diagnostico.jsx`: "Déficit e contratações por função" passa a mostrar, por cargo, necessidade ou meta, capacidade, gap em horas, a sugestão (parcial, integral, integral + parcial), horas contratadas, usadas e ociosas (%), custo (só dono) e a marca "obrigatória" ou "para manter o nível de hoje"
-- [ ] T025 [US3] `features/diagnostico/QuadroCentral.jsx`: o quadro central fala em horas de gap do farmacêutico, com os turnos como apoio; sem "falta de atendente ou caixa"
-- [ ] T026 [US2] `features/diagnostico/Configuracao.jsx` e `TurnosLoja.jsx`: o mínimo dos cargos que não são farmacêutico vira "Meta (opcional)", com texto explicando que sem meta vale o nível de hoje; farmacêutico segue ao menos 1
-- [ ] T027 [US6] `features/diagnostico/Comparativo.jsx` e `Cenarios.jsx`: contratações por horas ("1 farmacêutico integral e 1 parcial de 14 h"), ociosidade, selo "meta" nas contratações que não são obrigatórias; gestor sem valores em reais
-- [ ] T028 Conferir no navegador (dono e gestor): Porto Feliz nas regras de 42 h e 40 h; loja do GE 216 sem atendente; loja 001; telas largas e estreitas
-- [ ] T029 Rodar tudo e commitar a fatia
+- [x] T024 [US3] `features/diagnostico/Diagnostico.jsx`: "Déficit e contratações por função" passa a mostrar, por cargo, necessidade ou meta, capacidade, gap em horas, a sugestão (parcial, integral, integral + parcial), horas contratadas, usadas e ociosas (%), custo (só dono) e a marca "obrigatória" ou "para manter o nível de hoje"
+- [x] T025 [US3] `features/diagnostico/QuadroCentral.jsx`: o quadro central fala em horas de gap do farmacêutico, com os turnos como apoio; sem "falta de atendente ou caixa"
+- [x] T026 [US2] `features/diagnostico/Configuracao.jsx` e `TurnosLoja.jsx`: o mínimo dos cargos que não são farmacêutico vira "Meta (opcional)", com texto explicando que sem meta vale o nível de hoje; farmacêutico segue ao menos 1
+- [x] T027 [US6] `features/diagnostico/Comparativo.jsx` e `Cenarios.jsx`: contratações por horas ("1 farmacêutico integral e 1 parcial de 14 h"), ociosidade, selo "meta" nas contratações que não são obrigatórias; gestor sem valores em reais
+- [x] T028 Conferir no navegador (dono e gestor): Porto Feliz nas regras de 42 h e 40 h; loja do GE 216 sem atendente; loja 001; telas largas e estreitas
+- [x] T029 Rodar tudo e commitar a fatia
 
 ## Phase 6: Fatia 5 — Parcial com dias, horários e aviso do CRF (US4)
 
 **Teste independente**: o parcial de 14 h de farmacêutico mostra os dias e as faixas que cobre e o aviso do CRF; o de outro cargo mostra os dias e as faixas, sem o aviso.
 
-- [ ] T030 [US4] Teste + `src/modules/escala/distribuir-parcial.ts`: dado o horário aberto e quem já cobre o cargo em cada hora (escala importada ou horário do cadastro), aloca as horas do parcial em blocos de até 8 h por dia, nos dias de maior descoberto, em até 5 dias; contas à mão (parcial de 14 h sobre dias com 6 h descobertas)
-- [ ] T031 [US4] `sugestao.parcial.distribuicao` na resposta do Diagnóstico e nos cenários; aviso do CRF só para farmacêutico parcial (texto exato do pedido); sem dado de presença, a distribuição usa os dias de maior descoberto estimado e diz que é uma sugestão
-- [ ] T032 [US4] Tela: dias e horários do parcial na tabela de contratações e no cartão do Cenário 1; aviso do CRF em destaque
-- [ ] T033 [US4] Teste de integração e conferência no navegador; rodar tudo e commitar a fatia
+- [x] T030 [US4] Teste + `src/modules/escala/distribuir-parcial.ts`: dado o horário aberto e quem já cobre o cargo em cada hora (escala importada ou horário do cadastro), aloca as horas do parcial em blocos de até 8 h por dia, nos dias de maior descoberto, em até 5 dias; contas à mão (parcial de 14 h sobre dias com 6 h descobertas)
+- [x] T031 [US4] `sugestao.parcial.distribuicao` na resposta do Diagnóstico e nos cenários; aviso do CRF só para farmacêutico parcial (texto exato do pedido); sem dado de presença, a distribuição usa os dias de maior descoberto estimado e diz que é uma sugestão
+- [x] T032 [US4] Tela: dias e horários do parcial na tabela de contratações e no cartão do Cenário 1; aviso do CRF em destaque
+- [x] T033 [US4] Teste de integração e conferência no navegador; rodar tudo e commitar a fatia
 
 ## Phase 7: Fatia 6 — Redistribuição, horário fixo e fechamento (US5)
 
 **Teste independente**: um quadro que cabe se for redistribuído não gera contratação; o funcionário de horário fixo é mantido e avisado.
 
-- [ ] T034 [US5] Migration `prisma/migrations/<data>_horario_fixo/migration.sql` escrita à mão (coluna `horario_fixo` booleana, padrão falso, em `funcionarios`) + `prisma/schema.prisma`; aplicar com `prisma migrate deploy` e `prisma generate`; conferir as contagens antes e depois
-- [ ] T035 [US5] `src/modules/cadastros/*`: `horarioFixo` no cadastro de funcionário (API, schema Zod, planilha opcional); `features/cadastros/FormFuncionario.jsx` e `EquipeLoja.jsx`: caixa "Horário fixo (não remanejar)"
-- [ ] T036 [US5] Teste + `src/modules/escala/redistribuir.ts`: montagem gulosa de escala semanal por cargo, começando pelo farmacêutico (até 5 dias por pessoa, até 8 h por dia ou o permitido pela convenção, folga no domingo revezando); pessoa de horário fixo mantém dias e horários; devolve cobertura por hora e o descoberto por cargo; contas à mão
-- [ ] T037 [US5] `verificarRegra` e o Diagnóstico usam o descoberto da redistribuição como gap (quando há presença/horários suficientes); sem dados, mantêm a capacidade agregada; `redistribuicao: { cobertura, descoberto[], avisos[] }` na resposta
-- [ ] T038 [US5] Tela: aviso de horário fixo no diagnóstico e o quadro do que foi redistribuído; folga de domingo por pessoa
-- [ ] T039 [US5] Testes de integração (quadro que cabe depois de redistribuir; horário fixo mantido; parâmetros de dias, horas por dia e convenção respeitados)
-- [ ] T040 Documentação: README (nova lógica de mínimo e de contratação, metas, parcial, CRF, horário fixo), `scripts/sync-templates.sh`, `scripts/check-repo.sh`
-- [ ] T041 Conferência final: `npm test`, `npm run test:integration`, `npm run lint`, `npx tsc --noEmit`, build do `web`, `quickstart.md` do começo ao fim, Porto Feliz antes e depois, cenários 1 a 5 abrindo; commitar
+- [x] T034 [US5] Migration `prisma/migrations/<data>_horario_fixo/migration.sql` escrita à mão (coluna `horario_fixo` booleana, padrão falso, em `funcionarios`) + `prisma/schema.prisma`; aplicar com `prisma migrate deploy` e `prisma generate`; conferir as contagens antes e depois
+- [x] T035 [US5] `src/modules/cadastros/*`: `horarioFixo` no cadastro de funcionário (API, schema Zod, planilha opcional); `features/cadastros/FormFuncionario.jsx` e `EquipeLoja.jsx`: caixa "Horário fixo (não remanejar)"
+- [x] T036 [US5] Teste + `src/modules/escala/redistribuir.ts`: montagem gulosa de escala semanal por cargo, começando pelo farmacêutico (até 5 dias por pessoa, até 8 h por dia ou o permitido pela convenção, folga no domingo revezando); pessoa de horário fixo mantém dias e horários; devolve cobertura por hora e o descoberto por cargo; contas à mão
+- [x] T037 [US5] `verificarRegra` e o Diagnóstico usam o descoberto da redistribuição como gap (quando há presença/horários suficientes); sem dados, mantêm a capacidade agregada; `redistribuicao: { cobertura, descoberto[], avisos[] }` na resposta
+- [x] T038 [US5] Tela: aviso de horário fixo no diagnóstico e o quadro do que foi redistribuído; folga de domingo por pessoa
+- [x] T039 [US5] Testes de integração (quadro que cabe depois de redistribuir; horário fixo mantido; parâmetros de dias, horas por dia e convenção respeitados)
+- [x] T040 Documentação: README (nova lógica de mínimo e de contratação, metas, parcial, CRF, horário fixo), `scripts/sync-templates.sh`, `scripts/check-repo.sh`
+- [x] T041 Conferência final: `npm test`, `npm run test:integration`, `npm run lint`, `npx tsc --noEmit`, build do `web`, `quickstart.md` do começo ao fim, Porto Feliz antes e depois, cenários 1 a 5 abrindo; commitar
 
 ## Dependências e ordem
 

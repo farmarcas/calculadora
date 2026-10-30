@@ -8,7 +8,7 @@ const sinal = (n) => (n < 0 ? `−${Math.abs(n)}` : n > 0 ? `+${n}` : "0");
 const juntar = (itens) => (itens.length <= 1 ? (itens[0] ?? "") : `${itens.slice(0, -1).join(", ")} e ${itens[itens.length - 1]}`);
 const faltas = (regra, preferir) =>
   regra.funcoes
-    .filter((f) => f.falta)
+    .filter((f) => f.falta && f.obrigatorio)
     .map((f) => {
       const t = -f.saldoT;
       const h = -f.saldoH;
@@ -49,7 +49,7 @@ export default function QuadroCentral({ diag, regraId, onRegra, podeEscrever, on
 
   const manchete = regra.passa
     ? `Na regra de ${regra.nome}, o quadro atual cobre as horas e os turnos da loja.`
-    : `Na regra de ${regra.nome}, faltam ${juntar(faltas(regra, "turnos"))}.`;
+    : `Na regra de ${regra.nome}, faltam ${juntar(faltas(regra, "horas"))}.`;
   const hoje = atual.passa
     ? "Hoje, na regra atual (44h): o quadro cobre as horas e os turnos."
     : `Hoje, na regra atual (44h): já faltam ${juntar(faltas(atual, "horas"))}.`;
@@ -93,9 +93,9 @@ export default function QuadroCentral({ diag, regraId, onRegra, podeEscrever, on
             ) : (
               <Numero rotulo="Folha mensal atual" valor="—" legenda="informe os custos em Cadastros › Configuração" />
             ))}
-          <Numero rotulo="Turnos em falta" valor={regra.resumo.turnosEmFalta} legenda={`por semana na regra de ${regra.nome}`} tom={regra.resumo.turnosEmFalta > 0 ? "erro" : "ok"} />
-          <Numero rotulo="Saldo de horas" valor={`${sinal(regra.resumo.saldoHoras)}h`} legenda="por semana · capacidade − necessidade" tom={regra.resumo.saldoHoras < 0 ? "erro" : "neutro"} />
-          <Numero rotulo="Contratações para passar" valor={regra.resumo.contratar} legenda={regra.resumo.contratar === 1 ? "pessoa (veja o detalhe abaixo)" : "pessoas (veja o detalhe abaixo)"} tom={regra.resumo.contratar > 0 ? "atencao" : "ok"} />
+          <Numero rotulo="Turnos de farmacêutico em falta" valor={regra.resumo.turnosEmFalta} legenda={`apoio ao gap em horas · regra de ${regra.nome}`} tom={regra.resumo.turnosEmFalta > 0 ? "erro" : "ok"} />
+          <Numero rotulo="Saldo de horas" valor={`${sinal(regra.resumo.saldoHoras)}h`} legenda="por semana · capacidade − necessidade ou meta" tom={regra.resumo.saldoHoras < 0 ? "atencao" : "neutro"} />
+          <Numero rotulo="Contratações sugeridas" valor={regra.resumo.contratar} legenda={regra.resumo.contratar === 1 ? "pessoa (veja o detalhe abaixo)" : "pessoas (veja o detalhe abaixo)"} tom={regra.resumo.contratar > 0 ? "atencao" : "ok"} />
           <Numero rotulo="Funcionários" valor={n.colaboradoresNoCalculo} legenda="no cálculo da escala atual" />
         </div>
 
@@ -103,7 +103,7 @@ export default function QuadroCentral({ diag, regraId, onRegra, podeEscrever, on
           <span className="text-[11px] font-bold uppercase tracking-wide text-ink-500">Pontos de atenção</span>
           <div className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(180px,1fr))]">
             <Numero rotulo="Faixas sem farmacêutico" valor={n.faixasSemFarmaceutico} legenda="horas do pior dia · a lei exige em todo o horário" tom={n.faixasSemFarmaceutico > 0 ? "erro" : "ok"} />
-            <Numero rotulo="Faixas abaixo do mínimo" valor={n.faixasAbaixoDoMinimo} legenda="horas do pior dia · demais funções" tom={n.faixasAbaixoDoMinimo > 0 ? "erro" : "ok"} />
+            <Numero rotulo="Faixas abaixo da meta" valor={n.faixasAbaixoDoMinimo} legenda="horas do pior dia · meta do dono nas demais funções" tom={n.faixasAbaixoDoMinimo > 0 ? "erro" : "ok"} />
             <Numero
               rotulo="Maior venda sem cobertura"
               valor={n.maiorVendaDescoberta ?? "—"}

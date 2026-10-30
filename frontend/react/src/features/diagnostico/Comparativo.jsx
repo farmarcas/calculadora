@@ -77,7 +77,7 @@ function Cartao({ posicao, coluna, foco, horarioAtual, horasManter, destaque, do
       )}
 
       <Linha rotulo="Contratações">
-        {c.contratacoes.length ? c.contratacoes.map((x) => <div key={x.funcao}>{textoContratacao(x)}</div>) : "Nenhuma"}
+        {c.contratacoes.length ? c.contratacoes.map((x) => <div key={x.funcao}>{textoContratacao(x)}{x.motivo === "meta" && <span className="text-ink-500"> (meta)</span>}</div>) : "Nenhuma"}
       </Linha>
       {dono && (
         <>

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { api, baixarModelo } from "../../api/client.js";
-import { Abas, Aviso, Botao, Cartao, Ficha, TH as TH_BASE, TD as TD_BASE } from "../../components/ui/index.jsx";
+import { api } from "../../api/client.js";
+import { Abas, Aviso, Botao, Cartao, Ficha, IconeUpload, TH as TH_BASE, TD as TD_BASE } from "../../components/ui/index.jsx";
 import FormLoja from "./FormLoja.jsx";
 import ImportarPlanilha from "./ImportarPlanilha.jsx";
 import ParametrosLegais from "../parametros/ParametrosLegais.jsx";
@@ -59,14 +59,11 @@ export default function CadastrosPage({ perfil }) {
     <>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="m-0 text-2xl font-bold">Cadastros</h1>
-          <p className="mt-1 mb-0 text-sm text-ink-500">Tudo o que a Escala precisa para simular: as lojas do seu grupo (carregadas pela plataforma, você corrige o que precisar), a equipe de cada uma, a configuração e as regras legais.</p>
+          <h1 className="m-0 text-2xl font-bold">Cadastro de Loja</h1>
+          <p className="mt-1 mb-0 text-sm text-ink-500">Tudo o que a Escala precisa para simular: as lojas do seu grupo (carregadas pela plataforma, você corrige o que precisar), a equipe e a configuração de cada uma e as regras legais.</p>
         </div>
-        {secao === "cadastro" && (
-          <div className="flex flex-wrap gap-2">
-            <Botao tipo="secundario" onClick={baixarModelo}>Baixar planilha modelo</Botao>
-            {(podeEscrever || operador) && <Botao onClick={() => setImportando(true)}>{operador ? "Importar planilha" : "Importar equipe por planilha"}</Botao>}
-          </div>
+        {secao === "cadastro" && (podeEscrever || operador) && (
+          <Botao onClick={() => setImportando(true)}><IconeUpload />Importar em massa</Botao>
         )}
       </div>
 
@@ -128,7 +125,7 @@ export default function CadastrosPage({ perfil }) {
       </Cartao>
       </>)}
 
-      {importando && <ImportarPlanilha podeLojas={operador} onClose={() => setImportando(false)} onConcluido={carregar} />}
+      {importando && <ImportarPlanilha podeLojas={operador || perfil === "TENANT_ADMIN"} operador={operador} onClose={() => setImportando(false)} onConcluido={carregar} />}
     </>
   );
 }

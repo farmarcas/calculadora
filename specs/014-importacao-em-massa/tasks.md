@@ -28,11 +28,11 @@
 
 **Teste independente**: no navegador, o título é "Cadastro de Loja", há um só botão "Importar em massa" com ícone de upload, e o modelo é baixado de dentro do modal.
 
-- [ ] T012 [US1] `components/ui/index.jsx`: ícone de upload (SVG de traço, Lucide) como componente pequeno
-- [ ] T013 [US1] `features/cadastros/CadastrosPage.jsx`: `h1` "Cadastro de Loja"; um só botão "Importar em massa" com o ícone (para quem cuida do grupo ou é operador); saem "Baixar planilha modelo" e "Importar equipe por planilha"
-- [ ] T014 [US1] `features/cadastros/ImportarPlanilha.jsx`: botão "Baixar planilha modelo" no topo do modal (não fecha o modal); `podeLojas` vale para operador e dono; textos explicando as duas abas
-- [ ] T015 [US4] Resumo no modal: criados, atualizados, avisos (ignorado por permissão) e erros com aba, linha e motivo
-- [ ] T016 Conferir no navegador (operador, dono, gestor e consulta); rodar tudo e commitar a fatia
+- [x] T012 [US1] `components/ui/index.jsx`: ícone de upload (SVG de traço, Lucide) como componente pequeno
+- [x] T013 [US1] `features/cadastros/CadastrosPage.jsx`: `h1` "Cadastro de Loja"; um só botão "Importar em massa" com o ícone (para quem cuida do grupo ou é operador); saem "Baixar planilha modelo" e "Importar equipe por planilha"
+- [x] T014 [US1] `features/cadastros/ImportarPlanilha.jsx`: botão "Baixar planilha modelo" no topo do modal (não fecha o modal); `podeLojas` vale para operador e dono; textos explicando as duas abas
+- [x] T015 [US4] Resumo no modal: criados, atualizados, avisos (ignorado por permissão) e erros com aba, linha e motivo
+- [x] T016 Conferir no navegador (operador, dono, gestor e consulta); rodar tudo e commitar a fatia
 
 ## Fatia 4 — Fechamento
 

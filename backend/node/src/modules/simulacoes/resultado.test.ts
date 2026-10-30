@@ -53,6 +53,9 @@ describe('calcularResultado', () => {
     const r = base({ dias: segundaAte20 });
     expect(r.horario.mudou).toBe(true);
     expect(r.horario.dias[0]).toMatchObject({ fecha: '20:00', horas: 13, alterado: true });
+    // O horário do Cadastro continua disponível para restaurar e para saber quais dias abrem.
+    expect(r.horario.cadastro[0]).toEqual({ aberta: true, abre: '07:00', fecha: '22:00' });
+    expect(r.horario.cadastro[6]).toEqual({ aberta: false, abre: null, fecha: null });
     expect(r.horario.dias[1]!.alterado).toBe(false);
     expect(r.horasAbertas).toBe(88);
     expect(r.vendaQueSai).toBeCloseTo((2000 * 52) / 12, 1);

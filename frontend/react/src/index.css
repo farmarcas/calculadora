@@ -60,3 +60,6 @@ body { margin: 0; background: var(--surface-page); color: var(--ink-900); font-f
   .sim-grade { grid-template-columns: minmax(0, 1fr) 360px; gap: 24px; }
   .sim-painel { position: sticky; top: 16px; }
 }
+/* Passo 1: lista de horários (300 px) e gráfico lado a lado a partir de 720 px de conteúdo. */
+.sim-passo1 { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; align-items: start; }
+@container sim (min-width: 720px) { .sim-passo1 { grid-template-columns: 300px minmax(0, 1fr); } }

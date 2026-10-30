@@ -21,9 +21,9 @@
 - [x] T014 Ligar "Personalizar" e a lista de simulações à tela nova; commitar a fatia
 
 ## Fatia 4 — Passo 1: horário e gráfico (US2, US3)
-- [ ] T015 `PassoHorario.jsx`: lista só leitura ("Igual ao Cadastro") e editável (campos HH:mm, erro com ícone e texto, "Alterado", "Restaurar do Cadastro", rodapé "X h abertas · antes Y h", confirmação ao voltar para Manter)
-- [ ] T016 `GraficoVendas.jsx`: dias Seg–Sáb, Venda (R$)|Clientes, 15 barras de 07h a 21h, pico em destaque, rótulo só no maior, legenda, "Fechada na simulação", altura fixa; sem base = aviso; R$ só dono
-- [ ] T017 Rodar a tela em 1440/1100/768/420 e commitar a fatia
+- [x] T015 `PassoHorario.jsx`: lista só leitura ("Igual ao Cadastro") e editável (campos HH:mm, erro com ícone e texto, "Alterado", "Restaurar do Cadastro", rodapé "X h abertas · antes Y h", confirmação ao voltar para Manter)
+- [x] T016 `GraficoVendas.jsx`: dias Seg–Sáb, Venda (R$)|Clientes, 15 barras de 07h a 21h, pico em destaque, rótulo só no maior, legenda, "Fechada na simulação", altura fixa; sem base = aviso; R$ só dono
+- [x] T017 Rodar a tela em 1440/1100/768/420 e commitar a fatia
 
 ## Fatia 5 — Passos 2 e 3 (US4, US5)
 - [ ] T018 `PassoContratacoes.jsx`: tabela por função, botões + Integral 40h / Parcial 16h / Parcial 24h, Remover, resultado, custo, rodapé com total e "Sem hora extra"

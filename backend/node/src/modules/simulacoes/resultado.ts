@@ -53,7 +53,12 @@ export type ResultadoSimulacao = {
   temBase: boolean;
   horasAbertas: number;
   horasAbertasAntes: number;
-  horario: { mudou: boolean; dias: DiaResultado[] };
+  // `dias` é o horário simulado; `cadastro` o da loja (para restaurar e para saber quais dias abrem).
+  horario: {
+    mudou: boolean;
+    dias: DiaResultado[];
+    cadastro: { aberta: boolean; abre: string | null; fecha: string | null }[];
+  };
   funcoes: FuncaoResultado[];
   // Dias e horas de maior venda (sem valores em reais, qualquer perfil vê); nulo sem base.
   maiorVenda: { dias: number[]; horas: number[] } | null;
@@ -227,7 +232,14 @@ export const calcularResultado = (a: {
     temBase: !!vb,
     horasAbertas,
     horasAbertasAntes,
-    horario: { mudou: horarioDias.some((d) => d.alterado), dias: horarioDias },
+    horario: {
+      mudou: horarioDias.some((d) => d.alterado),
+      dias: horarioDias,
+      cadastro: Array.from({ length: 7 }, (_, dia) => {
+        const c = a.diasCadastro.find((x) => x.dia === dia);
+        return { aberta: !!c, abre: c ? hhmm(c.abre) : null, fecha: c ? hhmm(c.fecha) : null };
+      }),
+    },
     funcoes,
     maiorVenda,
     vendaPorHora: {

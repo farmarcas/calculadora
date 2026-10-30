@@ -5,6 +5,7 @@ import Aprovar from "../grade/Aprovar.jsx";
 import Vagas from "../grade/Vagas.jsx";
 import BarraParametros from "./BarraParametros.jsx";
 import PainelResultado from "./PainelResultado.jsx";
+import PassoHorario from "./PassoHorario.jsx";
 import useSimulacao from "./useSimulacao.js";
 
 // Simulação de um cenário (abre em "Personalizar"): parâmetros, 3 passos e o painel de resultado.
@@ -24,6 +25,15 @@ export default function SimulacaoPage({ id, perfil, podeEscrever, aviso, onVolta
   if (!sim) return <p className="text-sm text-ink-500">Carregando simulação…</p>;
 
   const editavel = sim.editavel && podeEscrever;
+
+  // Voltar para "Manter horários" descarta o que foi editado (com confirmação).
+  const trocarModo = (modo) => {
+    if (modo === "manter" && sim.resultado.horario.mudou) {
+      if (!window.confirm("Voltar para \"Manter horários\" descarta as alterações de horário desta simulação. Continuar?")) return;
+      salvar({ horarios: null });
+    }
+    setModoHorario(modo);
+  };
 
   const clonar = async () => {
     setErro(null);
@@ -85,13 +95,11 @@ export default function SimulacaoPage({ id, perfil, podeEscrever, aviso, onVolta
       {erro && <Aviso>{erro}</Aviso>}
       {sim.desatualizada && <Aviso tom="atencao">Simulação em uso desatualizada: {sim.motivosDesatualizada.join(" ")} Clone, ajuste e marque a nova como em uso.</Aviso>}
 
-      <BarraParametros sim={sim} editavel={editavel} modoHorario={modoHorario} onModoHorario={setModoHorario} onRegra={(regra) => salvar({ regra })} />
+      <BarraParametros sim={sim} editavel={editavel} modoHorario={modoHorario} onModoHorario={trocarModo} onRegra={(regra) => salvar({ regra })} />
 
       <div className="sim-grade">
         <div className="flex flex-col gap-4 min-w-0">
-          <Passo numero={1} titulo="Horário e vendas" subtitulo={modoHorario === "manter" ? "Os horários seguem o Cadastro. Para testar outros dias e horas, escolha \"Mudar horários\" acima." : "Edite os dias e horários da loja para testar outro funcionamento. O Cadastro não muda."}>
-            <p className="m-0 text-sm text-[var(--text-secondary)]">{sim.resultado.horasAbertas}h abertas por semana. A lista de horários e o gráfico de vendas chegam na próxima etapa.</p>
-          </Passo>
+          <PassoHorario sim={sim} editavel={editavel} modo={modoHorario} onSalvarHorarios={(horarios) => salvar({ horarios })} />
           <Passo numero={2} titulo="Contratações por função" subtitulo="Contratação simulada não cria funcionário.">
             <Vagas quadro={sim.quadro} editavel={editavel} onSalvar={salvar} />
           </Passo>

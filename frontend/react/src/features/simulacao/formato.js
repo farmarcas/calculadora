@@ -11,3 +11,22 @@ export const textoDeDias = (dias) => juntar(grupos(dias).map(([a, b]) => (a === 
 export const textoDeHoras = (horas) => juntar(grupos(horas).map(([a, b]) => `${a}h–${b + 1}h`));
 
 export const REGIMES = { simples: "Simples Nacional", presumido: "Lucro Presumido", real: "Lucro Real" };
+
+export const NOMES_DIA = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
+// "07:00" → "07h"; "08:30" → "08h30".
+export const horaCurta = (t) => (t ? (t.endsWith(":00") ? `${t.slice(0, 2)}h` : `${t.slice(0, 2)}h${t.slice(3)}`) : "");
+export const faixa = (d) => (d.abre && d.fecha ? `${horaCurta(d.abre)}–${horaCurta(d.fecha)}` : "Fechado");
+
+// Aceita "8:00", "08:00" e (só no fechamento) "24:00"; devolve "HH:mm" ou null.
+export const lerHora = (txt, ehFechamento = false) => {
+  const m = /^(\d{1,2}):(\d{2})$/.exec((txt ?? "").trim());
+  if (!m) return null;
+  const h = Number(m[1]);
+  const min = Number(m[2]);
+  if (min > 59 || h > 24 || (h === 24 && (min !== 0 || !ehFechamento))) return null;
+  return `${String(h).padStart(2, "0")}:${m[2]}`;
+};
+export const minutos = (t) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3));
+
+// Valor curto para o rótulo do gráfico: 1.700 → "1,7 mil".
+export const curto = (n) => (n >= 1000 ? `${(n / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} mil` : Math.round(n).toLocaleString("pt-BR"));

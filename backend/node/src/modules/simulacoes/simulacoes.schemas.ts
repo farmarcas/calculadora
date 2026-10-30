@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { horariosEntrada } from '../cadastros/cadastros.schemas.js';
 
 const vazio = z.object({}).strict();
 const id = z.object({ id: z.string().uuid() }).strict();
@@ -79,6 +80,11 @@ export const editarReq = req(
       turnos: z.array(turnoSchema).max(500).optional(),
       vagas: z.array(vagaSchema).max(20).optional(),
       desligados: z.array(z.string().min(1).max(30)).max(100).optional(),
+      // Horário simulado (só nesta simulação, nunca no Cadastro); null volta ao horário do Cadastro.
+      horarios: horariosEntrada
+        .refine((h) => h.dias.some((d) => d.aberta), { message: 'Deixe ao menos um dia aberto' })
+        .nullable()
+        .optional(),
     })
     .strict()
     .refine((b) => Object.keys(b).length > 0, { message: 'Informe ao menos um campo' }),

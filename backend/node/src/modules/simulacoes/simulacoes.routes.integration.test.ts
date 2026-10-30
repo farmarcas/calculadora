@@ -562,4 +562,76 @@ describe('simulações (rotas)', () => {
       expect(mudou.status).toBe('em_uso'); // nada muda sozinho
     });
   });
+  describe('horário simulado (spec 016)', () => {
+    const semana = (fecha: string) => ({
+      versao: 2,
+      dias: [0, 1, 2, 3, 4]
+        .map(() => ({ aberta: true, abre: '08:00', fecha }))
+        .concat([{ aberta: false } as never, { aberta: false } as never]),
+    });
+    const editar = (id: string, body: object, h: object = admin) =>
+      reqGe().put(`/api/v1/simulacoes/${id}`).set(h).send(body);
+
+    it('trazer o resultado: horas abertas iguais ao Cadastro enquanto o horário não muda', async () => {
+      const sim = (await criar()).body;
+      expect(sim.resultado.horario.mudou).toBe(false);
+      expect(sim.resultado.horasAbertas).toBe(60);
+      expect(sim.resultado.horasAbertasAntes).toBe(60);
+    });
+
+    it('editar o horário recalcula e não mexe no Cadastro; null volta ao Cadastro', async () => {
+      const sim = (await criar()).body;
+      const e = await editar(sim.id, { horarios: semana('18:00') });
+      expect(e.status).toBe(200);
+      expect(e.body.resultado.horasAbertas).toBe(50);
+      expect(e.body.resultado.horasAbertasAntes).toBe(60);
+      expect(e.body.resultado.horario.dias[0]).toMatchObject({ fecha: '18:00', alterado: true });
+      expect(e.body.diasAbertos[0]).toEqual({ dia: 0, abre: 8, fecha: 18 });
+      const lista = (await reqGe().get('/api/v1/lojas').set(admin)).body.data;
+      const loja = lista.find((x: { id: string }) => x.id === lojaId);
+      expect(loja.horarios.dias[0].fecha).toBe('20:00');
+      const volta = await editar(sim.id, { horarios: null });
+      expect(volta.body.resultado.horasAbertas).toBe(60);
+      expect(volta.body.resultado.horario.mudou).toBe(false);
+    });
+
+    it('recusa fechamento antes da abertura e semana toda fechada', async () => {
+      const sim = (await criar()).body;
+      const ruim = await editar(sim.id, { horarios: semana('07:00') });
+      expect(ruim.status).toBe(400);
+      const fechada = await editar(sim.id, {
+        horarios: { versao: 2, dias: Array.from({ length: 7 }, () => ({ aberta: false })) },
+      });
+      expect(fechada.status).toBe(400);
+    });
+
+    it('não edita o horário de simulação gravada (409)', async () => {
+      const sim = (await criar()).body;
+      await reqGe().post(`/api/v1/simulacoes/${sim.id}/gravar`).set(admin);
+      const e = await editar(sim.id, { horarios: semana('18:00') });
+      expect(e.status).toBe(409);
+    });
+
+    it('o horário simulado fica congelado ao gravar', async () => {
+      const sim = (await criar()).body;
+      await editar(sim.id, { horarios: semana('19:00') });
+      // 19h: farmacêuticas cobrem 08–14 e 14–20; sem erro de cobertura.
+      const g = await reqGe().post(`/api/v1/simulacoes/${sim.id}/gravar`).set(admin);
+      expect(g.status).toBe(200);
+      expect(g.body.diasAbertos[0]).toEqual({ dia: 0, abre: 8, fecha: 19 });
+    });
+
+    it('gestor edita; quem só consulta não; valores em reais só para o dono', async () => {
+      const sim = (await criar()).body;
+      const gestor = { 'X-Perfil': 'SCHEDULE_MANAGER', 'X-GE': GE_INICIAL_ID };
+      const viewer = { 'X-Perfil': 'SCHEDULE_VIEWER', 'X-GE': GE_INICIAL_ID };
+      const g = await editar(sim.id, { horarios: semana('18:00') }, gestor);
+      expect(g.status).toBe(200);
+      expect(g.body.resultado).not.toHaveProperty('impactoMensal');
+      expect(g.body.resultado).not.toHaveProperty('vendaQueSai');
+      expect((await editar(sim.id, { horarios: semana('17:00') }, viewer)).status).toBe(403);
+      const dono = await reqGe().get(`/api/v1/simulacoes/${sim.id}`).set(admin);
+      expect(dono.body.resultado).toHaveProperty('impactoMensal');
+    });
+  });
 });

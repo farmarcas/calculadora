@@ -260,6 +260,10 @@ model Simulacao {
   // Horário, mínimos e convenção congelados ao gravar.
   premissas  Json?
   resultado  Json?
+  // Horário simulado (mesmo formato do Cadastro); nulo = igual ao Cadastro. Nunca altera a loja.
+  horarios   Json?
+  // Número do cenário, dado ao gravar (único por loja entre as gravadas).
+  numeroCenario Int?         @map("numero_cenario")
   criadaEm   DateTime        @default(now()) @map("criada_em") @db.Timestamptz(3)
   gravadaEm  DateTime?       @map("gravada_em") @db.Timestamptz(3)
   aprovadaPor     String?   @map("aprovada_por")

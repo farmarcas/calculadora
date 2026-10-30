@@ -1,13 +1,13 @@
 # Tarefas: Simulação do cenário em 3 passos
 
 ## Fatia 1 — Resultado calculado e horário simulado (US1, US2, US4)
-- [ ] T001 Migration: `simulacoes.horarios` (Json opcional) e `numero_cenario` (inteiro opcional) + `schema.prisma`
-- [ ] T002 `simulacoes.schemas.ts`: `horarios` no PUT (7 dias, `fecha > abre`, ao menos 1 dia aberto, passos de 15 min) ou `null`
-- [ ] T003 `simulacoes/resultado.ts`: horas abertas (antes/depois), venda e margem que saem (base por dia/hora × 52÷12; nulas sem base ou sem margem), horas necessárias por função (`verificarRegra`), folha extra, hora extra (research 4), impacto
-- [ ] T004 Testes à mão do resultado: sem edição o impacto = o do cenário; fechar a segunda às 20h gera venda/margem que saem; sem base = nulo, não zero; função coberta vs ainda falta; hora extra com e sem salário
-- [ ] T005 `simulacoes.service.ts` + repositório: salvar horário no rascunho (só rascunho), bloco `resultado` em GET/PUT (valores em R$ só para o dono), congelar horário ao gravar
-- [ ] T006 Testes de integração: PUT com horário válido/ inválido, 409 fora de rascunho, dono vs gestor, Cadastro intocado
-- [ ] T007 Rodar tudo e commitar a fatia
+- [x] T001 Migration: `simulacoes.horarios` (Json opcional) e `numero_cenario` (inteiro opcional) + `schema.prisma`
+- [x] T002 `simulacoes.schemas.ts`: `horarios` no PUT (7 dias, `fecha > abre`, ao menos 1 dia aberto, passos de 15 min) ou `null`
+- [x] T003 `simulacoes/resultado.ts`: horas abertas (antes/depois), venda e margem que saem (base por dia/hora × 52÷12; nulas sem base ou sem margem), horas necessárias por função (`verificarRegra`), folha extra, hora extra (research 4), impacto
+- [x] T004 Testes à mão do resultado: sem edição o impacto = o do cenário; fechar a segunda às 20h gera venda/margem que saem; sem base = nulo, não zero; função coberta vs ainda falta; hora extra com e sem salário
+- [x] T005 `simulacoes.service.ts` + repositório: salvar horário no rascunho (só rascunho), bloco `resultado` em GET/PUT (valores em R$ só para o dono), congelar horário ao gravar
+- [x] T006 Testes de integração: PUT com horário válido/ inválido, 409 fora de rascunho, dono vs gestor, Cadastro intocado
+- [x] T007 Rodar tudo e commitar a fatia
 
 ## Fatia 2 — Numeração, salvar e marcar em uso (US6)
 - [ ] T008 `gravar` dá "Cenário N" (maior N da loja + 1) e devolve `numeroCenario`; rota para o próximo número do botão

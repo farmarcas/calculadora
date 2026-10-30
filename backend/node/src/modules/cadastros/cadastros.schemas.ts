@@ -22,7 +22,7 @@ const horariosNovo = z.object({ versao: z.literal(2), dias: z.array(diaNovo).len
 const horariosAntigo = z
   .object({ semana: horario.optional(), sabado: horario.optional(), domingo: horario.optional() })
   .strict();
-const horariosEntrada = z.union([horariosNovo, horariosAntigo]).transform((h, ctx) => {
+export const horariosEntrada = z.union([horariosNovo, horariosAntigo]).transform((h, ctx) => {
   const n = normalizarHorarios(h);
   if (!n) {
     ctx.issues.push({ code: 'custom', message: 'Informe o horário de ao menos um dia', input: h });

@@ -261,6 +261,14 @@ describe('escala (rotas)', () => {
       semLugarH: 4,
     });
     expect(r40.redistribuicao.remanejados).toBe(1);
+    // Loja sem atendente nem caixa: o Cenário 2 não fica inviável por falta desses cargos (só o farmacêutico conta)
+    const c2 = dono.r40.economia;
+    expect(c2.motivoInviavel ?? '').not.toContain('Não há');
+    expect(dono.r40.comparativo.cenarios.map((c: { id: string }) => c.id)).toEqual([
+      'manter',
+      'economia',
+      'equilibrio',
+    ]);
     expect(r40.redistribuicao.descoberto[0].horas).toBe(26);
 
     for (const h of [

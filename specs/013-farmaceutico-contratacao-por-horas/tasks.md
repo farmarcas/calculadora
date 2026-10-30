@@ -44,7 +44,7 @@ Segurança do banco: só uma migration que acrescenta uma coluna (fatia 6); nada
 - [x] T018 [US6] `src/modules/escala/comparativo.ts`, `etapas.ts` e `cenarios-extras.ts`: contratações por horas, `motivo`, ociosidade e custo; Cenário 5 (reduzir equipe) e Cenário 4 (abrir um dia) com a necessidade nova
 - [x] T019 [US6] `src/modules/simulacoes/vagas.ts` e `avaliar.ts`: vagas sugeridas pela contratação nova (integral na jornada efetiva, parcial com as horas do gap); simulação em rascunho avalia com a lógica nova
 - [x] T020 [US6] Refazer à mão, um a um, os testes antigos de cenários, comparativo, extras, etapas, diagnóstico e simulações (`cenarios*.test.ts`, `comparativo.test.ts`, `etapas.test.ts`, `diagnostico.test.ts`, `simulacoes.*.test.ts`), anotando no teste o porquê de cada mudança
-- [ ] T021 [US6] Teste de integração: a loja de teste com 94 h mostra os cenários 1, 2 e 3 coerentes; loja sem Caixa nem Atendimento não deixa o Cenário 2 inviável
+- [x] T021 [US6] Teste de integração: a loja de teste com 94 h mostra os cenários 1, 2 e 3 coerentes; loja sem Caixa nem Atendimento não deixa o Cenário 2 inviável
 - [x] T022 Comparar a Porto Feliz antes e depois pela API (regras 42 h e 40 h: turnos em falta, gaps por cargo, contratações sugeridas e custo) e registrar em `specs/013-farmaceutico-contratacao-por-horas/antes-depois-porto-feliz.md`
 - [x] T023 Rodar tudo (`npm test`, `npm run test:integration`, `npm run lint`, `npx tsc --noEmit`) e commitar a fatia
 
@@ -79,7 +79,7 @@ Segurança do banco: só uma migration que acrescenta uma coluna (fatia 6); nada
 - [x] T038 [US5] Tela: aviso de horário fixo no diagnóstico e o quadro do que foi redistribuído; folga de domingo por pessoa
 - [x] T039 [US5] Testes de integração (quadro que cabe depois de redistribuir; horário fixo mantido; parâmetros de dias, horas por dia e convenção respeitados)
 - [x] T040 Documentação: README (nova lógica de mínimo e de contratação, metas, parcial, CRF, horário fixo), `scripts/sync-templates.sh`, `scripts/check-repo.sh`
-- [ ] T041 Conferência final: `npm test`, `npm run test:integration`, `npm run lint`, `npx tsc --noEmit`, build do `web`, `quickstart.md` do começo ao fim, Porto Feliz antes e depois, cenários 1 a 5 abrindo; commitar
+- [x] T041 Conferência final: `npm test`, `npm run test:integration`, `npm run lint`, `npx tsc --noEmit`, build do `web`, `quickstart.md` do começo ao fim, Porto Feliz antes e depois, cenários 1 a 5 abrindo; commitar
 
 ## Dependências e ordem
 

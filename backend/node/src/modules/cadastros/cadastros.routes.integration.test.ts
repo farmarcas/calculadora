@@ -113,6 +113,27 @@ describe('cadastros (rotas)', () => {
     expect((await reqGe().delete(`/api/v1/lojas/${c.body.id}`).set(operador)).status).toBe(204);
   });
 
+  it('a listagem de lojas traz quantos funcionários ativos cada loja tem, sem depender da página de funcionários', async () => {
+    const a = await postLoja({ codigo: '012', nome: 'Loja Doze' });
+    const b = await postLoja({ codigo: '013', nome: 'Loja Treze' });
+    const novo = (matricula: string, lojaId: string) =>
+      reqGe()
+        .post('/api/v1/funcionarios')
+        .set(admin)
+        .send({ matricula, nome: `Pessoa ${matricula}`, lojaId });
+    await novo('C1', a.body.id);
+    await novo('C2', a.body.id);
+    const removido = await novo('C3', a.body.id);
+    await novo('C4', b.body.id);
+    // remover não conta
+    await reqGe().delete(`/api/v1/funcionarios/${removido.body.id}`).set(admin);
+    const lojas = (await reqGe().get('/api/v1/lojas?pageSize=50').set(admin)).body.data;
+    const conta = (codigo: string) =>
+      lojas.find((l: { codigo: string }) => l.codigo === codigo).funcionarios;
+    expect(conta('012')).toBe(2);
+    expect(conta('013')).toBe(1);
+  });
+
   it('horário fixo do funcionário: padrão falso, grava, edita e volta na listagem', async () => {
     const c = await postLoja({ codigo: '011', nome: 'Loja Onze' });
     const f = await reqGe()

@@ -110,6 +110,22 @@ export const cadastrosRepository = (geId: string): CadastrosRepository => ({
     ]);
     return { data: rows.map(comoLoja), total };
   },
+  async lojasComEquipe() {
+    const [rows, farmaceuticos] = await Promise.all([
+      prisma.loja.findMany({
+        where: { ...ativo, geId },
+        select: { ...lojaSel, _count: { select: { funcionarios: { where: ativo } } } },
+        orderBy: { codigo: 'asc' },
+      }),
+      prisma.funcionario.groupBy({
+        by: ['lojaId'],
+        where: { ...ativo, funcaoEscala: 'Farmacêutico', loja: { geId } },
+        _count: { _all: true },
+      }),
+    ]);
+    const porLoja = new Map(farmaceuticos.map((g) => [g.lojaId, g._count._all]));
+    return rows.map((r) => ({ loja: comoLoja(r), farmaceuticos: porLoja.get(r.id) ?? 0 }));
+  },
   async buscarLoja(id) {
     const r = await prisma.loja.findFirst({ where: { id, geId, ...ativo }, select: lojaSel });
     return r ? comoLoja(r) : null;

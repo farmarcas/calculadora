@@ -8,9 +8,9 @@
 - [x] T005 Ajustar os testes antigos que esperavam erro de sobreposição/buraco; rodar tudo e commitar a fatia
 
 ## Fatia 2 — Lista com situação, filtros e CNPJ (servidor) (US1)
-- [ ] T006 `cadastros/situacao.ts`: `situacaoDoCadastro(loja, equipe)` (Completo/Revisar + motivo) e testes (cada motivo, faturamento por dia aberto, divergência > 10%, sem farmacêutico)
-- [ ] T007 `GET /lojas`: filtros `uf`, `situacao` e busca por CNPJ; item com `situacao`; paginação em memória do GE; testes de integração (combinação de filtros, total, isolamento por GE, sem valores em reais para quem não é dono)
-- [ ] T008 Rodar tudo e commitar a fatia
+- [x] T006 `cadastros/situacao.ts`: `situacaoDoCadastro(loja, equipe)` (Completo/Revisar + motivo) e testes (cada motivo, faturamento por dia aberto, divergência > 10%, sem farmacêutico)
+- [x] T007 `GET /lojas`: filtros `uf`, `situacao` e busca por CNPJ; item com `situacao`; paginação em memória do GE; testes de integração (combinação de filtros, total, isolamento por GE, sem valores em reais para quem não é dono)
+- [x] T008 Rodar tudo e commitar a fatia
 
 ## Fatia 3 — Salvar tudo (servidor) (US3)
 - [ ] T009 `PUT /lojas/:id/painel`: esquemas e validação completa antes de gravar; ordem configuração, custos, loja; resposta com loja, situação e avisos

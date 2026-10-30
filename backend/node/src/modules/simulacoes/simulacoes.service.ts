@@ -156,6 +156,12 @@ export const makeSimulacoesService = (
       },
       origemId: s.origemId,
       numeroCenario: s.numeroCenario,
+      // Para o cabeçalho da tela: nome da loja, regime e (só o dono) o total de encargos.
+      loja: {
+        nome: l.nome,
+        regime: l.encargos?.regime ?? l.regimeTributario ?? null,
+        ...(dono ? { encargosPct: l.encargos?.totalPct ?? null } : {}),
+      },
       // Número do botão "Salvar como cenário N" (só enquanto é rascunho).
       ...(s.status === 'rascunho'
         ? { proximoNumeroCenario: await repo.proximoNumeroCenario(s.lojaId) }

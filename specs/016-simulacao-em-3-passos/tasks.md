@@ -15,10 +15,10 @@
 - [x] T010 Rodar tudo e commitar a fatia
 
 ## Fatia 3 — Tela: cabeçalho, parâmetros e painel (US1, US6)
-- [ ] T011 `features/simulacao/SimulacaoPage.jsx`: Voltar, título com a loja, "Marcar como em uso", grade `minmax(0,1fr) 360px` com painel fixo por largura do conteúdo (descida abaixo de ~1100 px)
-- [ ] T012 `BarraParametros.jsx`: Regra 42h|40h, Horário Manter|Mudar, regime e encargos, marcas do perfil, "Maior venda"
-- [ ] T013 `PainelResultado.jsx`: impacto uma vez, cinco linhas, aviso "Nenhuma alteração de horário ainda", carregamento só nos valores, `aria-live`, "Salvar como cenário N"
-- [ ] T014 Ligar "Personalizar" e a lista de simulações à tela nova; commitar a fatia
+- [x] T011 `features/simulacao/SimulacaoPage.jsx`: Voltar, título com a loja, "Marcar como em uso", grade `minmax(0,1fr) 360px` com painel fixo por largura do conteúdo (descida abaixo de ~1100 px)
+- [x] T012 `BarraParametros.jsx`: Regra 42h|40h, Horário Manter|Mudar, regime e encargos, marcas do perfil, "Maior venda"
+- [x] T013 `PainelResultado.jsx`: impacto uma vez, cinco linhas, aviso "Nenhuma alteração de horário ainda", carregamento só nos valores, `aria-live`, "Salvar como cenário N"
+- [x] T014 Ligar "Personalizar" e a lista de simulações à tela nova; commitar a fatia
 
 ## Fatia 4 — Passo 1: horário e gráfico (US2, US3)
 - [ ] T015 `PassoHorario.jsx`: lista só leitura ("Igual ao Cadastro") e editável (campos HH:mm, erro com ícone e texto, "Alterado", "Restaurar do Cadastro", rodapé "X h abertas · antes Y h", confirmação ao voltar para Manter)

@@ -50,3 +50,13 @@ body { margin: 0; background: var(--surface-page); color: var(--ink-900); font-f
 @container diag (max-width: 479px) {
   .diag-numeros { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* Tela de simulação: 3 passos à esquerda e painel de resultado (360 px) à direita, por LARGURA DO CONTEÚDO.
+   Abaixo de 1100 px o painel desce para depois do passo 3 e deixa de ser fixo. */
+.sim-conteiner { container-type: inline-size; container-name: sim; }
+.sim-grade { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; align-items: start; }
+.sim-painel { position: static; }
+@container sim (min-width: 1100px) {
+  .sim-grade { grid-template-columns: minmax(0, 1fr) 360px; gap: 24px; }
+  .sim-painel { position: sticky; top: 16px; }
+}

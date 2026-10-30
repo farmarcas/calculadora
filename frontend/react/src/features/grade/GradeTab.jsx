@@ -3,7 +3,7 @@ import { api } from "../../api/client.js";
 import { Aviso, Botao, Campo, Cartao, Ficha, Modal, entrada, TH } from "../../components/ui/index.jsx";
 import Aprovar from "./Aprovar.jsx";
 import Comparar from "./Comparar.jsx";
-import Simulacao from "./Simulacao.jsx";
+import SimulacaoPage from "../simulacao/SimulacaoPage.jsx";
 
 const STATUS = { rascunho: ["atencao", "Rascunho"], gravada: ["ok", "Gravada"], em_uso: ["ok", "Em uso"], substituida: ["neutro", "Substituída"], descartada: ["neutro", "Descartada"] };
 const REGRAS = { atual: "44h", r42: "42h", r40: "40h" };
@@ -61,6 +61,7 @@ export default function GradeTab({ lojaId, perfil, podeEscrever, abrirId }) {
   const [marcadas, setMarcadas] = useState([]);
   const [comparando, setComparando] = useState(false);
   const [aprovando, setAprovando] = useState(null);
+  const [aviso, setAviso] = useState(null);
 
   const carregar = useCallback(async () => {
     try {
@@ -94,10 +95,15 @@ export default function GradeTab({ lojaId, perfil, podeEscrever, abrirId }) {
 
   if (aberta)
     return (
-      <div className="flex flex-col gap-4">
-        <div><Botao tipo="texto" onClick={() => { setAberta(null); carregar(); }}>← Voltar às simulações</Botao></div>
-        <Simulacao id={aberta} perfil={perfil} podeEscrever={podeEscrever} onMudou={carregar} onAbrir={setAberta} />
-      </div>
+      <SimulacaoPage
+        id={aberta}
+        perfil={perfil}
+        podeEscrever={podeEscrever}
+        aviso={aviso}
+        onVoltar={() => { setAberta(null); setAviso(null); carregar(); }}
+        onMudou={carregar}
+        onAbrir={(id, mensagem) => { setAviso(mensagem ?? null); setAberta(id); }}
+      />
     );
 
   return (

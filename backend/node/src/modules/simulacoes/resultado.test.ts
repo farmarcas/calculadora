@@ -121,4 +121,18 @@ describe('calcularResultado', () => {
     expect(r.horasAbertas).toBe(88);
     expect(r.funcoes[0]).not.toHaveProperty('custoMensal');
   });
+  it('nível de hoje: uma vaga que cobre o buraco deixa a função coberta ', async () => {
+    // Duas atendentes de 44h mantêm 88h hoje; na regra de 40h cada uma faz 40h: faltam 8h, e uma vaga de 8h fecha.
+    const atend = (m: string): PessoaSim => ({ matricula: m, nome: m, funcao: 'Atendimento', cargaH: 44 });
+    const q: PessoaSim[] = [
+      ...quadro,
+      atend('C'),
+      atend('D'),
+      { matricula: 'VAGA-1', nome: 'Vaga 1', funcao: 'Atendimento', cargaH: 8, vaga: true },
+    ];
+    const r = base({ quadro: q });
+    const f = r.funcoes.find((x) => x.funcao === 'Atendimento')!;
+    expect(f.faltaHoje).toBe(8);
+    expect(f.resultado).toEqual({ coberto: true, horas: 0 });
+  });
 });

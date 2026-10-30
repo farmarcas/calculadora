@@ -55,6 +55,8 @@ export type ResultadoSimulacao = {
   horasAbertasAntes: number;
   horario: { mudou: boolean; dias: DiaResultado[] };
   funcoes: FuncaoResultado[];
+  // Dias e horas de maior venda (sem valores em reais, qualquer perfil vê); nulo sem base.
+  maiorVenda: { dias: number[]; horas: number[] } | null;
   vendaPorHora: {
     // Média de um dia, por dia da semana (segunda = 0) e hora; nulo sem base. Reais só para o dono.
     venda: number[][] | null;
@@ -152,6 +154,14 @@ export const calcularResultado = (a: {
     lista.map((p) => ({ funcao: p.funcao!, cargaH: p.cargaH }));
   const hoje = verificarRegra(a.regra, a.dias, a.minimos, pessoasDe(atuais), opcoes);
   const depois = verificarRegra(a.regra, a.dias, a.minimos, pessoasDe(ativos), opcoes);
+  // O que ainda falta depois das contratações, só em horas: a meta vem da equipe de hoje (uma vaga nova não
+  // aumenta a meta do "nível de hoje"); a capacidade já inclui as vagas.
+  const faltaDepois = (funcao: string) => {
+    const h0 = hoje.find((l) => l.funcao === funcao);
+    const h1 = depois.find((l) => l.funcao === funcao);
+    if (!h1) return 0;
+    return Math.max(0, arred((h0 ?? h1).necessidadeH - h1.capacidadeH));
+  };
   const funcoesNomes = [
     ...new Set([...hoje.map((l) => l.funcao), ...ativos.filter((p) => p.vaga).map((p) => p.funcao!)]),
   ];
@@ -180,14 +190,18 @@ export const calcularResultado = (a: {
         tipo: v.cargaH >= a.regra.teto ? 'integral' : 'parcial',
         ...(a.dono ? { custoMensal: custoVaga(v) } : {}),
       }));
-      const falta1 = h1?.gapH ?? 0;
+      // Depois das contratações mede-se só as horas (a distribuição em turnos é conferida na escala).
+      const falta1 = faltaDepois(funcao);
       const custos = contratacoes.map((c) => c.custoMensal);
       return {
         funcao,
         faltaHoje,
         diasDeTrabalho: faltaHoje > 0 ? Math.ceil(faltaHoje / a.regra.maxDia) : 0,
         contratacoes,
-        resultado: { coberto: falta1 <= 0, horas: falta1 > 0 ? falta1 : Math.max(0, h1?.saldoH ?? 0) },
+        resultado: {
+          coberto: falta1 <= 0,
+          horas: falta1 > 0 ? falta1 : Math.max(0, arred((h1?.capacidadeH ?? 0) - (h0 ?? h1)!.necessidadeH)),
+        },
         ...(a.dono
           ? { custoMensal: custos.some((c) => c == null) ? null : arred(custos.reduce((s, c) => s! + c!, 0)!) }
           : {}),
@@ -196,6 +210,18 @@ export const calcularResultado = (a: {
     // Função sem exigência, sem ninguém e sem vaga não precisa aparecer.
     .filter((f) => f.faltaHoje > 0 || f.contratacoes.length > 0 || (hoje.find((l) => l.funcao === f.funcao)?.pessoas ?? 0) > 0);
 
+  // Maior venda: dias e horas cujo total semanal fica a até 15% do maior.
+  const maiorVenda = (() => {
+    if (!vb || totalVenda <= 0) return null;
+    const porDia = vb.venda.map((d) => d.reduce((x, v) => x + v, 0));
+    const porHora = Array.from({ length: 24 }, (_, h) => vb.venda.reduce((x, d) => x + d[h]!, 0));
+    const pega = (v: number[]) => {
+      const max = Math.max(...v);
+      return v.flatMap((x, i) => (x >= max * 0.85 && x > 0 ? [i] : []));
+    };
+    return { dias: pega(porDia), horas: pega(porHora) };
+  })();
+
   const base: ResultadoSimulacao = {
     margemInformada,
     temBase: !!vb,
@@ -203,6 +229,7 @@ export const calcularResultado = (a: {
     horasAbertasAntes,
     horario: { mudou: horarioDias.some((d) => d.alterado), dias: horarioDias },
     funcoes,
+    maiorVenda,
     vendaPorHora: {
       venda: a.dono ? (vb?.venda ?? null) : null,
       clientes,
@@ -219,13 +246,14 @@ export const calcularResultado = (a: {
     : arred(custosVagas.reduce<number>((s, c) => s + (c ?? 0), 0));
   let horaExtra: number | null = 0;
   for (const l of depois) {
-    if (l.gapH <= 0) continue;
+    const falta = faltaDepois(l.funcao);
+    if (falta <= 0) continue;
     const s = sal(l.funcao);
     if (!s) {
       horaExtra = null;
       break;
     }
-    horaExtra += l.gapH * SEMANAS_DA_FOLHA * (s / tabela[a.regraId].divisor) * ADICIONAL_HORA_EXTRA * fator;
+    horaExtra += falta * SEMANAS_DA_FOLHA * (s / tabela[a.regraId].divisor) * ADICIONAL_HORA_EXTRA * fator;
   }
   if (horaExtra !== null) horaExtra = arred(horaExtra);
   const vendaQueSai = vb ? arred(venda * SEMANAS_NO_MES) : null;

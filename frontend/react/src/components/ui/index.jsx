@@ -102,6 +102,43 @@ export function Abas({ opcoes = [], valor, onChange, rotulo, className = "" }) {
   );
 }
 
+// Alquimia DS · Segmented: item ativo com fundo escuro e texto branco em negrito, 40 px de altura.
+export function Segmentado({ opcoes = [], valor, onChange, rotulo, desabilitado = false }) {
+  return (
+    <div role="group" aria-label={rotulo} className="inline-flex overflow-hidden rounded-btn border border-[var(--border-default)] bg-[var(--surface-card)]">
+      {opcoes.map(([id, texto]) => {
+        const ativo = id === valor;
+        return (
+          <button
+            key={id}
+            type="button"
+            aria-pressed={ativo}
+            disabled={desabilitado}
+            onClick={() => onChange(id)}
+            className={`h-10 min-w-10 px-4 text-sm border-0 cursor-pointer focus-visible:outline-2 focus-visible:outline-[var(--border-focus)] disabled:cursor-not-allowed ${ativo ? "bg-[var(--neutral-dark-900)] text-white font-bold" : "bg-transparent text-[var(--text-secondary)] disabled:opacity-60"}`}
+          >
+            {texto}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// Passo numerado de uma tela em etapas: círculo de 24 px, título e subtítulo.
+export const Passo = ({ numero, titulo, subtitulo, children }) => (
+  <section aria-labelledby={`passo-${numero}`} className="rounded-card border border-[var(--border-subtle)] bg-[var(--surface-card)] shadow-card">
+    <header className="flex items-start gap-3 px-6 pt-5 pb-4">
+      <span aria-hidden="true" className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--neutral-dark-900)] text-xs font-bold text-white">{numero}</span>
+      <div className="min-w-0">
+        <h2 id={`passo-${numero}`} className="m-0 text-lg font-bold text-[var(--text-strong)]">{titulo}</h2>
+        {subtitulo && <p className="m-0 mt-0.5 text-sm text-[var(--text-secondary)]">{subtitulo}</p>}
+      </div>
+    </header>
+    <div className="px-6 pb-6">{children}</div>
+  </section>
+);
+
 // Alquimia DS · Table: cabeçalho sobre fundo suave, 14 px em negrito, sem maiúsculas; linhas separadas por 1 px.
 export const TH = "text-left bg-surface-subtle text-sm font-bold text-ink-900 whitespace-nowrap";
 export const TD = "text-sm text-ink-900 border-t border-line";

@@ -95,3 +95,23 @@ body { margin: 0; background: var(--surface-page); color: var(--ink-900); font-f
   .cl-detalhe { border-left: 1px solid var(--border-subtle); min-height: 640px; }
   .cl-voltar { display: none; }
 }
+
+/* Aba Dados e funcionamento: grades por largura do detalhe (não da janela). */
+.cl-detalhe { container-type: inline-size; container-name: det; }
+.cl-grid3 { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+@container det (min-width: 560px) { .cl-grid3 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@container det (min-width: 820px) { .cl-grid3 { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.cl-func-cab { display: none; }
+.cl-func-linha { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; align-items: center; }
+.cl-func-linha > strong { grid-column: 1 / -1; }
+.cl-func-erro { grid-column: 1 / -1; }
+.cl-func-rot { display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 2px; }
+.cl-func-horas { text-align: left; }
+@container det (min-width: 680px) {
+  .cl-func-cab { display: grid; grid-template-columns: var(--cl-cols); gap: 12px; align-items: center; }
+  .cl-func-linha { grid-template-columns: var(--cl-cols); gap: 12px; }
+  .cl-func-linha > strong { grid-column: auto; }
+  .cl-func-erro { grid-column: 2 / -1; }
+  .cl-func-rot { display: none; }
+  .cl-func-horas { text-align: right; }
+}

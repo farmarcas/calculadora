@@ -1,12 +1,16 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { api } from "../../api/client.js";
-import { cuidaDoGrupo, editaLoja, ehOperador } from "../../api/perfis.js";
+import { ehOperador } from "../../api/perfis.js";
 import { AVISO_DADOS_FICTICIOS, LARGURA_DUAS_COLUNAS } from "./config.js";
 import DetalheLoja from "./DetalheLoja.jsx";
 import ListaLojas from "./ListaLojas.jsx";
 import { confirmarSaida } from "./guardaSaida.js";
 import { gravarUrl, lerUrl } from "./urlDaLoja.js";
+import { lojaParaApi } from "./calculos.js";
 import useRascunhoLoja from "./useRascunhoLoja.js";
+
+// Como cada bloco do rascunho vira corpo da API (constante para não recriar a cada tela).
+const PARA_API = { loja: lojaParaApi };
 
 // Lista de lojas (esquerda) e a loja escolhida (direita) no mesmo cartão. Abaixo de ~1100 px de largura viram duas telas.
 export default function CadastroLojaPage({ perfil, onNova }) {
@@ -20,8 +24,8 @@ export default function CadastroLojaPage({ perfil, onNova }) {
   const [erro, setErro] = useState(null);
   const [versao, setVersao] = useState(0);
   const caixa = useRef(null);
-  const podeEscrever = editaLoja(perfil);
-  const dono = cuidaDoGrupo(perfil);
+  const primeiras = useRef([]);
+  const largoRef = useRef(true);
 
   // O layout segue a largura do conteúdo (o menu lateral também tira espaço).
   useLayoutEffect(() => {
@@ -31,6 +35,7 @@ export default function CadastroLojaPage({ perfil, onNova }) {
     return () => ro.disconnect();
   }, []);
 
+  useEffect(() => { largoRef.current = largo; }, [largo]);
   useEffect(() => gravarUrl({ tela: "cadastros", loja: lojaId, aba }), [lojaId, aba]);
 
   const carregarPainel = useCallback(async (id) => {
@@ -40,7 +45,11 @@ export default function CadastroLojaPage({ perfil, onNova }) {
       setPainel(await api(`/lojas/${id}/painel`));
     } catch (e) {
       // Loja do endereço que não existe neste grupo: volta para a lista.
-      if (e.code === "LOJA_NAO_ENCONTRADA") { setLojaId(null); setVista("lista"); }
+      if (e.code === "LOJA_NAO_ENCONTRADA") {
+        const primeira = largoRef.current ? primeiras.current[0] : null;
+        setLojaId(primeira?.id ?? null);
+        setVista(primeira ? "detalhe" : "lista");
+      }
       else setErro(e.message);
     } finally {
       setCarregando(false);
@@ -56,7 +65,7 @@ export default function CadastroLojaPage({ perfil, onNova }) {
     setPainel(r);
     setVersao((v) => v + 1);
   }, []);
-  const rascunho = useRascunhoLoja(lojaId, { aoSalvar });
+  const rascunho = useRascunhoLoja(lojaId, { aoSalvar, paraApi: PARA_API });
 
   const selecionar = (id) => {
     if (id !== lojaId && !confirmarSaida()) return;
@@ -66,6 +75,7 @@ export default function CadastroLojaPage({ perfil, onNova }) {
   };
   // Em tela larga, sem loja escolhida, a primeira da lista já abre.
   const aoCarregarLista = (lojas) => {
+    primeiras.current = lojas;
     if (!lojaId && largo && lojas[0]) { setLojaId(lojas[0].id); setVista("detalhe"); }
   };
 
@@ -83,7 +93,7 @@ export default function CadastroLojaPage({ perfil, onNova }) {
             <ListaLojas lojaId={lojaId} versao={versao} podeCriar={ehOperador(perfil)} onSelecionar={selecionar} onNova={onNova} onCarregou={aoCarregarLista} />
           </div>
           <div className="cl-detalhe">
-            <DetalheLoja lojaId={lojaId} aba={aba} onAba={setAba} perfil={perfil} podeEscrever={podeEscrever && (dono || ehOperador(perfil))} painel={painel} carregando={carregando} erro={erro} rascunho={rascunho}
+            <DetalheLoja lojaId={lojaId} aba={aba} onAba={setAba} perfil={perfil} painel={painel} carregando={carregando} erro={erro} rascunho={rascunho}
               onVoltar={() => { if (confirmarSaida()) setVista("lista"); }} />
           </div>
         </div>

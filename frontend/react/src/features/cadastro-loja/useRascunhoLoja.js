@@ -14,7 +14,7 @@ export const diferencas = (salvo, rascunho) =>
 
 // Rascunho único da loja: as abas Dados e funcionamento e Regras e custos mexem nele; um só "Salvar alterações" grava tudo.
 // Cada bloco entra quando a aba o carrega (`registrar`); sem isso ele não conta como alteração.
-export default function useRascunhoLoja(lojaId, { aoSalvar } = {}) {
+export default function useRascunhoLoja(lojaId, { aoSalvar, paraApi } = {}) {
   const [salvo, setSalvo] = useState({});
   const [rascunho, setRascunho] = useState({});
   const [salvando, setSalvando] = useState(false);
@@ -56,7 +56,7 @@ export default function useRascunhoLoja(lojaId, { aoSalvar } = {}) {
     const corpo = {};
     for (const b of BLOCOS) {
       const parte = Object.fromEntries(Object.keys(rascunho[b] ?? {}).filter((k) => mudancas.includes(`${b}.${k}`)).map((k) => [k, rascunho[b][k]]));
-      if (Object.keys(parte).length) corpo[b] = parte;
+      if (Object.keys(parte).length) corpo[b] = paraApi?.[b] ? paraApi[b](parte, rascunho[b]) : parte;
     }
     setSalvando(true);
     setErro(null);
@@ -71,7 +71,7 @@ export default function useRascunhoLoja(lojaId, { aoSalvar } = {}) {
     } finally {
       setSalvando(false);
     }
-  }, [lojaId, mudancas, rascunho, aoSalvar]);
+  }, [lojaId, mudancas, rascunho, aoSalvar, paraApi]);
 
   return { salvo, rascunho, registrar, alterar, mudancas, salvando, erro, setErro, cancelar, salvar };
 }

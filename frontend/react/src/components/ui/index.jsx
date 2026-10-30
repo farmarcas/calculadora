@@ -127,6 +127,22 @@ export function Segmentado({ opcoes = [], valor, onChange, rotulo, desabilitado 
   );
 }
 
+// Chave liga/desliga (role="switch"). O rótulo precisa estar visível ao lado; `rotulo` é o nome para quem usa leitor de tela.
+export const Chave = ({ marcado, onChange, rotulo, desabilitado = false, id }) => (
+  <button
+    id={id}
+    type="button"
+    role="switch"
+    aria-checked={marcado}
+    aria-label={rotulo}
+    disabled={desabilitado}
+    onClick={() => onChange(!marcado)}
+    className={`relative inline-flex h-6 w-10 shrink-0 items-center rounded-full border-0 transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--border-focus)] disabled:cursor-not-allowed disabled:opacity-50 ${marcado ? "bg-[var(--color-primary)]" : "bg-[var(--border-strong)]"}`}
+  >
+    <span aria-hidden="true" className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${marcado ? "translate-x-[18px]" : "translate-x-0.5"}`} />
+  </button>
+);
+
 // Passo numerado de uma tela em etapas: círculo de 24 px, título e subtítulo.
 export const Passo = ({ numero, titulo, subtitulo, semMargem = false, children }) => (
   <section aria-labelledby={`passo-${numero}`} className="rounded-card border border-[var(--border-subtle)] bg-[var(--surface-card)] shadow-card">

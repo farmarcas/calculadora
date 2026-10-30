@@ -1,5 +1,8 @@
+import { useEffect, useState } from "react";
 import { Abas, Aviso, Botao } from "../../components/ui/index.jsx";
-import { formatarCnpj } from "../../api/perfis.js";
+import { cuidaDoGrupo, editaLoja, ehOperador, formatarCnpj } from "../../api/perfis.js";
+import AbaDados from "./AbaDados.jsx";
+import { errosDaLoja } from "./calculos.js";
 import { ABAS } from "./config.js";
 import EquipeLoja from "../cadastros/EquipeLoja.jsx";
 import ConfiguracaoLoja from "../cadastros/ConfiguracaoLoja.jsx";
@@ -9,7 +12,13 @@ const IconeAtencao = () => (
 );
 
 // Detalhe da loja escolhida: cabeçalho com a situação e o motivo, 3 abas e o rodapé com o contador e "Salvar alterações".
-export default function DetalheLoja({ lojaId, aba, onAba, perfil, podeEscrever, painel, carregando, erro, rascunho, onVoltar }) {
+export default function DetalheLoja({ lojaId, aba, onAba, perfil, painel, carregando, erro, rascunho, onVoltar }) {
+  const [tentou, setTentou] = useState(false);
+  useEffect(() => setTentou(false), [lojaId]);
+  const dono = perfil === "TENANT_ADMIN";
+  const operador = ehOperador(perfil);
+  const podeEditar = editaLoja(perfil);
+  const podeEquipe = cuidaDoGrupo(perfil);
   if (!lojaId)
     return <div className="flex h-full items-center justify-center p-10 text-sm text-[var(--text-secondary)]">Escolha uma loja na lista para ver e corrigir o cadastro.</div>;
   if (erro) return <div className="p-6"><Aviso>{erro}</Aviso></div>;
@@ -25,6 +34,24 @@ export default function DetalheLoja({ lojaId, aba, onAba, perfil, podeEscrever, 
   const { loja, situacao } = painel;
   const completo = situacao.status === "completo";
   const n = rascunho.mudancas.length;
+  // Antes de gravar, confere os campos; se algo estiver errado, rola até o primeiro e foca nele.
+  const salvar = async () => {
+    const erros = rascunho.rascunho.loja ? errosDaLoja(rascunho.rascunho.loja, { dono }) : [];
+    if (erros.length) {
+      setTentou(true);
+      rascunho.setErro(`Corrija ${erros.length === 1 ? "o campo indicado" : `os ${erros.length} campos indicados`} antes de salvar.`);
+      onAba("dados");
+      setTimeout(() => {
+        const alvo = document.querySelector(`[data-campo="${erros[0].campo}"]`);
+        alvo?.scrollIntoView({ block: "center", behavior: "smooth" });
+        alvo?.focus();
+      }, 50);
+      return;
+    }
+    setTentou(false);
+    await rascunho.salvar();
+  };
+  const cancelar = () => { setTentou(false); rascunho.cancelar(); };
   const abas = ABAS.map(([id, t]) => [id, id === "equipe" ? `${t} (${loja.funcionarios ?? 0})` : t]);
 
   return (
@@ -47,16 +74,9 @@ export default function DetalheLoja({ lojaId, aba, onAba, perfil, podeEscrever, 
       {rascunho.erro && <div className="px-6 pt-4"><Aviso>{rascunho.erro}</Aviso></div>}
 
       <div className="flex-1 px-6 py-6">
-        {aba === "dados" && (
-          <dl className="m-0 grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
-            {[["ID loja", loja.codigo], ["Nome", loja.nome], ["CNPJ", loja.cnpj ? formatarCnpj(loja.cnpj) : "—"], ["Cidade", loja.cidade ?? "—"], ["UF", loja.uf ?? "—"], ["Bandeira", loja.marca ?? "—"], ["Funcionamento", loja.horariosResumo ?? "—"]].map(([k, v]) => (
-              <div key={k}><dt className="text-xs text-[var(--text-secondary)]">{k}</dt><dd className="m-0 font-medium text-[var(--text-strong)]">{v}</dd></div>
-            ))}
-            <p className="m-0 text-xs text-[var(--text-secondary)] sm:col-span-2">A edição de dados, funcionamento e faturamento chega na próxima etapa.</p>
-          </dl>
-        )}
-        {aba === "equipe" && <EquipeLoja lojaId={lojaId} podeEscrever={podeEscrever} />}
-        {aba === "regras" && <ConfiguracaoLoja lojaId={lojaId} perfil={perfil} podeEscrever={podeEscrever} />}
+        {aba === "dados" && <AbaDados painel={painel} rascunho={rascunho} dono={dono} operador={operador} podeEditar={podeEditar} mostrarErros={tentou} />}
+        {aba === "equipe" && <EquipeLoja lojaId={lojaId} podeEscrever={podeEquipe} />}
+        {aba === "regras" && <ConfiguracaoLoja lojaId={lojaId} perfil={perfil} podeEscrever={podeEquipe} />}
       </div>
 
       <div className="cl-rodape sticky bottom-0 flex min-h-16 flex-wrap items-center justify-between gap-3 border-t border-[var(--border-subtle)] bg-[var(--surface-card)] px-6 py-3">
@@ -69,8 +89,8 @@ export default function DetalheLoja({ lojaId, aba, onAba, perfil, podeEscrever, 
               {n === 0 ? "Nenhuma alteração" : `${n} ${n === 1 ? "alteração não salva" : "alterações não salvas"}`}
             </span>
             <div className="flex items-center gap-3">
-              <button type="button" disabled={n === 0 || rascunho.salvando} onClick={rascunho.cancelar} className="border-0 bg-transparent p-0 text-sm font-bold text-[var(--text-link)] cursor-pointer disabled:cursor-not-allowed disabled:opacity-50">Cancelar</button>
-              <Botao disabled={n === 0 || rascunho.salvando || !podeEscrever} onClick={rascunho.salvar}>{rascunho.salvando ? "Salvando…" : "Salvar alterações"}</Botao>
+              <button type="button" disabled={n === 0 || rascunho.salvando} onClick={cancelar} className="border-0 bg-transparent p-0 text-sm font-bold text-[var(--text-link)] cursor-pointer disabled:cursor-not-allowed disabled:opacity-50">Cancelar</button>
+              <Botao disabled={n === 0 || rascunho.salvando || !podeEditar} onClick={salvar}>{rascunho.salvando ? "Salvando…" : "Salvar alterações"}</Botao>
             </div>
           </>
         )}

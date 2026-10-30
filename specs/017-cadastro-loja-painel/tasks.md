@@ -24,10 +24,10 @@
 - [x] T015 Ligar em `CadastrosPage` (abas "Lojas" e "Parâmetros legais"); conferir no navegador; commitar a fatia
 
 ## Fatia 5 — Aba Dados e funcionamento (US2)
-- [ ] T016 Vitest no front e `calculos.js` com testes: horas do dia (00:00 = meia-noite), soma semanal, mensal × 52 ÷ 12, divergência > 10%
-- [ ] T017 `AbaDados.jsx`: dados da loja (ID e CNPJ só operador, aviso de encargos recalculados)
-- [ ] T018 `TabelaFuncionamento.jsx`: uma linha por dia (situação, abre, fecha, 24h, faturamento só dono, horas), "Loja 24 horas", "Copiar horário da segunda" (só horário), rodapé com horas e faturamento semanal
-- [ ] T019 `ResumoMensal.jsx`: mensal informado, soma dos dias, margem, alerta de 10% com "Usar R$ …"; validações em texto; perfis sem faturamento não veem a coluna; conferir e commitar a fatia
+- [x] T016 Vitest no front e `calculos.js` com testes: horas do dia (00:00 = meia-noite), soma semanal, mensal × 52 ÷ 12, divergência > 10%
+- [x] T017 `AbaDados.jsx`: dados da loja (ID e CNPJ só operador, aviso de encargos recalculados)
+- [x] T018 `TabelaFuncionamento.jsx`: uma linha por dia (situação, abre, fecha, 24h, faturamento só dono, horas), "Loja 24 horas", "Copiar horário da segunda" (só horário), rodapé com horas e faturamento semanal
+- [x] T019 `ResumoMensal.jsx`: mensal informado, soma dos dias, margem, alerta de 10% com "Usar R$ …"; validações em texto; perfis sem faturamento não veem a coluna; conferir e commitar a fatia
 
 ## Fatia 6 — Aba Equipe e Nova loja (US4, US6)
 - [ ] T020 `AbaEquipe.jsx`: busca, "Importar equipe", tabela com CPF mascarado, "Fora do cálculo", editar e remover

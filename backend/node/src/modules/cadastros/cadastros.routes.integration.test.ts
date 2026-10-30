@@ -113,6 +113,31 @@ describe('cadastros (rotas)', () => {
     expect((await reqGe().delete(`/api/v1/lojas/${c.body.id}`).set(operador)).status).toBe(204);
   });
 
+  it('horário fixo do funcionário: padrão falso, grava, edita e volta na listagem', async () => {
+    const c = await postLoja({ codigo: '011', nome: 'Loja Onze' });
+    const f = await reqGe()
+      .post('/api/v1/funcionarios')
+      .set(admin)
+      .send({ matricula: 'HF1', nome: 'Dani', lojaId: c.body.id, funcaoEscala: 'Farmacêutico' });
+    expect(f.status).toBe(201);
+    expect(f.body.horarioFixo).toBe(false);
+    const p = await reqGe()
+      .patch(`/api/v1/funcionarios/${f.body.id}`)
+      .set(admin)
+      .send({ horarioFixo: true });
+    expect(p.body.horarioFixo).toBe(true);
+    const lista = await reqGe().get('/api/v1/funcionarios?lojaId=' + c.body.id);
+    expect(lista.body.data[0].horarioFixo).toBe(true);
+    expect(
+      (
+        await reqGe()
+          .patch(`/api/v1/funcionarios/${f.body.id}`)
+          .set(admin)
+          .send({ horarioFixo: 'sim' })
+      ).status,
+    ).toBe(400);
+  });
+
   describe('horário da loja por dia da semana', () => {
     const dia = (abre: string, fecha: string) => ({ aberta: true, abre, fecha });
     const semanaCompleta = {

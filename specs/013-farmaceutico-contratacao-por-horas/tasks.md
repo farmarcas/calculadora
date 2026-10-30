@@ -72,13 +72,13 @@ Segurança do banco: só uma migration que acrescenta uma coluna (fatia 6); nada
 
 **Teste independente**: um quadro que cabe se for redistribuído não gera contratação; o funcionário de horário fixo é mantido e avisado.
 
-- [ ] T034 [US5] Migration `prisma/migrations/<data>_horario_fixo/migration.sql` escrita à mão (coluna `horario_fixo` booleana, padrão falso, em `funcionarios`) + `prisma/schema.prisma`; aplicar com `prisma migrate deploy` e `prisma generate`; conferir as contagens antes e depois
-- [ ] T035 [US5] `src/modules/cadastros/*`: `horarioFixo` no cadastro de funcionário (API, schema Zod, planilha opcional); `features/cadastros/FormFuncionario.jsx` e `EquipeLoja.jsx`: caixa "Horário fixo (não remanejar)"
-- [ ] T036 [US5] Teste + `src/modules/escala/redistribuir.ts`: montagem gulosa de escala semanal por cargo, começando pelo farmacêutico (até 5 dias por pessoa, até 8 h por dia ou o permitido pela convenção, folga no domingo revezando); pessoa de horário fixo mantém dias e horários; devolve cobertura por hora e o descoberto por cargo; contas à mão
-- [ ] T037 [US5] `verificarRegra` e o Diagnóstico usam o descoberto da redistribuição como gap (quando há presença/horários suficientes); sem dados, mantêm a capacidade agregada; `redistribuicao: { cobertura, descoberto[], avisos[] }` na resposta
-- [ ] T038 [US5] Tela: aviso de horário fixo no diagnóstico e o quadro do que foi redistribuído; folga de domingo por pessoa
-- [ ] T039 [US5] Testes de integração (quadro que cabe depois de redistribuir; horário fixo mantido; parâmetros de dias, horas por dia e convenção respeitados)
-- [ ] T040 Documentação: README (nova lógica de mínimo e de contratação, metas, parcial, CRF, horário fixo), `scripts/sync-templates.sh`, `scripts/check-repo.sh`
+- [x] T034 [US5] Migration `prisma/migrations/<data>_horario_fixo/migration.sql` escrita à mão (coluna `horario_fixo` booleana, padrão falso, em `funcionarios`) + `prisma/schema.prisma`; aplicar com `prisma migrate deploy` e `prisma generate`; conferir as contagens antes e depois
+- [x] T035 [US5] `src/modules/cadastros/*`: `horarioFixo` no cadastro de funcionário (API, schema Zod, planilha opcional); `features/cadastros/FormFuncionario.jsx` e `EquipeLoja.jsx`: caixa "Horário fixo (não remanejar)"
+- [x] T036 [US5] Teste + `src/modules/escala/redistribuir.ts`: montagem gulosa de escala semanal por cargo, começando pelo farmacêutico (até 5 dias por pessoa, até 8 h por dia ou o permitido pela convenção, folga no domingo revezando); pessoa de horário fixo mantém dias e horários; devolve cobertura por hora e o descoberto por cargo; contas à mão
+- [x] T037 [US5] `verificarRegra` e o Diagnóstico usam o descoberto da redistribuição como gap (quando há presença/horários suficientes); sem dados, mantêm a capacidade agregada; `redistribuicao: { cobertura, descoberto[], avisos[] }` na resposta
+- [x] T038 [US5] Tela: aviso de horário fixo no diagnóstico e o quadro do que foi redistribuído; folga de domingo por pessoa
+- [x] T039 [US5] Testes de integração (quadro que cabe depois de redistribuir; horário fixo mantido; parâmetros de dias, horas por dia e convenção respeitados)
+- [x] T040 Documentação: README (nova lógica de mínimo e de contratação, metas, parcial, CRF, horário fixo), `scripts/sync-templates.sh`, `scripts/check-repo.sh`
 - [ ] T041 Conferência final: `npm test`, `npm run test:integration`, `npm run lint`, `npx tsc --noEmit`, build do `web`, `quickstart.md` do começo ao fim, Porto Feliz antes e depois, cenários 1 a 5 abrindo; commitar
 
 ## Dependências e ordem

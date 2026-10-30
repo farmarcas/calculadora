@@ -177,11 +177,12 @@ export const makeEscalaService = (repo: EscalaRepository, auditar: Auditor) => {
     async diagnostico(lojaId: string, perfil?: string, simulacao?: PremissasEntrada) {
       const loja = await repo.lojaParaDiagnostico(lojaId);
       if (!loja) throw new NotFoundError('Loja não encontrada', 'LOJA_NAO_ENCONTRADA');
-      const [escalaImportada, base, doCadastro, parametros] = await Promise.all([
+      const [escalaImportada, base, doCadastro, parametros, fixos] = await Promise.all([
         repo.escalaAtiva(lojaId),
         repo.baseAtiva(lojaId),
         repo.turnosDoCadastro(lojaId),
         repo.parametrosVigentes(),
+        repo.matriculasHorarioFixo(lojaId),
       ]);
       // A escala importada manda; o horário digitado no cadastro completa quem não está nela
       // (ou serve de escala atual quando nada foi importado).
@@ -211,6 +212,7 @@ export const makeEscalaService = (repo: EscalaRepository, auditar: Auditor) => {
         loja,
         escala: escala?.meta ?? null,
         turnos: turnosFinais,
+        horarioFixo: fixos,
         base: base?.meta ?? null,
         vendas: base?.vendas ?? [],
         dono: perfil === 'TENANT_ADMIN',

@@ -135,6 +135,43 @@ function Contratacoes({ regras, regraId: id, podeEscrever, onSimular }) {
   );
 }
 
+function Redistribuicao({ regra, colaboradores }) {
+  const r = regra.redistribuicao;
+  if (!r || r.escala.length === 0) return null;
+  const nome = Object.fromEntries((colaboradores ?? []).map((c) => [c.matricula, `${c.nome} · ${c.funcao ?? ""}`]));
+  const porPessoa = {};
+  for (const t of r.escala) (porPessoa[t.matricula] ??= []).push(t);
+  const hora = (h) => `${String(Math.floor(h)).padStart(2, "0")}:${String(Math.round((h % 1) * 60)).padStart(2, "0")}`;
+  const total = r.descoberto.reduce((t, d) => t + d.horas, 0);
+  return (
+    <Cartao
+      titulo="Escala redistribuída"
+      subtitulo={`Na regra de ${regra.nome}: as pessoas remanejadas dentro da regra (até 5 dias, até 8h por dia, folga no domingo sempre que possível) antes de contratar. Entram o farmacêutico e os cargos com meta do dono`}
+    >
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse text-sm min-w-[640px]">
+          <thead><tr><th className={TH}>Pessoa</th><th className={TH}>Dias e horários</th><th className={TH}>Folga no domingo</th></tr></thead>
+          <tbody>
+            {Object.entries(porPessoa).map(([m, ts]) => (
+              <tr key={m}>
+                <td className={TD}>{nome[m] ?? m}</td>
+                <td className={TD}>{ts.sort((a, b) => a.dia - b.dia).map((t) => `${DIAS[t.dia]} ${hora(t.de)}–${hora(t.ate)}`).join(" · ")}</td>
+                <td className={TD}>{ts.some((t) => t.dia === 6) ? "não" : "sim"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="m-0 px-6 py-3 text-sm border-t border-line">
+        {total > 0
+          ? `Mesmo redistribuído, ficam ${String(total).replace(".", ",")}h descobertas por semana: ${r.descoberto.flatMap((d) => d.faixas.map((f) => `${DIAS[f.dia]} ${f.de}–${f.ate}`)).join(" · ")}.`
+          : "Redistribuído, o quadro cobre todo o horário."}
+      </p>
+      {r.avisos.map((a) => <p key={a} className="m-0 px-6 py-2 text-xs text-attention-700 border-t border-line">{a}</p>)}
+    </Cartao>
+  );
+}
+
 function Cobertura({ cob }) {
   if (!cob.horas.length) return null;
   return (
@@ -238,6 +275,7 @@ export default function Diagnostico({ diag, podeEscrever, onEnviar, onSimular })
       </Cartao>
 
       <Verificacao regras={diag.regras} />
+      <Redistribuicao regra={diag.regras.find((r) => r.id === regraId)} colaboradores={diag.colaboradores} />
       <Contratacoes regras={diag.regras.map((r) => ({ ...r, lojaId: diag.loja.id }))} regraId={regraId} podeEscrever={podeEscrever} onSimular={onSimular} />
       <Cobertura cob={diag.cobertura} />
       <Vendas vendas={diag.vendas} />

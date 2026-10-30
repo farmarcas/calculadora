@@ -247,15 +247,21 @@ describe('escala (rotas)', () => {
     expect(dono.r40.atual).toMatchObject({ horasSemana: 66, pessoas: 1, folhaMensal: 11200 });
     expect(dono.r40.vendasBase).toBeNull();
 
-    // Dias e horários do parcial: a farmacêutica cobre 08h–17h; descoberto de segunda a sexta das 17h às 20h (3 h por dia,
-    // 15 h no total); o sábado (8h–14h) já está coberto. Das 26 h do parcial cabem 15 h; o resto não tem lugar.
+    // Dias e horários do parcial: a farmacêutica é redistribuída em 5 dias de 8 h (segunda a sexta, 08h–16h); descoberto de
+    // segunda a sexta das 16h às 20h (4 h por dia) e o sábado inteiro (08h–14h, 6 h) = 26 h. O parcial cabe em até 5 dias:
+    // sábado (6 h) e quatro dias de 4 h = 22 h; 4 h não têm lugar.
     const regras = (await reqGe().get(url).set(admin)).body.regras;
-    const farm = regras.find((r: { id: string }) => r.id === 'r40').funcoes[0];
-    expect(farm.sugestao.distribuicao).toEqual({
-      blocos: [0, 1, 2, 3, 4].map((dia) => ({ dia, de: '17:00', ate: '20:00', horas: 3 })),
+    const r40 = regras.find((r: { id: string }) => r.id === 'r40');
+    expect(r40.funcoes[0].sugestao.distribuicao).toEqual({
+      blocos: [
+        ...[0, 1, 2, 3].map((dia) => ({ dia, de: '16:00', ate: '20:00', horas: 4 })),
+        { dia: 5, de: '08:00', ate: '14:00', horas: 6 },
+      ],
       estimativa: false,
-      semLugarH: 11,
+      semLugarH: 4,
     });
+    expect(r40.redistribuicao.remanejados).toBe(1);
+    expect(r40.redistribuicao.descoberto[0].horas).toBe(26);
 
     for (const h of [
       { 'X-Perfil': 'SCHEDULE_MANAGER', 'X-GE': GE_INICIAL_ID },

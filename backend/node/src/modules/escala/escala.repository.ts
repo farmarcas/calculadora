@@ -199,6 +199,15 @@ export const escalaRepository = (geId: string) => {
 
     // Horário atual digitado no cadastro dos funcionários: mesmo turno nos dias trabalhados.
     // Só vale turno no mesmo dia (saída depois da entrada); virada de dia fica só informativa.
+    // Matrículas marcadas com horário fixo na loja (não entram na redistribuição).
+    async matriculasHorarioFixo(lojaId: string): Promise<Set<string>> {
+      const fs = await prisma.funcionario.findMany({
+        where: { lojaId, loja: { geId }, ...ativo, horarioFixo: true },
+        select: { matricula: true },
+      });
+      return new Set(fs.map((f) => f.matricula));
+    },
+
     async turnosDoCadastro(lojaId: string): Promise<TurnoDiag[]> {
       const fs = await prisma.funcionario.findMany({
         where: {

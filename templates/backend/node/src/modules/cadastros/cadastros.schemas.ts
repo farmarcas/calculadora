@@ -88,6 +88,8 @@ export const funcionarioSchema = z
     saida: horaHHMM.nullable().optional(),
     dias: z.array(z.number().int().min(0).max(6)).max(7).optional(),
     regime: z.string().trim().max(30).optional(),
+    // Horário fixo: a redistribuição da escala não remaneja esta pessoa.
+    horarioFixo: z.boolean().optional(),
   })
   .strict();
 export type FuncionarioBody = z.infer<typeof funcionarioSchema>;

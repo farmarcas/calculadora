@@ -106,6 +106,8 @@ model Funcionario {
   saida         Float?
   dias          Int[]     @default([])
   regime        String?
+  // Horário fixo: a redistribuição da escala não remaneja esta pessoa.
+  horarioFixo   Boolean   @default(false) @map("horario_fixo")
   deletedAt     DateTime? @map("deleted_at") @db.Timestamptz(3)
   createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)

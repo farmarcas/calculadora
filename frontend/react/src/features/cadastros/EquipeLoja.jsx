@@ -8,10 +8,10 @@ const FUNCOES = ["Farmacêutico", "Atendimento", "Caixa", "Apoio", "Perfumaria"]
 const CARGAS_CONHECIDAS = [220, 210, 200];
 const DIAS_PADRAO = [0, 1, 2, 3, 4];
 
-const vazio = { matricula: "", nome: "", cargo: "", funcaoEscala: "", cargaMensalH: "", cpf: "", entrada: "", saida: "", dias: DIAS_PADRAO };
+const vazio = { matricula: "", nome: "", cargo: "", funcaoEscala: "", cargaMensalH: "", cpf: "", entrada: "", saida: "", dias: DIAS_PADRAO, horarioFixo: false };
 const paraEdicao = (f) => ({
   matricula: f.matricula, nome: f.nome, cargo: f.cargo ?? "", funcaoEscala: f.funcaoEscala ?? "",
-  cargaMensalH: f.cargaMensalH ?? "", cpf: f.cpf ?? "", entrada: f.entrada ?? "", saida: f.saida ?? "", dias: f.dias?.length ? f.dias : [],
+  cargaMensalH: f.cargaMensalH ?? "", cpf: f.cpf ?? "", entrada: f.entrada ?? "", saida: f.saida ?? "", dias: f.dias?.length ? f.dias : [], horarioFixo: f.horarioFixo === true,
 });
 
 const dadosParaApi = (v, lojaId, novo) => {
@@ -22,6 +22,7 @@ const dadosParaApi = (v, lojaId, novo) => {
   // Ao editar, entrada e saída em branco limpam o horário.
   if (v.entrada || v.saida || !novo) { b.entrada = v.entrada || null; b.saida = v.saida || null; }
   b.dias = v.dias;
+  b.horarioFixo = v.horarioFixo === true;
   return b;
 };
 
@@ -112,6 +113,10 @@ export default function EquipeLoja({ lojaId, podeEscrever }) {
             <Campo rotulo="Entrada atual"><input type="time" className={entrada} value={edicao.v.entrada} onChange={set("entrada")} /></Campo>
             <Campo rotulo="Saída atual"><input type="time" className={entrada} value={edicao.v.saida} onChange={set("saida")} /></Campo>
           </div>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={edicao.v.horarioFixo === true} onChange={(e) => setEdicao({ ...edicao, v: { ...edicao.v, horarioFixo: e.target.checked } })} />
+            Horário fixo (não remanejar na redistribuição da escala)
+          </label>
           {mensal > 0 && (
             <p className="m-0 text-xs text-ink-500">
               Equivale a {Math.round(mensal / 5)}h por semana.{!CARGAS_CONHECIDAS.includes(mensal) ? " Fora de 220, 210 e 200 h: não entra nas regras de 44h, 42h e 40h do Diagnóstico." : ""}

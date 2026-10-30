@@ -1,5 +1,6 @@
 import { PARAMETROS_PADRAO } from '../regras/parametros.js';
 import { distribuirParcial } from './distribuir-parcial.js';
+import { redistribuir } from './redistribuir.js';
 import { passa, verificarRegra, type DiaAberto, type LinhaFuncao } from '../regras/capacidade.js';
 import { FUNCOES_PADRAO_MINIMO, REGRA_IDS, regraPara, type RegraId } from '../regras/perfis.js';
 import { faixasDaSemana, normalizarHorarios, type HorariosSemana } from '../cadastros/horarios.js';
@@ -111,6 +112,8 @@ export const montarDiagnostico = (a: {
   loja: LojaDiag;
   escala: CargaMeta | null;
   turnos: TurnoDiag[];
+  // Matrículas de horário fixo: a redistribuição não as remaneja.
+  horarioFixo?: Set<string>;
   base: CargaMeta | null;
   vendas: VendaLinha[];
   // Só o dono recebe valores de custo nos cenários.
@@ -185,23 +188,43 @@ export const montarDiagnostico = (a: {
       custos: a.dono ? (loja.custos ?? null) : null,
       divisor: (a.parametros ?? PARAMETROS_PADRAO)[id].divisor,
     });
-    // Dias e horários do contrato parcial, a partir de quem já cobre o cargo em cada hora.
+    // Redistribuição: monta a escala semanal de quem cobre os cargos com exigência (farmacêutico e metas do dono),
+    // dentro da regra, e deixa o descoberto por faixa. Quem tem horário fixo mantém o horário de hoje.
+    const exigidos = Object.fromEntries(
+      brutas
+        .filter((f) => f.origemMeta === 'lei' || f.origemMeta === 'dono')
+        .map((f) => [f.funcao, Math.max(1, f.minimo)]),
+    );
+    const redis = redistribuir(
+      regra,
+      dias,
+      noCalculo.map((t) => ({
+        matricula: t.matricula,
+        nome: t.nome,
+        funcao: t.funcao!,
+        cargaH: t.cargaH,
+        fixo: a.horarioFixo?.has(t.matricula) ?? false,
+        turno: { ...t, funcao: t.funcao! } as TurnoPessoa,
+      })),
+      exigidos,
+    );
+    // Dias e horários do contrato parcial: onde a escala redistribuída ainda deixa descoberto.
     const funcoes = brutas.map((f) => {
       if (!f.sugestao?.parcialH) return f;
-      const doCargo = noCalculo.filter((t) => t.funcao === f.funcao) as TurnoPessoa[];
+      const doCargo = redis.turnos.filter((t) => t.funcao === f.funcao) as TurnoPessoa[];
       const comExigencia = f.origemMeta === 'lei' || f.origemMeta === 'dono';
+      const exigido = Math.max(1, f.minimo);
       const distribuicao = distribuirParcial(
         dias,
         doCargo,
         f.sugestao.parcialH,
-        Math.max(1, f.minimo),
+        exigido,
         !comExigencia || doCargo.length === 0,
       );
-      // As pessoas cobrem o horário na escala de hoje, mas a regra pede folgas: o parcial entra nos dias de maior
-      // horário, como estimativa (a redistribuição das pessoas vem depois).
+      // As pessoas cobrem o horário, mas a regra pede folgas: o parcial entra nos dias de maior horário (estimativa).
       const final = distribuicao.blocos.length
         ? distribuicao
-        : distribuirParcial(dias, [], f.sugestao.parcialH, Math.max(1, f.minimo), true);
+        : distribuirParcial(dias, [], f.sugestao.parcialH, exigido, true);
       return { ...f, sugestao: { ...f.sugestao, distribuicao: final } };
     });
     return {
@@ -211,6 +234,18 @@ export const montarDiagnostico = (a: {
       descricao: regra.descricao,
       passa: passa(funcoes),
       funcoes,
+      redistribuicao: {
+        descoberto: redis.descoberto,
+        avisos: redis.avisos,
+        remanejados: redis.remanejados,
+        // Escala semanal montada por pessoa (uma linha por dia).
+        escala: redis.turnos.map((t) => ({
+          matricula: t.matricula,
+          dia: t.dias[0]!,
+          de: t.entrada,
+          ate: t.saida,
+        })),
+      },
       // Números grandes do quadro central.
       resumo: {
         turnosEmFalta: funcoes.reduce(

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../../api/client.js";
 import { Aviso, Botao, Campo, Cartao, Ficha, entrada } from "../../components/ui/index.jsx";
+import EncargosPorRegime from "./EncargosPorRegime.jsx";
 
 const NOMES = { atual: "Regra atual (44h)", r42: "Transição (42h)", r40: "Regra final (40h)" };
 const dataBR = (iso) => iso.split("-").reverse().join("/");
@@ -131,6 +132,8 @@ export default function ParametrosLegais({ perfil }) {
           </div>
         </Cartao>
       ))}
+
+      <EncargosPorRegime dono={dono} />
     </div>
   );
 }

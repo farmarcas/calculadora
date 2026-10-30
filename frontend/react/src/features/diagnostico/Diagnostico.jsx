@@ -235,7 +235,7 @@ function Vendas({ vendas }) {
   );
 }
 
-export default function Diagnostico({ diag, podeEscrever, onEnviar, onSimular }) {
+export default function Diagnostico({ diag, podeEscrever, onEnviar, onSimular, onRecarregar }) {
   const [regraId, setRegraId] = useState("r42");
 
   if (diag.status === "pendente")
@@ -255,7 +255,7 @@ export default function Diagnostico({ diag, podeEscrever, onEnviar, onSimular })
   return (
     <div className="flex flex-col gap-6">
       {diag.avisoEstimativa && <Aviso tom="atencao">{diag.avisoEstimativa}</Aviso>}
-      <QuadroCentral diag={diag} regraId={regraId} onRegra={setRegraId} podeEscrever={podeEscrever} onEnviar={onEnviar} />
+      <QuadroCentral diag={diag} regraId={regraId} onRegra={setRegraId} podeEscrever={podeEscrever} onEnviar={onEnviar} onRecarregar={onRecarregar} />
 
       {/* Logo depois do diagnóstico: os caminhos lado a lado e, abaixo, o detalhe de cada cenário. */}
       {regraId === "atual" ? (

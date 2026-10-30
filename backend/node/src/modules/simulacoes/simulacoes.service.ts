@@ -14,6 +14,7 @@ import { gerarExcelEscala } from './exportar.js';
 import { avaliarSimulacao, type PessoaSim, type TurnoSim } from './avaliar.js';
 import { aplicarVagasEDesligados, vagasSugeridas, type VagaEntrada } from './vagas.js';
 import { calcularCusto } from '../custos/custo.js';
+import type { Custos } from '../custos/custos.schemas.js';
 import type {
   Premissas,
   SimulacaoRegistro,
@@ -49,6 +50,13 @@ export const makeSimulacoesService = (
     if (!s) throw new NotFoundError('Simulação não encontrada', 'SIMULACAO_NAO_ENCONTRADA');
     return s;
   };
+
+  // O retrato guardado traz o salário do momento de gravar; o encargo vem sempre do regime atual da loja
+  // (o percentual digitado antes não vale mais).
+  const custosDaSimulacao = (retrato: Custos | null | undefined, l: LojaDiag): Custos | null =>
+    retrato
+      ? { ...retrato, encargosPct: l.custos?.encargosPct ?? retrato.encargosPct }
+      : (l.custos ?? null);
 
   // Rascunho usa o cadastro da loja ao vivo; gravada usa as premissas congeladas.
   const contexto = (s: SimulacaoRegistro, l: LojaDiag) => {
@@ -150,7 +158,7 @@ export const makeSimulacoesService = (
               regra: s.regra as RegraId,
               quadro: s.quadro,
               // Retrato do momento de gravar; sem valores nele, vale o que a loja informou depois.
-              custos: c.premissas.custos ?? l.custos ?? null,
+              custos: custosDaSimulacao(c.premissas.custos, l),
               parametros: tabela,
             }),
           }
@@ -401,7 +409,7 @@ export const makeSimulacoesService = (
         calcularCusto({
           regra: x.regra as RegraId,
           quadro: x.quadro,
-          custos: contexto(x, l).premissas.custos ?? l.custos ?? null,
+          custos: custosDaSimulacao(contexto(x, l).premissas.custos, l),
           parametros: tabela,
         });
       const custoRef = dono && ref ? custoDe(ref.sim) : null;

@@ -153,7 +153,7 @@ export const cadastrosRepository = (geId: string): CadastrosRepository => ({
       convencao8h24: l?.convencao8h24 ?? false,
       minimos: (l?.minimos as Record<string, number> | null) ?? {},
       custos:
-        (l?.custos as { salarioMedio: Record<string, number>; encargosPct: number } | null) ?? null,
+        (l?.custos as { salarioMedio: Record<string, number>; encargos?: object } | null) ?? null,
     };
   },
   async gravarConfiguracao(id, c) {

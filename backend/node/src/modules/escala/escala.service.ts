@@ -248,6 +248,20 @@ export const makeEscalaService = (repo: EscalaRepository, auditar: Auditor) => {
               mensal: custo.mensal,
               faltamInformar: custo.faltamInformar,
               encargosPct: loja.custos?.encargosPct ?? 0,
+              // O encargo vem do regime tributário da loja: total, composição e o alerta quando o regime falta.
+              ...(loja.encargos
+                ? {
+                    regimeTributario: loja.encargos.regime,
+                    regimeAusente: loja.encargos.regimeAusente,
+                    encargos: loja.encargos,
+                    ...(loja.encargos.regimeAusente
+                      ? {
+                          alertaRegime:
+                            'Não encontramos o regime tributário da loja. Calculamos com Lucro Presumido. Confirme o regime para um resultado mais preciso.',
+                        }
+                      : {}),
+                  }
+                : {}),
             }
           : { informado: false as const },
       };

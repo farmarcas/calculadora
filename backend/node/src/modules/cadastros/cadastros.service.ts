@@ -10,6 +10,7 @@ import type { FuncionarioBody, LojaBody } from './cadastros.schemas.js';
 import { normalizarCnpj, validarCnpj } from '../ge/cnpj.js';
 import { semanalDeMensal } from './carga.js';
 import { soDigitos } from './documentos.js';
+import { validarAjustes } from '../regras/encargos.js';
 import { processarLinhas, type FuncionarioInput, type LojaInput } from './processar.js';
 
 export type LojaRegistro = LojaBody & {
@@ -37,14 +38,14 @@ export type CadastrosRepository = {
   configuracaoDaLoja: (id: string) => Promise<{
     convencao8h24: boolean;
     minimos: Record<string, number>;
-    custos: { salarioMedio: Record<string, number>; encargosPct: number } | null;
+    custos: { salarioMedio: Record<string, number>; encargos?: object } | null;
   }>;
   gravarConfiguracao: (
     id: string,
     c: {
       convencao8h24?: boolean;
       minimos?: Record<string, number>;
-      custos?: { salarioMedio: Record<string, number>; encargosPct: number };
+      custos?: { salarioMedio: Record<string, number>; encargos?: object };
     },
   ) => Promise<void>;
   removerLoja: (id: string) => Promise<void>;
@@ -342,18 +343,26 @@ export const makeCadastrosService = (repo: CadastrosRepository, auditar: Auditor
         if (configuracao.minimos)
           grava.minimos = { ...atual.minimos, ...(configuracao.minimos as Record<string, number>) };
         if (dono && configuracao.custos) {
-          const encargosPct = configuracao.custos.encargosPct ?? atual.custos?.encargosPct;
-          if (encargosPct === undefined)
+          // O encargo vem do regime tributário da loja: a coluna "Encargos (%)" da planilha não vale mais.
+          if (configuracao.custos.encargosPct !== undefined)
             avisos.push(
-              `Loja ${l.codigo}: o salário médio não foi gravado porque faltam os encargos (%). Informe os encargos na planilha.`,
+              `Loja ${l.codigo}: a coluna Encargos (%) foi ignorada, o encargo agora vem do regime tributário da loja.`,
             );
-          else
+          // RAT, FAP e rescisão desta loja (o resto do encargo vem do regime). Fora da faixa, só esse ajuste é ignorado.
+          let ajustes = configuracao.custos.encargos;
+          if (ajustes) {
+            const erros = validarAjustes(ajustes, existente?.regimeTributario === 'simples');
+            if (erros.length) {
+              avisos.push(`Loja ${l.codigo}: ajustes de encargos ignorados. ${erros.join(' ')}`);
+              ajustes = undefined;
+            }
+          }
+          const salarios = configuracao.custos.salarioMedio as Record<string, number>;
+          if (Object.keys(salarios).length || ajustes)
             grava.custos = {
-              salarioMedio: {
-                ...(atual.custos?.salarioMedio ?? {}),
-                ...(configuracao.custos.salarioMedio as Record<string, number>),
-              },
-              encargosPct,
+              ...(atual.custos ?? {}),
+              salarioMedio: { ...(atual.custos?.salarioMedio ?? {}), ...salarios },
+              ...(ajustes ? { encargos: { ...(atual.custos?.encargos ?? {}), ...ajustes } } : {}),
             };
         }
         if (Object.keys(grava).length) await repo.gravarConfiguracao(lojaId, grava);

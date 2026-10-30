@@ -29,7 +29,9 @@ describe('inferirMapeamento', () => {
       'salario_caixa',
       'salario_apoio',
       'salario_perfumaria',
-      'encargos_pct',
+      'rat_pct',
+      'fap',
+      'rescisao',
     ])
       expect(lojas[chave], chave).not.toBeNull();
     expect(mapeamento.funcionarios!.colunas.horario_fixo).not.toBeNull();

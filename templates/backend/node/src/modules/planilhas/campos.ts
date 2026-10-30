@@ -143,11 +143,38 @@ const CAMPOS_CONFIGURACAO: CampoDef[] = [
       `salario ${semAcento(nome).toLowerCase()}`,
     ],
   })),
+  // Ajustes de encargos desta loja (spec 015): o encargo total vem do regime tributário; aqui só RAT, FAP e rescisão.
+  {
+    chave: 'rat_pct',
+    rotulo: 'RAT (%)',
+    obrigatorio: false,
+    exemplo: '',
+    sinonimos: ['rat', 'rat pct', 'rat %', 'risco acidente trabalho', 'aliquota rat'],
+    conteudo: (v: string) => /^\d{1,2}([.,]\d+)?$/.test(v.trim()),
+  },
+  {
+    chave: 'fap',
+    rotulo: 'FAP',
+    obrigatorio: false,
+    exemplo: '',
+    sinonimos: ['fap', 'fator acidentario', 'fator acidentario de prevencao', 'multiplicador fap'],
+    conteudo: (v: string) => /^\d([.,]\d+)?$/.test(v.trim()),
+  },
+  {
+    chave: 'rescisao',
+    rotulo: 'Provisão de rescisão (Sim/Não)',
+    obrigatorio: false,
+    exemplo: 'Não',
+    sinonimos: ['rescisao', 'provisao de rescisao', 'provisao rescisao', 'provisiona rescisao'],
+    conteudo: ehSimNao,
+  },
+  // Formato antigo: percentual de encargos digitado. Ainda é entendido na importação, mas é ignorado (o encargo vem do regime).
   {
     chave: 'encargos_pct',
     rotulo: 'Encargos (%)',
     obrigatorio: false,
-    exemplo: '66',
+    legado: true,
+    exemplo: '',
     sinonimos: [
       'encargos',
       'encargos pct',

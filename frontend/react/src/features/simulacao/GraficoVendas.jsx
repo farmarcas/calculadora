@@ -1,15 +1,26 @@
 import { useState } from "react";
 import { Aviso, Segmentado } from "../../components/ui/index.jsx";
-import { NOMES_DIA, curto, reais } from "./formato.js";
+import { NOMES_DIA, reais } from "./formato.js";
 
 const ALTURA = 150;
+
+// Valor acima de cada barra, curto: "15,5" com "mil" embaixo (ou o número inteiro abaixo de mil).
+function Rotulo({ valor, usada, destaque, apagado }) {
+  const mil = usada === "venda" && valor >= 1000;
+  const numero = mil ? (valor / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 }) : Math.round(valor).toLocaleString("pt-BR");
+  return (
+    <span aria-hidden="true" className={`flex h-7 flex-col items-center justify-end whitespace-nowrap leading-3 ${apagado ? "text-[var(--text-disabled)]" : destaque ? "font-bold text-[var(--text-strong)]" : "text-[var(--text-secondary)]"}`}>
+      <span className="text-[11px]">{numero}</span>
+      {mil && <span className="text-[10px]">mil</span>}
+    </span>
+  );
+}
 
 // Venda (R$, só o dono) ou clientes por hora do dia escolhido. A altura é fixa: trocar de dia não faz a tela pular.
 export default function GraficoVendas({ resultado: r, dia, onDia, modo }) {
   const [metrica, setMetrica] = useState("venda");
   const v = r.vendaPorHora;
-  const diasAbertos = r.horario.cadastro.map((c, i) => (c.aberta ? i : null)).filter((i) => i !== null);
-  const metricas = [...(v.venda ? [["venda", "Venda (R$)"]] : []), ...(v.clientes ? [["clientes", "Clientes"]] : [])];
+    const metricas = [...(v.venda ? [["venda", "Venda (R$)"]] : []), ...(v.clientes ? [["clientes", "Clientes"]] : [])];
 
   if (!r.temBase || metricas.length === 0)
     return (
@@ -36,7 +47,7 @@ export default function GraficoVendas({ resultado: r, dia, onDia, modo }) {
   return (
     <div className="min-w-0">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <Segmentado rotulo="Dia da semana" opcoes={diasAbertos.map((i) => [i, NOMES_DIA[i]])} valor={dia} onChange={onDia} />
+        <Segmentado rotulo="Dia da semana" opcoes={NOMES_DIA.map((n, i) => [i, n, r.horario.cadastro[i].aberta ? undefined : { desabilitado: true, dica: `${n}: loja fechada` }])} valor={dia} onChange={onDia} />
         {metricas.length > 1 && <Segmentado rotulo="Métrica" opcoes={metricas} valor={usada} onChange={setMetrica} />}
       </div>
       <p className="m-0 mt-3 text-xs text-[var(--text-secondary)]">
@@ -44,13 +55,13 @@ export default function GraficoVendas({ resultado: r, dia, onDia, modo }) {
         {usada === "venda" && v.ticketMedio ? ` · ticket médio R$ ${v.ticketMedio.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : ""} · dados do sistema de vendas
       </p>
 
-      <div role="img" aria-label={`${usada === "venda" ? "Venda" : "Clientes"} por hora, ${NOMES_DIA[dia]}. Maior valor às ${maior}h.`} className="mt-4 flex items-end gap-1.5" style={{ height: ALTURA + 18 }}>
+      <div role="img" aria-label={`${usada === "venda" ? "Venda" : "Clientes"} por hora, ${NOMES_DIA[dia]}. Maior valor às ${maior}h.`} className="mt-4 flex items-end gap-1.5" style={{ height: ALTURA + 28 }}>
         {horas.map((h) => {
           const fechada = v.fechadas[dia][h];
           const altura = max > 0 ? Math.max(4, Math.round((serie[h] / max) * ALTURA)) : 4;
           return (
             <div key={h} className="flex min-w-0 flex-1 flex-col items-center justify-end" style={{ height: "100%" }} title={`${h}h · ${valor(serie[h])}${fechada ? " (fechada na simulação)" : pico(h) ? " (pico)" : ""}`}>
-              <span className="h-[18px] whitespace-nowrap text-xs font-bold text-[var(--text-strong)]">{h === maior && !fechada ? curto(serie[h]) : ""}</span>
+              <Rotulo valor={serie[h]} usada={usada} destaque={h === maior && !fechada} apagado={fechada} />
               <div className="w-full rounded-t-[3px]" style={{ height: altura, background: fechada ? "var(--surface-muted)" : pico(h) ? "var(--system-500)" : "var(--system-100)" }} />
             </div>
           );

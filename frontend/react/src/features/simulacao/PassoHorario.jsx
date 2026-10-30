@@ -4,7 +4,9 @@ import GraficoVendas from "./GraficoVendas.jsx";
 import { NOMES_DIA, faixa, lerHora, minutos } from "./formato.js";
 
 const CAIXA = "rounded-card border border-[var(--border-subtle)] overflow-hidden";
-const CAMPO = "h-10 w-[84px] rounded-[6px] border border-[var(--border-default)] bg-[var(--surface-card)] px-2 text-center text-sm text-[var(--text-strong)] focus:border-2 focus:border-[var(--system-500)] focus:outline-none aria-[invalid=true]:border-[var(--border-danger)]";
+const CAMPO = "h-10 w-16 rounded-[6px] border border-[var(--border-default)] bg-[var(--surface-card)] px-2 text-center text-sm text-[var(--text-strong)] focus:border-2 focus:border-[var(--system-500)] focus:outline-none aria-[invalid=true]:border-[var(--border-danger)]";
+
+const PASSO = "h-10 w-8 rounded-[6px] border border-[var(--border-default)] bg-[var(--surface-card)] text-base font-bold text-[var(--text-strong)] cursor-pointer hover:bg-[var(--surface-subtle)] focus-visible:outline-2 focus-visible:outline-[var(--border-focus)] disabled:cursor-not-allowed disabled:opacity-40";
 
 const IconeErro = () => (
   <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10" /><path d="M12 8v4M12 16h.01" /></svg>
@@ -20,7 +22,7 @@ const LinhaLeitura = ({ d }) => (
 );
 
 // Linha editável: abertura e fechamento (HH:mm). O erro aparece em texto e ícone, ligado ao campo.
-function LinhaEditavel({ d, cad, texto, tocado, onTexto, onTocado }) {
+function LinhaEditavel({ d, cad, texto, tocado, onTexto, onTocado, onAjustar }) {
   const erroH = (() => {
     if (!cad.aberta) return null;
     const a = lerHora(texto.abre);
@@ -30,6 +32,11 @@ function LinhaEditavel({ d, cad, texto, tocado, onTexto, onTocado }) {
     return null;
   })();
   const erro = tocado && erroH;
+  const a0 = lerHora(texto.abre);
+  const f0 = lerHora(texto.fecha, true);
+  // Cada passo mexe 1 hora no fechamento: não deixa fechar antes de 1 h depois da abertura nem passar de 24:00.
+  const podeMenos = !!a0 && !!f0 && minutos(f0) - 60 >= minutos(a0) + 60;
+  const podeMais = !!f0 && minutos(f0) + 60 <= 24 * 60;
   const idErro = `erro-horario-${d.dia}`;
   if (!cad.aberta)
     return (
@@ -42,17 +49,21 @@ function LinhaEditavel({ d, cad, texto, tocado, onTexto, onTocado }) {
   return (
     <li className="border-t border-[var(--border-subtle)] px-4 py-1.5 first:border-t-0">
       <div className="flex min-h-10 items-center gap-2">
-        <div className="w-12">
-          <strong className="block text-sm text-[var(--text-strong)]">{NOMES_DIA[d.dia]}</strong>
-          {d.alterado && <span className="mt-0.5 inline-block rounded-full bg-[var(--color-primary-soft)] px-2 text-[11px] font-bold text-[var(--system-800)]">Alterado</span>}
+        <div className="w-11 shrink-0">
+          <strong className="block text-sm leading-4 text-[var(--text-strong)]">{NOMES_DIA[d.dia]}</strong>
+          <span className="text-xs leading-4 text-[var(--text-secondary)]">{d.aberta ? `${d.horas}h` : ""}</span>
         </div>
         <input aria-label={`${NOMES_DIA[d.dia]}: abertura`} inputMode="numeric" maxLength={5} placeholder="HH:mm" className={CAMPO} value={texto.abre} aria-invalid={!!erro} aria-describedby={erro ? idErro : undefined}
           onChange={(e) => onTexto({ ...texto, abre: e.target.value })} onBlur={onTocado} />
         <span aria-hidden="true" className="text-[var(--text-secondary)]">–</span>
         <input aria-label={`${NOMES_DIA[d.dia]}: fechamento`} inputMode="numeric" maxLength={5} placeholder="HH:mm" className={CAMPO} value={texto.fecha} aria-invalid={!!erro} aria-describedby={erro ? idErro : undefined}
           onChange={(e) => onTexto({ ...texto, fecha: e.target.value })} onBlur={onTocado} />
-        <span className="ml-auto text-xs text-[var(--text-secondary)]">{d.aberta ? `${d.horas}h` : ""}</span>
+        <div role="group" aria-label={`${NOMES_DIA[d.dia]}: horas abertas`} className="ml-auto flex shrink-0 gap-1">
+          <button type="button" className={PASSO} disabled={!!erroH || !podeMenos} aria-label={`Reduzir 1 hora do fechamento de ${NOMES_DIA[d.dia]}`} title="Fechar 1 hora mais cedo" onClick={() => onAjustar(-1)}>−</button>
+          <button type="button" className={PASSO} disabled={!!erroH || !podeMais} aria-label={`Aumentar 1 hora no fechamento de ${NOMES_DIA[d.dia]}`} title="Fechar 1 hora mais tarde" onClick={() => onAjustar(1)}>+</button>
+        </div>
       </div>
+      {d.alterado && !erro && <span className="mt-1 inline-block rounded-full bg-[var(--color-primary-soft)] px-2 text-[11px] font-bold text-[var(--system-800)]">Alterado</span>}
       {erro && <p id={idErro} role="alert" className="m-0 mt-1 flex items-center gap-1 text-xs text-[var(--text-danger)]"><IconeErro />{erro}</p>}
     </li>
   );
@@ -84,6 +95,14 @@ export default function PassoHorario({ sim, editavel, modo, onSalvarHorarios }) 
     if (dias.every(Boolean)) onSalvarHorarios({ versao: 2, dias });
   };
 
+  // − e +: fecha 1 hora mais cedo ou mais tarde (o campo de fechamento acompanha).
+  const ajustar = (i, delta) => {
+    const f = lerHora(texto[i].fecha, true);
+    if (!f) return;
+    const m = minutos(f) + delta * 60;
+    mudar(i, { ...texto[i], fecha: `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}` });
+  };
+
   const editando = modo === "mudar" && editavel;
   const totalLinha = (
     <p className="m-0 border-t border-[var(--border-subtle)] bg-[var(--surface-subtle)] px-4 py-3 text-sm text-[var(--text-secondary)]">
@@ -109,7 +128,7 @@ export default function PassoHorario({ sim, editavel, modo, onSalvarHorarios }) 
           <ul className="m-0 list-none p-0">
             {r.horario.dias.map((d, i) =>
               editando && texto[i] ? (
-                <LinhaEditavel key={d.dia} d={d} cad={r.horario.cadastro[i]} texto={texto[i]} tocado={!!tocado[i]} onTexto={(t) => mudar(i, t)} onTocado={() => setTocado((x) => { const n = [...x]; n[i] = true; return n; })} />
+                <LinhaEditavel key={d.dia} d={d} cad={r.horario.cadastro[i]} texto={texto[i]} tocado={!!tocado[i]} onTexto={(t) => mudar(i, t)} onTocado={() => setTocado((x) => { const n = [...x]; n[i] = true; return n; })} onAjustar={(delta) => ajustar(i, delta)} />
               ) : (
                 <LinhaLeitura key={d.dia} d={d} />
               ),

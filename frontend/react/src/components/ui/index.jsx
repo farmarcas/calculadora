@@ -106,16 +106,18 @@ export function Abas({ opcoes = [], valor, onChange, rotulo, className = "" }) {
 export function Segmentado({ opcoes = [], valor, onChange, rotulo, desabilitado = false }) {
   return (
     <div role="group" aria-label={rotulo} className="inline-flex overflow-hidden rounded-btn border border-[var(--border-default)] bg-[var(--surface-card)]">
-      {opcoes.map(([id, texto]) => {
+      {opcoes.map(([id, texto, extra]) => {
         const ativo = id === valor;
+        const fora = desabilitado || extra?.desabilitado;
         return (
           <button
             key={id}
             type="button"
             aria-pressed={ativo}
-            disabled={desabilitado}
+            disabled={fora}
+            title={extra?.dica}
             onClick={() => onChange(id)}
-            className={`h-10 min-w-10 px-4 text-sm border-0 cursor-pointer focus-visible:outline-2 focus-visible:outline-[var(--border-focus)] disabled:cursor-not-allowed ${ativo ? "bg-[var(--neutral-dark-900)] text-white font-bold" : "bg-transparent text-[var(--text-secondary)] disabled:opacity-60"}`}
+            className={`h-10 min-w-10 px-4 text-sm border-0 cursor-pointer focus-visible:outline-2 focus-visible:outline-[var(--border-focus)] disabled:cursor-not-allowed ${ativo ? "bg-[var(--neutral-dark-900)] text-white font-bold" : extra?.desabilitado ? "bg-[var(--surface-muted)] text-[var(--text-disabled)]" : "bg-transparent text-[var(--text-secondary)] disabled:opacity-60"}`}
           >
             {texto}
           </button>

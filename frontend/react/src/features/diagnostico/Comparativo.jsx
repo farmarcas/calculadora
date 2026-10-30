@@ -243,10 +243,20 @@ export default function Comparativo({ comparativo, cenarios, lojaId, podeEscreve
     setErro(null);
     setOcupado(true);
     try {
-      const s = await api(`/lojas/${lojaId}/simulacoes`, { method: "POST", body: { nome: `Cenário ${n}: ${c.nome}`.slice(0, 80), regra: cenarios.regra.id, origem: "escala_atual" } });
+      const corpo = { nome: `Cenário ${n}: ${c.nome}`.slice(0, 80), regra: cenarios.regra.id };
+      let s;
+      let aviso = null;
+      try {
+        s = await api(`/lojas/${lojaId}/simulacoes`, { method: "POST", body: { ...corpo, origem: "escala_atual" } });
+      } catch (e) {
+        // Sem escala importada: a simulação parte do quadro do Cadastro, sem turnos.
+        if (!/Importe a escala atual/.test(e.message)) throw e;
+        s = await api(`/lojas/${lojaId}/simulacoes`, { method: "POST", body: { ...corpo, origem: "vazia" } });
+        aviso = "Esta loja ainda não tem escala importada: a simulação parte do quadro do Cadastro, sem turnos. Contratações, horários e impacto já funcionam; para montar a escala, importe a planilha em Enviar planilhas.";
+      }
       const vagas = vagasDeCenario(c);
       if (vagas.length) await api(`/simulacoes/${s.id}`, { method: "PUT", body: { vagas } });
-      onSimular?.(s.id);
+      onSimular?.(s.id, aviso);
     } catch (e) {
       setErro(e.message);
     } finally {

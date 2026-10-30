@@ -15,6 +15,7 @@ export default function EscalaPage({ perfil, onIrCadastros }) {
   const [erro, setErro] = useState(null);
   const [enviando, setEnviando] = useState(false);
   const [abrirSim, setAbrirSim] = useState(null);
+  const [avisoSim, setAvisoSim] = useState(null);
 
   useEffect(() => {
     api("/lojas?pageSize=100")
@@ -73,8 +74,8 @@ export default function EscalaPage({ perfil, onIrCadastros }) {
       <Abas opcoes={[["diagnostico", "Diagnóstico"], ["grade", "Simulações"]]} valor={aba} onChange={setAba} rotulo="Seções da Escala" />
 
       {!diag && !erro && aba !== "grade" && <p className="text-sm text-ink-500">Carregando…</p>}
-      {diag && aba === "diagnostico" && <Diagnostico diag={diag} podeEscrever={podeEscrever} onEnviar={() => setEnviando(true)} onRecarregar={carregar} onDefinirFuncao={onIrCadastros} onSimular={(id) => { setAbrirSim(id); setAba("grade"); }} />}
-      {aba === "grade" && <GradeTab lojaId={lojaId} perfil={perfil} podeEscrever={podeEscrever} abrirId={abrirSim} />}
+      {diag && aba === "diagnostico" && <Diagnostico diag={diag} podeEscrever={podeEscrever} onEnviar={() => setEnviando(true)} onRecarregar={carregar} onDefinirFuncao={onIrCadastros} onSimular={(id, aviso) => { setAbrirSim(id); setAvisoSim(aviso ?? null); setAba("grade"); }} />}
+      {aba === "grade" && <GradeTab lojaId={lojaId} perfil={perfil} podeEscrever={podeEscrever} abrirId={abrirSim} avisoInicial={avisoSim} />}
       {enviando && <EnviarPlanilhas onClose={() => setEnviando(false)} onConcluido={carregar} />}
     </>
   );

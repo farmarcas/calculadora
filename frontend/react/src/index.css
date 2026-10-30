@@ -64,7 +64,7 @@ body { margin: 0; background: var(--surface-page); color: var(--ink-900); font-f
 }
 /* Passo 1: lista de horários (300 px) e gráfico lado a lado a partir de 720 px de conteúdo. */
 .sim-passo1 { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; align-items: start; }
-@container passos (min-width: 680px) { .sim-passo1 { grid-template-columns: 300px minmax(0, 1fr); } }
+@container passos (min-width: 700px) { .sim-passo1 { grid-template-columns: 320px minmax(0, 1fr); } }
 /* Passo 2: tabela de contratações. Estreita: um bloco por função, com rótulos; média (600 px): 3 colunas;
    larga (900 px): as 5 colunas do desenho. */
 .sim-contr-cab { display: none; }

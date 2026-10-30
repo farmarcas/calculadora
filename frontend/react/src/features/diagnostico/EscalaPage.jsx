@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../../api/client.js";
-import { Aviso, Botao, Cartao, entrada } from "../../components/ui/index.jsx";
+import { Abas, Aviso, Botao, Cartao, entrada } from "../../components/ui/index.jsx";
 import Diagnostico from "./Diagnostico.jsx";
 import EnviarPlanilhas from "./EnviarPlanilhas.jsx";
 import GradeTab from "../grade/GradeTab.jsx";
@@ -70,20 +70,7 @@ export default function EscalaPage({ perfil }) {
 
       {erro && <Aviso>{erro}</Aviso>}
 
-      <div className="flex gap-6 border-b border-line" role="tablist">
-        {[["diagnostico", "Diagnóstico"], ["grade", "Simulações"]].map(([id, r]) => (
-          <button
-            key={id}
-            role="tab"
-            aria-selected={aba === id}
-            onClick={() => setAba(id)}
-            className={`py-3 text-sm font-medium ${aba === id ? "text-ink-900" : "text-ink-500"}`}
-            style={{ boxShadow: aba === id ? "inset 0 -2px 0 0 #006FF7" : "none" }}
-          >
-            {r}
-          </button>
-        ))}
-      </div>
+      <Abas opcoes={[["diagnostico", "Diagnóstico"], ["grade", "Simulações"]]} valor={aba} onChange={setAba} rotulo="Seções da Escala" />
 
       {!diag && !erro && aba !== "grade" && <p className="text-sm text-ink-500">Carregando…</p>}
       {diag && aba === "diagnostico" && <Diagnostico diag={diag} podeEscrever={podeEscrever} onEnviar={() => setEnviando(true)} onSimular={(id) => { setAbrirSim(id); setAba("grade"); }} />}

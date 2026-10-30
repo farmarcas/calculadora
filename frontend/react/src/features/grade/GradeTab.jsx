@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../../api/client.js";
-import { Aviso, Botao, Campo, Cartao, Ficha, Modal, entrada } from "../../components/ui/index.jsx";
+import { Aviso, Botao, Campo, Cartao, Ficha, Modal, entrada, TH } from "../../components/ui/index.jsx";
 import Aprovar from "./Aprovar.jsx";
 import Comparar from "./Comparar.jsx";
 import Simulacao from "./Simulacao.jsx";
@@ -119,7 +119,7 @@ export default function GradeTab({ lojaId, perfil, podeEscrever, abrirId }) {
         ) : (
           <table className="w-full border-collapse text-sm">
             <thead>
-              <tr>{["", "Nome", "Regra", "Situação", "Criada por", "Criada em", ""].map((h) => <th key={h} className="text-left text-[11px] font-bold uppercase tracking-wide text-ink-500 px-6 py-3">{h}</th>)}</tr>
+              <tr>{["", "Nome", "Regra", "Situação", "Criada por", "Criada em", ""].map((h) => <th key={h} className={`${TH} px-6 py-3`}>{h}</th>)}</tr>
             </thead>
             <tbody>
               {lista.map((s) => {

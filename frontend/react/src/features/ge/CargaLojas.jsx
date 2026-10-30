@@ -1,10 +1,10 @@
 import { useMemo, useState } from "react";
 import { api } from "../../api/client.js";
-import { Aviso, Botao, Ficha, Modal, entrada } from "../../components/ui/index.jsx";
+import { Aviso, Botao, Ficha, Modal, entrada, TH as TH_BASE, TD as TD_BASE } from "../../components/ui/index.jsx";
 import { formatarCnpj } from "../../api/perfis.js";
 
-const TH = "text-left text-[11px] font-bold uppercase tracking-wide text-ink-500 px-3 py-2";
-const TD = "px-3 py-2 border-t border-line align-top";
+const TH = `${TH_BASE} px-3 py-2`;
+const TD = `${TD_BASE} px-3 py-2 align-top`;
 const CAMPOS = { nome: "Nome", cidade: "Cidade", uf: "UF", marca: "Bandeira", regimeTributario: "Regime tributário", horarios: "Horário" };
 const POR_PAGINA = 50;
 

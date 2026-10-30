@@ -1,0 +1,233 @@
+/* Alquimia DS (Farmarcas): tokens copiados sem alteração do design system. Fonte: artifact UDhEi8DsnoyTWFsy2eN9aH, pasta tokens/. */
+
+/* ===== colors.css ===== */
+/* Alquimia DS — color. Every hex below is copied verbatim from the Figma
+   extraction (ds-alquimia/tokens/colors.json). Figma path is in the comment. */
+:root{
+/* ---- Neutral / dark (text + icon) ---- */
+--neutral-dark-900:#061938; /* Neutral/Dark/900 */
+--neutral-dark-800:#172B4D; /* Neutral/Dark/800 */
+--neutral-dark-600:#344563; /* Neutral/Dark/600 */
+--neutral-dark-500:#42526E; /* Neutral/Dark/500 */
+--neutral-mid-400:#505F79;
+--neutral-mid-300:#5E6C84;
+--neutral-mid-200:#6B778C;
+--neutral-mid-100:#7A869A;
+--neutral-mid-90:#8993A4;
+--neutral-mid-70:#A5ADBA;
+--neutral-mid-60:#B3BAC5;
+--neutral-light-50:#C1C7D0;
+--neutral-light-30:#E5E8EB;
+--neutral-light-20:#F0F3F6;
+--neutral-light-10:#FAFBFC;
+--neutral-light-00:#FFFFFF;
+--neutral-200:#F1F3F9; /* Neutral/200 */
+--neutral-default:#D6D8DB; /* neutral/default */
+--neutral-pure-low:#000000; /* Neutral Color/Low/Pure */
+--neutral-pure-high:#FFFFFF; /* Neutral Color/High/Pure */
+--universal-gray-50:#797B86; /* Universal/50% Gray */
+
+/* ---- System blue (primary action color) ---- */
+--system-25:#E4F2FF;
+--system-50:#C7E4FF;
+--system-100:#89C9FF;
+--system-200:#50B3FF;
+--system-400:#0091FF;
+--system-500:#006FF7; /* System Color/500 - default */
+--system-800:#074AC6;
+--system-900:#00389E;
+
+/* ---- Product / brand primaries ---- */
+--brand-fa-400:#050505;   /* Brand/FA/400 — Farmarcas */
+--brand-en-400:#FF5510;   /* Brand/EN/400 — Encontro Farmarcas */
+--primary-ra-800:#161B22; /* RADAR */
+--primary-ra-600:#1B2029;
+--primary-ra-400:#212631;
+--primary-ra-100:#2E3342;
+--primary-ra-50:#3F4457;
+--primary-ra-25:#484E62;
+--primary-cb-400:#0F6BFF; /* Compras */
+--primary-cb-600:#005AEB;
+--primary-cb-800:#004ECC;
+--primary-vm-400:#31C072; /* Vendas / Mais */
+--primary-as-400:#7324F2;
+--primary-700:#2F6FED;
+--rg-900:#EF7D18;
+--rm-100:#8BCDAF;
+
+/* ---- Functional ---- */
+--func-success-300:#6EAC00;
+--func-success-100:#CEE997;
+--func-warning-300:#DF0028;
+--func-warning-100:#FFA0B2;
+--func-warning-50:#FFCFDA;
+--func-attention-100:#FFE7A8;
+--func-opportunity-300:#0497AC;
+--func-void-50:#D1D9ED;
+
+/* ---- Chart ---- */
+--chart-1-100:#F394FC;
+--chart-1-200:#DA51E6;
+--chart-1-300:#9838A1;
+--chart-2-200:#8C6BFA;
+--chart-3-200:#F76565;
+--chart-4-200:#24AB4A;
+--chart-5-200:#546593;
+
+/* ---- Raw text tokens ---- */
+--text-primary-black:#1D2433;   /* Text+Icon/Primary Black */
+--text-secondary-black:#1D2433; /* Text+Icon/Secondary Black (same hex in source) */
+--text-token-default:#151619;   /* text/default */
+--day-text:#0E0E0F;
+--day-subtext:#45454A;
+--day-card:#FFFFFF;
+
+/* ================= SEMANTIC ALIASES ================= */
+--color-primary:var(--system-500);
+--color-primary-hover:var(--system-800);
+--color-primary-pressed:var(--system-900);
+--color-primary-soft:var(--system-25);
+--color-primary-soft-strong:var(--system-50);
+--color-primary-disabled:var(--system-100);
+--color-primary-accent:var(--system-400);
+
+--text-default:var(--text-primary-black);
+--text-strong:var(--neutral-dark-900);
+--text-heading:var(--neutral-dark-800);
+--text-secondary:var(--neutral-dark-500);
+--text-muted:var(--neutral-mid-100);
+--text-disabled:var(--neutral-mid-60);
+--text-inverse:var(--neutral-light-00);
+--text-link:var(--color-primary);
+--text-danger:var(--func-warning-300);
+--text-success:var(--func-success-300);
+
+--surface-page:var(--neutral-light-10);
+--surface-card:var(--neutral-light-00);
+--surface-subtle:var(--neutral-light-20);
+--surface-muted:var(--neutral-200);
+--surface-inverse:var(--primary-ra-400);
+--surface-selected:var(--color-primary-soft);
+--surface-hover:var(--neutral-light-20);
+
+--border-subtle:var(--neutral-light-30);
+--border-default:var(--neutral-light-50);
+--border-strong:var(--neutral-mid-70);
+--border-focus:var(--color-primary);
+--border-danger:var(--func-warning-300);
+
+--icon-default:var(--neutral-dark-500);
+--icon-strong:var(--neutral-dark-800);
+--icon-muted:var(--neutral-mid-70);
+--icon-inverse:var(--neutral-light-00);
+--icon-brand:var(--color-primary);
+}
+
+/* ===== typography.css ===== */
+/* Alquimia DS — typography. Sizes/line-heights copied verbatim from the Figma
+   text styles (ds-alquimia/tokens/typography.json). Inter = current product UI,
+   Roboto = the legacy Heading, Body, Label and Caption set. Both coexist in the source. */
+:root{
+--font-sans:'Inter','Helvetica Neue',Arial,sans-serif;       /* current — confirmed product family */
+--font-legacy:'Roboto','Helvetica Neue',Arial,sans-serif;    /* Heading H*, Body, Label, Caption */
+
+--weight-regular:400;
+--weight-medium:500;
+--weight-bold:700;
+
+/* Inter — display / titles */
+--type-title-48-size:48px;   --type-title-48-lh:52.8px;
+--type-title-40-size:40px;   --type-title-40-lh:44px;
+--type-title-32-size:32px;   --type-title-32-lh:41.6px;
+--type-title-24-size:24px;   --type-title-24-lh:31.2px;
+--type-subtitle-20-size:20px;--type-subtitle-20-lh:26px;
+--type-subtitle-18-size:18px;--type-subtitle-18-lh:23.4px;
+
+/* Inter — body / label */
+--type-body-16-size:16px;    --type-body-16-lh:20.8px; /* 17.6px for 16 Regular */
+--type-body-16-regular-lh:17.6px;
+--type-body-14-size:14px;    --type-body-14-lh:18.2px;
+--type-paragraph-14-lh:20px; /* paragraph/font-size-sm/medium */
+--type-label-12-size:12px;   --type-label-12-lh:14.4px; /* 13.2px for 12 Bold */
+--type-label-12-bold-lh:13.2px;
+--type-label-10-size:10px;   --type-label-10-lh:11px;
+
+/* Roboto — legacy scale */
+--type-h1-size:40px;         --type-h1-lh:48px;
+--type-h3-size:24px;         --type-h3-lh:32px;
+--type-h5-size:18px;         --type-h5-lh:24px;
+--type-h6-size:12px;         --type-h6-lh:16px;
+--type-legacy-body-16-size:16px; --type-legacy-body-16-lh:24px;
+--type-legacy-small-14-size:14px;--type-legacy-small-14-lh:20px;
+--type-legacy-label-12-size:12px;--type-legacy-label-12-lh:16px;--type-legacy-label-12-tracking:0.12px;
+--type-legacy-caption-10-size:10px;--type-legacy-caption-10-lh:16px;
+--type-button-14-size:14px;  --type-button-14-lh:16px; /* Button/14 Medium, Roboto */
+
+/* Semantic */
+--font-body:var(--font-sans);
+--font-heading:var(--font-sans);
+--font-ui:var(--font-sans);
+}
+
+/* ===== spacing.css ===== */
+/* Alquimia DS — spacing scale (ds-alquimia/tokens/spacing.json).
+   NOTE from the source: the Figma display names and the CSS variable names are
+   off by one position (the step shown as "XXXS" is stored as $spacing-xxs).
+   Below, --space-<name> follows the DISPLAY name and --spacing-<x> keeps the
+   original variable name, so both spellings resolve to the same value. */
+:root{
+--space-quark:4px;  --spacing-quark:4px;
+--space-nano:8px;   --spacing-nano:8px;
+--space-xxxs:16px;  --spacing-xxs:16px;
+--space-xxs:24px;   --spacing-xs:24px;
+--space-xs:32px;    --spacing-sm:32px;
+--space-sm:40px;    --spacing-rg:40px;
+--space-md:48px;    --spacing-md:48px;
+--space-lg:56px;    --spacing-lg:56px;
+--space-xl:64px;    --spacing-xl:64px;
+--space-xxl:80px;   --spacing-xxl:80px;
+}
+
+/* ===== effects.css ===== */
+/* Alquimia DS — elevation, radii, motion.
+   Shadows are the Figma effect styles verbatim (ds-alquimia/tokens/shadows.json).
+   RADII ARE NOT TOKENIZED IN THE SOURCE — the values below were measured from the
+   exported component screenshots in reference/components/. Flagged in readme.md. */
+:root{
+--shadow-0:0 2px 4px -1px rgba(179,186,197,0.75); /* Shadow/Level 0 */
+--shadow-1:0 2px 8px rgba(0,0,0,0.16);            /* Level 1 */
+--shadow-2:0 4px 24px rgba(0,0,0,0.16);           /* Level 2 */
+--shadow-3:0 8px 32px rgba(0,0,0,0.16);           /* Level 3 */
+--shadow-4:0 12px 48px rgba(0,0,0,0.24);          /* Level 4 */
+
+--radius-button:4px;
+--radius-input:6px;
+--radius-card:8px;
+--radius-nav-item:10px;
+--radius-pill:999px;
+--border-width:1px;
+--border-width-focus:2px;
+
+--focus-ring:0 0 0 2px var(--system-25);
+--motion-fast:120ms; /* @kind other */
+--motion-base:180ms; /* @kind other */
+--ease-standard:cubic-bezier(0.2,0,0.2,1); /* @kind other */
+}
+
+/* ===== layout.css ===== */
+/* Alquimia DS — grids & layout chrome (ds-alquimia/tokens/grids.json). */
+:root{
+--grid-columns:12; /* @kind other */
+--grid-gutter:16px;
+--grid-margin:52px;          /* "12 Colunas" offset */
+--grid-column-width:73.83px; /* verbatim from source: 73.83333587646484 */
+--grid-md-columns:8; /* @kind other */
+--grid-md-margin:32px;
+--grid-sm-columns:2; /* @kind other */
+--grid-sm-margin:24px;
+--breakpoint-md:768px;
+
+--rail-width:114px;   /* "Menu - Desk" column */
+--nav-height:80px;    /* "Menu - Desk"/"Menu - App"/"Menu - Responsivo" row */
+--nav-divider:1px;
+}

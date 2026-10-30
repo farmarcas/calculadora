@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { api } from "../../api/client.js";
-import { Aviso, Botao, Campo, Cartao, entrada } from "../../components/ui/index.jsx";
+import { Abas, Aviso, Botao, Campo, Cartao, entrada } from "../../components/ui/index.jsx";
 import FaturamentoLoja, { erroDeFaturamento, faturamentoParaApi, faturamentoParaEdicao } from "./FaturamentoLoja.jsx";
 import EquipeLoja from "./EquipeLoja.jsx";
 import ConfiguracaoLoja from "./ConfiguracaoLoja.jsx";
@@ -64,21 +64,7 @@ export default function FormLoja({ registro, perfil, onClose, onSalvo }) {
         {registro && <p className="mt-1 mb-0 text-sm text-ink-500">Código {registro.codigo}{registro.cnpj ? ` · CNPJ ${formatarCnpj(registro.cnpj)}` : ""}</p>}
       </div>
       {registro && (
-        <div className="flex gap-6 border-b border-line" role="tablist" aria-label="Seções da loja">
-          {[["dados", "Dados da loja"], ["funcionarios", `Funcionários e configuração`]].map(([id, r]) => (
-            <button
-              key={id}
-              type="button"
-              role="tab"
-              aria-selected={aba === id}
-              onClick={() => setAba(id)}
-              className={`py-3 text-sm font-medium ${aba === id ? "text-ink-900" : "text-ink-500"}`}
-              style={{ boxShadow: aba === id ? "inset 0 -2px 0 0 #006FF7" : "none" }}
-            >
-              {r}
-            </button>
-          ))}
-        </div>
+        <Abas opcoes={[["dados", "Dados da loja"], ["funcionarios", "Funcionários e configuração"]]} valor={aba} onChange={setAba} rotulo="Seções da loja" />
       )}
       {aba === "dados" && (
       <form onSubmit={salvar} className="flex flex-col gap-6">

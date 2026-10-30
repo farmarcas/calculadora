@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, baixarArquivo } from "../../api/client.js";
-import { Aviso, Botao, Cartao, Ficha, entrada } from "../../components/ui/index.jsx";
+import { Aviso, Botao, Cartao, Ficha, entrada, TH as TH_BASE, TD as TD_BASE } from "../../components/ui/index.jsx";
 import CargaLojas from "./CargaLojas.jsx";
 import GrupoForm from "./GrupoForm.jsx";
 
-const TH = "text-left text-[11px] font-bold uppercase tracking-wide text-ink-500 px-6 py-3";
-const TD = "px-6 py-3 border-t border-line";
+const TH = `${TH_BASE} px-6 py-3`;
+const TD = `${TD_BASE} px-6 py-3`;
 const POR_PAGINA = 50;
 
 // Tela do operador da plataforma: grupos (um por empresário), andamento do cadastro e carga das lojas por Excel.

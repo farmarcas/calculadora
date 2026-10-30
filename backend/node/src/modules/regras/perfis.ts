@@ -51,10 +51,12 @@ export const tetoEfetivo = (r: Regra) => Math.min(r.teto, r.dias * r.maxDia);
 // Duração do turno padrão: teto dividido pelos dias, limitado ao máximo diário.
 export const duracaoTurno = (r: Regra) => Math.min(r.maxDia, tetoEfetivo(r) / r.dias);
 
+// Só o farmacêutico tem mínimo (a lei exige um em todo o horário de funcionamento). Os demais cargos não têm mínimo:
+// o valor, quando o dono informa, é uma meta opcional; sem ele vale o nível de hoje.
 export const FUNCOES_PADRAO_MINIMO: Record<string, number> = {
   Farmacêutico: 1,
-  Atendimento: 1,
-  Caixa: 1,
+  Atendimento: 0,
+  Caixa: 0,
   Apoio: 0,
   Perfumaria: 0,
 };

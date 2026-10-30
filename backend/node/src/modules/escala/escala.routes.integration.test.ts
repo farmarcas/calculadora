@@ -221,28 +221,26 @@ describe('escala (rotas)', () => {
       .set(admin)
       .send({ salarioMedio: { Farmacêutico: 8000 }, encargosPct: 40 });
 
-    // 66h abertas e 11 turnos por semana; 1 farmacêutica de 40h (5 turnos): faltam 6 turnos →
-    // 6 ÷ 5 dias = 1 inteira e resto 1 → 1 parcial de 1 turno (8h): 2 pessoas, 48h, sem sobra
+    // 66h abertas por semana; 1 farmacêutica de 40h: faltam 26h → 1 parcial de 26h (até 30h): 1 pessoa, sem sobra
     const dono = (await reqGe().get(url).set(admin)).body.cenarios;
     expect(Object.keys(dono)).toEqual(['r42', 'r40']);
     expect(dono.r40.manter.contratacoes).toEqual([
       {
         funcao: 'Farmacêutico',
-        pessoas: 2,
-        inteiras: 1,
-        parcial: { turnos: 1, horas: 8 },
-        parcialH: 8,
-        horasContratadas: 48,
+        pessoas: 1,
+        inteiras: 0,
+        parcial: { turnos: 4, horas: 26 },
+        parcialH: 26,
+        horasContratadas: 26,
         ociosidadePct: 0,
         ajustado: false,
       },
     ]);
     expect(dono.r40.manter.horasSemana).toBe(66);
     expect(dono.r40.manter.horarioSemana[6].aberto).toBe(false);
-    // inteira de 40h: 8000 × 40 × 5 ÷ 200 × 1,4 = 11200; parcial de 8h: 8000 × 8 × 5 ÷ 200 × 1,4 = 2240 → 13440
-    // folha atual 8000 × 1,4 = 11200 → acréscimo de 120%
-    expect(dono.r40.manter.custoAdicionalMensal).toBe(13440);
-    expect(dono.r40.manter.acrescimoPct).toBe(120);
+    // parcial de 26h: 8000 × 26 × 5 ÷ 200 × 1,4 = 7280; folha atual 8000 × 1,4 = 11200 → acréscimo de 65%
+    expect(dono.r40.manter.custoAdicionalMensal).toBe(7280);
+    expect(dono.r40.manter.acrescimoPct).toBe(65);
     expect(dono.r40.atual).toMatchObject({ horasSemana: 66, pessoas: 1, folhaMensal: 11200 });
     expect(dono.r40.vendasBase).toBeNull();
 
@@ -251,10 +249,10 @@ describe('escala (rotas)', () => {
       { 'X-Perfil': 'SCHEDULE_VIEWER', 'X-GE': GE_INICIAL_ID },
     ]) {
       const r = (await reqGe().get(url).set(h)).body;
-      expect(r.cenarios.r40.manter.contratacoes[0].pessoas).toBe(2);
+      expect(r.cenarios.r40.manter.contratacoes[0].pessoas).toBe(1);
       expect('custoAdicionalMensal' in r.cenarios.r40.manter).toBe(false);
       expect('folhaMensal' in r.cenarios.r40.atual).toBe(false);
-      expect(JSON.stringify(r)).not.toContain('13440');
+      expect(JSON.stringify(r)).not.toContain('7280');
     }
 
     // com três farmacêuticas (120h, 15 turnos) o quadro já cobre as 66h da loja
@@ -434,24 +432,25 @@ describe('escala (rotas)', () => {
     const e = dono.equilibrio;
     // Segunda a sexta (12h) e sábado (6h): 66h e 11 turnos; 1 farmacêutica de 40h (5 turnos).
     // Dias livres (não protegidos): segunda, quarta e sábado. De todas as combinações, a melhor fecha os três:
-    // sobram terça, quinta e sexta (36h, 6 turnos), falta 1 turno → 1 parcial de 8h = 8000 × 8 × 5 ÷ 200 × 1,4 = 2240;
-    // margem perdida por mês: 1083,33 + 975 + 866,67 = 2925; impacto 5165 (manter tudo: 13440).
+    // Todas as combinações: manter tudo = parcial de 26h (7280); fechar só a segunda: 54h, gap 14h = 3920 + 1083,33;
+    // fechar segunda e quarta: 42h, gap de 2h → 1 parcial de 2h = 8000 × 2 × 5 ÷ 200 × 1,4 = 560; margem perdida
+    // 1083,33 + 975 = 2058,33; impacto 2618,33 (fechar também o sábado: 2925, pior). Manter tudo: 7280.
     expect(e.indisponivel).toBeNull();
-    expect(e.diasFechar.map((d: { dia: number }) => d.dia)).toEqual([0, 2, 5]);
+    expect(e.diasFechar.map((d: { dia: number }) => d.dia)).toEqual([0, 2]);
     expect(e.contratacoes[0]).toMatchObject({
       funcao: 'Farmacêutico',
       inteiras: 0,
-      parcial: { turnos: 1, horas: 8 },
+      parcial: { turnos: 1, horas: 2 },
     });
-    expect(e.custoAdicionalMensal).toBe(2240);
-    expect(e.margemCortadaMes).toBe(2925);
-    expect(e.impactoMensal).toBe(5165);
-    expect(dono.manter.impactoMensal).toBe(13440);
+    expect(e.custoAdicionalMensal).toBe(560);
+    expect(e.margemCortadaMes).toBe(2058.33);
+    expect(e.impactoMensal).toBe(2618.33);
+    expect(dono.manter.impactoMensal).toBe(7280);
     expect(dono.destaque).toBe('equilibrio');
-    expect(e.resumo).toContain('Fechando segunda, quarta e sábado');
+    expect(e.resumo).toContain('Fechando segunda e quarta');
 
     // Comparativo lado a lado. Folha atual: 8000 × 1,4 = 11200. Faturamento de referência: soma dos dias 6500 ×
-    // 52 ÷ 12 = 28166,67 por mês. Impactos: Cenário 1 = 13440; Cenário 2 = 3250; Cenário 3 = 5165.
+    // 52 ÷ 12 = 28166,67 por mês. Impactos: Cenário 1 = 7280; Cenário 2 = 3250; Cenário 3 = 2618,33.
     const comp = dono.comparativo;
     expect(comp.cenarios.map((c: { id: string }) => c.id)).toEqual([
       'manter',
@@ -462,9 +461,9 @@ describe('escala (rotas)', () => {
     const por = Object.fromEntries(comp.cenarios.map((c: { id: string }) => [c.id, c]));
     expect(por.manter).toMatchObject({
       status: 'viavel',
-      custoFolhaMensal: 24640,
-      resultadoLiquidoMensal: -13440,
-      impactoPctFaturamento: 47.7,
+      custoFolhaMensal: 18480,
+      resultadoLiquidoMensal: -7280,
+      impactoPctFaturamento: 25.8,
     });
     // Cenário 2 (só o sábado, até 4 h): perda 1155,56, margem 288,89 (1,0% do faturamento de referência)
     expect(por.economia).toMatchObject({
@@ -476,11 +475,11 @@ describe('escala (rotas)', () => {
     });
     expect(por.equilibrio).toMatchObject({
       status: 'viavel',
-      diasFechar: [0, 2, 5],
-      custoFolhaMensal: 13440,
-      margemMes: -2925,
-      resultadoLiquidoMensal: -5165,
-      impactoPctFaturamento: 18.3,
+      diasFechar: [0, 2],
+      custoFolhaMensal: 11760,
+      margemMes: -2058.33,
+      resultadoLiquidoMensal: -2618.33,
+      impactoPctFaturamento: 9.3,
     });
     expect(por.economia.alertas.join(' ')).toContain('Cenário 3');
 
@@ -490,7 +489,7 @@ describe('escala (rotas)', () => {
     ]) {
       const r = await cen(h);
       expect(r.equilibrio.indisponivel).toBeNull();
-      expect(r.equilibrio.diasFechar).toEqual([{ dia: 0 }, { dia: 2 }, { dia: 5 }]);
+      expect(r.equilibrio.diasFechar).toEqual([{ dia: 0 }, { dia: 2 }]);
       expect(r.equilibrio.pessoasContratar).toBe(1);
       for (const campo of [
         'custoAdicionalMensal',
@@ -518,7 +517,7 @@ describe('escala (rotas)', () => {
         ])
           expect(campo in c).toBe(false);
       const texto = JSON.stringify(r);
-      for (const valor of ['5165', '2925', '2240', '13440', '24640', '11200', 'R$'])
+      for (const valor of ['2618', '2058', '560', '7280', '18480', '11200', 'R$'])
         expect(texto).not.toContain(valor);
     }
   });
@@ -901,10 +900,10 @@ describe('escala (rotas)', () => {
       reqGe().get(`${url}${consulta}`).set(perfil);
     const r40 = async (consulta = '', perfil = admin) => (await pedir(consulta, perfil)).body;
 
-    // Sem premissas (padrões): Cenário 2 reduz o sábado em 2 h (margem 288,89); Cenário 3 fecha segunda, quarta e sábado (impacto 5165)
+    // Sem premissas (padrões): Cenário 2 reduz o sábado em 2 h (margem 288,89); Cenário 3 fecha segunda e quarta (impacto 2618,33)
     const padrao = await r40();
     expect(padrao.cenarios.r40.economia.margemCortadaMes).toBe(288.89);
-    expect(padrao.cenarios.r40.equilibrio.impactoMensal).toBe(5165);
+    expect(padrao.cenarios.r40.equilibrio.impactoMensal).toBe(2618.33);
     expect(padrao.premissas).toMatchObject({
       recaptura: 0,
       fatorDiaNovo: 50,
@@ -914,29 +913,29 @@ describe('escala (rotas)', () => {
       margemPctCadastro: 25,
     });
 
-    // Recaptura de 20%: a margem perdida cai 20% (288,89 → 231,11; Cenário 3: 2925 → 2340, impacto 2240 + 2340 = 4580)
+    // Recaptura de 20%: a margem perdida cai 20% (288,89 → 231,11; Cenário 3: 2058,33 → 1646,66, impacto 560 + 1646,66 = 2206,66)
     const rec = await r40('?recaptura=20');
     expect(rec.cenarios.r40.economia.margemCortadaMes).toBe(231.11);
     expect(rec.cenarios.r40.equilibrio).toMatchObject({
-      margemCortadaMes: 2340,
-      impactoMensal: 4580,
+      margemCortadaMes: 1646.66,
+      impactoMensal: 2206.66,
     });
     expect(rec.premissas.recaptura).toBe(20);
 
-    // Margem de 50% (o dobro): margem perdida dobra (577,78); Cenário 3 continua fechando os três dias livres: 5850 + 2240 = 8090
+    // Margem de 50% (o dobro): margem perdida dobra (577,78); Cenário 3 continua fechando segunda e quarta: 4116,67 + 560 = 4676,67
     const dobro = await r40('?margemPct=50');
     expect(dobro.cenarios.r40.economia.margemCortadaMes).toBe(577.78);
-    expect(dobro.cenarios.r40.equilibrio.impactoMensal).toBe(8090);
+    expect(dobro.cenarios.r40.equilibrio.impactoMensal).toBe(4676.67);
     expect(dobro.premissas).toMatchObject({ margemPct: 50, margemPctCadastro: 25 });
 
-    // Limite do parcial 0: o resto vira outra inteira (2 × 11200 = 22400) em vez do parcial de 8h
+    // Limite do parcial: desde a spec 013 o limite é legal (30 h) e esta premissa não muda mais a conta
     const semParcial = await r40('?limiteParcial=0');
     expect(semParcial.cenarios.r40.manter.contratacoes[0]).toMatchObject({
-      inteiras: 2,
-      parcial: null,
+      inteiras: 0,
+      parcialH: 26,
     });
-    expect(semParcial.cenarios.r40.manter.custoAdicionalMensal).toBe(22400);
-    expect(semParcial.regras.find((r: { id: string }) => r.id === 'r40').resumo.contratar).toBe(2);
+    expect(semParcial.cenarios.r40.manter.custoAdicionalMensal).toBe(7280);
+    expect(semParcial.regras.find((r: { id: string }) => r.id === 'r40').resumo.contratar).toBe(1);
 
     // Dias protegidos 0: nenhum dia é protegido; o Cenário 2 não fecha dia útil de qualquer jeito e segue sem resolver
     const livre = await r40('?diasProtegidos=0');
@@ -1119,7 +1118,7 @@ describe('escala (rotas)', () => {
       expect(atend(comTurnos).minimo).toBe(3);
       expect(atend(comTurnos).necessidadeH).toBeGreaterThan(atend(antes).necessidadeH);
       const texto = JSON.stringify(comTurnos.pontosAtencao);
-      expect(texto).toContain('Atendimento abaixo do mínimo (3)');
+      expect(texto).toContain('Atendimento abaixo da meta (3)');
       const semTurnos = (await configurar({ turnos: null })).body;
       expect(atend(semTurnos)).toEqual(atend(antes));
       expect(JSON.stringify(semTurnos.pontosAtencao)).toBe(JSON.stringify(antes.pontosAtencao));

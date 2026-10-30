@@ -71,9 +71,11 @@ describe('capacidade com exigência por turno', () => {
     expect(l.necessidadeH).toBe(100);
     expect(l.necessidadeT).toBe(20);
     expect(l.minimo).toBe(3);
-    // 2 pessoas de 40h: 80h e 10 turnos → faltam 20h e 10 turnos (80h) → 2 contratações
+    // 2 pessoas de 40h: 80h → faltam 20h, que cabem em 1 contrato parcial (até 30h)
     expect(l.falta).toBe(true);
-    expect(l.contratar).toBe(2);
+    expect(l.gapH).toBe(20);
+    expect(l.contratar).toBe(1);
+    expect(l.parcialH).toBe(20);
   });
 
   it('exige menos que o pico aplicado ao dia todo e mais que o mínimo da manhã', () => {
@@ -102,8 +104,8 @@ describe('capacidade com exigência por turno', () => {
     }
   });
 
-  it('a explicação diz que a conta é por turno', () => {
-    expect(linha(porTurno).memoria).toContain('por turno');
+  it('a explicação diz que é meta do dono', () => {
+    expect(linha(porTurno).memoria).toContain('Meta do dono');
   });
 });
 
@@ -139,7 +141,7 @@ describe('cobertura e simulação com exigência por turno', () => {
     });
     const faltas = r.erros.filter((e) => e.regra === 'cobertura');
     expect(faltas).toHaveLength(1);
-    expect(faltas[0]!.texto).toContain('abaixo do mínimo (3)');
+    expect(faltas[0]!.texto).toContain('abaixo da meta (3)');
     const cob = r.cobertura[0]!.find((f) => f.funcao === 'Atendimento')!;
     expect(cob.porHora.find((h) => h.hora === 9)!.ok).toBe(true);
     expect(cob.porHora.find((h) => h.hora === 15)!.ok).toBe(false);

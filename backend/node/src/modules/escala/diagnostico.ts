@@ -98,7 +98,7 @@ const resumoDias = (dias: number[]) => {
 
 const listaFalta = (ls: LinhaFuncao[]) =>
   ls
-    .filter((l) => l.falta)
+    .filter((l) => l.falta && l.obrigatorio)
     .map(
       (l) =>
         `${l.funcao} (${l.saldoH < 0 ? `${Math.abs(l.saldoH)}h` : ''}${l.saldoH < 0 && l.saldoT < 0 ? ' e ' : ''}${l.saldoT < 0 ? `${Math.abs(l.saldoT)} turno(s)` : ''})`,
@@ -188,7 +188,10 @@ export const montarDiagnostico = (a: {
       funcoes,
       // Números grandes do quadro central.
       resumo: {
-        turnosEmFalta: funcoes.reduce((t, f) => t + Math.max(0, -f.saldoT), 0),
+        turnosEmFalta: funcoes.reduce(
+          (t, f) => t + (f.obrigatorio ? Math.max(0, -f.saldoT) : 0),
+          0,
+        ),
         saldoHoras: Math.round(funcoes.reduce((t, f) => t + f.saldoH, 0) * 100) / 100,
         contratar: funcoes.reduce((t, f) => t + f.contratar, 0),
       },
@@ -245,7 +248,7 @@ export const montarDiagnostico = (a: {
     if (sem.length)
       atencao.push({
         tom: 'atencao',
-        texto: `${f.funcao} abaixo do mínimo (${f.minimo}) nas faixas: ${sem.join(', ')}.`,
+        texto: `${f.funcao} abaixo da meta (${f.minimo}) nas faixas: ${sem.join(', ')}.`,
       });
   }
   if (resumoVendas) {

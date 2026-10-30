@@ -24,6 +24,8 @@ export type Sugestao = {
   ociosidadePct: number;
   // Nulo quando falta o salário médio do cargo.
   custoMensal: number | null;
+  // Avisos que acompanham a sugestão (CRF do farmacêutico parcial, dias que podem ficar descobertos).
+  avisos: string[];
 };
 
 export type EntradaContratacao = {
@@ -35,7 +37,7 @@ export type EntradaContratacao = {
   encargosPct?: number;
 };
 
-export type OpcoesContratacao = { principal: Sugestao; alternativa: Sugestao | null };
+export type SugestoesContratacao = { principal: Sugestao; alternativa: Sugestao | null };
 
 const EPS = 1e-9;
 const arred = (n: number) => Math.round(n * 100) / 100;
@@ -73,6 +75,7 @@ const monta = (
     horasOciosas: ociosas,
     ociosidadePct: contratadas > 0 ? Math.round((ociosas / contratadas) * 1000) / 10 : 0,
     custoMensal,
+    avisos: [],
   };
 };
 
@@ -86,7 +89,7 @@ const melhor = (lista: Sugestao[]) =>
   )[0]!;
 
 // Gap nulo (ou desprezível) não gera sugestão.
-export const sugerirContratacao = (a: EntradaContratacao): OpcoesContratacao | null => {
+export const sugerirContratacao = (a: EntradaContratacao): SugestoesContratacao | null => {
   const gap = arred(a.gapH);
   if (gap <= EPS || a.jornadaIntegralH <= 0) return null;
   const J = a.jornadaIntegralH;

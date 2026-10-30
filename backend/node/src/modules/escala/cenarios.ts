@@ -262,10 +262,8 @@ export const folhaAtual = (
 const listaContratacoes = (cs: Contratacao[]) =>
   cs
     .map((c) => {
-      const parcial = c.parcial
-        ? `1 parcial de ${c.parcial.turnos} turno(s) (${c.parcial.horas}h)`
-        : '';
-      if (c.inteiras === 0) return `1 ${c.funcao} ${parcial}`;
+      const parcial = c.parcial ? `1 parcial de ${c.parcial.horas}h` : '';
+      if (c.inteiras === 0) return `1 ${c.funcao} (${parcial})`;
       return `${c.inteiras} ${c.funcao}${parcial ? ` e ${parcial}` : ''}`;
     })
     .join(', ');

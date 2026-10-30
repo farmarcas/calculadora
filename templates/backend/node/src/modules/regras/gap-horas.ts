@@ -38,6 +38,11 @@ const arred = (n: number) => Math.round(n * 100) / 100;
 export const horasAbertasNaSemana = (dias: DiaAberto[]) =>
   dias.reduce((s, d) => s + (d.fecha - d.abre), 0);
 
+// Meta padrão de um cargo sem mínimo: as horas que ele cumpre hoje (cada pessoa até a jornada atual), na proporção
+// das horas abertas do cenário.
+export const metaNivelDeHoje = (pessoas: PessoaHoras[], tetoHojeH: number, escala = 1) =>
+  pessoas.reduce((s, p) => s + Math.min(p.cargaH, tetoHojeH), 0) * escala;
+
 export const gapPorCargo = (e: EntradaGap): GapCargo[] => {
   const abertas = horasAbertasNaSemana(e.dias);
   const hoje = e.horasAbertasHoje ?? abertas;
@@ -66,7 +71,7 @@ export const gapPorCargo = (e: EntradaGap): GapCargo[] => {
       necessidadeH = abertas * e.metasDono![funcao]!;
       origemMeta = 'dono';
     } else {
-      const hojeH = quadro.reduce((s, p) => s + Math.min(p.cargaH, tetoHoje), 0);
+      const hojeH = metaNivelDeHoje(quadro, tetoHoje);
       necessidadeH = hojeH * escala;
       origemMeta = hojeH > 0 ? 'nivel_de_hoje' : 'nenhuma';
     }

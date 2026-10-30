@@ -75,15 +75,18 @@ describe('vagasSugeridas', () => {
       { matricula: 'B', nome: 'Bia', funcao: 'Farmacêutico', cargaH: 44 },
     ];
     expect(vagasSugeridas(regraPara('r40', false), dias, { Farmacêutico: 1 }, q)).toEqual([
-      { funcao: 'Farmacêutico', cargaH: 16 },
+      { funcao: 'Farmacêutico', cargaH: 4 },
     ]);
   });
-  it('falta muito: 12 turnos ÷ 5 dias = 2 vagas inteiras, e o resto de 2 turnos vira 1 vaga parcial de 16h', () => {
+  it('falta muito: 84 h sem ninguém = 2 vagas inteiras e 1 parcial de 4 h, para o farmacêutico e para a meta do dono', () => {
     const v = vagasSugeridas(regraPara('r40', false), dias, { Caixa: 1 }, []);
     expect(v).toEqual([
+      { funcao: 'Farmacêutico', cargaH: 40 },
+      { funcao: 'Farmacêutico', cargaH: 40 },
+      { funcao: 'Farmacêutico', cargaH: 4 },
       { funcao: 'Caixa', cargaH: 40 },
       { funcao: 'Caixa', cargaH: 40 },
-      { funcao: 'Caixa', cargaH: 16 },
+      { funcao: 'Caixa', cargaH: 4 },
     ]);
   });
 });

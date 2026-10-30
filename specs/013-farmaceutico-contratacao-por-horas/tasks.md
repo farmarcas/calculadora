@@ -26,13 +26,13 @@ Segurança do banco: só uma migration que acrescenta uma coluna (fatia 6); nada
 
 **Teste independente**: o Diagnóstico da Porto Feliz mostra gap de farmacêutico de 54 h e a sugestão 1 integral + parcial de 14 h; uma loja sem atendente não acusa falta; as duas fases calculam.
 
-- [ ] T008 [US1] `src/modules/regras/capacidade.ts` (`verificarRegra`): usa `gap-horas` e `contratacao-horas`; novos campos `obrigatorio`, `metaH`, `gapH` e `sugestao`; `contratar`, `contratarInteiras`, `parcialH` e `ajustado` passam a vir da sugestão; os turnos do farmacêutico seguem calculados como verificação de cobertura por dia; os demais cargos não geram falta por mínimo
-- [ ] T009 [US2] `src/modules/regras/perfis.ts` e `requisitos.ts`: `FUNCOES_PADRAO_MINIMO` passa a `{ Farmacêutico: 1, demais: 0 }`; mínimo maior que zero de um cargo que não é farmacêutico vira meta do dono; farmacêutico sempre ao menos 1; valores já gravados nas lojas seguem valendo
-- [ ] T010 [US2] `passa(linhas)` e o alerta de "falta": só o farmacêutico bloqueia; gaps dos demais cargos viram metas (informativas); adaptar `src/modules/escala/diagnostico.ts`: `numeros` ("turnos em falta" do farmacêutico e horas de gap), `pontosAtencao` (só "faixas sem farmacêutico" e "faixas abaixo da meta do dono") e o resumo por regra
-- [ ] T011 [US2] `src/modules/escala/cobertura.ts` e `quadro-turnos.ts`: "exigido" e alerta vermelho só para farmacêutico e metas do dono; demais cargos mostram o que a loja tem, sem falta
-- [ ] T012 [US1] Teste + `capacidade.test.ts`, `requisitos.test.ts`: refazer à mão as expectativas (farmacêutico 94 h × 40 h = gap 54 h; loja de 24 horas = 168 h; loja sem farmacêutico = gap inteiro; loja sem atendente não acusa falta; metas com horas abertas menores); anotar o porquê de cada mudança
-- [ ] T013 [US3] Teste de integração em `escala.routes.integration.test.ts`: loja de teste com 1 farmacêutico e horário de 94 h; gap e sugestão corretos nas regras de 42 h e 40 h; gestor e consulta sem nenhum campo em reais; `limiteParcial` na consulta continua aceito e é ignorado
-- [ ] T014 Rodar tudo e commitar a fatia
+- [x] T008 [US1] `src/modules/regras/capacidade.ts` (`verificarRegra`): usa `gap-horas` e `contratacao-horas`; novos campos `obrigatorio`, `metaH`, `gapH` e `sugestao`; `contratar`, `contratarInteiras`, `parcialH` e `ajustado` passam a vir da sugestão; os turnos do farmacêutico seguem calculados como verificação de cobertura por dia; os demais cargos não geram falta por mínimo
+- [x] T009 [US2] `src/modules/regras/perfis.ts` e `requisitos.ts`: `FUNCOES_PADRAO_MINIMO` passa a `{ Farmacêutico: 1, demais: 0 }`; mínimo maior que zero de um cargo que não é farmacêutico vira meta do dono; farmacêutico sempre ao menos 1; valores já gravados nas lojas seguem valendo
+- [x] T010 [US2] `passa(linhas)` e o alerta de "falta": só o farmacêutico bloqueia; gaps dos demais cargos viram metas (informativas); adaptar `src/modules/escala/diagnostico.ts`: `numeros` ("turnos em falta" do farmacêutico e horas de gap), `pontosAtencao` (só "faixas sem farmacêutico" e "faixas abaixo da meta do dono") e o resumo por regra
+- [x] T011 [US2] `src/modules/escala/cobertura.ts` e `quadro-turnos.ts`: "exigido" e alerta vermelho só para farmacêutico e metas do dono; demais cargos mostram o que a loja tem, sem falta
+- [x] T012 [US1] Teste + `capacidade.test.ts`, `requisitos.test.ts`: refazer à mão as expectativas (farmacêutico 94 h × 40 h = gap 54 h; loja de 24 horas = 168 h; loja sem farmacêutico = gap inteiro; loja sem atendente não acusa falta; metas com horas abertas menores); anotar o porquê de cada mudança
+- [x] T013 [US3] Teste de integração em `escala.routes.integration.test.ts`: loja de teste com 1 farmacêutico e horário de 94 h; gap e sugestão corretos nas regras de 42 h e 40 h; gestor e consulta sem nenhum campo em reais; `limiteParcial` na consulta continua aceito e é ignorado
+- [x] T014 Rodar tudo e commitar a fatia
 
 ## Phase 4: Fatia 3 — Cenários, comparativo, simulações e vagas (US6) 🎯
 

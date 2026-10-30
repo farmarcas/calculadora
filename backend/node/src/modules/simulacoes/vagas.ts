@@ -77,7 +77,7 @@ export const aplicarVagasEDesligados = (
   };
 };
 
-// Contratações que o diagnóstico sugere na regra: vaga parcial quando basta uma, senão vagas de jornada cheia.
+// Contratações que o diagnóstico sugere na regra: integrais, parcial de até 30 h, ou integrais mais um parcial.
 export const vagasSugeridas = (
   regra: Regra,
   dias: DiaAberto[],
@@ -92,6 +92,6 @@ export const vagasSugeridas = (
     .filter((l) => l.contratar > 0)
     .flatMap((l) => [
       ...Array.from({ length: l.contratarInteiras }, () => ({ funcao: l.funcao, cargaH: cheia })),
-      ...(l.parcialH ? [{ funcao: l.funcao, cargaH: Math.min(44, Math.floor(l.parcialH)) }] : []),
+      ...(l.parcialH ? [{ funcao: l.funcao, cargaH: Math.min(44, l.parcialH) }] : []),
     ]);
 };

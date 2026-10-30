@@ -141,7 +141,7 @@ describe('cobertura e simulação com exigência por turno', () => {
     });
     const faltas = r.erros.filter((e) => e.regra === 'cobertura');
     expect(faltas).toHaveLength(1);
-    expect(faltas[0]!.texto).toContain('abaixo da meta (3)');
+    expect(faltas[0]!.texto).toContain('abaixo do mínimo (3)');
     const cob = r.cobertura[0]!.find((f) => f.funcao === 'Atendimento')!;
     expect(cob.porHora.find((h) => h.hora === 9)!.ok).toBe(true);
     expect(cob.porHora.find((h) => h.hora === 15)!.ok).toBe(false);

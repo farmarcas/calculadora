@@ -598,6 +598,45 @@ describe('cadastros (rotas)', () => {
       expect((await loja('070'))?.custos).toEqual({ salarioMedio: { Atendimento: 2100 } });
     });
 
+    it('o dono ajusta RAT, FAP e rescisão por planilha; valor fora da faixa ignora só o ajuste e avisa', async () => {
+      const cab = [
+        'Código da loja',
+        'Nome da loja',
+        'Salário médio de Atendimento',
+        'RAT (%)',
+        'FAP',
+        'Provisão de rescisão (Sim/Não)',
+      ];
+      await reqGe()
+        .patch(`/api/v1/lojas/${(await loja('070'))!.id}`)
+        .set(admin)
+        .send({ regimeTributario: 'presumido' });
+      const { ok } = await importar(
+        admin,
+        await planilha([['070', 'Loja Setenta', '2100', '3', '1,5', 'Sim']], [], cab),
+      );
+      expect(ok.body.erros).toEqual([]);
+      expect((await loja('070'))?.custos).toEqual({
+        salarioMedio: { Atendimento: 2100 },
+        encargos: { ratPct: 3, fap: 1.5, rescisaoLigada: true },
+      });
+      // o total da loja: RAT 3% × FAP 1,5 + rescisão: 65,18552 + 5 = 70,19
+      const c = await reqGe()
+        .get(`/api/v1/lojas/${(await loja('070'))!.id}/custos`)
+        .set(admin);
+      expect(c.body.encargos.totalPct).toBe(70.19);
+      // RAT 0,5 no Presumido é fora da faixa (1 a 3): o ajuste é ignorado, o salário novo entra
+      const dois = await importar(
+        admin,
+        await planilha([['070', 'Loja Setenta', '2500', '0,5', '', '']], [], cab),
+      );
+      expect(dois.ok.body.avisos.join(' ')).toContain('RAT');
+      expect((await loja('070'))?.custos).toMatchObject({
+        salarioMedio: { Atendimento: 2500 },
+        encargos: { ratPct: 3, fap: 1.5, rescisaoLigada: true },
+      });
+    });
+
     it('o dono não cria loja: código inexistente vira erro com a linha da planilha', async () => {
       const buf = await planilha(
         [

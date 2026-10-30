@@ -50,8 +50,9 @@ export const gerarModelo = async (): Promise<Buffer> => {
     [
       '"Meta de <função>": quantas pessoas por hora a loja quer ter. Em branco vale o nível de hoje; Farmacêutico é sempre ao menos 1.',
     ],
+    ['"Salário médio": só o dono do grupo grava; para os outros perfis a coluna é ignorada.'],
     [
-      '"Salário médio" e "Encargos (%)": só o dono do grupo grava; para os outros perfis essas colunas são ignoradas. O encargo é obrigatório para os custos serem gravados.',
+      'Encargos: o percentual total vem do regime tributário da loja (Simples Nacional, Lucro Presumido ou Lucro Real), não é digitado. Só o dono ajusta, por loja, "RAT (%)" (1 a 3), "FAP" (0,5 a 2,0) e "Provisão de rescisão (Sim/Não)"; em branco vale o padrão do regime. A coluna antiga "Encargos (%)" é ignorada.',
     ],
     ['"Faturamento" e "Margem": também só o dono grava.'],
     [''],

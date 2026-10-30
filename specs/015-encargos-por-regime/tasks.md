@@ -15,8 +15,8 @@
 - [x] T010 Rodar tudo e commitar a fatia
 
 ## Fatia 3 — Tela, planilha e antes/depois (US5)
-- [ ] T011 `QuadroCentral`: "Salários + encargos {total}% ({regime})", "Ver composição", alerta e seletor de regime, nota do contador
-- [ ] T012 `Custos.jsx`: sai o campo "Encargos (%)"; entram RAT, FAP, rescisão e "Restaurar padrão"
-- [ ] T013 Parâmetros legais: seção "Encargos por regime" com versões
-- [ ] T014 Planilha: "Encargos (%)" vira RAT (%), FAP e Provisão de rescisão; coluna antiga ignorada com aviso
-- [ ] T015 Antes/depois da folha de uma loja de teste em cada regime; README; rodar tudo e commitar
+- [x] T011 `QuadroCentral`: "Salários + encargos {total}% ({regime})", "Ver composição", alerta e seletor de regime, nota do contador
+- [x] T012 `Custos.jsx`: sai o campo "Encargos (%)"; entram RAT, FAP, rescisão e "Restaurar padrão"
+- [x] T013 Parâmetros legais: seção "Encargos por regime" com versões
+- [x] T014 Planilha: "Encargos (%)" vira RAT (%), FAP e Provisão de rescisão; coluna antiga ignorada com aviso
+- [x] T015 Antes/depois da folha de uma loja de teste em cada regime; README; rodar tudo e commitar

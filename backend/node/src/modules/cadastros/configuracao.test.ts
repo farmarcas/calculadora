@@ -27,14 +27,19 @@ describe('configuracaoDaLinha', () => {
         meta_caixa: '1',
         salario_farmaceutico: '6.000,50',
         salario_atendimento: '2100',
-        encargos_pct: '66',
+        rat_pct: '3',
+        fap: '1,5',
+        rescisao: 'Sim',
       }),
     );
     expect(r.erro).toBeUndefined();
     expect(r.configuracao).toEqual({
       convencao8h24: true,
       minimos: { Farmacêutico: 2, Caixa: 1 },
-      custos: { salarioMedio: { Farmacêutico: 6000.5, Atendimento: 2100 }, encargosPct: 66 },
+      custos: {
+        salarioMedio: { Farmacêutico: 6000.5, Atendimento: 2100 },
+        encargos: { ratPct: 3, fap: 1.5, rescisaoLigada: true },
+      },
     });
   });
 
@@ -45,9 +50,21 @@ describe('configuracaoDaLinha', () => {
     expect(configuracaoDaLinha(de({ convencao_8h24: '' })).configuracao).toBeUndefined();
   });
 
-  it('salário sem encargos devolve os salários sem encargo (o serviço completa com o da loja)', () => {
+  it('só o salário: sem ajuste de encargos (o encargo vem do regime da loja)', () => {
     const r = configuracaoDaLinha(de({ salario_caixa: '1900' }));
     expect(r.configuracao?.custos).toEqual({ salarioMedio: { Caixa: 1900 } });
+  });
+
+  it('a coluna antiga "Encargos (%)" ainda é lida, só para o serviço avisar que foi ignorada', () => {
+    const r = configuracaoDaLinha(de({ salario_caixa: '1900', encargos_pct: '66' }));
+    expect(r.configuracao?.custos).toEqual({ salarioMedio: { Caixa: 1900 }, encargosPct: 66 });
+  });
+
+  it('rescisão Não é um valor (desliga); em branco não mexe', () => {
+    expect(configuracaoDaLinha(de({ rescisao: 'Não' })).configuracao?.custos?.encargos).toEqual({
+      rescisaoLigada: false,
+    });
+    expect(configuracaoDaLinha(de({ rescisao: '' })).configuracao).toBeUndefined();
   });
 
   it.each([
@@ -58,8 +75,11 @@ describe('configuracaoDaLinha', () => {
     [{ meta_farmaceutico: '0' }, 'ao menos 1'],
     [{ salario_perfumaria: '0' }, 'Salário médio de Perfumaria'],
     [{ salario_apoio: 'abc' }, 'Salário médio de Apoio'],
-    [{ encargos_pct: '301' }, 'Encargos'],
-    [{ encargos_pct: '-5' }, 'Encargos'],
+    [{ rat_pct: '3,5' }, 'RAT'],
+    [{ rat_pct: '-1' }, 'RAT'],
+    [{ fap: '2,5' }, 'FAP'],
+    [{ fap: '0,4' }, 'FAP'],
+    [{ rescisao: 'talvez' }, 'Provisão de rescisão'],
   ])('valor inválido %j recusa a linha citando a coluna', (valores, trecho) => {
     expect(configuracaoDaLinha(de(valores)).erro).toContain(trecho);
   });

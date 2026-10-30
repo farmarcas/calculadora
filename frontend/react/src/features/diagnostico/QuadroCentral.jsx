@@ -1,4 +1,5 @@
 import { Botao, Ficha } from "../../components/ui/index.jsx";
+import { AlertaRegime, ComposicaoEncargos, NOME_REGIME, pct } from "./Encargos.jsx";
 
 const brl = (v) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
 const NOME_FUNCAO = { Farmacêutico: "farmacêutico", Atendimento: "atendimento", Caixa: "caixa", Apoio: "apoio", Perfumaria: "perfumaria" };
@@ -33,7 +34,7 @@ function Numero({ rotulo, valor, legenda, tom = "neutro" }) {
 
 // O quadro central da aba: a frase do diagnóstico e, logo abaixo, os números grandes
 // (da regra escolhida e dos pontos de atenção). É a primeira coisa que a pessoa lê.
-export default function QuadroCentral({ diag, regraId, onRegra, podeEscrever, onEnviar }) {
+export default function QuadroCentral({ diag, regraId, onRegra, podeEscrever, onEnviar, onRecarregar }) {
   const regras = diag.regras;
   const regra = diag.regras.find((r) => r.id === regraId);
   const atual = diag.regras.find((r) => r.id === "atual");
@@ -90,7 +91,7 @@ export default function QuadroCentral({ diag, regraId, onRegra, podeEscrever, on
               folha.mensal === null ? (
                 <Numero rotulo="Folha mensal atual" valor="—" legenda={`falta o salário médio de ${folha.faltamInformar.join(", ")}`} tom="atencao" />
               ) : (
-                <Numero rotulo="Folha mensal atual" valor={brl(folha.mensal)} legenda={`Salários + encargos ${folha.encargosPct}%`} />
+                <Numero rotulo="Folha mensal atual" valor={brl(folha.mensal)} legenda={folha.encargos ? `Salários + encargos ${pct(folha.encargosPct)} (${NOME_REGIME[folha.encargos.regime]})` : `Salários + encargos ${pct(folha.encargosPct)}`} />
               )
             ) : (
               <Numero rotulo="Folha mensal atual" valor="—" legenda="informe os custos em Cadastros › Lojas › Editar › Funcionários e configuração" />
@@ -100,6 +101,13 @@ export default function QuadroCentral({ diag, regraId, onRegra, podeEscrever, on
           <Numero rotulo="Contratações sugeridas" valor={regra.resumo.contratar} legenda={regra.resumo.contratar === 1 ? "pessoa (veja o detalhe abaixo)" : "pessoas (veja o detalhe abaixo)"} tom={regra.resumo.contratar > 0 ? "atencao" : "ok"} />
           <Numero rotulo="Funcionários" valor={n.colaboradoresNoCalculo} legenda="no cálculo da escala atual" />
         </div>
+
+        {folha?.informado && folha.encargos && (
+          <div className="flex flex-col gap-3">
+            {folha.alertaRegime && <AlertaRegime lojaId={diag.loja.id} texto={folha.alertaRegime} onSalvo={onRecarregar} />}
+            <ComposicaoEncargos encargos={folha.encargos} />
+          </div>
+        )}
 
         <div className="flex flex-col gap-3">
           <span className="text-[11px] font-bold uppercase tracking-wide text-ink-500">Pontos de atenção</span>

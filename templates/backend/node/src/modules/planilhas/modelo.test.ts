@@ -46,7 +46,9 @@ describe('planilha modelo', () => {
         `Meta de ${f} (pessoas por hora)`,
         `Salário médio de ${f}`,
       ]),
-      'Encargos (%)',
+      'RAT (%)',
+      'FAP',
+      'Provisão de rescisão (Sim/Não)',
     ];
     for (const col of esperadas) expect(lojas, col).toContain(col);
   });

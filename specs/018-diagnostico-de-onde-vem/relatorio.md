@@ -32,3 +32,6 @@
 
 ## 6. Conferência
 Larguras 360, 768, 1100, 1440 e 1920 px nas 3 abas: sem rolagem horizontal da página (a conferência achou e corrigiu um estouro causado por texto de leitor de tela fora do contêiner de rolagem). Todos os controles e imagens da seção têm nome acessível; as abas funcionam por setas, Home e End, com a aba no endereço. Testes: servidor 439 unitários e 199 de integração; front 62.
+
+## 7. Atualização posterior (decisão da pessoa)
+Os dois blocos mantidos ("Escala redistribuída" e "Déficit e contratações por função") **foram removidos da página** depois, a pedido, na branch `feat/diagnostico-sem-detalhe-cenarios`, junto com o detalhe "Cenários para a regra de …". O que deixou de aparecer na tela: a escala redistribuída por pessoa, os "dias e horários que cobrem o descoberto", a alternativa de parcial com hora extra, o custo por função da contratação sugerida e o botão "Simular esta contratação" (a opção `comVagasSugeridas` da API continua existindo). O servidor segue calculando tudo isso.

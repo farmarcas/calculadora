@@ -1,9 +1,9 @@
 # Tarefas: Diagnóstico — "De onde vêm esses números"
 
 ## Fatia 1 — Estimativa de 8h24 (servidor)
-- [ ] T001 `diagnostico.ts`: incluir `regras[r42].com8h24` (verificação de 42h com a convenção ligada, via `verificarRegra` e `regraPara`), só quando a convenção da loja está desligada; nada existente muda
-- [ ] T002 Testes: convenção desligada traz o campo e ele reduz (ou não) as horas que faltam; convenção ligada não traz; os demais campos do Diagnóstico ficam idênticos; valores sem R$ para qualquer perfil
-- [ ] T003 Rodar tudo e commitar a fatia
+- [x] T001 `diagnostico.ts`: incluir `regras[r42].com8h24` (verificação de 42h com a convenção ligada, via `verificarRegra` e `regraPara`), só quando a convenção da loja está desligada; nada existente muda
+- [x] T002 Testes: convenção desligada traz o campo e ele reduz (ou não) as horas que faltam; convenção ligada não traz; os demais campos do Diagnóstico ficam idênticos; valores sem R$ para qualquer perfil
+- [x] T003 Rodar tudo e commitar a fatia
 
 ## Fatia 2 — Montador e contas puras (tela)
 - [ ] T004 `onde-vem/montar.js`: eixo de horas, recorte de turno ao horário da loja (todos visíveis, mesmo sobrepostos), `isHoraPico` (≥ 75% do maior), `buildObservacaoPico`, vendas fora do horário, estados de cada célula (atende, abaixo, fora)

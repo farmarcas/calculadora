@@ -81,7 +81,7 @@ export const entrada =
 // Alquimia DS · Tabs: sublinhado de 3 px azul na aba ativa, texto de 16 px (negrito quando ativa).
 export function Abas({ opcoes = [], valor, onChange, rotulo, className = "" }) {
   return (
-    <div className={`flex gap-4 border-b border-line ${className}`} role="tablist" aria-label={rotulo}>
+    <div className={`flex flex-wrap gap-x-4 border-b border-line ${className}`} role="tablist" aria-label={rotulo}>
       {opcoes.map(([id, texto]) => {
         const ativa = id === valor;
         return (

@@ -40,5 +40,5 @@
 - [x] T025 Modo "Mínimo único do dia" e troca de modo sem apagar o outro (aviso antes); conferir e commitar a fatia
 
 ## Fatia 8 — Conferência final
-- [ ] T026 Remover as telas e formulários antigos (Editar loja, botões de salvar, quadros antigos de mínimo); README
-- [ ] T027 Conferir SC-001 a SC-006, 4 larguras, teclado; rodar tudo; relatório final (reaproveitado, criado, removido, suposições e onde ficam, divergências do desenho); commitar
+- [x] T026 Remover as telas e formulários antigos (Editar loja, botões de salvar, quadros antigos de mínimo); README
+- [x] T027 Conferir SC-001 a SC-006, 4 larguras, teclado; rodar tudo; relatório final (reaproveitado, criado, removido, suposições e onde ficam, divergências do desenho); commitar

@@ -16,9 +16,9 @@
 - [x] T009 Ligar em `Diagnostico.jsx` no lugar dos blocos que saem (Quadro por turno, Cobertura, Horários de maior venda), mantendo o resto; conferir no navegador e commitar a fatia
 
 ## Fatia 4 — Aba "Resultado por regra"
-- [ ] T010 `TabelaRegras.jsx`: cabeçalho de cada regra (nome, vigência, resumo, "Atende"/"Falta …"), coluna da regra escolhida no topo destacada, linhas por função (capacidade, pessoas × horas, saldo em texto, turnos do farmacêutico, "Precisa de …"), barras com escala comum, legenda
-- [ ] T011 `BlocoOito24.jsx`: "E se a convenção coletiva permitir 8h24 por dia?" só quando "Não permite" e a estimativa melhora; link "Alterar em Regras e custos"
-- [ ] T012 Tirar do Diagnóstico "Quadro por função" e "Verificação por regra"; conferir e commitar a fatia
+- [x] T010 `TabelaRegras.jsx`: cabeçalho de cada regra (nome, vigência, resumo, "Atende"/"Falta …"), coluna da regra escolhida no topo destacada, linhas por função (capacidade, pessoas × horas, saldo em texto, turnos do farmacêutico, "Precisa de …"), barras com escala comum, legenda
+- [x] T011 `BlocoOito24.jsx`: "E se a convenção coletiva permitir 8h24 por dia?" só quando "Não permite" e a estimativa melhora; link "Alterar em Regras e custos"
+- [x] T012 Tirar do Diagnóstico "Quadro por função" e "Verificação por regra"; conferir e commitar a fatia
 
 ## Fatia 5 — Aba "Equipe no cálculo (N)"
 - [ ] T013 `AbaEquipe.jsx` e `LinhaDoTempo.jsx`: faixa superior (totais e links), tabela agrupada por função com totais, situação "No cálculo"/"Fora do cálculo", linha do tempo com parte fora do horário listrada, legenda, "Mostrando N de M" e "Ver todos", vazio com "Cadastrar equipe"

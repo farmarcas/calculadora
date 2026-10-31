@@ -11,56 +11,6 @@ const TD = `${TD_BASE} px-6 py-3`;
 const DIAS = ["seg", "ter", "qua", "qui", "sex", "sáb", "dom"];
 const brl = (v) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
 
-function Verificacao({ regras }) {
-  const funcoes = regras[0].funcoes.map((f) => f.funcao);
-  return (
-    <Cartao titulo="Verificação por regra" subtitulo="Capacidade do quadro · saldo entre parênteses · só o farmacêutico é obrigatório; os demais cargos mostram a meta">
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse text-sm min-w-[720px]">
-          <thead>
-            <tr>
-              <th className={TH}>Função · necessidade semanal</th>
-              {regras.map((r) => (
-                <th key={r.id} className="px-6 py-3 text-left align-top">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[11px] font-bold uppercase tracking-wide">{r.nome}</span>
-                    <Ficha tom={r.passa ? "ok" : "erro"}>{r.passa ? "Passa" : "Falta"}</Ficha>
-                  </div>
-                  <div className="mt-1 text-[11px] font-normal text-ink-500">{r.descricao}</div>
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {funcoes.map((f, i) => (
-              <tr key={f}>
-                <td className={TD}>
-                  <div className="font-medium">{f}</div>
-                  <div className="text-xs text-ink-500">
-                    {regras[0].funcoes[i].obrigatorio
-                      ? `Necessidade ${regras[0].funcoes[i].necessidadeH}h · ${regras[0].funcoes[i].necessidadeT} turnos (obrigatório)`
-                      : `Meta ${regras[0].funcoes[i].metaH}h · ${regras[0].funcoes[i].origemMeta === "dono" ? "meta do dono" : "nível de hoje"}`}
-                  </div>
-                </td>
-                {regras.map((r) => {
-                  const l = r.funcoes[i];
-                  const sg = (n) => (n > 0 ? `+${n}` : String(n));
-                  return (
-                    <td key={r.id} className={TD} title={l.memoria}>
-                      <div className={l.okH || !l.obrigatorio ? "text-ink-700" : "text-error-600 font-medium"}>{l.okH ? "✓" : l.obrigatorio ? "✕" : "•"} Horas {l.capacidadeH} ({sg(l.saldoH)})</div>
-                      {l.obrigatorio && <div className={l.okT ? "text-ink-700" : "text-error-600 font-medium"}>{l.okT ? "✓" : "✕"} Turnos {l.capacidadeT} ({sg(l.saldoT)})</div>}
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </Cartao>
-  );
-}
-
 function Contratacoes({ regras, regraId: id, podeEscrever, onSimular }) {
   const [erro, setErro] = useState(null);
   const simular = async () => {
@@ -203,18 +153,6 @@ export default function Diagnostico({ diag, podeEscrever, onEnviar, onSimular, o
 
       <OndeVemSecao diag={diag} regraId={regraId} podeEscrever={podeEscrever} onEnviar={onEnviar} onRecarregar={onRecarregar} irCadastros={onDefinirFuncao} />
 
-      <Cartao titulo="Quadro por função" subtitulo="Só entram no cálculo colaboradores com função de escala">
-        <table className="w-full border-collapse text-sm">
-          <thead><tr><th className={TH}>Função</th><th className={TH}>Pessoas</th><th className={TH}>Horas contratadas por semana</th></tr></thead>
-          <tbody>
-            {diag.quadro.map((q) => (
-              <tr key={q.funcao}><td className={TD}>{q.funcao}</td><td className={TD}>{q.pessoas}</td><td className={TD}>{q.cargaTotalH}h</td></tr>
-            ))}
-          </tbody>
-        </table>
-      </Cartao>
-
-      <Verificacao regras={diag.regras} />
       <Redistribuicao regra={diag.regras.find((r) => r.id === regraId)} colaboradores={diag.colaboradores} />
       <div id="contratacoes" className="scroll-mt-4">
         <Contratacoes regras={diag.regras.map((r) => ({ ...r, lojaId: diag.loja.id }))} regraId={regraId} podeEscrever={podeEscrever} onSimular={onSimular} />

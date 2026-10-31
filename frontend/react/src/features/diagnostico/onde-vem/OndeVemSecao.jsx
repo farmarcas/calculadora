@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Botao } from "../../../components/ui/index.jsx";
 import AbaCobertura from "./AbaCobertura.jsx";
+import AbaResultado from "./AbaResultado.jsx";
 import { montarCobertura, montarEquipe, montarRegras } from "./montar.js";
 import { ABAS_SECAO, gravarAbaNaUrl, lerAbaDaUrl } from "./url.js";
 
@@ -68,6 +69,8 @@ export default function OndeVemSecao({ diag, regraId, podeEscrever, onEnviar, on
             </div>
           ) : aba === "cobertura" ? (
             <AbaCobertura dados={cobertura.dados} lojaId={diag.loja.id} onEnviar={onEnviar} irCadastros={irCadastros} podeEscrever={podeEscrever} />
+          ) : aba === "regras" ? (
+            <AbaResultado dados={regras.dados} lojaId={diag.loja.id} irCadastros={irCadastros} />
           ) : (
             <p className="m-0 p-6 text-sm text-[var(--text-secondary)]">Esta aba chega na próxima etapa.</p>
           )}

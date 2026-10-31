@@ -6,9 +6,9 @@
 - [x] T003 Rodar tudo e commitar a fatia
 
 ## Fatia 2 — Montador e contas puras (tela)
-- [ ] T004 `onde-vem/montar.js`: eixo de horas, recorte de turno ao horário da loja (todos visíveis, mesmo sobrepostos), `isHoraPico` (≥ 75% do maior), `buildObservacaoPico`, vendas fora do horário, estados de cada célula (atende, abaixo, fora)
-- [ ] T005 `montar.js`: view-model da aba 2 (status "Atende"/"Falta …", saldos em texto, barra com escala comum por função, texto da regra de 42h conforme a convenção, bloco de 8h24 só quando relevante) e da aba 3 (grupos com totais, situação, turno e dias)
-- [ ] T006 `montar.test.js`: pico, observação (quando mostra e quando não), cobertura com horas fora do horário, recorte de turno e sobreposição, capacidade e saldo por regra (inclusive 8h24), estimativa de 8h24 (quando exibir), linha do tempo; commitar a fatia
+- [x] T004 `onde-vem/montar.js`: eixo de horas, recorte de turno ao horário da loja (todos visíveis, mesmo sobrepostos), `isHoraPico` (≥ 75% do maior), `buildObservacaoPico`, vendas fora do horário, estados de cada célula (atende, abaixo, fora)
+- [x] T005 `montar.js`: view-model da aba 2 (status "Atende"/"Falta …", saldos em texto, barra com escala comum por função, texto da regra de 42h conforme a convenção, bloco de 8h24 só quando relevante) e da aba 3 (grupos com totais, situação, turno e dias)
+- [x] T006 `montar.test.js`: pico, observação (quando mostra e quando não), cobertura com horas fora do horário, recorte de turno e sobreposição, capacidade e saldo por regra (inclusive 8h24), estimativa de 8h24 (quando exibir), linha do tempo; commitar a fatia
 
 ## Fatia 3 — Cartão, abas e aba "Cobertura e vendas"
 - [ ] T007 `OndeVemSecao.jsx`: título e subtítulo por aba, abas acessíveis (tablist, setas, foco), aba em `?aba=`, carregamento, erro com "Tentar de novo", nota "Valores das regras ainda sem validação jurídica." uma vez abaixo do cartão

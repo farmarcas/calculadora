@@ -35,9 +35,9 @@
 - [x] T022 Modo "Nova loja" (operador): dados editáveis, abas Equipe e Regras desabilitadas até gravar; conferir e commitar a fatia
 
 ## Fatia 7 — Aba Regras e custos (US5)
-- [ ] T023 `AbaRegras.jsx`: Custos (só dono) com encargos recolhidos e ajuste de RAT, FAP e rescisão; Convenção coletiva com a chave "Não permite / Permite"
-- [ ] T024 `MinimoPessoas.jsx` modo "Por turnos": cartões de turno (início, fim, farmacêutico fixo ≥ 1, "+ cargo"), "+ Adicionar turno", `BarraTurnos.jsx` com sobreposição e faixas fora do horário (legenda em texto), "Horário da loja coberto" ou aviso "Sem turno entre …"
-- [ ] T025 Modo "Mínimo único do dia" e troca de modo sem apagar o outro (aviso antes); conferir e commitar a fatia
+- [x] T023 `AbaRegras.jsx`: Custos (só dono) com encargos recolhidos e ajuste de RAT, FAP e rescisão; Convenção coletiva com a chave "Não permite / Permite"
+- [x] T024 `MinimoPessoas.jsx` modo "Por turnos": cartões de turno (início, fim, farmacêutico fixo ≥ 1, "+ cargo"), "+ Adicionar turno", `BarraTurnos.jsx` com sobreposição e faixas fora do horário (legenda em texto), "Horário da loja coberto" ou aviso "Sem turno entre …"
+- [x] T025 Modo "Mínimo único do dia" e troca de modo sem apagar o outro (aviso antes); conferir e commitar a fatia
 
 ## Fatia 8 — Conferência final
 - [ ] T026 Remover as telas e formulários antigos (Editar loja, botões de salvar, quadros antigos de mínimo); README

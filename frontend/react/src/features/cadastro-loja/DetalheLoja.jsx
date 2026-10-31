@@ -5,7 +5,7 @@ import AbaDados from "./AbaDados.jsx";
 import { errosDaLoja } from "./calculos.js";
 import { ABAS } from "./config.js";
 import AbaEquipe from "./AbaEquipe.jsx";
-import ConfiguracaoLoja from "../cadastros/ConfiguracaoLoja.jsx";
+import AbaRegras, { errosDaRegras } from "./AbaRegras.jsx";
 
 const IconeAtencao = () => (
   <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0zM12 9v4M12 17h.01" /></svg>
@@ -36,11 +36,13 @@ export default function DetalheLoja({ lojaId, aba, onAba, perfil, painel, carreg
   const n = rascunho.mudancas.length;
   // Antes de gravar, confere os campos; se algo estiver errado, rola até o primeiro e foca nele.
   const salvar = async () => {
-    const erros = rascunho.rascunho.loja ? errosDaLoja(rascunho.rascunho.loja, { dono }) : [];
+    const errosLoja = rascunho.rascunho.loja ? errosDaLoja(rascunho.rascunho.loja, { dono }) : [];
+    const errosRegras = errosDaRegras(rascunho.rascunho, { dono });
+    const erros = errosLoja.length ? errosLoja : errosRegras;
     if (erros.length) {
       setTentou(true);
       rascunho.setErro(`Corrija ${erros.length === 1 ? "o campo indicado" : `os ${erros.length} campos indicados`} antes de salvar.`);
-      onAba("dados");
+      onAba(errosLoja.length ? "dados" : "regras");
       setTimeout(() => {
         const alvo = document.querySelector(`[data-campo="${erros[0].campo}"]`);
         alvo?.scrollIntoView({ block: "center", behavior: "smooth" });
@@ -76,7 +78,7 @@ export default function DetalheLoja({ lojaId, aba, onAba, perfil, painel, carreg
       <div className="flex-1 px-6 py-6">
         {aba === "dados" && <AbaDados painel={painel} rascunho={rascunho} dono={dono} operador={operador} podeEditar={podeEditar} mostrarErros={tentou} />}
         {aba === "equipe" && <AbaEquipe lojaId={lojaId} podeEscrever={podeEquipe} aoMudar={aoMudarEquipe} />}
-        {aba === "regras" && <ConfiguracaoLoja lojaId={lojaId} perfil={perfil} podeEscrever={podeEquipe} />}
+        {aba === "regras" && <AbaRegras painel={painel} rascunho={rascunho} dono={dono} podeEditar={podeEquipe} mostrarErros={tentou} />}
       </div>
 
       <div className="cl-rodape sticky bottom-0 flex min-h-16 flex-wrap items-center justify-between gap-3 border-t border-[var(--border-subtle)] bg-[var(--surface-card)] px-6 py-3">

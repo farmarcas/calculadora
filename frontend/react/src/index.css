@@ -132,3 +132,5 @@ body { margin: 0; background: var(--surface-page); color: var(--ink-900); font-f
   .cl-eq-linha > :last-child { grid-column: auto; justify-content: flex-end; }
   .cl-eq-rot { display: none; }
 }
+.cl-grid2 { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+@container det (min-width: 760px) { .cl-grid2 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

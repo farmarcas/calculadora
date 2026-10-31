@@ -9,7 +9,7 @@ const igual = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
 export const diferencas = (salvo, rascunho) =>
   BLOCOS.flatMap((b) => {
     if (!salvo[b] || !rascunho[b]) return [];
-    return Object.keys(rascunho[b]).filter((k) => !igual(salvo[b][k], rascunho[b][k])).map((k) => `${b}.${k}`);
+    return Object.keys(rascunho[b]).filter((k) => !k.startsWith("_") && !igual(salvo[b][k], rascunho[b][k])).map((k) => `${b}.${k}`);
   });
 
 // Rascunho único da loja: as abas Dados e funcionamento e Regras e custos mexem nele; um só "Salvar alterações" grava tudo.

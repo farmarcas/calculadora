@@ -7,11 +7,12 @@ import ListaLojas from "./ListaLojas.jsx";
 import NovaLoja from "./NovaLoja.jsx";
 import { confirmarSaida } from "./guardaSaida.js";
 import { gravarUrl, lerUrl } from "./urlDaLoja.js";
+import { configuracaoParaApi, custosParaApi } from "./AbaRegras.jsx";
 import { lojaParaApi } from "./calculos.js";
 import useRascunhoLoja from "./useRascunhoLoja.js";
 
 // Como cada bloco do rascunho vira corpo da API (constante para não recriar a cada tela).
-const PARA_API = { loja: lojaParaApi };
+const PARA_API = { loja: lojaParaApi, configuracao: configuracaoParaApi, custos: custosParaApi };
 
 // Lista de lojas (esquerda) e a loja escolhida (direita) no mesmo cartão. Abaixo de ~1100 px de largura viram duas telas.
 export default function CadastroLojaPage({ perfil }) {

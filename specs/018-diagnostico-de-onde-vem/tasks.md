@@ -21,9 +21,9 @@
 - [x] T012 Tirar do Diagnóstico "Quadro por função" e "Verificação por regra"; conferir e commitar a fatia
 
 ## Fatia 5 — Aba "Equipe no cálculo (N)"
-- [ ] T013 `AbaEquipe.jsx` e `LinhaDoTempo.jsx`: faixa superior (totais e links), tabela agrupada por função com totais, situação "No cálculo"/"Fora do cálculo", linha do tempo com parte fora do horário listrada, legenda, "Mostrando N de M" e "Ver todos", vazio com "Cadastrar equipe"
-- [ ] T014 `atalhos.js`: abrir o Cadastro na loja e aba certas (Equipe para definir função e editar, Dados para conferir funcionamento, Regras para mínimos e convenção)
-- [ ] T015 Tirar "Escala atual por colaborador"; conferir e commitar a fatia
+- [x] T013 `AbaEquipe.jsx` e `LinhaDoTempo.jsx`: faixa superior (totais e links), tabela agrupada por função com totais, situação "No cálculo"/"Fora do cálculo", linha do tempo com parte fora do horário listrada, legenda, "Mostrando N de M" e "Ver todos", vazio com "Cadastrar equipe"
+- [x] T014 `atalhos.js`: abrir o Cadastro na loja e aba certas (Equipe para definir função e editar, Dados para conferir funcionamento, Regras para mínimos e convenção)
+- [x] T015 Tirar "Escala atual por colaborador"; conferir e commitar a fatia
 
 ## Fatia 6 — Conferência final
 - [ ] T016 Conferir que nada acima do cartão mudou (diff dos arquivos dos blocos de cima), que os dois blocos mantidos continuam iguais, 5 larguras (360 a 1920), teclado e rótulos acessíveis

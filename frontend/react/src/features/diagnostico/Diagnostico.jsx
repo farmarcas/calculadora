@@ -157,27 +157,6 @@ export default function Diagnostico({ diag, podeEscrever, onEnviar, onSimular, o
       <div id="contratacoes" className="scroll-mt-4">
         <Contratacoes regras={diag.regras.map((r) => ({ ...r, lojaId: diag.loja.id }))} regraId={regraId} podeEscrever={podeEscrever} onSimular={onSimular} />
       </div>
-
-      <Cartao titulo="Escala atual por colaborador" subtitulo={`${diag.loja.codigo} · ${diag.loja.nome} · uma linha por pessoa`}>
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-sm min-w-[720px]">
-            <thead><tr><th className={TH}>Colaborador</th><th className={TH}>Função</th><th className={TH}>Dias</th><th className={TH}>Turno</th><th className={TH}>Intervalo</th><th className={TH}>Carga</th><th className={TH}>Situação</th></tr></thead>
-            <tbody>
-              {diag.colaboradores.map((c) => (
-                <tr key={c.matricula}>
-                  <td className={TD}>{c.nome}<div className="text-xs text-ink-500">{c.matricula}</div></td>
-                  <td className={TD}>{c.funcao ?? "—"}</td>
-                  <td className={TD}>{c.dias}</td>
-                  <td className={TD}>{c.turno}</td>
-                  <td className={TD}>{c.intervalo}</td>
-                  <td className={TD}>{c.cargaH}h</td>
-                  <td className={TD}>{c.status === "ok" ? <Ficha tom="ok">Pronto</Ficha> : <Ficha tom="atencao">Fora do cálculo</Ficha>}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Cartao>
     </div>
   );
 }

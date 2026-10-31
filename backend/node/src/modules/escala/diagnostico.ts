@@ -232,6 +232,24 @@ export const montarDiagnostico = (a: {
         : distribuirParcial(dias, [], f.sugestao.parcialH, exigido, true);
       return { ...f, sugestao: { ...f.sugestao, distribuicao: final } };
     });
+    // "E se a convenção coletiva permitir 8h24?": a mesma verificação da regra de 42h com a convenção ligada. Só para a
+    // regra de 42h e só quando a loja ainda não permite; é informação a mais, nenhum outro campo muda.
+    const com8h24 =
+      id === 'r42' && !loja.convencao8h24
+        ? {
+            funcoes: verificarRegra(regraPara('r42', true, a.parametros), dias, exigencias, pessoas, {
+              limiteParcial: prem.limiteParcial,
+              regraAtual: regraPara('atual', loja.convencao8h24, a.parametros),
+              divisor: (a.parametros ?? PARAMETROS_PADRAO)[id].divisor,
+            }).map((f) => ({
+              funcao: f.funcao,
+              capacidadeH: f.capacidadeH,
+              necessidadeH: f.necessidadeH,
+              saldoH: f.saldoH,
+              gapH: f.gapH,
+            })),
+          }
+        : undefined;
     return {
       id,
       nome: regra.nome,
@@ -239,6 +257,7 @@ export const montarDiagnostico = (a: {
       descricao: regra.descricao,
       passa: passa(funcoes),
       funcoes,
+      ...(com8h24 ? { com8h24 } : {}),
       redistribuicao: {
         descoberto: redis.descoberto,
         avisos: redis.avisos,

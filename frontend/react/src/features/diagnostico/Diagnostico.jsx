@@ -3,66 +3,13 @@ import { api } from "../../api/client.js";
 import { Aviso, Botao, Cartao, Ficha, TH as TH_BASE, TD as TD_BASE } from "../../components/ui/index.jsx";
 import QuadroCentral from "./QuadroCentral.jsx";
 import Cenarios from "./Cenarios.jsx";
-import QuadroTurnos from "./QuadroTurnos.jsx";
+import OndeVemSecao from "./onde-vem/OndeVemSecao.jsx";
 import Comparativo from "./Comparativo.jsx";
 
 const TH = `${TH_BASE} px-6 py-3`;
 const TD = `${TD_BASE} px-6 py-3`;
 const DIAS = ["seg", "ter", "qua", "qui", "sex", "sáb", "dom"];
-const hh = (h) => `${String(h).padStart(2, "0")}h`;
 const brl = (v) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
-// Datas "AAAA-MM-DD" não têm fuso: formatar sem passar por Date evita mostrar o dia anterior.
-const diaIso = (s) => s.split("-").reverse().join("/");
-
-function Verificacao({ regras }) {
-  const funcoes = regras[0].funcoes.map((f) => f.funcao);
-  return (
-    <Cartao titulo="Verificação por regra" subtitulo="Capacidade do quadro · saldo entre parênteses · só o farmacêutico é obrigatório; os demais cargos mostram a meta">
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse text-sm min-w-[720px]">
-          <thead>
-            <tr>
-              <th className={TH}>Função · necessidade semanal</th>
-              {regras.map((r) => (
-                <th key={r.id} className="px-6 py-3 text-left align-top">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[11px] font-bold uppercase tracking-wide">{r.nome}</span>
-                    <Ficha tom={r.passa ? "ok" : "erro"}>{r.passa ? "Passa" : "Falta"}</Ficha>
-                  </div>
-                  <div className="mt-1 text-[11px] font-normal text-ink-500">{r.descricao}</div>
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {funcoes.map((f, i) => (
-              <tr key={f}>
-                <td className={TD}>
-                  <div className="font-medium">{f}</div>
-                  <div className="text-xs text-ink-500">
-                    {regras[0].funcoes[i].obrigatorio
-                      ? `Necessidade ${regras[0].funcoes[i].necessidadeH}h · ${regras[0].funcoes[i].necessidadeT} turnos (obrigatório)`
-                      : `Meta ${regras[0].funcoes[i].metaH}h · ${regras[0].funcoes[i].origemMeta === "dono" ? "meta do dono" : "nível de hoje"}`}
-                  </div>
-                </td>
-                {regras.map((r) => {
-                  const l = r.funcoes[i];
-                  const sg = (n) => (n > 0 ? `+${n}` : String(n));
-                  return (
-                    <td key={r.id} className={TD} title={l.memoria}>
-                      <div className={l.okH || !l.obrigatorio ? "text-ink-700" : "text-error-600 font-medium"}>{l.okH ? "✓" : l.obrigatorio ? "✕" : "•"} Horas {l.capacidadeH} ({sg(l.saldoH)})</div>
-                      {l.obrigatorio && <div className={l.okT ? "text-ink-700" : "text-error-600 font-medium"}>{l.okT ? "✓" : "✕"} Turnos {l.capacidadeT} ({sg(l.saldoT)})</div>}
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </Cartao>
-  );
-}
 
 function Contratacoes({ regras, regraId: id, podeEscrever, onSimular }) {
   const [erro, setErro] = useState(null);
@@ -130,7 +77,7 @@ function Contratacoes({ regras, regraId: id, podeEscrever, onSimular }) {
           {erro && <Aviso>{erro}</Aviso>}
         </div>
       )}
-      <p className="m-0 px-6 py-3 text-xs text-ink-500 border-t border-line">Contratação simulada não cria funcionário. Valores das regras ainda sem validação jurídica.</p>
+      <p className="m-0 px-6 py-3 text-xs text-ink-500 border-t border-line">Contratação simulada não cria funcionário.</p>
     </Cartao>
   );
 }
@@ -172,69 +119,6 @@ function Redistribuicao({ regra, colaboradores }) {
   );
 }
 
-function Cobertura({ cob }) {
-  if (!cob.horas.length) return null;
-  return (
-    <Cartao titulo="Cobertura da escala atual" subtitulo="Pessoas presentes no pior dia de cada hora, já descontado o intervalo · mínimos em Cadastros › Lojas › Editar › Funcionários e configuração">
-      <div className="overflow-x-auto px-6 py-4">
-        <table className="border-collapse text-xs min-w-[720px] w-full">
-          <thead>
-            <tr>
-              <th className="text-left font-bold uppercase text-[11px] text-ink-500 pr-3">Função</th>
-              {cob.horas.map((h) => <th key={h} className="font-normal text-ink-500 px-1">{hh(h)}</th>)}
-            </tr>
-          </thead>
-          <tbody>
-            {cob.funcoes.map((f) => (
-              <tr key={f.funcao}>
-                <td className="py-1 pr-3 whitespace-nowrap">{f.funcao} <span className="text-ink-500">(mín. {f.minimo})</span></td>
-                {f.porHora.map((c) => (
-                  <td key={c.hora} className="p-0.5">
-                    <div
-                      title={c.pessoas === null ? "Fechado" : `${c.pessoas} pessoa(s)`}
-                      className={`h-7 rounded flex items-center justify-center font-medium ${
-                        c.ok === null ? "bg-surface-subtle text-ink-300" : c.ok ? "bg-success-50 text-success-600" : "bg-error-50 text-error-600"
-                      }`}
-                    >
-                      {c.pessoas ?? "–"}
-                    </div>
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </Cartao>
-  );
-}
-
-function Vendas({ vendas }) {
-  if (!vendas) return null;
-  // Só o dono recebe o valor em reais; os demais veem a participação de cada hora no total.
-  const valorDe = (h) => h.vendaMedia ?? h.participacao;
-  const max = Math.max(...vendas.horas.map(valorDe)) || 1;
-  const topo = new Set(vendas.top.map((t) => t.hora));
-  return (
-    <Cartao
-      titulo="Horários de maior venda"
-      subtitulo={`Média por dia · ${diaIso(vendas.periodo.inicio)} a ${diaIso(vendas.periodo.fim)} (${vendas.periodo.dias} dias com venda)`}
-    >
-      <div className="px-6 py-4 flex flex-col gap-1">
-        {vendas.horas.map((h) => (
-          <div key={h.hora} className="flex items-center gap-3 text-xs">
-            <span className="w-8 text-ink-500">{hh(h.hora)}</span>
-            <div className="flex-1 h-4 bg-surface-subtle rounded">
-              <div className={`h-4 rounded ${topo.has(h.hora) ? "bg-system-500" : "bg-system-200"}`} style={{ width: `${(valorDe(h) / max) * 100}%` }} />
-            </div>
-            <span className="w-24 text-right text-ink-700">{h.vendaMedia != null ? brl(h.vendaMedia) : `${String(Math.round(h.participacao * 1000) / 10).replace(".", ",")}% do dia`}</span>
-          </div>
-        ))}
-      </div>
-    </Cartao>
-  );
-}
-
 export default function Diagnostico({ diag, podeEscrever, onEnviar, onSimular, onRecarregar, onDefinirFuncao }) {
   const [regraId, setRegraId] = useState("r42");
 
@@ -267,47 +151,12 @@ export default function Diagnostico({ diag, podeEscrever, onEnviar, onSimular, o
         </>
       )}
 
-      <QuadroTurnos quadro={diag.quadroTurnos} />
+      <OndeVemSecao diag={diag} regraId={regraId} podeEscrever={podeEscrever} onEnviar={onEnviar} onRecarregar={onRecarregar} irCadastros={onDefinirFuncao} />
 
-      <Cartao titulo="Quadro por função" subtitulo="Só entram no cálculo colaboradores com função de escala">
-        <table className="w-full border-collapse text-sm">
-          <thead><tr><th className={TH}>Função</th><th className={TH}>Pessoas</th><th className={TH}>Horas contratadas por semana</th></tr></thead>
-          <tbody>
-            {diag.quadro.map((q) => (
-              <tr key={q.funcao}><td className={TD}>{q.funcao}</td><td className={TD}>{q.pessoas}</td><td className={TD}>{q.cargaTotalH}h</td></tr>
-            ))}
-          </tbody>
-        </table>
-      </Cartao>
-
-      <Verificacao regras={diag.regras} />
       <Redistribuicao regra={diag.regras.find((r) => r.id === regraId)} colaboradores={diag.colaboradores} />
       <div id="contratacoes" className="scroll-mt-4">
         <Contratacoes regras={diag.regras.map((r) => ({ ...r, lojaId: diag.loja.id }))} regraId={regraId} podeEscrever={podeEscrever} onSimular={onSimular} />
       </div>
-      <Cobertura cob={diag.cobertura} />
-      <Vendas vendas={diag.vendas} />
-
-      <Cartao titulo="Escala atual por colaborador" subtitulo={`${diag.loja.codigo} · ${diag.loja.nome} · uma linha por pessoa`}>
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-sm min-w-[720px]">
-            <thead><tr><th className={TH}>Colaborador</th><th className={TH}>Função</th><th className={TH}>Dias</th><th className={TH}>Turno</th><th className={TH}>Intervalo</th><th className={TH}>Carga</th><th className={TH}>Situação</th></tr></thead>
-            <tbody>
-              {diag.colaboradores.map((c) => (
-                <tr key={c.matricula}>
-                  <td className={TD}>{c.nome}<div className="text-xs text-ink-500">{c.matricula}</div></td>
-                  <td className={TD}>{c.funcao ?? "—"}</td>
-                  <td className={TD}>{c.dias}</td>
-                  <td className={TD}>{c.turno}</td>
-                  <td className={TD}>{c.intervalo}</td>
-                  <td className={TD}>{c.cargaH}h</td>
-                  <td className={TD}>{c.status === "ok" ? <Ficha tom="ok">Pronto</Ficha> : <Ficha tom="atencao">Fora do cálculo</Ficha>}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Cartao>
     </div>
   );
 }

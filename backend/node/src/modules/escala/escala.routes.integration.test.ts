@@ -1320,4 +1320,73 @@ describe('escala (rotas)', () => {
       expect(r.config.turnosAvisos.join(' ')).toContain('Sem turno entre 20:00 e 22:00');
     });
   });
+  describe('estimativa de 8h24 na regra de 42h (spec 018)', () => {
+    // 8 atendentes de 44h e 1 farmacêutica; meta do dono: manter o nível de hoje (8 × 44h = 352h).
+    const enviar = async () => {
+      const linhas = Array.from({ length: 8 }, (_, i) => [
+        '001', `A${i}`, `Atendente ${i}`, 'Atendente', 'Seg a Sáb', '08:00', '', '', '17:00', '44',
+      ]);
+      await reqGe()
+        .post('/api/v1/cargas/escala')
+        .set(admin)
+        .attach(
+          'arquivo',
+          await xlsx(escalaCab, [
+            ['001', 'F1', 'Ana', 'Farmacêutica', 'Seg a Sáb', '08:00', '', '', '17:00', '44'],
+            ...linhas,
+          ]),
+          'e.xlsx',
+        );
+    };
+    const diag = async (h: Record<string, string> = admin) =>
+      (await reqGe().get(`/api/v1/lojas/${lojaId}/diagnostico`).set(h)).body;
+
+    it('convenção desligada: a regra de 42h traz com8h24; as outras regras não', async () => {
+      await enviar();
+      const d = await diag();
+      const r42 = d.regras.find((r: { id: string }) => r.id === 'r42');
+      const r40 = d.regras.find((r: { id: string }) => r.id === 'r40');
+      const atual = d.regras.find((r: { id: string }) => r.id === 'atual');
+      expect(r42.com8h24.funcoes.length).toBeGreaterThan(0);
+      expect(r40).not.toHaveProperty('com8h24');
+      expect(atual).not.toHaveProperty('com8h24');
+      const sem = r42.funcoes.find((f: { funcao: string }) => f.funcao === 'Atendimento');
+      const com = r42.com8h24.funcoes.find((f: { funcao: string }) => f.funcao === 'Atendimento');
+      // Sem 8h24 a regra vira 40h na prática; com 8h24 cada pessoa faz 42h: sobra capacidade.
+      expect(com.capacidadeH).toBeGreaterThan(sem.capacidadeH);
+      expect(com.capacidadeH).toBe(8 * 42);
+      expect(com.necessidadeH).toBe(sem.necessidadeH);
+      expect(com.gapH).toBeLessThan(sem.gapH);
+      expect(com.saldoH).toBe(com.capacidadeH - com.necessidadeH);
+    });
+
+    it('convenção já permitida: o campo não vem', async () => {
+      await enviar();
+      await reqGe().put(`/api/v1/lojas/${lojaId}/configuracao`).set(admin).send({ convencao8h24: true });
+      const r42 = (await diag()).regras.find((r: { id: string }) => r.id === 'r42');
+      expect(r42).not.toHaveProperty('com8h24');
+    });
+
+    it('é só horas (sem R$): gestor e consulta recebem igual; nenhum outro campo da regra muda', async () => {
+      await enviar();
+      const gestor = { 'X-Perfil': 'SCHEDULE_MANAGER', 'X-GE': GE_INICIAL_ID };
+      const consulta = { 'X-Perfil': 'SCHEDULE_VIEWER', 'X-GE': GE_INICIAL_ID };
+      const dono = (await diag()).regras.find((r: { id: string }) => r.id === 'r42');
+      for (const h of [gestor, consulta]) {
+        const r = (await diag(h)).regras.find((x: { id: string }) => x.id === 'r42');
+        expect(r.com8h24).toEqual(dono.com8h24);
+        expect(JSON.stringify(r.com8h24)).not.toMatch(/custo|R\$|salario/i);
+      }
+      // As chaves de sempre continuam lá, com os mesmos valores de antes.
+      const { com8h24: _novo, ...resto } = dono;
+      expect(Object.keys(resto)).toEqual(['id', 'nome', 'vigencia', 'descricao', 'passa', 'funcoes', 'redistribuicao', 'resumo']);
+      expect(resto.funcoes.find((f: { funcao: string }) => f.funcao === 'Atendimento').capacidadeH).toBe(8 * 40);
+    });
+
+    it('sem escala importada o diagnóstico fica pendente e não traz regras', async () => {
+      const d = await diag();
+      expect(d.status).toBe('pendente');
+      expect(d).not.toHaveProperty('regras');
+    });
+  });
 });

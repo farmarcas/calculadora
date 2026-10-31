@@ -26,5 +26,5 @@
 - [x] T015 Tirar "Escala atual por colaborador"; conferir e commitar a fatia
 
 ## Fatia 6 — Conferência final
-- [ ] T016 Conferir que nada acima do cartão mudou (diff dos arquivos dos blocos de cima), que os dois blocos mantidos continuam iguais, 5 larguras (360 a 1920), teclado e rótulos acessíveis
-- [ ] T017 README; relatório final (reaproveitado, criado, removido e onde a informação segue; suposições e onde ficam; dados montados; divergências; confirmação de que o resto não mudou); rodar tudo e commitar
+- [x] T016 Conferir que nada acima do cartão mudou (diff dos arquivos dos blocos de cima), que os dois blocos mantidos continuam iguais, 5 larguras (360 a 1920), teclado e rótulos acessíveis
+- [x] T017 README; relatório final (reaproveitado, criado, removido e onde a informação segue; suposições e onde ficam; dados montados; divergências; confirmação de que o resto não mudou); rodar tudo e commitar

@@ -24,7 +24,7 @@ export default function TabelaRegras({ regras }) {
   const { colunas, linhas } = regras;
   const grade = { display: "grid", gridTemplateColumns: "minmax(260px,1fr) repeat(3, minmax(0,1.1fr))" };
   return (
-    <div className="overflow-x-auto" role="region" aria-label="Resultado por regra" tabIndex={0}>
+    <div className="relative overflow-x-auto" role="region" aria-label="Resultado por regra" tabIndex={0}>
       <div className="min-w-[900px] overflow-hidden rounded-card border border-[var(--border-subtle)]">
         <div style={grade} role="row">
           <div className="flex items-end bg-[var(--surface-subtle)] px-4 py-3 text-xs font-bold uppercase text-[var(--text-secondary)]">Função e o que ela precisa</div>

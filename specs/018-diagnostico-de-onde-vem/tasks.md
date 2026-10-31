@@ -11,9 +11,9 @@
 - [x] T006 `montar.test.js`: pico, observação (quando mostra e quando não), cobertura com horas fora do horário, recorte de turno e sobreposição, capacidade e saldo por regra (inclusive 8h24), estimativa de 8h24 (quando exibir), linha do tempo; commitar a fatia
 
 ## Fatia 3 — Cartão, abas e aba "Cobertura e vendas"
-- [ ] T007 `OndeVemSecao.jsx`: título e subtítulo por aba, abas acessíveis (tablist, setas, foco), aba em `?aba=`, carregamento, erro com "Tentar de novo", nota "Valores das regras ainda sem validação jurídica." uma vez abaixo do cartão
-- [ ] T008 `GradeCobertura.jsx` e `AbaCobertura.jsx`: grade única (turnos, vendas com picos, cobertura por função; ▲ e rótulo no abaixo do mínimo; horas fora listradas; legenda), observação, "Vendas fora do horário", "Editar mínimos", vazios (sem vendas, sem turnos), rolagem horizontal com a primeira coluna fixa
-- [ ] T009 Ligar em `Diagnostico.jsx` no lugar dos blocos que saem (Quadro por turno, Cobertura, Horários de maior venda), mantendo o resto; conferir no navegador e commitar a fatia
+- [x] T007 `OndeVemSecao.jsx`: título e subtítulo por aba, abas acessíveis (tablist, setas, foco), aba em `?aba=`, carregamento, erro com "Tentar de novo", nota "Valores das regras ainda sem validação jurídica." uma vez abaixo do cartão
+- [x] T008 `GradeCobertura.jsx` e `AbaCobertura.jsx`: grade única (turnos, vendas com picos, cobertura por função; ▲ e rótulo no abaixo do mínimo; horas fora listradas; legenda), observação, "Vendas fora do horário", "Editar mínimos", vazios (sem vendas, sem turnos), rolagem horizontal com a primeira coluna fixa
+- [x] T009 Ligar em `Diagnostico.jsx` no lugar dos blocos que saem (Quadro por turno, Cobertura, Horários de maior venda), mantendo o resto; conferir no navegador e commitar a fatia
 
 ## Fatia 4 — Aba "Resultado por regra"
 - [ ] T010 `TabelaRegras.jsx`: cabeçalho de cada regra (nome, vigência, resumo, "Atende"/"Falta …"), coluna da regra escolhida no topo destacada, linhas por função (capacidade, pessoas × horas, saldo em texto, turnos do farmacêutico, "Precisa de …"), barras com escala comum, legenda

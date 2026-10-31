@@ -2,7 +2,6 @@ import { useState } from "react";
 import { api } from "../../api/client.js";
 import { Aviso, Botao, Cartao, Ficha, TH as TH_BASE, TD as TD_BASE } from "../../components/ui/index.jsx";
 import QuadroCentral from "./QuadroCentral.jsx";
-import Cenarios from "./Cenarios.jsx";
 import OndeVemSecao from "./onde-vem/OndeVemSecao.jsx";
 import Comparativo from "./Comparativo.jsx";
 
@@ -141,14 +140,11 @@ export default function Diagnostico({ diag, podeEscrever, onEnviar, onSimular, o
       {diag.avisoEstimativa && <Aviso tom="atencao">{diag.avisoEstimativa}</Aviso>}
       <QuadroCentral diag={diag} regraId={regraId} onRegra={setRegraId} podeEscrever={podeEscrever} onEnviar={onEnviar} onRecarregar={onRecarregar} onDefinirFuncao={onDefinirFuncao} />
 
-      {/* Logo depois do diagnóstico: os caminhos lado a lado e, abaixo, o detalhe de cada cenário. */}
+      {/* Logo depois do diagnóstico: os caminhos lado a lado (o detalhe de cada cenário saiu da página). */}
       {regraId === "atual" ? (
         <Aviso tom="neutro">Os cenários de economia e equilíbrio valem para as regras que vêm aí (42h e 40h). Escolha uma delas acima para vê-los. Aqui você vê como a loja está hoje, na regra de 44h.</Aviso>
       ) : (
-        <>
-          <Comparativo comparativo={diag.cenarios?.[regraId]?.comparativo} cenarios={diag.cenarios?.[regraId]} lojaId={diag.loja.id} podeEscrever={podeEscrever} onSimular={onSimular} />
-          <Cenarios cenarios={diag.cenarios?.[regraId]} origemVendas={diag.origemVendas} etapas={diag.etapas} />
-        </>
+        <Comparativo comparativo={diag.cenarios?.[regraId]?.comparativo} cenarios={diag.cenarios?.[regraId]} lojaId={diag.loja.id} podeEscrever={podeEscrever} onSimular={onSimular} />
       )}
 
       <OndeVemSecao diag={diag} regraId={regraId} podeEscrever={podeEscrever} onEnviar={onEnviar} onRecarregar={onRecarregar} irCadastros={onDefinirFuncao} />

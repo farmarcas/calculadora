@@ -9,7 +9,9 @@ export type TurnoLoja = {
   fim: string; // HH:MM; "24:00" ou "00:00" = meia-noite; fim antes do início = vira a noite
   minimos: Record<string, number>;
 };
-export type TurnosLoja = { versao: 1; turnos: TurnoLoja[] };
+// `modo` 'unico': o mínimo único vale e os turnos ficam guardados sem uso; ausente = valem os turnos, se houver.
+export type ModoMinimo = 'turnos' | 'unico';
+export type TurnosLoja = { versao: 1; modo?: ModoMinimo; turnos: TurnoLoja[] };
 
 export const MAX_TURNOS = 6;
 const EPS = 1e-9;
@@ -42,8 +44,8 @@ export const normalizarTurnos = (turnos: TurnoLoja[]): TurnoLoja[] =>
     minimos: { ...t.minimos, Farmacêutico: t.minimos['Farmacêutico'] ?? 1 },
   }));
 
-// Erros em português. Vazio = turnos válidos para o horário da loja: sem sobreposição, sem buraco e
-// dentro do horário de funcionamento (do primeiro horário aberto da semana ao último).
+// Erros em português. Vazio = turnos válidos. Turnos podem se sobrepor e começar antes da abertura ou terminar depois
+// do fechamento: o mínimo só conta dentro do horário de funcionamento. Buraco não é erro (ver `coberturaDeTurnos`).
 export const validarTurnos = (turnos: TurnoLoja[], dias: DiaAberto[]): string[] => {
   const erros: string[] = [];
   if (turnos.length === 0) return ['Defina ao menos um turno.'];
@@ -65,24 +67,37 @@ export const validarTurnos = (turnos: TurnoLoja[], dias: DiaAberto[]): string[] 
   if (erros.length) return erros;
   if (dias.length === 0)
     return ['Cadastre o horário de funcionamento da loja antes de definir os turnos.'];
-
-  const abre = Math.min(...dias.map((d) => d.abre));
-  const fecha = Math.max(...dias.map((d) => d.fecha));
-  const pedacos = turnos.flatMap(pedacosDe).sort((a, b) => a.de - b.de || a.ate - b.ate);
-  let ponto = abre;
-  for (const p of pedacos) {
-    if (p.de < abre - EPS)
-      erros.push(`O turno ${p.turno.nome} começa antes da abertura da loja (${hhmm(abre)}).`);
-    else if (p.de < ponto - EPS)
-      erros.push(`Os turnos se sobrepõem entre ${hhmm(p.de)} e ${hhmm(Math.min(ponto, p.ate))}.`);
-    else if (p.de > ponto + EPS) erros.push(`Falta um turno entre ${hhmm(ponto)} e ${hhmm(p.de)}.`);
-    if (p.ate > fecha + EPS)
-      erros.push(`O turno ${p.turno.nome} termina depois do fechamento da loja (${hhmm(fecha)}).`);
-    ponto = Math.max(ponto, p.ate);
-  }
-  if (ponto < fecha - EPS) erros.push(`Falta um turno entre ${hhmm(ponto)} e ${hhmm(fecha)}.`);
   return [...new Set(erros)];
 };
+
+export type FaixaSemTurno = { dias: number[]; de: number; ate: number };
+
+// Horas de funcionamento que nenhum turno cobre, dia a dia (os turnos são iguais em todos os dias). Dias com a mesma
+// faixa descoberta vêm juntos. É informativo: nessas horas vale 1 farmacêutico e os demais cargos mantêm o nível de hoje.
+export const coberturaDeTurnos = (turnos: TurnoLoja[], dias: DiaAberto[]): FaixaSemTurno[] => {
+  const pedacos = turnos.flatMap(pedacosDe);
+  const porChave = new Map<string, FaixaSemTurno>();
+  for (const d of dias) {
+    let ponto = d.abre;
+    const lacunas: [number, number][] = [];
+    for (const p of [...pedacos].sort((a, b) => a.de - b.de || a.ate - b.ate)) {
+      if (p.ate <= ponto + EPS) continue;
+      if (p.de > ponto + EPS) lacunas.push([ponto, Math.min(p.de, d.fecha)]);
+      ponto = Math.max(ponto, p.ate);
+      if (ponto >= d.fecha - EPS) break;
+    }
+    if (ponto < d.fecha - EPS) lacunas.push([ponto, d.fecha]);
+    for (const [de, ate] of lacunas.filter(([a, b]) => b - a > EPS)) {
+      const k = `${de}|${ate}`;
+      const f = porChave.get(k) ?? { dias: [], de, ate };
+      f.dias.push(d.dia);
+      porChave.set(k, f);
+    }
+  }
+  return [...porChave.values()].sort((a, b) => a.de - b.de);
+};
+
+const NOMES_DIA = ['seg', 'ter', 'qua', 'qui', 'sex', 'sáb', 'dom'];
 
 // A exigência que o motor usa: um número por cargo (sem turnos) ou uma fatia por turno,
 // com o mínimo único da loja como reserva para a hora fora de qualquer turno.
@@ -90,13 +105,21 @@ export const exigenciasDaLoja = (
   minimos: Record<string, number>,
   turnos: TurnosLoja | null | undefined,
 ): Minimos => {
-  if (!turnos?.turnos.length) return minimos;
+  if (!turnos?.turnos.length || turnos.modo === 'unico') return minimos;
   const fatias: Fatia[] = turnos.turnos.flatMap((t) =>
     pedacosDe(t).map((p) => ({ de: p.de, ate: p.ate, minimos: t.minimos, nome: t.nome })),
   );
   return { fatias, reserva: minimos };
 };
 
-// Avisos de turnos já gravados que deixaram de caber (ex.: o horário da loja mudou depois).
-export const avisosDeTurnos = (turnos: TurnosLoja | null | undefined, dias: DiaAberto[]) =>
-  turnos?.turnos.length ? validarTurnos(turnos.turnos, dias) : [];
+// Avisos dos turnos já gravados: o que deixou de ser válido e as horas sem turno (informativo, não bloqueia).
+export const avisosDeTurnos = (turnos: TurnosLoja | null | undefined, dias: DiaAberto[]): string[] => {
+  if (!turnos?.turnos.length || turnos.modo === 'unico') return [];
+  const erros = validarTurnos(turnos.turnos, dias);
+  if (erros.length) return erros;
+  return coberturaDeTurnos(turnos.turnos, dias).map((f) => {
+    const todos = f.dias.length === dias.length;
+    const onde = todos ? '' : ` (${f.dias.map((d) => NOMES_DIA[d]).join(', ')})`;
+    return `Sem turno entre ${hhmm(f.de)} e ${hhmm(f.ate)}${onde}: nessas horas vale 1 farmacêutico e os demais cargos mantêm o nível de hoje.`;
+  });
+};

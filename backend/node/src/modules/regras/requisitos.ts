@@ -39,11 +39,13 @@ export const requisitos = (m: Minimos): Requisitos => {
   return {
     funcoes,
     uniforme: null,
-    // A hora h ocupa [h, h+1): vale a fatia que contém o meio dela.
+    // A hora h ocupa [h, h+1): valem as fatias que contêm o meio dela. Se mais de uma (turnos que se sobrepõem),
+    // vale o MAIOR mínimo do cargo entre elas (não soma). Sem fatia, vale a reserva (mínimo único).
     emHora: (f, _dia, h) => {
       const meio = h + 0.5;
-      const x = m.fatias.find((s) => s.de <= meio + EPS && meio < s.ate - EPS);
-      return (x ? x.minimos : m.reserva)[f] ?? 0;
+      const ativas = m.fatias.filter((s) => s.de <= meio + EPS && meio < s.ate - EPS);
+      if (ativas.length === 0) return m.reserva[f] ?? 0;
+      return Math.max(...ativas.map((s) => s.minimos[f] ?? 0));
     },
     pico,
     porTurno: (f) => {

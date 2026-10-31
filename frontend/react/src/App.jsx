@@ -3,6 +3,8 @@ import { api, getGe, getPerfil, setGe, setPerfil } from "./api/client.js";
 import { PERFIS, ehOperador } from "./api/perfis.js";
 import CadastrosPage from "./features/cadastros/CadastrosPage.jsx";
 import EscalaPage from "./features/diagnostico/EscalaPage.jsx";
+import { confirmarSaida } from "./features/cadastro-loja/guardaSaida.js";
+import { lerUrl } from "./features/cadastro-loja/urlDaLoja.js";
 import GruposPage from "./features/ge/GruposPage.jsx";
 
 const MENU = [
@@ -17,7 +19,9 @@ export default function App() {
   const [ges, setGes] = useState([]);
   // Em tela estreita (celular) o menu começa recolhido.
   const [aberto, setAberto] = useState(() => window.innerWidth >= 768);
-  const [tela, setTela] = useState("cadastros");
+  const [tela, setTela] = useState(() => (["cadastros", "escala", "grupos"].includes(lerUrl().tela) ? lerUrl().tela : "cadastros"));
+  // Trocar de tela com alterações não salvas pergunta antes.
+  const irPara = (id) => { if (id !== tela && !confirmarSaida()) return; setTela(id); if (id !== "cadastros") window.history.replaceState(null, "", `${window.location.pathname}?tela=${id}`); };
 
   // Ao estreitar a janela (ou girar o celular) o menu recolhe sozinho; ao alargar, abre.
   useEffect(() => {
@@ -66,7 +70,7 @@ export default function App() {
           {menu.map((m) => (
             <li key={m.id}>
               <button
-                onClick={() => setTela(m.id)}
+                onClick={() => irPara(m.id)}
                 aria-current={atual.id === m.id ? "page" : undefined}
                 className={`w-full text-left rounded-btn px-3 h-9 flex items-center text-sm ${
                   atual.id === m.id ? "bg-system-200 text-ink-900 font-medium" : "text-ink-700 hover:bg-surface-subtle"

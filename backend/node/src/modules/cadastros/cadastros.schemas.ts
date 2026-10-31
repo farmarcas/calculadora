@@ -110,6 +110,15 @@ const req = <B extends z.ZodType, P extends z.ZodType, Q extends z.ZodType>(
 ) => z.object({ body, params, query });
 
 export const listarReq = req(vazio.default({}), vazio.default({}), paginacao);
+// Lojas: além da busca (nome, código ou CNPJ), filtram por UF e pela situação do cadastro.
+export const listarLojasReq = req(
+  vazio.default({}),
+  vazio.default({}),
+  paginacao.extend({
+    uf: z.string().trim().length(2).toUpperCase().optional(),
+    situacao: z.enum(['completo', 'revisar']).optional(),
+  }),
+);
 // Loja nova (só o operador cria) exige CNPJ válido.
 export const criarLojaReq = req(
   lojaSchema.extend({

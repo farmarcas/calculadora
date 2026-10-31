@@ -81,7 +81,7 @@ export const entrada =
 // Alquimia DS · Tabs: sublinhado de 3 px azul na aba ativa, texto de 16 px (negrito quando ativa).
 export function Abas({ opcoes = [], valor, onChange, rotulo, className = "" }) {
   return (
-    <div className={`flex gap-4 border-b border-line ${className}`} role="tablist" aria-label={rotulo}>
+    <div className={`flex flex-wrap gap-x-4 border-b border-line ${className}`} role="tablist" aria-label={rotulo}>
       {opcoes.map(([id, texto]) => {
         const ativa = id === valor;
         return (
@@ -126,6 +126,31 @@ export function Segmentado({ opcoes = [], valor, onChange, rotulo, desabilitado 
     </div>
   );
 }
+
+// Aviso curto no canto da tela (role="status"), com uma ação opcional (ex.: "Desfazer"). Quem usa decide quando some.
+export const Toast = ({ mensagem, acao, onFechar }) => (
+  <div role="status" aria-live="polite" className="fixed bottom-6 left-1/2 z-50 flex max-w-[90vw] -translate-x-1/2 items-center gap-4 rounded-card bg-[var(--neutral-dark-900)] px-4 py-3 text-sm text-white shadow-pop">
+    <span>{mensagem}</span>
+    {acao && <button type="button" onClick={acao.fn} className="border-0 bg-transparent p-0 text-sm font-bold text-white underline cursor-pointer">{acao.rotulo}</button>}
+    <button type="button" aria-label="Fechar aviso" onClick={onFechar} className="border-0 bg-transparent p-0 text-lg leading-none text-white cursor-pointer">×</button>
+  </div>
+);
+
+// Chave liga/desliga (role="switch"). O rótulo precisa estar visível ao lado; `rotulo` é o nome para quem usa leitor de tela.
+export const Chave = ({ marcado, onChange, rotulo, desabilitado = false, id }) => (
+  <button
+    id={id}
+    type="button"
+    role="switch"
+    aria-checked={marcado}
+    aria-label={rotulo}
+    disabled={desabilitado}
+    onClick={() => onChange(!marcado)}
+    className={`relative inline-flex h-6 w-10 shrink-0 items-center rounded-full border-0 transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--border-focus)] disabled:cursor-not-allowed disabled:opacity-50 ${marcado ? "bg-[var(--color-primary)]" : "bg-[var(--border-strong)]"}`}
+  >
+    <span aria-hidden="true" className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${marcado ? "translate-x-[18px]" : "translate-x-0.5"}`} />
+  </button>
+);
 
 // Passo numerado de uma tela em etapas: círculo de 24 px, título e subtítulo.
 export const Passo = ({ numero, titulo, subtitulo, semMargem = false, children }) => (

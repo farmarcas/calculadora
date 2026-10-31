@@ -853,4 +853,100 @@ describe('cadastros (rotas)', () => {
       expect(gestor.cpf).toBe('529.982.247-25');
     });
   });
+  describe('lista de lojas: situação do cadastro, filtros e busca por CNPJ (spec 017)', () => {
+    const gestor = { 'X-Perfil': 'SCHEDULE_MANAGER', 'X-GE': GE_INICIAL_ID };
+    const semanaToda = {
+      versao: 2,
+      dias: [0, 1, 2, 3, 4, 5]
+        .map(() => ({ aberta: true, abre: '08:00', fecha: '20:00' }))
+        .concat([{ aberta: false } as never]),
+    };
+    const fatCompleto = { dias: [1000, 1000, 1000, 1000, 1000, 1000, null], mensal: null, margemPct: 30 };
+    const dadosOk = { cidade: 'Sumaré', uf: 'SP', regimeTributario: 'real', horarios: semanaToda };
+
+    // Loja completa: dados, horário, faturamento dos dias abertos e um farmacêutico.
+    const completa = async (codigo: string, nome: string, extra: Record<string, unknown> = {}) => {
+      const c = await postLoja({ codigo, nome, ...dadosOk, ...extra });
+      expect(c.status).toBe(201);
+      await reqGe().patch(`/api/v1/lojas/${c.body.id}`).set(admin).send({ faturamento: fatCompleto });
+      await reqGe()
+        .post('/api/v1/funcionarios')
+        .set(admin)
+        .send({ matricula: `F-${codigo}`, nome: `Farma ${codigo}`, lojaId: c.body.id, funcaoEscala: 'Farmacêutico' });
+      return c.body as { id: string; cnpj: string };
+    };
+    const lista = (q = '', h: Record<string, string> = admin) =>
+      reqGe().get(`/api/v1/lojas${q}`).set(h);
+
+    it('cada loja vem com a situação e o motivo em texto', async () => {
+      await completa('001', 'Centro');
+      await postLoja({ codigo: '002', nome: 'Sem nada' });
+      const r = (await lista()).body;
+      const por = Object.fromEntries(r.data.map((l: { codigo: string }) => [l.codigo, l]));
+      expect(por['001'].situacao).toEqual({ status: 'completo', motivo: null });
+      expect(por['002'].situacao.status).toBe('revisar');
+      expect(por['002'].situacao.motivo).toMatch(/Faltam dados da loja/);
+    });
+
+    it('filtra por situação e por UF, junto com a busca, e o total respeita os filtros', async () => {
+      await completa('001', 'Centro');
+      await completa('002', 'Norte', { uf: 'MG' });
+      await postLoja({ codigo: '003', nome: 'Centro Velho', ...dadosOk, uf: 'SP' }); // sem equipe e sem faturamento
+      const so = async (q: string) => {
+        const r = (await lista(q)).body;
+        return { codigos: r.data.map((l: { codigo: string }) => l.codigo), total: r.meta.total };
+      };
+      expect(await so('?situacao=completo')).toEqual({ codigos: ['001', '002'], total: 2 });
+      expect(await so('?situacao=revisar')).toEqual({ codigos: ['003'], total: 1 });
+      expect(await so('?uf=MG')).toEqual({ codigos: ['002'], total: 1 });
+      expect(await so('?uf=SP&situacao=completo')).toEqual({ codigos: ['001'], total: 1 });
+      expect(await so('?busca=centro')).toEqual({ codigos: ['001', '003'], total: 2 });
+      expect(await so('?busca=centro&situacao=revisar')).toEqual({ codigos: ['003'], total: 1 });
+      expect((await lista('?uf=XX')).body.data).toEqual([]);
+    });
+
+    it('busca pelo CNPJ, com ou sem pontuação, e pelo código', async () => {
+      const a = await completa('001', 'Centro');
+      await completa('002', 'Norte');
+      const f = a.cnpj;
+      const pontuado = `${f.slice(0, 2)}.${f.slice(2, 5)}.${f.slice(5, 8)}/${f.slice(8, 12)}-${f.slice(12)}`;
+      for (const q of [f, pontuado, f.slice(0, 8)])
+        expect((await lista(`?busca=${encodeURIComponent(q)}`)).body.data[0].codigo).toBe('001');
+      expect((await lista('?busca=002')).body.data.map((l: { codigo: string }) => l.codigo)).toEqual(['002']);
+    });
+
+    it('pagina em cima do resultado filtrado, na ordem do código', async () => {
+      for (const c of ['001', '002', '003', '004', '005']) await completa(c, `Loja ${c}`);
+      const p2 = (await lista('?pageSize=2&page=2')).body;
+      expect(p2.data.map((l: { codigo: string }) => l.codigo)).toEqual(['003', '004']);
+      expect(p2.meta).toEqual({ page: 2, pageSize: 2, total: 5 });
+    });
+
+    it('gestor também vê a situação, mas o motivo e a lista não trazem valores em reais', async () => {
+      await completa('001', 'Centro');
+      const l = (await lista('', gestor)).body.data[0];
+      expect(l.situacao.status).toBe('completo');
+      expect(l).not.toHaveProperty('faturamento');
+      await reqGe()
+        .patch(`/api/v1/lojas/${l.id}`)
+        .set(admin)
+        .send({ faturamento: { ...fatCompleto, mensal: 900000 } });
+      const rev = (await lista('', gestor)).body.data[0];
+      expect(rev.situacao.motivo).toBe('O faturamento mensal informado difere mais de 10% da soma dos dias');
+      expect(JSON.stringify(rev)).not.toMatch(/900000/);
+    });
+
+    it('lojas de outro grupo nunca entram nos filtros nem no total', async () => {
+      await completa('001', 'Centro');
+      const { criarGe, limparGes } = await import('../../shared/testing/ge.js');
+      const outro = await criarGe('G-SIT', 'Outro grupo');
+      await postLoja({ codigo: '001', nome: 'Centro do outro', ...dadosOk }, outro.id);
+      const meu = (await lista('?busca=centro')).body;
+      expect(meu.data).toHaveLength(1);
+      expect(meu.data[0].nome).toBe('Centro');
+      expect(meu.meta.total).toBe(1);
+      await prisma.loja.deleteMany({ where: { geId: outro.id } });
+      await limparGes();
+    });
+  });
 });

@@ -26,8 +26,7 @@ const turnoSchema = z
   })
   .strict();
 
-export const configuracaoReq = req(
-  z
+export const configuracaoBody = z
     .object({
       convencao8h24: z.boolean().optional(),
       minimos: z
@@ -38,11 +37,12 @@ export const configuracaoReq = req(
         .optional(),
       // Lista de turnos (a validação contra o horário da loja é no serviço) ou nulo para voltar ao mínimo único.
       turnos: z.array(turnoSchema).max(6).nullable().optional(),
+      // Qual mínimo vale: o dos turnos ou o único do dia (o outro fica guardado).
+      modoMinimo: z.enum(['turnos', 'unico']).optional(),
     })
     .strict()
     .refine((b) => Object.keys(b).length > 0, { message: 'Informe ao menos um campo' })
     .refine((b) => (b.minimos?.['Farmacêutico'] ?? 1) >= 1, {
       message: 'Farmacêutico: mínimo de 1 em todo o horário (Lei 13.021/2014)',
-    }),
-  id,
-);
+    });
+export const configuracaoReq = req(configuracaoBody, id);

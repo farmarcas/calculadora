@@ -35,7 +35,7 @@ body { margin: 0; background: var(--surface-page); color: var(--ink-900); font-f
 .cenarios-cartao { display: flex; flex-direction: column; gap: 16px; min-width: 0; margin-bottom: 16px; }
 .cenarios-cartao > * { min-width: 0; }
 @container cenarios (min-width: 1000px) {
-  .cenarios-grade { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .cenarios-grade { grid-template-columns: repeat(var(--colunas, 3), minmax(0, 1fr)); }
   .cenarios-cartao { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: subgrid; grid-row: span var(--faixas, 11); margin-bottom: 0; }
 }
 

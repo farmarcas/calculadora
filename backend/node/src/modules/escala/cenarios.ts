@@ -310,7 +310,10 @@ const montarManter = (e: EntradaCenarios, linhas: LinhaFuncao[], folha: number |
   const pessoasContratar = cs.reduce((s, c) => s + c.pessoas, 0);
   const manter: CenarioManter = {
     foco: 'Contratar para cobrir a escala nos horários de hoje',
-    resultado: cs.length === 0 ? 'Nada a contratar' : `Contrata ${listaContratacoes(cs)}`,
+    resultado:
+      cs.length === 0
+        ? 'Nada a contratar'
+        : `Contrata ${pessoasContratar} pessoa${pessoasContratar === 1 ? '' : 's'}: ${cs.map((c) => c.funcao.toLowerCase()).join(' e ')}`,
     direcionamento:
       cs.length === 0
         ? `O quadro atual já cobre todos os horários na regra de ${nomeRegra}: não há nada a contratar para manter a loja aberta como hoje.`

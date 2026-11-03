@@ -83,7 +83,15 @@ export type CenarioEconomia = {
   impactoMensal?: number | null;
   viavel: boolean;
   motivoInviavel: string | null;
+  // Premissa fixa do cenário: igual em toda loja.
   foco: string;
+  // O que acontece nesta loja com os horários ("Nenhum horário precisa mudar", "Dom fecha 8 h mais cedo…").
+  resultado: string;
+  // Horas por semana que cada função fica abaixo da meta com a equipe atual nos horários do cenário
+  // (nível de hoje ou meta do dono; o farmacêutico fica à parte). Só as que têm falta.
+  faltaPorFuncao: { funcao: string; horasSemana: number }[];
+  // Horas por semana em que a loja aberta fica sem farmacêutico nos horários do cenário (0 se coberto).
+  semFarmaceuticoH: number;
   direcionamento: string;
   // Frase curta com a lógica do cenário (sem valores em reais para quem não é dono).
   resumo: string;
@@ -349,6 +357,18 @@ const MOTIVO_PARADA: Record<MotivoParada, string> = {
   fim_de_semana: 'não há mais o que reduzir ou fechar no fim de semana',
 };
 
+// Com a equipe atual e os horários do cenário: quanto cada função fica abaixo da meta e quantas horas
+// semanais o farmacêutico deixa de cobrir.
+const coberturaDoCenario = (e: EntradaCenarios, regra: Regra, dias: DiaAberto[]) => {
+  const linhas = verificarRegra(regra, dias, e.minimos, e.pessoas, opcoesDoMotor(e, regra));
+  return {
+    faltaPorFuncao: linhas
+      .filter((l) => !l.obrigatorio && l.gapH > 0)
+      .map((l) => ({ funcao: l.funcao, horasSemana: arred(l.gapH) })),
+    semFarmaceuticoH: arred(linhas.find((l) => l.obrigatorio)?.gapH ?? 0),
+  };
+};
+
 const montarEconomia = (
   e: EntradaCenarios,
   linhas: LinhaFuncao[],
@@ -358,7 +378,9 @@ const montarEconomia = (
   const temVenda = porDia.some((d) => (d.venda ?? 0) > 0);
   const temMargem = porDia.some((d) => (d.margemMes ?? 0) > 0);
   const base = {
-    foco: 'Reduzir o fim de semana para manter a equipe atual',
+    foco: 'Não contratar; ajustar horários só se precisar',
+    resultado: 'Nenhum horário precisa mudar',
+    ...coberturaDoCenario(e, regra, e.dias),
     horarioSemana: horarioDaSemana(e.dias),
     horasSemana: horasDaSemana(e.dias),
     horasReduzir: 0,
@@ -380,6 +402,7 @@ const montarEconomia = (
       ...base,
       viavel: false,
       motivoInviavel: `Não há ${semGente.funcao} no quadro: reduzir ou fechar o fim de semana não resolve, é preciso contratar.`,
+      resultado: 'Não é possível sem contratar',
       direcionamento: `Este caminho não é possível: sem ${semGente.funcao} no quadro, nenhum dia fica coberto. Veja o Cenário 1.`,
       resumo: 'Não é possível sem contratar. Veja o Cenário 1.',
     };
@@ -397,6 +420,7 @@ const montarEconomia = (
     return {
       ...base,
       viavel: false,
+      resultado: 'Faltam as vendas por dia da semana para calcular os cortes',
       motivoInviavel:
         'Informe o faturamento por dia da semana no Cadastro (ou envie a base comercial) para saber quanto cada corte custa.',
       direcionamento:
@@ -471,6 +495,8 @@ const montarEconomia = (
   ].filter((x): x is string => x !== null);
   const comum = {
     foco: base.foco,
+    resultado: passos.length ? passos.map(fraseDoPasso).join('; ') : 'Nenhum horário pode mudar',
+    ...coberturaDoCenario(e, regra, seq.dias),
     horasReduzir: arred(base.horasSemana - seq.horasSemana),
     horasSemana: seq.horasSemana,
     horarioSemana: horarioDaSemana(seq.dias),

@@ -27,6 +27,7 @@ export default function CadastroLojaPage({ perfil }) {
   const [erro, setErro] = useState(null);
   const [versao, setVersao] = useState(0);
   const caixa = useRef(null);
+  const [lojasDaLista, setLojasDaLista] = useState([]);
   const primeiras = useRef([]);
   const largoRef = useRef(true);
 
@@ -81,8 +82,12 @@ export default function CadastroLojaPage({ perfil }) {
   // Em tela larga, sem loja escolhida, a primeira da lista já abre.
   const aoCarregarLista = (lojas) => {
     primeiras.current = lojas;
-    if (!lojaId && largo && lojas[0]) { setLojaId(lojas[0].id); setVista("detalhe"); }
+    setLojasDaLista(lojas);
   };
+  // Sem loja escolhida (ou com a do endereço inexistente) e com espaço para as duas colunas, a primeira da lista abre sozinha.
+  useEffect(() => {
+    if (!lojaId && !nova && largo && lojasDaLista[0]) { setLojaId(lojasDaLista[0].id); setVista("detalhe"); }
+  }, [lojaId, nova, largo, lojasDaLista]);
 
   return (
     <>

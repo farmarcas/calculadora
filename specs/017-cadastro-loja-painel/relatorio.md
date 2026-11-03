@@ -26,7 +26,7 @@ Só o operador cria. O painel mostra os dados da loja (ID loja, nome e CNPJ obri
 - **Colunas da tabela de funcionamento e da equipe**: o detalhe é mais estreito que no desenho (menu lateral), então as colunas foram reduzidas e a tabela vira blocos abaixo de ~680 px (funcionamento) e ~860 px (equipe), por largura do conteúdo.
 - **"Remover loja"** (operador) não está no desenho e foi retirado; se for necessário, precisa de um lugar no painel.
 - **Trocar de modo do mínimo** não pede confirmação, porque nada é descartado (os dois ficam guardados).
-- **"Ver mais" da lista** acumula 20 lojas por vez (o desenho mostra 6); a altura da lista é fixa (640 px) com rolagem interna.
+- **"Ver mais" da lista** acumula 20 lojas por vez (o desenho mostra 6); a página inteira rola, o topo da lista (título, busca e filtros) e o resumo no pé ("1–20 de 37 lojas · Ver mais") ficam fixos na janela, e o cartão tem ao menos a altura da janela.
 - **Importar em massa**: o botão passou a secundário, o fluxo não mudou. O "ID loja" desta tela é o mesmo "Código" do resto do produto (rótulo diferente só aqui).
 - A mensagem de erro do servidor ao salvar é mostrada em texto no topo do detalhe; o foco por campo vale para os erros que a tela sabe validar antes (nome, horários, faturamento, turnos, custos).
 

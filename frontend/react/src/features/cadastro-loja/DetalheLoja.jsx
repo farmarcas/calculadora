@@ -20,7 +20,7 @@ export default function DetalheLoja({ lojaId, aba, onAba, perfil, painel, carreg
   const podeEditar = editaLoja(perfil);
   const podeEquipe = cuidaDoGrupo(perfil);
   if (!lojaId)
-    return <div className="flex h-full items-center justify-center p-10 text-sm text-[var(--text-secondary)]">Escolha uma loja na lista para ver e corrigir o cadastro.</div>;
+    return <div className="p-10 pt-16 text-center text-sm text-[var(--text-secondary)]">Escolha uma loja na lista para ver e corrigir o cadastro.</div>;
   if (erro) return <div className="p-6"><Aviso>{erro}</Aviso></div>;
   if (carregando || !painel)
     return (

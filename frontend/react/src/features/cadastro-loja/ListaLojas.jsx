@@ -58,8 +58,8 @@ export default function ListaLojas({ lojaId, versao, podeCriar, onSelecionar, on
 
   const mostrando = dados.data.length;
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="flex flex-col gap-3 px-6 pt-5 pb-4">
+    <div className="flex flex-1 flex-col">
+      <div className="sticky top-0 z-20 flex flex-col gap-3 bg-[var(--surface-card)] px-6 pt-5 pb-4 rounded-t-card">
         <div className="flex items-center justify-between gap-3">
           <h2 className="m-0 text-xl font-bold text-[var(--text-strong)]">Lojas ({dados.total})</h2>
           {podeCriar && <Botao tamanho="pequeno" onClick={onNova}>Cadastrar loja</Botao>}
@@ -78,7 +78,7 @@ export default function ListaLojas({ lojaId, versao, podeCriar, onSelecionar, on
         </div>
       </div>
 
-      <div ref={lista} onKeyDown={aoTeclar} role="listbox" aria-label="Lojas" className="min-h-0 flex-1 overflow-y-auto border-t border-[var(--border-subtle)]">
+      <div ref={lista} onKeyDown={aoTeclar} role="listbox" aria-label="Lojas" className="flex-1 border-t border-[var(--border-subtle)]">
         {erro && (
           <div className="p-6 text-sm text-[var(--text-danger)]">
             {erro} <button type="button" className="border-0 bg-transparent p-0 font-bold text-[var(--text-link)] underline cursor-pointer" onClick={consultar}>Tentar de novo</button>
@@ -111,7 +111,7 @@ export default function ListaLojas({ lojaId, versao, podeCriar, onSelecionar, on
         })}
       </div>
 
-      <div className="flex items-center justify-between gap-3 border-t border-[var(--border-subtle)] bg-[var(--surface-subtle)] px-6 py-3 text-xs text-[var(--text-secondary)]">
+      <div className="sticky bottom-0 z-20 flex items-center justify-between gap-3 rounded-b-card border-t border-[var(--border-subtle)] bg-[var(--surface-subtle)] px-6 py-3 text-xs text-[var(--text-secondary)]">
         <span aria-live="polite">{dados.total === 0 ? "0 lojas" : `1–${mostrando} de ${dados.total} lojas`}</span>
         {mostrando < dados.total && <button type="button" className="border-0 bg-transparent p-0 text-sm font-bold text-[var(--text-link)] cursor-pointer" onClick={() => setPaginas((p) => p + 1)}>Ver mais</button>}
       </div>

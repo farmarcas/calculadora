@@ -402,6 +402,7 @@ describe('Cenário 3 — equilíbrio com as travas do fim de semana (spec 012)',
   const eq = (extra: Partial<EntradaCenarios> = {}) =>
     montarCenarios(
       base({
+        estenderHorario: false, // estes testes são do corte de fim de semana; a extensão tem os seus abaixo
         minimos: { Farmacêutico: 1 },
         dias: seisDias,
         pessoas: farm(40, 40),

@@ -16,6 +16,8 @@ export type ColunaComparativo = {
   semFarmaceuticoH?: number;
   // Só no Cenário 3: o cenário de que ele é cópia e que a tela mostra recolhido.
   recolher?: 'manter' | 'economia' | null;
+  // Só no Cenário 3: abre horas a mais e a venda delas é estimada (a tela avisa).
+  estimativaDeVenda?: boolean;
   contratacoes: Contratacao[];
   // Dias da semana que o cenário fecha (0 = segunda); nenhum no Cenário 1.
   diasFechar: number[];
@@ -174,12 +176,18 @@ export const montarComparativo = (e: EntradaCenarios, c: CenariosRegra): Compara
     if (equilibrio.coincideComEconomia)
       alertas(alertasEq, 'O melhor caminho é o mesmo do Cenário 2.');
     if (estimada) alertas(alertasEq, avisoEstimativa);
+    if (equilibrio.estimativaDeVenda)
+      alertas(
+        alertasEq,
+        'Venda das horas novas é estimada: onde não há venda registrada nessa hora, vale metade da venda da hora vizinha.',
+      );
   }
   const colEq: ColunaComparativo = {
     id: 'equilibrio',
     nome: 'Equilíbrio',
     premissa: equilibrio.foco,
     resultado: equilibrio.resultado,
+    estimativaDeVenda: equilibrio.estimativaDeVenda,
     recolher: equilibrio.indisponivel
       ? null
       : equilibrio.coincideComManter
@@ -199,7 +207,10 @@ export const montarComparativo = (e: EntradaCenarios, c: CenariosRegra): Compara
       ? valores(null, null)
       : valores(
           equilibrio.custoAdicionalMensal ?? null,
-          equilibrio.margemCortadaMes,
+          // Margem perdida menos a margem ganha com as horas novas: negativa quando o cenário ganha.
+          equilibrio.margemCortadaMes === null
+            ? null
+            : equilibrio.margemCortadaMes - (equilibrio.margemGanhaMes ?? 0),
           equilibrio.vendaCortadaMes,
         )),
   };
@@ -226,7 +237,20 @@ export const montarComparativo = (e: EntradaCenarios, c: CenariosRegra): Compara
   if (e.dono) {
     r.destaque = c.destaque ?? null;
     const deixaFalta = economia.faltaPorFuncao.length > 0 || economia.semFarmaceuticoH > 0;
-    r.sugerido = r.destaque === 'economia' && deixaFalta ? 'manter' : r.destaque;
+    // O Cenário 3 com horas novas só é sugerido se resistir à metade da margem estimada para elas.
+    const outros = [
+      { id: 'manter' as const, impacto: manter.impactoMensal ?? null },
+      { id: 'economia' as const, impacto: economia.impactoMensal ?? null },
+    ].filter((o): o is { id: 'manter' | 'economia'; impacto: number } => o.impacto !== null);
+    const melhorOutro = [...outros].sort((a, b) => a.impacto - b.impacto)[0];
+    const robusto =
+      equilibrio.impactoRobusto != null &&
+      (melhorOutro === undefined || equilibrio.impactoRobusto < melhorOutro.impacto - 0.005);
+    let sug: IdColuna | null = r.destaque;
+    if (sug === 'equilibrio' && equilibrio.estimativaDeVenda && !robusto)
+      sug = melhorOutro?.id ?? 'manter';
+    if (sug === 'economia' && deixaFalta) sug = 'manter';
+    r.sugerido = sug;
   }
   return r;
 };

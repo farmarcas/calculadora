@@ -9,11 +9,11 @@
 - [x] T006 Rodar os testes do servidor e commitar a fatia
 
 ## Fatia 2 — Cenário 3 e comparativo (servidor)
-- [ ] T007 `cenarios.ts` (`montarEquilibrio`): usar o ganho nas avaliações; preencher `horasEstendidas`, `margemGanhaMes`, `impactoRobusto` (com metade da margem ganha); `resultado` e `resumo` descrevem a extensão ("Sábado fecha 2 h mais tarde (de 08h–20h para 08h–22h)"); aviso de estimativa de venda; `coincideComManter`/`coincideComEconomia` só quando não há passos
-- [ ] T008 `cenarios.ts`/`comparativo.ts`: `fraseDoPasso` e `ajustes` entendem `estender`; `margemMes` do Cenário 3 pode ficar positiva; `estimativaDeVenda` na coluna; `destacar` usa o impacto com o ganho
-- [ ] T009 `comparativo.ts`: `sugerido` com teste de robustez (impacto com metade da margem ganha precisa continuar melhor que os outros) e fallback para o melhor dos outros
-- [ ] T010 Testes (`cenarios.test.ts`, `comparativo.test.ts`): loja em que estender compensa (impacto melhor que o do Cenário 1 e positivo quando a margem passa da folha); loja em que nada compensa (resultado idêntico ao de hoje); extensão que exige mais contratação entra no custo; sugerido não vai ao 3 quando a metade da margem não sustenta; gerente sem R$; segunda a sexta intactas
-- [ ] T011 Rodar tudo e commitar a fatia
+- [x] T007 `cenarios.ts` (`montarEquilibrio`): usar o ganho nas avaliações; preencher `horasEstendidas`, `margemGanhaMes`, `impactoRobusto` (com metade da margem ganha); `resultado` e `resumo` descrevem a extensão ("Sábado fecha 2 h mais tarde (de 08h–20h para 08h–22h)"); aviso de estimativa de venda; `coincideComManter`/`coincideComEconomia` só quando não há passos
+- [x] T008 `cenarios.ts`/`comparativo.ts`: `fraseDoPasso` e `ajustes` entendem `estender`; `margemMes` do Cenário 3 pode ficar positiva; `estimativaDeVenda` na coluna; `destacar` usa o impacto com o ganho
+- [x] T009 `comparativo.ts`: `sugerido` com teste de robustez (impacto com metade da margem ganha precisa continuar melhor que os outros) e fallback para o melhor dos outros
+- [x] T010 Testes (`cenarios.test.ts`, `comparativo.test.ts`): loja em que estender compensa (impacto melhor que o do Cenário 1 e positivo quando a margem passa da folha); loja em que nada compensa (resultado idêntico ao de hoje); extensão que exige mais contratação entra no custo; sugerido não vai ao 3 quando a metade da margem não sustenta; gerente sem R$; segunda a sexta intactas
+- [x] T011 Rodar tudo e commitar a fatia
 
 ## Fatia 3 — Cartão (tela)
 - [ ] T012 `Comparativo.jsx`/`comparativo-regras.js`: selo "Melhor resultado" quando o impacto do destaque é positivo, "Menor custo" nos demais casos; composição "Folha adicional R$ X − margem ganha R$ Y" quando há ganho

@@ -236,6 +236,7 @@ describe('comparativo dos cenários 1, 2 e 3', () => {
 
   it('Cenário 3 igual ao Cenário 1: o alerta diz qual', () => {
     const igualManter = comparar({
+      estenderHorario: false,
       pessoas: farm(40, 40),
       custos: { salarioMedio: { Farmacêutico: 1000 }, encargosPct: 0 },
     });
@@ -265,6 +266,7 @@ describe('premissas, recolhimento e selo sugerido', () => {
   // Farmacêutico coberto e atendimento abaixo do nível de hoje na regra de 42 h: o Cenário 2 não contrata nem muda horário.
   const semCorte = (extra: Partial<EntradaCenarios> = {}) =>
     comparar({
+      estenderHorario: false,
       regraId: 'r42',
       minimos: { Farmacêutico: 1 },
       pessoas: [...farm(44, 44, 44), ...[44, 44].map((cargaH) => ({ funcao: 'Atendimento', cargaH }))],
@@ -330,3 +332,72 @@ describe('premissas, recolhimento e selo sugerido', () => {
     expect(col(r, 'manter').resultado).not.toMatch(/ e .* e /);
   });
 });
+
+describe('Cenário 3 com horário estendido (spec 020)', () => {
+  // Farmacêutico coberto, atendimento com horas ociosas e venda do cadastro: estender o sábado compensa por pouco.
+  const loja = (extra: Partial<EntradaCenarios> = {}): EntradaCenarios =>
+    entrada({
+      regraId: 'r42',
+      minimos: { Farmacêutico: 1 },
+      pessoas: [...farm(44, 44, 44), ...[44, 44].map((cargaH) => ({ funcao: 'Atendimento', cargaH }))],
+      custos: { salarioMedio: { Farmacêutico: 10000, Atendimento: 3000 }, encargosPct: 0 },
+      ...extra,
+    });
+  const calcular = (extra: Partial<EntradaCenarios> = {}) => {
+    const e = loja(extra);
+    const c = montarCenarios(e);
+    return { e, c, r: montarComparativo(e, c) };
+  };
+
+  it('estende o sábado, avisa que a venda das horas novas é estimada e fica melhor que o Cenário 1', () => {
+    const { c, r } = calcular();
+    expect(c.equilibrio.passos).toMatchObject([{ tipo: 'estender', dia: 5 }]);
+    expect(c.equilibrio.horasEstendidas).toEqual([{ dia: 5, horasNovas: 2, origem: 'vizinha' }]);
+    const eq3 = col(r, 'equilibrio');
+    expect(eq3.recolher).toBeNull();
+    expect(eq3.estimativaDeVenda).toBe(true);
+    expect(eq3.resultado).toContain('Sábado fecha 2 h mais tarde');
+    expect(eq3.alertas.join(' ')).toContain('Venda das horas novas é estimada');
+    expect(eq3.ajustes).toEqual([{ dia: 5, antes: { abre: '08:00', fecha: '22:00' }, depois: { abre: '08:00', fecha: '24:00' } }]);
+    // a margem das horas novas abate a folha extra: melhor que contratar sem estender
+    expect(eq3.resultadoLiquidoMensal!).toBeGreaterThan(col(r, 'manter').resultadoLiquidoMensal!);
+    expect(eq3.margemMes!).toBeGreaterThan(0);
+  });
+
+  it('segunda a sexta nunca mudam e só sábado e domingo ganham horas', () => {
+    const { c } = calcular();
+    for (const d of [0, 1, 2, 3, 4]) expect(c.equilibrio.horarioSemana[d]).toMatchObject({ abre: '08:00', fecha: '22:00' });
+  });
+
+  it('com a extensão desligada, o Cenário 3 volta a só cortar (igual ao 1 quando nada compensa)', () => {
+    const { c, r } = calcular({ estenderHorario: false });
+    expect(c.equilibrio.horasEstendidas).toEqual([]);
+    expect(col(r, 'equilibrio').estimativaDeVenda).toBe(false);
+    expect(col(r, 'equilibrio').recolher).toBe('manter');
+  });
+
+  it('o ganho das horas novas e o impacto robusto são só do dono', () => {
+    const { c } = calcular();
+    expect(c.equilibrio.margemGanhaMes).toBeGreaterThan(0);
+    expect(c.equilibrio.impactoRobusto).toBeGreaterThan(c.manter.impactoMensal! - 1000);
+    const g = calcular({ dono: false });
+    expect('margemGanhaMes' in g.c.equilibrio).toBe(false);
+    expect('impactoRobusto' in g.c.equilibrio).toBe(false);
+    expect(col(g.r, 'equilibrio').ajustes).toHaveLength(1);
+    expect(JSON.stringify(g.r)).not.toContain('R$');
+  });
+
+  it('o "Cenário sugerido" só vai ao Cenário 3 com horas novas se resistir à metade da margem estimada', () => {
+    const { e, c } = calcular();
+    const forcado = (impactoRobusto: number) => {
+      const copia = structuredClone(c);
+      copia.destaque = 'equilibrio';
+      copia.equilibrio.impactoRobusto = impactoRobusto;
+      return montarComparativo(e, copia);
+    };
+    const melhorOutro = Math.min(c.manter.impactoMensal!, c.economia.impactoMensal!);
+    expect(forcado(melhorOutro - 100).sugerido).toBe('equilibrio');
+    expect(forcado(melhorOutro + 100).sugerido).not.toBe('equilibrio');
+  });
+});
+

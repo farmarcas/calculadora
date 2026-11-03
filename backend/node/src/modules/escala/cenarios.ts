@@ -16,6 +16,7 @@ import {
   type VendaDia,
 } from './cenarios-dias.js';
 import {
+  ganhoDasHorasNovas,
   melhorEstado,
   passosDe,
   perdaMensal,
@@ -77,7 +78,8 @@ export type DiaFechar = { dia: number; vendaMes?: number | null; margemMes?: num
 export type HorarioTxt = { abre: string; fecha: string };
 export type PassoCenario =
   | { tipo: 'reduzir'; dia: number; horas: number; de: HorarioTxt; para: HorarioTxt }
-  | { tipo: 'fechar'; dia: number; de: HorarioTxt };
+  | { tipo: 'fechar'; dia: number; de: HorarioTxt }
+  | { tipo: 'estender'; dia: number; horas: number; de: HorarioTxt; para: HorarioTxt };
 // Dia de fim de semana que muda: o horário de hoje e o do cenário (nulo quando fecha).
 export type HorarioAjustado = { dia: number; antes: HorarioTxt; depois: HorarioTxt | null };
 
@@ -142,6 +144,13 @@ export type CenarioEquilibrio = {
   pessoasContratar: number;
   ociosidadePct: number;
   margemCortadaMes: number | null;
+  // Horas que o cenário abre a mais no fim de semana, com a origem da estimativa de venda de cada dia.
+  horasEstendidas: { dia: number; horasNovas: number; origem: 'registrada' | 'vizinha' | 'mista' }[];
+  // A venda das horas novas é estimada (nenhuma tem base registrada completa); a tela avisa.
+  estimativaDeVenda: boolean;
+  // Só para o dono: margem mensal das horas novas e o impacto com metade dela (decide o "Cenário sugerido").
+  margemGanhaMes?: number | null;
+  impactoRobusto?: number | null;
   // Venda mensal que deixa de entrar com as reduções e fechamentos (só o dono recebe).
   vendaCortadaMes: number | null;
   // O que o cenário muda no fim de semana (reduções e fechamentos) e os horários resultantes.
@@ -191,6 +200,8 @@ export type EntradaCenarios = {
   fatorDiaNovo?: number;
   // Turnos de sobra até os quais se contrata um parcial (0 a 3; padrão 3).
   limiteParcial?: number;
+  // O Cenário 3 também testa estender sábado e domingo (padrão: sim); `false` volta a só cortar, como antes da spec 020.
+  estenderHorario?: boolean;
   custos: Custos | null;
   dono: boolean;
 };
@@ -298,7 +309,7 @@ export const folhaAtual = (
 const listaContratacoes = (cs: Contratacao[]) =>
   cs
     .map((c) => {
-      const parcial = c.parcial ? `1 parcial de ${c.parcial.horas}h` : '';
+      const parcial = c.parcial ? `1 parcial de ${String(c.parcial.horas).replace('.', ',')}h` : '';
       if (c.inteiras === 0) return `1 ${c.funcao} (${parcial})`;
       return `${c.inteiras} ${c.funcao}${parcial ? ` e ${parcial}` : ''}`;
     })
@@ -350,18 +361,30 @@ const hmTxt = (h: { abre: number; fecha: number }): HorarioTxt => ({
   fecha: hhmm(h.fecha),
 });
 const passoTxt = (p: Passo): PassoCenario =>
-  p.tipo === 'reduzir'
-    ? { tipo: 'reduzir', dia: p.dia, horas: p.horas, de: hmTxt(p.de), para: hmTxt(p.para) }
+  p.tipo === 'reduzir' || p.tipo === 'estender'
+    ? { tipo: p.tipo, dia: p.dia, horas: p.horas, de: hmTxt(p.de), para: hmTxt(p.para) }
     : { tipo: 'fechar', dia: p.dia, de: hmTxt(p.de) };
+// Horário depois do passo (nulo quando o dia fecha).
+const depoisDoPasso = (p: PassoCenario) => (p.tipo === 'fechar' ? null : p.para);
 const hh = (t: string) => `${t.slice(0, 2)}h`;
 const horasTxt = (n: number) => `${String(n).replace('.', ',')} h`;
 // "Domingo fecha 8 h mais cedo (de 08h–22h para 08h–14h)" · "Sábado fecha".
 const fraseDoPasso = (p: PassoCenario) => {
   const dia = NOMES_DIA_LONGO[p.dia]!;
   const nome = dia[0]!.toUpperCase() + dia.slice(1);
-  return p.tipo === 'reduzir'
-    ? `${nome} fecha ${horasTxt(p.horas)} mais cedo (de ${hh(p.de.abre)}–${hh(p.de.fecha)} para ${hh(p.para.abre)}–${hh(p.para.fecha)})`
-    : `${nome} fecha`;
+  const faixa = (p: { de: HorarioTxt; para: HorarioTxt }) =>
+    `(de ${hh(p.de.abre)}–${hh(p.de.fecha)} para ${hh(p.para.abre)}–${hh(p.para.fecha)})`;
+  if (p.tipo === 'reduzir') return `${nome} fecha ${horasTxt(p.horas)} mais cedo ${faixa(p)}`;
+  if (p.tipo === 'estender') {
+    const cedo = Number(p.de.abre.slice(0, 2)) - Number(p.para.abre.slice(0, 2));
+    const tarde = Number(p.para.fecha.slice(0, 2)) - Number(p.de.fecha.slice(0, 2));
+    const partes = [
+      cedo > 0 ? `abre ${horasTxt(cedo)} mais cedo` : null,
+      tarde > 0 ? `fecha ${horasTxt(tarde)} mais tarde` : null,
+    ].filter(Boolean);
+    return `${nome} ${partes.join(' e ')} ${faixa(p)}`;
+  }
+  return `${nome} fecha`;
 };
 const MOTIVO_PARADA: Record<MotivoParada, string> = {
   perda: `a perda chegaria ao limite de ${TRAVAS.perdaMaxPct}% do faturamento`,
@@ -477,7 +500,7 @@ const montarEconomia = (
   const horariosAjustados: HorarioAjustado[] = passos.map((p) => ({
     dia: p.dia,
     antes: p.de,
-    depois: p.tipo === 'reduzir' ? p.para : null,
+    depois: depoisDoPasso(p),
   }));
   const naoRecomendado =
     seq.cobre && fechados.some((d) => porDia[d]!.protegido)
@@ -565,6 +588,8 @@ const montarEquilibrio = (
     ociosidadePct: 0,
     margemCortadaMes: null,
     vendaCortadaMes: null,
+    horasEstendidas: [] as CenarioEquilibrio['horasEstendidas'],
+    estimativaDeVenda: false,
     passos: [] as PassoCenario[],
     horariosAjustados: [] as HorarioAjustado[],
   };
@@ -602,10 +627,15 @@ const montarEquilibrio = (
   const recaptura = Math.min(0.3, Math.max(0, e.recaptura ?? 0));
   const fica = 1 - recaptura;
   const hoje = [...e.dias].sort((x, y) => x.dia - y.dia);
+  // Média de venda e margem por dia da semana e hora (base ou cadastro): de onde vem a venda das horas novas.
+  const tabelaHoras = vendasPorDiaEHora(e.vendas);
   const melhor = melhorEstado({
     dias: e.dias,
     porDia,
     margemMes: (dia) => porDia[dia]!.margemMes! * fica,
+    ...(tabelaHoras && e.estenderHorario !== false
+      ? { ganhoMes: (dias: DiaAberto[]) => ganhoDasHorasNovas(hoje, dias, tabelaHoras).margemMes }
+      : {}),
     avaliar: (dias) => {
       const linhas = verificarRegra(regra, dias, e.minimos, e.pessoas, opcoesDoMotor(e, regra));
       const cs = contratacoesDe(linhas);
@@ -620,12 +650,13 @@ const montarEquilibrio = (
   const { linhas, cs, custo } = melhor.avaliacao;
   const fechados = melhor.fechados;
   const margemPerdida = arred(melhor.perdida);
+  const ganhoHoras = ganhoDasHorasNovas(hoje, melhor.dias, tabelaHoras);
   const horasSemana = horasDaSemana(melhor.dias);
   const passos = passosDe(hoje, melhor.dias).map(passoTxt);
   const horariosAjustados: HorarioAjustado[] = passos.map((p) => ({
     dia: p.dia,
     antes: p.de,
-    depois: p.tipo === 'reduzir' ? p.para : null,
+    depois: depoisDoPasso(p),
   }));
   const igualEconomia =
     economia.viavel &&
@@ -660,12 +691,24 @@ const montarEquilibrio = (
     ociosidadePct: ociosidadeTotal(linhas, cs),
     margemCortadaMes: margemPerdida,
     vendaCortadaMes: arred(perdaMensal(hoje, melhor.dias, porDia) * fica),
+    horasEstendidas: ganhoHoras.porDia.map((g) => ({
+      dia: g.dia,
+      horasNovas: g.horasNovas,
+      origem: g.origem,
+    })),
+    estimativaDeVenda: ganhoHoras.porDia.some((g) => g.origem !== 'registrada'),
   };
   if (e.dono) {
     resultado.custoAdicionalMensal = arred(custo);
     resultado.acrescimoPct = folha !== null && folha > 0 ? pct((custo / folha) * 100) : null;
     const margemAbertaHoje = e.dias.reduce((s, d) => s + porDia[d.dia]!.margemMes!, 0);
-    resultado.resultadoMensal = arred(margemAbertaHoje - melhor.perdida - custo);
+    resultado.resultadoMensal = arred(
+      margemAbertaHoje - melhor.perdida + ganhoHoras.margemMes - custo,
+    );
+    resultado.margemGanhaMes = ganhoHoras.porDia.length ? ganhoHoras.margemMes : null;
+    resultado.impactoRobusto = ganhoHoras.porDia.length
+      ? arred(custo + melhor.perdida - ganhoHoras.margemMes / 2)
+      : null;
   }
   const lista = listaContratacoes(cs);
   const acoes = passos.map(fraseDoPasso).join('; ');
@@ -673,9 +716,12 @@ const montarEquilibrio = (
     e.dono && custoManter !== null && custoManter - custo > 0.005
       ? ` você economiza ${brl(custoManter - custo)} por mês de folha frente a manter tudo e perde ${brl(margemPerdida)} de margem`
       : '';
+  const estende = ganhoHoras.porDia.length > 0;
   resultado.resumo = resultado.coincideComManter
     ? 'O equilíbrio para esta loja é contratar tudo e manter o horário de hoje.'
-    : igualEconomia
+    : estende
+      ? `${acoes}${cs.length ? `, contratando ${lista}` : ', sem contratar ninguém'}. A venda das horas novas é uma estimativa${e.dono ? `: cerca de ${brl(ganhoHoras.margemMes)} de margem por mês` : ''}.`
+      : igualEconomia
       ? `O equilíbrio para esta loja é: ${acoes}. A equipe atual cobre o resto e você não contrata ninguém.`
       : `${acoes}, ${cs.length ? `contratando ${lista}` : 'sem contratar ninguém'},${economiaNaFolha || ' você paga menos folha do que perde de margem'}.`;
   resultado.resultado = resultado.coincideComManter
@@ -741,7 +787,11 @@ export const destacar = (r: CenariosRegra) => {
     equilibrio.indisponivel === null &&
     equilibrio.custoAdicionalMensal != null &&
     equilibrio.margemCortadaMes !== null
-      ? arred(equilibrio.custoAdicionalMensal + equilibrio.margemCortadaMes)
+      ? arred(
+          equilibrio.custoAdicionalMensal +
+          equilibrio.margemCortadaMes -
+          (equilibrio.margemGanhaMes ?? 0),
+        )
       : null;
   r.destaque = null;
   if (manter.impactoMensal === null || equilibrio.impactoMensal === null) return;

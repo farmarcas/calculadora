@@ -46,3 +46,15 @@ export const visaoDosCartoes = (comparativo) => {
     recolhido: recolhido && { id: recolhido.id, nome: recolhido.nome, de: recolhido.recolher === "manter" ? 1 : 2 },
   };
 };
+
+// Selo do cenário de menor custo: "Melhor resultado" quando ele dá ganho (impacto positivo para o dono).
+export const rotuloDoMelhor = (resultadoLiquidoMensal) => (resultadoLiquidoMensal > 0 ? "Melhor resultado" : "Menor custo");
+
+// "Folha adicional R$ 3.592 + margem perdida R$ 0" · "Folha adicional R$ 800 − margem ganha R$ 1.000".
+// `margemMes` vem negativo quando o cenário perde margem e positivo quando as horas novas rendem mais do que se perde.
+export const composicaoDoImpacto = (c, brl) => {
+  if (c.folhaAdicionalMensal == null) return "Informe os custos para ver a composição";
+  const folha = `Folha adicional ${brl(c.folhaAdicionalMensal)}`;
+  if (c.margemMes == null) return folha;
+  return c.margemMes > 0 ? `${folha} − margem ganha ${brl(c.margemMes)}` : `${folha} + margem perdida ${brl(Math.abs(c.margemMes))}`;
+};

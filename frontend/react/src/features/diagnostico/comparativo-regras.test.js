@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { consequencias, faltaCurta, textoDaFalta, visaoDosCartoes } from "./comparativo-regras.js";
+import { composicaoDoImpacto, consequencias, faltaCurta, rotuloDoMelhor, textoDaFalta, visaoDosCartoes } from "./comparativo-regras.js";
 
 const brl = (n) => `R$ ${n}`;
 const faltas = [{ funcao: "Atendimento", horasSemana: 32 }, { funcao: "Apoio", horasSemana: 4 }];
@@ -52,5 +52,21 @@ describe("quais cartões aparecem", () => {
   });
   it("loja que cobre tudo mostra só a frase", () => {
     expect(visaoDosCartoes({ ...cols(), lojaCobreTudo: true })).toEqual({ cobreTudo: true, visiveis: [], recolhido: null });
+  });
+});
+
+describe("selo do melhor cenário e composição do impacto", () => {
+  it("'Melhor resultado' só quando o resultado é positivo; senão 'Menor custo'", () => {
+    expect(rotuloDoMelhor(300)).toBe("Melhor resultado");
+    expect(rotuloDoMelhor(0)).toBe("Menor custo");
+    expect(rotuloDoMelhor(-3592)).toBe("Menor custo");
+    expect(rotuloDoMelhor(undefined)).toBe("Menor custo");
+  });
+  it("composição: margem perdida ou margem ganha", () => {
+    expect(composicaoDoImpacto({ folhaAdicionalMensal: 3592, margemMes: 0 }, brl)).toBe("Folha adicional R$ 3592 + margem perdida R$ 0");
+    expect(composicaoDoImpacto({ folhaAdicionalMensal: 800, margemMes: -200 }, brl)).toBe("Folha adicional R$ 800 + margem perdida R$ 200");
+    expect(composicaoDoImpacto({ folhaAdicionalMensal: 800, margemMes: 1000 }, brl)).toBe("Folha adicional R$ 800 − margem ganha R$ 1000");
+    expect(composicaoDoImpacto({ folhaAdicionalMensal: 800, margemMes: null }, brl)).toBe("Folha adicional R$ 800");
+    expect(composicaoDoImpacto({ folhaAdicionalMensal: null }, brl)).toBe("Informe os custos para ver a composição");
   });
 });

@@ -728,7 +728,11 @@ const montarEquilibrio = (
     ? 'Igual ao Cenário 1'
     : igualEconomia
       ? 'Igual ao Cenário 2'
-      : `${acoes}; ${cs.length ? `contrata ${lista}` : 'sem contratar ninguém'}`;
+      : `${acoes}; ${
+          cs.length
+            ? `contrata ${melhor.avaliacao.pessoas} pessoa${melhor.avaliacao.pessoas === 1 ? '' : 's'}: ${listaDeFuncoes(cs.map((c) => c.funcao.toLowerCase()))}`
+            : 'sem contratar ninguém'
+        }`;
   resultado.direcionamento = resultado.coincideComManter
     ? 'Nenhuma redução do fim de semana compensa o custo de cobrir o horário: o equilíbrio é o mesmo do Cenário 1, mantendo o horário de hoje.'
     : igualEconomia

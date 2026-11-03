@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { api } from "../../api/client.js";
 import { Aviso, Botao } from "../../components/ui/index.jsx";
-import { consequencias, faltaCurta, visaoDosCartoes } from "./comparativo-regras.js";
+import { composicaoDoImpacto, consequencias, faltaCurta, rotuloDoMelhor, visaoDosCartoes } from "./comparativo-regras.js";
 
 const NOMES_DIA = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
 const brl = (n) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
@@ -88,7 +88,7 @@ function Cartao({ posicao, c, descricao, resultado, horarioAtual, horasManter, s
   const dif = c.horasSemana - horasManter;
   const pills = [
     sugerido && ["primaria", "Cenário sugerido"],
-    menorImpacto && ["sucesso", "Menor custo"],
+    menorImpacto && ["sucesso", rotuloDoMelhor(impacto)],
     status,
     maisCara && ["atencao", "Mais cara que manter"],
   ].filter(Boolean);
@@ -143,7 +143,7 @@ function Cartao({ posicao, c, descricao, resultado, horarioAtual, horasManter, s
           <>
             <div className="text-[32px] leading-[41.6px] font-bold text-[var(--text-strong)]">{impacto == null ? "—" : `${impacto < 0 ? MENOS : impacto > 0 ? "+" : ""}${mod(impacto)}`}</div>
             <div className="text-xs leading-4 text-[var(--text-secondary)]">
-              {c.folhaAdicionalMensal == null ? "Informe os custos para ver a composição" : `Folha adicional ${brl(c.folhaAdicionalMensal)}${c.margemMes == null ? "" : ` + margem perdida ${brl(Math.abs(c.margemMes))}`}`}
+              {composicaoDoImpacto(c, brl)}
             </div>
             <div
               className="mt-2 h-2 rounded-btn bg-[var(--border-subtle)]"

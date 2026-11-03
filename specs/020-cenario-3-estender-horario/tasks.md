@@ -16,9 +16,9 @@
 - [x] T011 Rodar tudo e commitar a fatia
 
 ## Fatia 3 — Cartão (tela)
-- [ ] T012 `Comparativo.jsx`/`comparativo-regras.js`: selo "Melhor resultado" quando o impacto do destaque é positivo, "Menor custo" nos demais casos; composição "Folha adicional R$ X − margem ganha R$ Y" quando há ganho
-- [ ] T013 `Comparativo.jsx`: aviso "Venda das horas novas é estimada" (com a origem) quando `estimativaDeVenda`; o resultado do cartão mostra a extensão
-- [ ] T014 Testes da tela e commitar a fatia
+- [x] T012 `Comparativo.jsx`/`comparativo-regras.js`: selo "Melhor resultado" quando o impacto do destaque é positivo, "Menor custo" nos demais casos; composição "Folha adicional R$ X − margem ganha R$ Y" quando há ganho
+- [x] T013 `Comparativo.jsx`: aviso "Venda das horas novas é estimada" (com a origem) quando `estimativaDeVenda`; o resultado do cartão mostra a extensão
+- [x] T014 Testes da tela e commitar a fatia
 
 ## Fatia 4 — Conferência final
 - [ ] T015 Conferir as 20 lojas do grupo pela API (quais mudam, quais ficam iguais ao de hoje) e abrir na tela uma loja com extensão e uma sem, como dono e como gerente

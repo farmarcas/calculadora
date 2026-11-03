@@ -21,6 +21,6 @@
 - [x] T014 Testes da tela e commitar a fatia
 
 ## Fatia 4 — Conferência final
-- [ ] T015 Conferir as 20 lojas do grupo pela API (quais mudam, quais ficam iguais ao de hoje) e abrir na tela uma loja com extensão e uma sem, como dono e como gerente
-- [ ] T016 Conferir tempo da busca (abaixo de 1 s por diagnóstico) e que os cenários 1 e 2 não mudaram
-- [ ] T017 README (seção dos cenários), resumo final com o que ficou de fora (dias de semana de maior venda); rodar tudo e commitar
+- [x] T015 Conferir as 20 lojas do grupo pela API (quais mudam, quais ficam iguais ao de hoje) e abrir na tela uma loja com extensão e uma sem, como dono e como gerente
+- [x] T016 Conferir tempo da busca (abaixo de 1 s por diagnóstico) e que os cenários 1 e 2 não mudaram
+- [x] T017 README (seção dos cenários), resumo final com o que ficou de fora (dias de semana de maior venda); rodar tudo e commitar

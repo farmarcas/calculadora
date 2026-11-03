@@ -304,6 +304,10 @@ const listaContratacoes = (cs: Contratacao[]) =>
     })
     .join(', ');
 
+// "atendimento", "farmacêutico e apoio", "farmacêutico, atendimento e apoio".
+const listaDeFuncoes = (nomes: string[]) =>
+  nomes.length < 2 ? nomes.join('') : `${nomes.slice(0, -1).join(', ')} e ${nomes[nomes.length - 1]}`;
+
 const montarManter = (e: EntradaCenarios, linhas: LinhaFuncao[], folha: number | null) => {
   const nomeRegra = regraPara(e.regraId, e.convencao8h24, e.parametros).nome;
   const cs = contratacoesDe(linhas);
@@ -313,7 +317,7 @@ const montarManter = (e: EntradaCenarios, linhas: LinhaFuncao[], folha: number |
     resultado:
       cs.length === 0
         ? 'Nada a contratar'
-        : `Contrata ${pessoasContratar} pessoa${pessoasContratar === 1 ? '' : 's'}: ${cs.map((c) => c.funcao.toLowerCase()).join(' e ')}`,
+        : `Contrata ${pessoasContratar} pessoa${pessoasContratar === 1 ? '' : 's'}: ${listaDeFuncoes(cs.map((c) => c.funcao.toLowerCase()))}`,
     direcionamento:
       cs.length === 0
         ? `O quadro atual já cobre todos os horários na regra de ${nomeRegra}: não há nada a contratar para manter a loja aberta como hoje.`

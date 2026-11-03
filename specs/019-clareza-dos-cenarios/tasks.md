@@ -20,6 +20,6 @@
 - [x] T013 Testes da tela e commitar a fatia
 
 ## Fatia 4 — Conferência final
-- [ ] T014 Conferir Sumaré, uma loja que cobre tudo, uma com corte de fim de semana e uma sem custos, como dono e como gerente, em 5 larguras (360 a 1920), com teclado e leitor de tela
+- [x] T014 Conferir Sumaré, uma loja que cobre tudo, uma com corte de fim de semana e uma sem custos, como dono e como gerente, em 5 larguras (360 a 1920), com teclado e leitor de tela
 - [x] T015 Conferir que o quadro do diagnóstico, os cenários 4 e 5, o simulador e os valores em R$ (só dono) não mudaram
 - [x] T016 README (seção do Diagnóstico) e resumo final com o que mudou e o que ficou de fora; rodar tudo e commitar

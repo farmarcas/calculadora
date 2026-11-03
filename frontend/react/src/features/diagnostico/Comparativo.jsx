@@ -97,7 +97,8 @@ function Cartao({ posicao, c, descricao, resultado, horarioAtual, horasManter, s
   const horasOciosas = c.contratacoes.reduce((s, x) => s + (x.horasOciosas ?? 0), 0);
   const custoOciosidade = dono && c.folhaAdicionalMensal > 0 && c.ociosidadePct ? Math.round((c.folhaAdicionalMensal * c.ociosidadePct) / 100) : null;
   const horario = c.ajustes?.length ? c.ajustes.map(linhaDeAjuste).join(", ") : mudancaDeHorario(c.diasFechar, horarioAtual);
-  const faixaAmarela = consequencias(c, { dono, brl, horasAMenos: Math.max(0, -dif) });
+  // Cenário inviável não é uma opção: o motivo já está nos avisos, sem somar a faixa de consequência.
+  const faixaAmarela = c.status === "inviavel" ? [] : consequencias(c, { dono, brl, horasAMenos: Math.max(0, -dif) });
   const larguraBarra = impacto != null && maiorImpacto > 0 ? Math.min(100, (Math.abs(impacto) / maiorImpacto) * 100) : 0;
 
   let comparacao = null;

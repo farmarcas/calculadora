@@ -323,4 +323,10 @@ describe('premissas, recolhimento e selo sugerido', () => {
     expect('sugerido' in r).toBe(false);
     expect(col(r, 'economia').faltaPorFuncao?.length).toBeGreaterThan(0);
   });
+
+  it('o resultado do Cenário 1 lista as funções em português corrido', () => {
+    const r = semCorte({ pessoas: farm(44, 44, 44).slice(0, 1).concat([{ funcao: 'Atendimento', cargaH: 40 }]) });
+    expect(col(r, 'manter').resultado).toMatch(/^Contrata \d+ pessoas?: [\p{L}, ]+$/u);
+    expect(col(r, 'manter').resultado).not.toMatch(/ e .* e /);
+  });
 });

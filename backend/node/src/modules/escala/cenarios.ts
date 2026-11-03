@@ -52,7 +52,9 @@ export type Contratacao = {
 export type CenarioManter = {
   // Só para o dono: custo adicional + margem perdida, por mês (nulo se faltar dado).
   impactoMensal?: number | null;
+  // Premissa fixa do cenário e o que acontece nesta loja ("Contrata 1 atendente e 1 apoio").
   foco: string;
+  resultado: string;
   direcionamento: string;
   horarioSemana: DiaCenario[];
   horasSemana: number;
@@ -127,7 +129,9 @@ export type CenarioEquilibrio = {
   // A melhor combinação é manter todos os dias (contratar tudo) ou é a mesma do Cenário 2.
   coincideComManter: boolean;
   coincideComEconomia: boolean;
+  // Premissa fixa do cenário e o que acontece nesta loja.
   foco: string;
+  resultado: string;
   direcionamento: string;
   resumo: string;
   horasReduzir: number;
@@ -305,7 +309,8 @@ const montarManter = (e: EntradaCenarios, linhas: LinhaFuncao[], folha: number |
   const cs = contratacoesDe(linhas);
   const pessoasContratar = cs.reduce((s, c) => s + c.pessoas, 0);
   const manter: CenarioManter = {
-    foco: 'Cobrir todo o horário de funcionamento',
+    foco: 'Contratar para cobrir a escala nos horários de hoje',
+    resultado: cs.length === 0 ? 'Nada a contratar' : `Contrata ${listaContratacoes(cs)}`,
     direcionamento:
       cs.length === 0
         ? `O quadro atual já cobre todos os horários na regra de ${nomeRegra}: não há nada a contratar para manter a loja aberta como hoje.`
@@ -556,11 +561,12 @@ const montarEquilibrio = (
     passos: [] as PassoCenario[],
     horariosAjustados: [] as HorarioAjustado[],
   };
-  const foco = 'Equilibrar contratação e dias abertos';
+  const foco = 'A melhor combinação entre contratar e ajustar horários';
   const indisponivel = (motivo: 'custos' | 'vendas', texto: string): CenarioEquilibrio => ({
     ...vazio,
     indisponivel: { motivo, texto },
     foco,
+    resultado: 'Não calculado: faltam dados',
     direcionamento: texto,
     resumo: texto,
     ...(e.dono ? { custoAdicionalMensal: null, acrescimoPct: null, resultadoMensal: null } : {}),
@@ -625,6 +631,7 @@ const montarEquilibrio = (
     coincideComManter: passos.length === 0,
     coincideComEconomia: igualEconomia,
     foco,
+    resultado: '',
     direcionamento: '',
     resumo: '',
     horasReduzir: arred(horasDaSemana(e.dias) - horasSemana),
@@ -664,6 +671,11 @@ const montarEquilibrio = (
     : igualEconomia
       ? `O equilíbrio para esta loja é: ${acoes}. A equipe atual cobre o resto e você não contrata ninguém.`
       : `${acoes}, ${cs.length ? `contratando ${lista}` : 'sem contratar ninguém'},${economiaNaFolha || ' você paga menos folha do que perde de margem'}.`;
+  resultado.resultado = resultado.coincideComManter
+    ? 'Igual ao Cenário 1'
+    : igualEconomia
+      ? 'Igual ao Cenário 2'
+      : `${acoes}; ${cs.length ? `contrata ${lista}` : 'sem contratar ninguém'}`;
   resultado.direcionamento = resultado.coincideComManter
     ? 'Nenhuma redução do fim de semana compensa o custo de cobrir o horário: o equilíbrio é o mesmo do Cenário 1, mantendo o horário de hoje.'
     : igualEconomia

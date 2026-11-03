@@ -260,3 +260,67 @@ describe('comparativo dos cenários 1, 2 e 3', () => {
     expect(JSON.stringify(r)).not.toContain('R$');
   });
 });
+
+describe('premissas, recolhimento e selo sugerido', () => {
+  // Farmacêutico coberto e atendimento abaixo do nível de hoje na regra de 42 h: o Cenário 2 não contrata nem muda horário.
+  const semCorte = (extra: Partial<EntradaCenarios> = {}) =>
+    comparar({
+      regraId: 'r42',
+      minimos: { Farmacêutico: 1 },
+      pessoas: [...farm(44, 44, 44), ...[44, 44].map((cargaH) => ({ funcao: 'Atendimento', cargaH }))],
+      custos: { salarioMedio: { Farmacêutico: 10000, Atendimento: 3000 }, encargosPct: 0 },
+      ...extra,
+    });
+
+  it('premissas fixas e resultado por cenário, em qualquer loja', () => {
+    for (const r of [comparar(), semCorte()]) {
+      expect(col(r, 'manter').premissa).toBe('Contratar para cobrir a escala nos horários de hoje');
+      expect(col(r, 'economia').premissa).toBe('Não contratar; ajustar horários só se precisar');
+      expect(col(r, 'equilibrio').premissa).toBe('A melhor combinação entre contratar e ajustar horários');
+      expect(r.cenarios.every((c) => c.resultado.length > 0)).toBe(true);
+    }
+  });
+
+  it('Cenário 2 sem corte: nenhum horário muda e a falta fica por função, sem venda perdida', () => {
+    const eco = col(semCorte(), 'economia');
+    expect(eco.resultado).toBe('Nenhum horário precisa mudar');
+    expect(eco.faltaPorFuncao?.length).toBeGreaterThan(0);
+    expect(eco.semFarmaceuticoH).toBe(0);
+    expect(eco.faturamentoPerdidoMensal).toBe(0);
+  });
+
+  it('Cenário 2 com corte: o resultado descreve o dia que muda', () => {
+    expect(col(comparar(), 'economia').resultado).toContain('Sábado fecha');
+  });
+
+  it('Cenário 3 igual ao 1 fica para recolher, apontando o cenário de origem', () => {
+    const r = semCorte();
+    expect(col(r, 'equilibrio').recolher).toBe('manter');
+    expect(col(r, 'equilibrio').resultado).toBe('Igual ao Cenário 1');
+    expect(col(comparar(), 'equilibrio').recolher).toBeNull();
+  });
+
+  it('o selo "Cenário sugerido" não vai ao Cenário 2 quando ele deixa função abaixo do nível de hoje', () => {
+    const r = semCorte();
+    expect(r.destaque).toBe('economia');
+    expect(r.sugerido).toBe('manter');
+  });
+
+  it('sem função abaixo do nível de hoje, o sugerido é o de menor custo', () => {
+    const r = comparar();
+    expect(r.sugerido).toBe(r.destaque);
+  });
+
+  it('loja que já cobre tudo: os cenários não têm o que mostrar', () => {
+    const r = comparar({ pessoas: farm(44, 44, 44) });
+    expect(r.lojaCobreTudo).toBe(true);
+    expect(semCorte().lojaCobreTudo).toBe(false);
+    expect(comparar().lojaCobreTudo).toBe(false);
+  });
+
+  it('gerente não recebe selo sugerido nem valores, mas recebe a falta em horas', () => {
+    const r = semCorte({ dono: false });
+    expect('sugerido' in r).toBe(false);
+    expect(col(r, 'economia').faltaPorFuncao?.length).toBeGreaterThan(0);
+  });
+});

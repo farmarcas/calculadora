@@ -45,22 +45,22 @@ export default function PainelPendencias({ resultado, perfil, aberto, onAbrir, o
   const pct = total ? Math.round((feitos / total) * 100) : 0;
 
   return (
-    <section role="region" aria-label="O que falta preencher" className="mt-4 rounded-card border border-[var(--func-warning-300)]" style={{ background: "var(--func-attention-100)" }}>
-      <div className="flex min-h-14 flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2 sm:min-h-12">
-        <h3 aria-live="polite" className="m-0 text-sm font-bold text-[var(--text-strong)]">{tituloDoPainel(abertos)}</h3>
-        <div className="flex items-center gap-2 text-xs text-[var(--text-strong)]">
+    <section role="region" aria-label="O que falta preencher" className="mt-4 rounded-card border border-[var(--func-warning-100)]" style={{ background: "var(--func-attention-100)" }}>
+      <div className="flex min-h-14 flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2 sm:min-h-12">
+        <h3 aria-live="polite" className="order-1 m-0 w-full text-sm font-bold text-[var(--text-strong)] sm:w-auto">{tituloDoPainel(abertos)}</h3>
+        <div className="order-2 flex min-w-0 items-center gap-2 text-xs text-[var(--text-strong)]">
           <span>{feitos} de {total} feitos</span>
-          <div role="progressbar" aria-label="Progresso do cadastro" aria-valuemin={0} aria-valuemax={total} aria-valuenow={feitos} className="h-2 w-24 rounded-full bg-white/70">
+          <div role="progressbar" aria-label="Progresso do cadastro" aria-valuemin={0} aria-valuemax={total} aria-valuenow={feitos} className="h-2 w-24 shrink-0 rounded-full bg-white/70">
             <div className="h-full rounded-full bg-[var(--color-primary)]" style={{ width: `${pct}%` }} />
           </div>
         </div>
-        {!ehDono && soDono > 0 && <span className="text-xs text-[var(--text-strong)]">{voceResolve} você pode preencher · {soDono} só o dono do grupo</span>}
-        <button type="button" aria-expanded={aberto} onClick={() => onAbrir(!aberto)} className="ml-auto min-h-11 border-0 bg-transparent p-0 text-sm font-bold text-[var(--text-strong)] cursor-pointer sm:min-h-0">
+        {!ehDono && soDono > 0 && <span className="order-4 w-full text-xs text-[var(--text-strong)] sm:order-3 sm:w-auto">{voceResolve} você pode preencher · {soDono} só o dono do grupo</span>}
+        <button type="button" aria-expanded={aberto} onClick={() => onAbrir(!aberto)} className="order-3 ml-auto min-h-11 shrink-0 border-0 bg-transparent p-0 text-sm font-bold text-[var(--text-strong)] cursor-pointer sm:order-4 sm:min-h-0">
           {aberto ? "Esconder ▴" : "Ver o que falta ▾"}
         </button>
       </div>
       {aberto && (
-        <div className="grid gap-x-6 gap-y-2 border-t border-[var(--func-warning-300)] bg-[var(--surface-card)] px-4 py-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-x-6 gap-y-2 border-t border-[var(--func-warning-100)] bg-[var(--surface-card)] px-4 py-3 sm:grid-cols-2 lg:grid-cols-3">
           {grupos.map(([id, nome, lista]) => (
             <div key={id} className="min-w-0">
               <div className="text-xs font-bold uppercase text-[var(--text-secondary)]">{nome} · {lista.filter((i) => !i.feito).length}</div>

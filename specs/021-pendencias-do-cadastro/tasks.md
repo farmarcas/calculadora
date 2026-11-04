@@ -23,8 +23,8 @@
 - [x] T014 Conferir no navegador e commitar a fatia
 
 ## Fatia 5 — Lista de lojas e celular
-- [ ] T015 `ListaLojas.jsx`: nas lojas em Revisar, segunda linha "N pendências · principal motivo" (singular "1 pendência"), em uma linha com reticências; Completo sem mudança; etiqueta e filtro intactos
-- [ ] T016 Celular (360 px): faixa recolhida de 56 px, lista empilhada com "Preencher" de largura total, alvos de 44 px, sem rolagem lateral
+- [x] T015 `ListaLojas.jsx`: nas lojas em Revisar, segunda linha "N pendências · principal motivo" (singular "1 pendência"), em uma linha com reticências; Completo sem mudança; etiqueta e filtro intactos
+- [x] T016 Celular (360 px): faixa recolhida de 56 px, lista empilhada com "Preencher" de largura total, alvos de 44 px, sem rolagem lateral
 
 ## Fatia 6 — Conferência final
 - [ ] T017 Conferir como dono, gestor e Somente consulta (nenhuma aba some; itens do dono sem botão), em 5 larguras (360 a 1920), com teclado e leitor de tela, e no grupo do Sumaré (as 37 lojas: totais e motivo principal coerentes com a regra)

@@ -107,15 +107,13 @@ describe('situacaoDoCadastro', () => {
     expect(sit({ ...ok, faturamento: null }, 0).motivo).toMatch(/farmacêutico/);
   });
 
-  it('sem margem bruta média: vai para revisão, e margem zero também', () => {
+  it('a margem bruta média é opcional: sem ela (ou zerada) a loja continua Completo', () => {
     expect(sit({ ...ok, faturamento: { ...ok.faturamento!, margemPct: null } }, 1)).toEqual({
-      status: 'revisar',
-      motivo: 'Falta a margem bruta média',
-      quantidade: 1,
+      status: 'completo',
+      motivo: null,
+      quantidade: 0,
     });
-    expect(sit({ ...ok, faturamento: { ...ok.faturamento!, margemPct: 0 } }, 1).motivo).toBe(
-      'Falta a margem bruta média',
-    );
+    expect(sit({ ...ok, faturamento: { ...ok.faturamento!, margemPct: 0 } }, 1).status).toBe('completo');
   });
 
   it('sem salário médio de uma função que conta: lista as que faltam', () => {
@@ -138,7 +136,7 @@ describe('situacaoDoCadastro', () => {
     );
   });
 
-  it('margem e salário vêm depois do faturamento na ordem das falhas', () => {
+  it('o salário vem depois do faturamento na ordem das falhas', () => {
     expect(
       sit({ ...ok, faturamento: null }, 1, { funcoesNaEquipe: [], salariosInformados: [] }).motivo,
     ).toBe('Falta o faturamento por dia');
@@ -154,17 +152,17 @@ describe('situacaoDoCadastro', () => {
 
     it('tudo pendente: lista cada item na ordem de verificação, com a aba e quem preenche', () => {
       const todas = pendenciasDoCadastro(vazia, 0, { funcoesNaEquipe: [], salariosInformados: [] });
-      expect(todas.map((p) => p.id)).toEqual(['dados', 'funcionamento', 'farmaceutico', 'margem', 'salario:Farmacêutico']);
-      expect(todas.map((p) => p.aba)).toEqual(['dados', 'dados', 'equipe', 'dados', 'regras']);
-      expect(todas.map((p) => p.soDono)).toEqual([false, false, false, true, true]);
+      expect(todas.map((p) => p.id)).toEqual(['dados', 'funcionamento', 'farmaceutico', 'salario:Farmacêutico']);
+      expect(todas.map((p) => p.aba)).toEqual(['dados', 'dados', 'equipe', 'regras']);
+      expect(todas.map((p) => p.soDono)).toEqual([false, false, false, true]);
       expect(todas[0]).toMatchObject({ campos: ['nome', 'cidade', 'uf', 'regime'], texto: 'Falta: nome, cidade, UF e regime tributário.' });
     });
 
     it('2 ou 3 pendências em abas diferentes', () => {
-      const l = { ...ok, faturamento: { ...ok.faturamento!, margemPct: null } };
+      const l = { ...ok, horarios: null, faturamento: { ...ok.faturamento!, mensal: null } };
       expect(ids(l, 0, { funcoesNaEquipe: ['Atendimento'], salariosInformados: ['Farmacêutico'] })).toEqual([
+        'funcionamento',
         'farmaceutico',
-        'margem',
         'salario:Atendimento',
       ]);
     });

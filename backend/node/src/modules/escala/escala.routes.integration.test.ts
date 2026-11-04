@@ -377,7 +377,7 @@ describe('escala (rotas)', () => {
     const dono = await eco();
     // Só o sábado pode mudar (não há domingo): reduz até o piso de 4 h (corta 2 h: 8h–14h → 8h–12h). Não cobre
     // (11 turnos exigidos, 5 de capacidade) e fechar o sábado perderia 3466,67 (12,3% > 10%): para na trava de perda.
-    // Perda do corte: 3466,67 × 2 ÷ 6 = 1155,56 (4,1%); margem de 25% = 288,89.
+    // Só o faturamento por dia do Cadastro (sem base comercial): o corte é montado, mas a venda perdida não é estimada.
     expect(dono.viavel).toBe(false);
     expect(dono.naoResolveSozinho).toBe(true);
     expect(dono.travou).toBe('perda');
@@ -387,8 +387,10 @@ describe('escala (rotas)', () => {
       expect(dono.horarioSemana[d]).toMatchObject({ aberto: true, abre: '08:00', fecha: '20:00' });
     expect(dono.horasSemana).toBe(64);
     expect(dono.horasReduzir).toBe(2);
-    expect(dono.vendaCortadaMes).toBe(1155.56);
-    expect(dono.margemCortadaMes).toBe(288.89);
+    expect(dono.semVendaHoraria).toBe(true);
+    expect(dono.vendaCortadaMes).toBeNull();
+    expect(dono.vendaCortadaPorDia).toEqual([]);
+    expect(dono.aviso).toContain('Sem venda hora a hora');
     expect(dono.perdaFaturamentoPct).toBe(4.1);
     expect(dono.faltaH).toBeGreaterThan(0);
     expect(dono.passos).toEqual([
@@ -402,7 +404,7 @@ describe('escala (rotas)', () => {
     ]);
     expect(dono.impactoMensal).toBeNull(); // não resolve sozinho: fora da escolha do selo
 
-    // sem a margem informada, a margem perdida é nula (nunca zero)
+    // a margem não entra mais na conta: sem ela nada muda
     await reqGe()
       .patch(`/api/v1/lojas/${lojaId}`)
       .set(admin)
@@ -414,9 +416,9 @@ describe('escala (rotas)', () => {
         },
       });
     const semMargem = await eco();
-    expect(semMargem.margemInformada).toBe(false);
-    expect(semMargem.margemCortadaMes).toBeNull();
-    expect(semMargem.vendaCortadaMes).toBe(1155.56);
+    expect(semMargem.vendaCortadaMes).toBeNull();
+    expect(semMargem.semVendaHoraria).toBe(true);
+    expect('margemCortadaMes' in semMargem).toBe(false);
     await reqGe()
       .patch(`/api/v1/lojas/${lojaId}`)
       .set(admin)
@@ -444,8 +446,8 @@ describe('escala (rotas)', () => {
           depois: { abre: '08:00', fecha: '12:00' },
         },
       ]);
-      expect('margemCortadaMes' in r).toBe(false);
       expect('vendaCortadaMes' in r).toBe(false);
+      for (const d of r.vendaCortadaPorDia) expect('vendaMes' in d).toBe(false);
       expect('perdaFaturamentoPct' in r).toBe(false);
       const texto = JSON.stringify(r);
       for (const valor of ['1155', '288', '4.1', 'R$']) expect(texto).not.toContain(valor);
@@ -474,7 +476,7 @@ describe('escala (rotas)', () => {
     // sem venda por dia: falta o faturamento
     expect((await cen()).equilibrio.indisponivel.motivo).toBe('vendas');
 
-    // com faturamento e margem, mas sem custos: faltam os salários
+    // só o faturamento por dia do Cadastro: sem venda hora a hora não dá para comparar contratar com mexer no horário
     await reqGe()
       .patch(`/api/v1/lojas/${lojaId}`)
       .set(admin)
@@ -482,9 +484,40 @@ describe('escala (rotas)', () => {
         faturamento: {
           dias: [1000, 1100, 900, 1200, 1500, 800, null],
           mensal: null,
-          margemPct: 25,
+          margemPct: null,
         },
       });
+    const semHoraria = (await cen()).equilibrio;
+    expect(semHoraria.indisponivel.motivo).toBe('vendas');
+    expect(semHoraria.indisponivel.texto).toContain('hora a hora');
+    expect(semHoraria.semVendaHoraria).toBe(true);
+
+    // com a base comercial (venda de cada hora, segunda a sexta 8h–20h e sábado 8h–14h): faltam os salários
+    const dias = [
+      ['07/09/2026', 12, 1000],
+      ['08/09/2026', 12, 1100],
+      ['09/09/2026', 12, 900],
+      ['10/09/2026', 12, 1200],
+      ['11/09/2026', 12, 1500],
+      ['12/09/2026', 6, 800],
+    ] as const;
+    const linhas = dias.flatMap(([data, horas, total]) =>
+      Array.from({ length: horas }, (_, i) => [
+        data,
+        String(8 + i),
+        '001',
+        (total / horas).toFixed(2).replace('.', ','),
+        '10',
+      ]),
+    );
+    await reqGe()
+      .post('/api/v1/cargas/base')
+      .set(admin)
+      .attach(
+        'arquivo',
+        await xlsx(['Data', 'Hora', 'Cod_Loja', 'Venda_Liquida_RS', 'Clientes_Atendidos'], linhas),
+        'base.xlsx',
+      );
     expect((await cen()).equilibrio.indisponivel.motivo).toBe('custos');
 
     await reqGe()
@@ -493,59 +526,41 @@ describe('escala (rotas)', () => {
       .send({ salarioMedio: { Farmacêutico: 8000 }, encargosPct: 40 });
     const dono = await cen();
     const e = dono.equilibrio;
-    // Segunda a sexta (12h) e sábado (6h): 66h e 11 turnos; 1 farmacêutica de 40h (5 turnos).
-    // Protegidos (maiores vendas): terça, quinta e sexta. O Cenário 3 só mexe no fim de semana (sábado, 6 h, venda de 3466,67
-    // por mês): pode reduzir até 2 h (restam 4 h) e fechar fica de fora pela trava de perda de 10% (12,3%). Manter tudo =
-    // parcial de 26h (8434,4). Reduzir 1 h: gap 25 h = 5000 × 1,622 = 8110 + margem de 144,44 = 8254,44. Reduzir 2 h: gap 24 h =
-    // 4800 × 1,622 = 7785,6 + margem de 288,89 = 8074,49 (o melhor).
     expect(e.indisponivel).toBeNull();
+    expect(e.semVendaHoraria).toBe(false);
     expect(e.diasFechar).toEqual([]);
-    expect(e.passos).toMatchObject([{ tipo: 'reduzir', dia: 5, horas: 2 }]);
-    expect(e.contratacoes[0]).toMatchObject({
-      funcao: 'Farmacêutico',
-      inteiras: 0,
-      parcial: { horas: 24 },
-    });
-    expect(e.custoAdicionalMensal).toBe(7785.6);
-    expect(e.margemCortadaMes).toBe(288.89);
-    expect(e.impactoMensal).toBe(8074.49);
+    // O Cenário 1 é a base (folha de 8000 × 1,622 por 26 h de parcial = 8434,4); os outros cenários valem pelo saldo
+    // = economia de folha − venda perdida + venda adicional das horas novas.
     expect(dono.manter.impactoMensal).toBe(8434.4);
-    expect(dono.destaque).toBe('equilibrio');
-    expect(e.resumo).toContain('Sábado fecha 2 h mais cedo');
-
-    // Comparativo lado a lado. Folha atual: 8000 × 1,622 = 12976. Faturamento de referência: soma dos dias 6500 ×
-    // 52 ÷ 12 = 28166,67 por mês. Impactos: Cenário 1 = 8434,4; Cenário 2 = 3250; Cenário 3 = 8074,49.
-    const comp = dono.comparativo;
-    expect(comp.cenarios.map((c: { id: string }) => c.id)).toEqual([
-      'manter',
-      'economia',
-      'equilibrio',
-    ]);
-    expect(comp.destaque).toBe('equilibrio');
-    const por = Object.fromEntries(comp.cenarios.map((c: { id: string }) => [c.id, c]));
+    expect(dono.comparativo.cenarios.map((c: { id: string }) => c.id)).toEqual(['manter', 'economia', 'equilibrio']);
+    const por = Object.fromEntries(dono.comparativo.cenarios.map((c: { id: string }) => [c.id, c]));
     expect(por.manter).toMatchObject({
       status: 'viavel',
       custoFolhaMensal: 21410.4,
-      resultadoLiquidoMensal: -8434.4,
-      impactoPctFaturamento: 29.9,
+      folhaAdicionalMensal: 8434.4,
+      economiaFolhaMensal: 0,
+      saldoMensal: 0,
+      saldoAnual: 0,
+      pesoNoFaturamentoPct: 0,
     });
-    // Cenário 2 (só o sábado, até 4 h): perda 1155,56, margem 288,89 (1,0% do faturamento de referência)
-    expect(por.economia).toMatchObject({
-      status: 'nao_resolve',
-      diasFechar: [],
-      custoFolhaMensal: 12976,
-      margemMes: -288.89,
-      impactoPctFaturamento: 1,
-    });
-    expect(por.equilibrio).toMatchObject({
-      status: 'viavel',
-      diasFechar: [],
-      custoFolhaMensal: 20761.6,
-      margemMes: -288.89,
-      resultadoLiquidoMensal: -8074.49,
-      impactoPctFaturamento: 28.7,
-    });
+    // Cenário 2 (só o sábado, até 4 h): perde as 2 últimas horas do sábado (133,33 por hora × 52 ÷ 12 = 577,78 cada)
+    expect(por.economia).toMatchObject({ status: 'nao_resolve', diasFechar: [], custoFolhaMensal: 12976, economiaFolhaMensal: 8434.4 });
+    expect(por.economia.faturamentoPerdidoMensal).toBeCloseTo(1155.56, 0);
+    expect(por.economia.saldoMensal).toBeCloseTo(8434.4 - 1155.56, 0);
+    expect(por.economia.vendaPerdidaPorDia).toMatchObject([{ dia: 5, horasFechadas: 2, ate: 12 }]);
+    // Cenário 3: o saldo fecha com a conta aberta
+    const eq3 = por.equilibrio;
+    expect(eq3.status).toBe('viavel');
+    expect(eq3.saldoMensal).toBeCloseTo(
+      eq3.economiaFolhaMensal - eq3.faturamentoPerdidoMensal + eq3.vendaAdicionalMensal,
+      1,
+    );
+    expect(eq3.saldoAnual).toBeCloseTo(eq3.saldoMensal * 12, 0);
+    expect(['manter', 'equilibrio']).toContain(dono.comparativo.destaque);
     expect(por.economia.alertas.join(' ')).toContain('Cenário 3');
+    const textoDono = JSON.stringify(dono);
+    for (const chave of ['margemCortadaMes', 'margemGanhaMes', 'resultadoLiquidoMensal', 'ganhoFrenteManterMensal', 'margemInformada'])
+      expect(textoDono).not.toContain(chave);
 
     for (const h of [
       { 'X-Perfil': 'SCHEDULE_MANAGER', 'X-GE': GE_INICIAL_ID },
@@ -554,13 +569,12 @@ describe('escala (rotas)', () => {
       const r = await cen(h);
       expect(r.equilibrio.indisponivel).toBeNull();
       expect(r.equilibrio.diasFechar).toEqual([]);
-      expect(r.equilibrio.passos).toMatchObject([{ tipo: 'reduzir', dia: 5, horas: 2 }]);
-      expect(r.equilibrio.pessoasContratar).toBe(1);
       for (const campo of [
         'custoAdicionalMensal',
         'acrescimoPct',
-        'resultadoMensal',
-        'margemCortadaMes',
+        'vendaCortadaMes',
+        'vendaGanhaMes',
+        'impactoRobusto',
         'impactoMensal',
       ])
         expect(campo in r.equilibrio).toBe(false);
@@ -568,22 +582,20 @@ describe('escala (rotas)', () => {
       expect('impactoMensal' in r.manter).toBe(false);
       // comparativo: contratações, dias, horas, status e alertas; nenhuma linha em reais e nenhum destaque
       expect('destaque' in r.comparativo).toBe(false);
-      expect(r.comparativo.cenarios.map((c: { status: string }) => c.status)).toEqual([
-        'viavel',
-        'nao_resolve',
-        'viavel',
-      ]);
-      for (const c of r.comparativo.cenarios)
+      for (const c of r.comparativo.cenarios) {
         for (const campo of [
           'custoFolhaMensal',
-          'margemMes',
-          'resultadoLiquidoMensal',
-          'impactoPctFaturamento',
+          'saldoMensal',
+          'saldoAnual',
+          'economiaFolhaMensal',
+          'faturamentoPerdidoMensal',
+          'pesoNoFaturamentoPct',
         ])
           expect(campo in c).toBe(false);
+        for (const d of c.vendaPerdidaPorDia ?? []) expect('vendaMes' in d).toBe(false);
+      }
       const texto = JSON.stringify(r);
-      for (const valor of ['8074', '7785', '8434', '21410', '20761', '12976', 'R$'])
-        expect(texto).not.toContain(valor);
+      for (const valor of ['8434', '21410', '12976', 'R$']) expect(texto).not.toContain(valor);
     }
   });
 
@@ -712,7 +724,7 @@ describe('escala (rotas)', () => {
     expect(est.disponivel).toBe(true);
     expect(typeof est.margemRefMes).toBe('number');
     expect(est.aviso).toContain('referência');
-    expect(dono.cenarios.r40.economia.margemCortadaMes).not.toBeUndefined();
+    expect(dono.cenarios.r40.economia.semVendaHoraria).toBe(true);
     expect(est.aviso).not.toContain('dias de venda');
     expect(dono.cenarios.r40.economia.aviso ?? '').not.toContain('dias de venda');
 
@@ -930,7 +942,7 @@ describe('escala (rotas)', () => {
     }
   });
 
-  it('premissas para simular: recaptura, margem, dias protegidos e limite do parcial; faixas, permissões e nada é gravado', async () => {
+  it('premissas para simular: recaptura, hora nova, dias protegidos e limite do parcial; faixas, permissões e nada é gravado', async () => {
     await reqGe()
       .post('/api/v1/cargas/escala')
       .set(admin)
@@ -965,34 +977,44 @@ describe('escala (rotas)', () => {
       reqGe().get(`${url}${consulta}`).set(perfil);
     const r40 = async (consulta = '', perfil = admin) => (await pedir(consulta, perfil)).body;
 
-    // Sem premissas (padrões): Cenário 2 reduz o sábado em 2 h (margem 288,89); Cenário 3 reduz o sábado 2 h (impacto 7008,89)
+    // Sem premissas (padrões): a conta do corte é de venda hora a hora; sem a base comercial a venda perdida não é estimada
     const padrao = await r40();
-    expect(padrao.cenarios.r40.economia.margemCortadaMes).toBe(288.89);
-    expect(padrao.cenarios.r40.equilibrio.impactoMensal).toBe(8074.49);
-    expect(padrao.premissas).toMatchObject({
+    expect(padrao.cenarios.r40.economia.semVendaHoraria).toBe(true);
+    expect(padrao.cenarios.r40.economia.vendaCortadaMes).toBeNull();
+    expect(padrao.premissas).toEqual({
       recaptura: 0,
       fatorDiaNovo: 50,
+      fatorHoraNova: 50,
       diasProtegidos: 3,
       limiteParcial: 3,
-      margemPct: 25,
-      margemPctCadastro: 25,
     });
 
-    // Recaptura de 20%: a margem perdida cai 20% (288,89 → 231,11; Cenário 3: 288,89 → 231,11, impacto 7785,6 + 231,11 = 8016,71)
+    // A margem bruta saiu das premissas e do pedido (nada mais depende dela); o percentual da hora nova entrou
+    expect((await pedir('?margemPct=50')).status).toBe(400);
+    expect((await r40('?fatorHoraNova=80')).premissas.fatorHoraNova).toBe(80);
+
+    // Com a base comercial (venda de cada hora), a recaptura de 20% reduz a venda perdida em 20%
+    const dias = [
+      ['07/09/2026', 12, 1000],
+      ['08/09/2026', 12, 1100],
+      ['09/09/2026', 12, 900],
+      ['10/09/2026', 12, 1200],
+      ['11/09/2026', 12, 1500],
+      ['12/09/2026', 6, 800],
+    ] as const;
+    const linhas = dias.flatMap(([data, horas, total]) =>
+      Array.from({ length: horas }, (_, i) => [data, String(8 + i), '001', (total / horas).toFixed(2).replace('.', ','), '10']),
+    );
+    await reqGe()
+      .post('/api/v1/cargas/base')
+      .set(admin)
+      .attach('arquivo', await xlsx(['Data', 'Hora', 'Cod_Loja', 'Venda_Liquida_RS', 'Clientes_Atendidos'], linhas), 'base.xlsx');
+    const comBase = await r40();
+    const cheia = comBase.cenarios.r40.economia.vendaCortadaMes;
+    expect(cheia).toBeGreaterThan(0);
     const rec = await r40('?recaptura=20');
-    expect(rec.cenarios.r40.economia.margemCortadaMes).toBe(231.11);
-    expect(rec.cenarios.r40.equilibrio).toMatchObject({
-      margemCortadaMes: 231.11,
-      impactoMensal: 8016.71,
-    });
+    expect(rec.cenarios.r40.economia.vendaCortadaMes).toBeCloseTo(cheia * 0.8, 1);
     expect(rec.premissas.recaptura).toBe(20);
-
-    // Margem de 50% (o dobro): margem perdida dobra (577,78); Cenário 3: reduzir 2 h = 7785,6 + 577,78 = 8363,38,
-    // ainda menor que reduzir 1 h (8110 + 288,89 = 8398,89) e que manter tudo (8434,4)
-    const dobro = await r40('?margemPct=50');
-    expect(dobro.cenarios.r40.economia.margemCortadaMes).toBe(577.78);
-    expect(dobro.cenarios.r40.equilibrio.impactoMensal).toBe(8363.38);
-    expect(dobro.premissas).toMatchObject({ margemPct: 50, margemPctCadastro: 25 });
 
     // Limite do parcial: desde a spec 013 o limite é legal (30 h) e esta premissa não muda mais a conta
     const semParcial = await r40('?limiteParcial=0');
@@ -1014,7 +1036,7 @@ describe('escala (rotas)', () => {
     // Fora das faixas: 400 em português; parâmetro desconhecido também
     for (const [consulta, trecho] of [
       ['?recaptura=31', 'entre 0% e 30%'],
-      ['?margemPct=101', 'entre 0% e 100%'],
+      ['?fatorHoraNova=101', 'entre 0% e 100%'],
       ['?fatorDiaNovo=101', 'entre 0% e 100%'],
       ['?diasProtegidos=7', 'entre 0 e 6'],
       ['?limiteParcial=4', 'entre 0 e 3'],
@@ -1025,21 +1047,20 @@ describe('escala (rotas)', () => {
     }
     expect((await pedir('?foo=1')).status).toBe(400);
 
-    // Gestor: não simula a margem (403) e não vê a margem nas premissas; as demais premissas valem
-    expect((await pedir('?margemPct=30', gestor)).status).toBe(403);
+    // Gestor: as premissas valem e a resposta não traz a margem
     const g = await r40('?recaptura=20&limiteParcial=0', gestor);
     expect(g.premissas).toEqual({
       recaptura: 20,
       fatorDiaNovo: 50,
+      fatorHoraNova: 50,
       diasProtegidos: 3,
       limiteParcial: 0,
     });
     expect(JSON.stringify(g)).not.toContain('"margemPct"');
 
-    // Nada foi gravado: sem premissas volta tudo ao cadastro, e a margem da loja segue 25%
+    // Nada foi gravado: sem premissas voltam os padrões, e a margem da loja segue 25%
     const depois = await r40();
-    expect(depois.cenarios.r40.economia.margemCortadaMes).toBe(288.89);
-    expect(depois.premissas.margemPct).toBe(25);
+    expect(depois.premissas.recaptura).toBe(0);
     expect((await prisma.loja.findFirst({ where: { codigo: '001' } }))?.faturamento).toMatchObject({
       margemPct: 25,
     });

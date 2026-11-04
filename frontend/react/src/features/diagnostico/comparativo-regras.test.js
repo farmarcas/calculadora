@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { composicaoDoImpacto, consequencias, faltaCurta, rotuloDoMelhor, textoDaFalta, visaoDosCartoes } from "./comparativo-regras.js";
+import { composicaoDoSaldo, consequencias, faltaCurta, linhaDeVendaPerdida, rotuloDoMelhor, textoDaFalta, veredictoDoSaldo, visaoDosCartoes } from "./comparativo-regras.js";
 
 const brl = (n) => `R$ ${n}`;
 const faltas = [{ funcao: "Atendimento", horasSemana: 32 }, { funcao: "Apoio", horasSemana: 4 }];
@@ -22,9 +22,9 @@ describe("faixa amarela", () => {
     expect(l.join(" ")).toContain("O farmacêutico cobre todo o horário");
     expect(l.join(" ")).not.toMatch(/vendas|R\$/);
   });
-  it("reduzindo horário, mostra a venda e a margem perdidas (só o dono vê os valores)", () => {
-    const c = { faltaPorFuncao: [], semFarmaceuticoH: 0, faturamentoPerdidoMensal: 3095, margemMes: -773 };
-    expect(consequencias(c, { dono: true, brl, horasAMenos: 5 })[0]).toContain("R$ 3095 por mês em vendas (margem de R$ 773)");
+  it("reduzindo horário, mostra a venda que deixa de entrar (só o dono vê o valor)", () => {
+    const c = { faltaPorFuncao: [], semFarmaceuticoH: 0, faturamentoPerdidoMensal: 3095 };
+    expect(consequencias(c, { dono: true, brl, horasAMenos: 5 })[0]).toBe("Reduz 5 h por semana abertas: deixam de entrar R$ 3095 por mês em vendas.");
     expect(consequencias(c, { dono: false, brl, horasAMenos: 5 })[0]).toBe("Reduz 5 h por semana abertas.");
   });
   it("farmacêutico ausente é o risco para a venda", () => {
@@ -55,18 +55,32 @@ describe("quais cartões aparecem", () => {
   });
 });
 
-describe("selo do melhor cenário e composição do impacto", () => {
-  it("'Melhor resultado' só quando o resultado é positivo; senão 'Menor custo'", () => {
-    expect(rotuloDoMelhor(300)).toBe("Melhor resultado");
-    expect(rotuloDoMelhor(0)).toBe("Menor custo");
-    expect(rotuloDoMelhor(-3592)).toBe("Menor custo");
-    expect(rotuloDoMelhor(undefined)).toBe("Menor custo");
+describe("saldo: selo, composição e veredito", () => {
+  it("o selo do melhor cenário fala em saldo", () => {
+    expect(rotuloDoMelhor()).toBe("Melhor saldo");
   });
-  it("composição: margem perdida ou margem ganha", () => {
-    expect(composicaoDoImpacto({ folhaAdicionalMensal: 3592, margemMes: 0 }, brl)).toBe("Folha adicional R$ 3592 + margem perdida R$ 0");
-    expect(composicaoDoImpacto({ folhaAdicionalMensal: 800, margemMes: -200 }, brl)).toBe("Folha adicional R$ 800 + margem perdida R$ 200");
-    expect(composicaoDoImpacto({ folhaAdicionalMensal: 800, margemMes: 1000 }, brl)).toBe("Folha adicional R$ 800 − margem ganha R$ 1000");
-    expect(composicaoDoImpacto({ folhaAdicionalMensal: 800, margemMes: null }, brl)).toBe("Folha adicional R$ 800");
-    expect(composicaoDoImpacto({ folhaAdicionalMensal: null }, brl)).toBe("Informe os custos para ver a composição");
+  it("composição do cenário 1: custo de folha contra a folha atual", () => {
+    expect(composicaoDoSaldo({ folhaAdicionalMensal: 3592 }, { brl, ehBase: true })).toBe("Custo adicional de folha R$ 3592 em relação à folha atual");
+    expect(composicaoDoSaldo({ folhaAdicionalMensal: null }, { brl, ehBase: true })).toBe("Informe os custos para ver o custo de folha");
+  });
+  it("composição dos outros: economia de folha − venda perdida, e venda adicional quando estende", () => {
+    expect(composicaoDoSaldo({ economiaFolhaMensal: 8000, faturamentoPerdidoMensal: 10000 }, { brl, ehBase: false })).toBe("Economia de folha R$ 8000 − venda perdida R$ 10000");
+    expect(composicaoDoSaldo({ economiaFolhaMensal: -500, faturamentoPerdidoMensal: 0, vendaAdicionalMensal: 619 }, { brl, ehBase: false })).toBe("Economia de folha −R$ 500 − venda perdida R$ 0 + venda adicional estimada R$ 619");
+  });
+  it("sem venda hora a hora ou sem custos, a composição diz o que falta (e nunca R$ 0)", () => {
+    expect(composicaoDoSaldo({ semVendaHoraria: true }, { brl, ehBase: false })).toBe("Sem venda hora a hora, não é possível estimar a venda perdida");
+    expect(composicaoDoSaldo({ economiaFolhaMensal: null, semVendaHoraria: false }, { brl, ehBase: false })).toBe("Informe os custos para ver a economia de folha");
+  });
+  it("veredito em palavras: compensa, custa mais, empata, referência; nulo sem saldo", () => {
+    expect(veredictoDoSaldo(300, false)).toBe("Este cenário compensa");
+    expect(veredictoDoSaldo(-2000, false)).toBe("Este cenário custa mais do que economiza");
+    expect(veredictoDoSaldo(0, false)).toBe("Este cenário empata com manter os horários");
+    expect(veredictoDoSaldo(0, true)).toBe("Referência para comparar os outros cenários");
+    expect(veredictoDoSaldo(null, false)).toBeNull();
+  });
+  it("linha da venda perdida por dia alterado", () => {
+    expect(linhaDeVendaPerdida({ dia: 5, ate: 16, vendaMes: 3095 }, brl)).toBe("Sáb até 16h: R$ 3095 por mês");
+    expect(linhaDeVendaPerdida({ dia: 6, ate: null, vendaMes: 5000 }, brl)).toBe("Dom fechado: R$ 5000 por mês");
+    expect(linhaDeVendaPerdida({ dia: 5, ate: 16 }, brl)).toBe("Sáb até 16h");
   });
 });

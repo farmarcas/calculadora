@@ -1,14 +1,14 @@
 import type { Faturamento } from './faturamento.js';
 import { faixasDaSemana, type HorariosSemana } from './horarios.js';
 
-// Pendências do cadastro de uma loja: tudo o que falta para a Escala simular e para o diagnóstico (inclui a margem bruta e o
-// salário médio das funções que contam). É a ÚNICA regra disso: a situação "Completo" é "nenhuma pendência" e "Revisar" é a
+// Pendências do cadastro de uma loja: tudo o que falta para a Escala simular e para o diagnóstico (inclui o salário médio
+// das funções que contam; a margem bruta é opcional). É a ÚNICA regra disso: a situação "Completo" é "nenhuma pendência" e "Revisar" é a
 // primeira delas em texto; a lista, o filtro, o detalhe e o painel "O que falta preencher" saem daqui (suposição provisória do
 // pedido, marcada "a confirmar"). Nada aqui traz valores em reais, só o que falta.
 export type AbaPendencia = 'dados' | 'equipe' | 'regras';
 
 export type Pendencia = {
-  // dados, funcionamento, faturamentoDia, faturamentoMes, margem, farmaceutico ou salario:<Função>.
+  // dados, funcionamento, faturamentoDia, faturamentoMes, farmaceutico ou salario:<Função>.
   id: string;
   aba: AbaPendencia;
   // O nome do item no painel ("Dados da loja", "Margem bruta média").
@@ -21,7 +21,7 @@ export type Pendencia = {
   porque: string;
   // `data-campo` de cada campo a preencher (o primeiro é o destino do "Preencher"); vazio quando o destino é a aba.
   campos: string[];
-  // Depende de faturamento, margem ou salário: só o dono do grupo preenche.
+  // Depende de faturamento ou salário: só o dono do grupo preenche.
   soDono: boolean;
   // Não é campo vazio, é um valor para conferir (faturamento do mês).
   alerta?: boolean;
@@ -149,19 +149,8 @@ export const pendenciasDoCadastro = (
       alerta: true,
     });
 
-  // Sem a margem e os salários o diagnóstico não calcula o impacto dos cenários nem a folha.
-  if (!((loja.faturamento?.margemPct ?? 0) > 0))
-    p.push({
-      id: 'margem',
-      aba: 'dados',
-      titulo: 'Margem bruta média',
-      resumo: 'Falta a margem bruta média',
-      texto: 'Informe a margem bruta em %.',
-      porque: 'Sem a margem, o impacto dos cenários fica em branco.',
-      campos: ['margem'],
-      soDono: true,
-    });
-
+  // A margem bruta é só um detalhe opcional do Cadastro (o impacto dos cenários é em venda e folha): não é pendência.
+  // Sem os salários o diagnóstico não calcula a folha nem a economia dos cenários.
   const precisam = ['Farmacêutico', ...cadastro.funcoesNaEquipe.filter((f) => f !== 'Farmacêutico')];
   const semSalario = precisam.filter((f) => !cadastro.salariosInformados.includes(f));
   for (const f of semSalario)

@@ -219,7 +219,6 @@ export const makeEscalaService = (repo: EscalaRepository, auditar: Auditor) => {
         dono: perfil === 'TENANT_ADMIN',
         parametros,
         premissas: premissasDe(simulacao).valores,
-        margemPctSimulada: premissasDe(simulacao).margemPctSimulada,
         foraDaConta: await repo.foraDaEscala(
           lojaId,
           turnosFinais.map((t) => t.matricula),

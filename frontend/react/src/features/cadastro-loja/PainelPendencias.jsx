@@ -27,7 +27,7 @@ function Item({ item, perfil, onPreencher }) {
 
 // Faixa "O que falta preencher": compacta (título, progresso e "Ver o que falta") ou aberta, com os itens por aba. Quando o
 // cadastro está completo vira só a confirmação. `completoNoServidor` diz se a loja já está Completo no que está salvo.
-export default function PainelPendencias({ resultado, perfil, aberto, onAbrir, onPreencher, completoNoServidor }) {
+export default function PainelPendencias({ resultado, perfil, aberto, onAbrir, onPreencher, completoNoServidor, pendentesNaAbertura = [] }) {
   const { itens, total, feitos, abertos, voceResolve, soDono } = resultado;
 
   if (abertos === 0)
@@ -39,7 +39,9 @@ export default function PainelPendencias({ resultado, perfil, aberto, onAbrir, o
     );
 
   const ehDono = perfil === "TENANT_ADMIN";
-  const grupos = ABAS.map(([id, nome]) => [id, nome, itens.filter((i) => i.aba === id)]).filter(([, , lista]) => lista.length > 0 && lista.some((i) => !i.feito));
+  // Mostra o que falta e o que estava faltando e já foi feito; o que sempre esteve completo só entra na contagem de feitos.
+  const visiveis = itens.filter((i) => !i.feito || pendentesNaAbertura.includes(i.id));
+  const grupos = ABAS.map(([id, nome]) => [id, nome, visiveis.filter((i) => i.aba === id)]).filter(([, , lista]) => lista.length > 0 && lista.some((i) => !i.feito));
   const pct = total ? Math.round((feitos / total) * 100) : 0;
 
   return (

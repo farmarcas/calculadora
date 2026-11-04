@@ -102,3 +102,23 @@ function modeloDoId(id) {
 // Título da faixa: singular e plural.
 export const tituloDoPainel = (abertos) =>
   abertos === 1 ? "Falta 1 item para o cadastro ficar completo" : `Faltam ${abertos} itens para o cadastro ficar completo`;
+
+// Frase de cada campo (uma linha abaixo dele); onde não há, vale a do item.
+const PORQUE_DO_CAMPO = { nome: "Informe o nome da loja.", cidade: "Informe a cidade.", uf: "Escolha o estado.", regime: "Escolha o regime para calcular os encargos." };
+
+// Estado de cada campo: "pendente" (falta preencher) ou "preenchido" (estava pendente quando a loja abriu e já foi preenchido,
+// ainda sem salvar). Campo que nunca esteve pendente não aparece. `servidor` é a lista de pendências ao abrir a loja.
+export const estadoDosCampos = (resultado, servidor = []) => {
+  const mapa = {};
+  const atual = new Map(resultado.itens.map((i) => [i.id, i]));
+  for (const p0 of servidor)
+    for (const c of p0.campos) {
+      const agora = atual.get(p0.id);
+      const pendente = !!agora && !agora.feito && agora.campos.includes(c);
+      mapa[c] = { estado: pendente ? "pendente" : "preenchido", porque: PORQUE_DO_CAMPO[c] ?? p0.porque, id: p0.id };
+    }
+  for (const i of resultado.itens)
+    if (!i.feito)
+      for (const c of i.campos) if (!mapa[c] || mapa[c].estado !== "pendente") mapa[c] = { estado: "pendente", porque: PORQUE_DO_CAMPO[c] ?? i.porque, id: i.id };
+  return mapa;
+};

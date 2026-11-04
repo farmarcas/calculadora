@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { pendenciasDoRascunho, podePreencher, tituloDoPainel } from "./pendencias.js";
+import { estadoDosCampos, pendenciasDoRascunho, podePreencher, tituloDoPainel } from "./pendencias.js";
 
 // Os mesmos casos de backend/.../situacao.test.ts, sobre o rascunho (textos que a tela edita).
 const dia = (aberta = true) => (aberta ? { aberta: true, h24: false, abre: "08:00", fecha: "21:00" } : { aberta: false, h24: false, abre: "", fecha: "" });
@@ -127,5 +127,33 @@ describe("título da faixa", () => {
   it("singular e plural", () => {
     expect(tituloDoPainel(1)).toBe("Falta 1 item para o cadastro ficar completo");
     expect(tituloDoPainel(3)).toBe("Faltam 3 itens para o cadastro ficar completo");
+  });
+});
+
+describe("estado de cada campo (destaque)", () => {
+  const dono = (loja) => pendenciasDoRascunho({ loja, custos, equipe, dono: true, perfil: "TENANT_ADMIN" });
+  const semMargem = { ...ok, faturamento: fat(undefined, { margemPct: "" }) };
+  const aoAbrir = dono(semMargem).itens.filter((i) => !i.feito);
+
+  it("campo pendente fica pendente, com a frase do porquê", () => {
+    expect(estadoDosCampos(dono(semMargem), aoAbrir).margem).toMatchObject({ estado: "pendente", porque: "Sem a margem, o impacto dos cenários fica em branco." });
+  });
+  it("campo preenchido (ainda sem salvar) vira 'preenchido'; esvaziar volta a pendente", () => {
+    expect(estadoDosCampos(dono(ok), aoAbrir).margem.estado).toBe("preenchido");
+    expect(estadoDosCampos(dono(semMargem), aoAbrir).margem.estado).toBe("pendente");
+  });
+  it("campo que nunca esteve pendente não aparece, e o que se apaga depois aparece como pendente", () => {
+    expect(estadoDosCampos(dono(ok), []).margem).toBeUndefined();
+    expect(estadoDosCampos(dono(semMargem), []).margem.estado).toBe("pendente");
+  });
+  it("dados da loja: só os campos que faltam ficam pendentes, cada um com a sua frase", () => {
+    const m = estadoDosCampos(dono({ ...ok, cidade: "", uf: "" }), []);
+    expect(Object.keys(m).sort()).toEqual(["cidade", "margem", "uf"].filter((k) => k !== "margem").sort());
+    expect(m.cidade.porque).toBe("Informe a cidade.");
+    expect(m.uf.porque).toBe("Escolha o estado.");
+  });
+  it("faturamento por dia: só os dias sem valor", () => {
+    const m = estadoDosCampos(dono({ ...ok, faturamento: fat(["1", "1", "", "1", "1", "", ""]) }), []);
+    expect(Object.keys(m).sort()).toEqual(["fat-2", "fat-5"]);
   });
 });

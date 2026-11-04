@@ -18,9 +18,9 @@
 - [x] T011 Testes puros do que for lógica (textos, plural, resumo por perfil) e commitar a fatia
 
 ## Fatia 4 — Destaque nos campos (tela)
-- [ ] T012 `index.css` e um pequeno auxiliar: classe `cl-pendente` (anel com o token de atenção), selo "Preencher"/"✓ Preenchido" e motivo ligado por `aria-describedby`; o anel de foco azul continua por cima
-- [ ] T013 Aplicar nos campos: nome, cidade, UF, regime (acrescentar `data-campo`), horário de funcionamento, só os dias abertos sem faturamento, faturamento do mês (alerta "Confira o faturamento do mês…"), margem, e um campo de salário por função que falta; o destaque some no instante em que o campo fica válido e volta se for esvaziado
-- [ ] T014 Conferir no navegador e commitar a fatia
+- [x] T012 `index.css` e um pequeno auxiliar: classe `cl-pendente` (anel com o token de atenção), selo "Preencher"/"✓ Preenchido" e motivo ligado por `aria-describedby`; o anel de foco azul continua por cima
+- [x] T013 Aplicar nos campos: nome, cidade, UF, regime (acrescentar `data-campo`), horário de funcionamento, só os dias abertos sem faturamento, faturamento do mês (alerta "Confira o faturamento do mês…"), margem, e um campo de salário por função que falta; o destaque some no instante em que o campo fica válido e volta se for esvaziado
+- [x] T014 Conferir no navegador e commitar a fatia
 
 ## Fatia 5 — Lista de lojas e celular
 - [ ] T015 `ListaLojas.jsx`: nas lojas em Revisar, segunda linha "N pendências · principal motivo" (singular "1 pendência"), em uma linha com reticências; Completo sem mudança; etiqueta e filtro intactos

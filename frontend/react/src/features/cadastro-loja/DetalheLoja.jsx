@@ -7,7 +7,8 @@ import { ABAS } from "./config.js";
 import AbaEquipe from "./AbaEquipe.jsx";
 import AbaRegras, { errosDaRegras } from "./AbaRegras.jsx";
 import PainelPendencias from "./PainelPendencias.jsx";
-import { pendenciasDoRascunho } from "./pendencias.js";
+import { CamposPendentes } from "./campoPendente.jsx";
+import { estadoDosCampos, pendenciasDoRascunho } from "./pendencias.js";
 
 // Detalhe da loja escolhida: cabeçalho com a situação e o motivo, 3 abas e o rodapé com o contador e "Salvar alterações".
 export default function DetalheLoja({ lojaId, aba, onAba, perfil, painel, carregando, erro, rascunho, onVoltar, aoMudarEquipe }) {
@@ -64,6 +65,7 @@ export default function DetalheLoja({ lojaId, aba, onAba, perfil, painel, carreg
     dono,
     perfil,
   });
+  const mapaDeCampos = estadoDosCampos(resultado, situacao.pendencias ?? []);
   const abas = ABAS.map(([id, t]) => [id, id === "equipe" ? `${t} (${loja.funcionarios ?? 0})` : t, { pendentes: resultado.porAba[id] }]);
   // "Preencher": abre a aba do item, rola até o campo, dá foco e recolhe o painel (espera a aba aparecer).
   const preencher = (item) => {
@@ -93,17 +95,19 @@ export default function DetalheLoja({ lojaId, aba, onAba, perfil, painel, carreg
         <p className="m-0 mt-1 text-xs text-[var(--text-secondary)]">
           Código {loja.codigo}{loja.cnpj ? ` · CNPJ ${formatarCnpj(loja.cnpj)}` : ""}{loja.uf ? ` · ${loja.uf}` : ""}
         </p>
-        <PainelPendencias resultado={resultado} perfil={perfil} aberto={painelAberto} onAbrir={setPainelAberto} onPreencher={preencher} completoNoServidor={completo} />
+        <PainelPendencias resultado={resultado} perfil={perfil} aberto={painelAberto} onAbrir={setPainelAberto} onPreencher={preencher} completoNoServidor={completo} pendentesNaAbertura={(situacao.pendencias ?? []).map((p) => p.id)} />
         <Abas opcoes={abas} valor={aba} onChange={onAba} rotulo="Seções da loja" className="mt-4" />
       </div>
 
       {rascunho.erro && <div className="px-6 pt-4"><Aviso>{rascunho.erro}</Aviso></div>}
 
+      <CamposPendentes mapa={mapaDeCampos}>
       <div className="flex-1 px-6 py-6">
         {aba === "dados" && <AbaDados painel={painel} rascunho={rascunho} dono={dono} operador={operador} podeEditar={podeEditar} mostrarErros={tentou} />}
         {aba === "equipe" && <AbaEquipe lojaId={lojaId} podeEscrever={podeEquipe} aoMudar={aoMudarEquipe} />}
         {aba === "regras" && <AbaRegras painel={painel} rascunho={rascunho} dono={dono} podeEditar={podeEquipe} mostrarErros={tentou} />}
       </div>
+      </CamposPendentes>
 
       <div className="cl-rodape sticky bottom-0 flex min-h-16 flex-wrap items-center justify-between gap-3 border-t border-[var(--border-subtle)] bg-[var(--surface-card)] px-6 py-3">
         {aba === "equipe" ? (

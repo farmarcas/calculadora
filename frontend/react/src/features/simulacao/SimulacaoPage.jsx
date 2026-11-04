@@ -5,7 +5,6 @@ import Aprovar from "../grade/Aprovar.jsx";
 import BarraParametros from "./BarraParametros.jsx";
 import PainelResultado from "./PainelResultado.jsx";
 import PassoContratacoes from "./PassoContratacoes.jsx";
-import PassoEscala from "./PassoEscala.jsx";
 import PassoHorario from "./PassoHorario.jsx";
 import useSimulacao from "./useSimulacao.js";
 
@@ -87,7 +86,6 @@ export default function SimulacaoPage({ id, perfil, podeEscrever, aviso, onVolta
         <div className="sim-esq flex flex-col gap-4 min-w-0">
           <PassoHorario sim={sim} editavel={editavel} onSalvarHorarios={(horarios) => salvar({ horarios })} />
           <PassoContratacoes sim={sim} editavel={editavel} dono={dono} onSalvar={salvar} />
-          <PassoEscala sim={sim} editavel={editavel} onSalvarTurnos={(turnos) => salvar({ turnos })} />
         </div>
         <PainelResultado sim={sim} calculando={calculando} dono={dono} podeEscrever={podeEscrever} salvando={salvando} onSalvar={salvarComoCenario} onClonar={clonar} />
       </div>

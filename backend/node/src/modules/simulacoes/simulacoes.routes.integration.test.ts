@@ -80,9 +80,9 @@ describe('simulações (rotas)', () => {
     expect(e.body.avaliacao.podeGravar).toBe(false);
     expect(e.body.avaliacao.erros[0].texto).toContain('Sem farmacêutico em Ter 14:00–16:00');
 
+    // A escala por turno saiu da Simulação: erro de turno é só informação e não trava mais o gravar.
     const g = await reqGe().post(`/api/v1/simulacoes/${sim.id}/gravar`).set(admin);
-    expect(g.status).toBe(400);
-    expect(g.body.error.message).toContain('Não dá para gravar');
+    expect(g.status).toBe(200);
   });
 
   it('grava sem erros, congela e não deixa editar; clonar abre um rascunho novo', async () => {

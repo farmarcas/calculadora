@@ -381,11 +381,7 @@ export const makeSimulacoesService = (
         throw new ConflictError('Só rascunho pode ser gravado.', 'SIMULACAO_NAO_EDITAVEL');
       const l = await loja(s.lojaId);
       const { c, avaliacao } = avaliar(s, l);
-      if (!avaliacao.podeGravar)
-        throw new ValidationError(
-          `Não dá para gravar: ${avaliacao.erros.length} erro(s) nas regras.`,
-          avaliacao.erros.slice(0, 20),
-        );
+      // A escala por turno saiu da Simulação: as regras de turno (cobertura, jornada, interjornada) não travam mais gravar nem aprovar.
       await repo.gravar(
         id,
         { ...c.premissas, regra: s.regra },
@@ -405,12 +401,6 @@ export const makeSimulacoesService = (
       if (s.status !== 'gravada')
         throw new ConflictError('Só simulação gravada pode ser aprovada.', 'SIMULACAO_NAO_GRAVADA');
       const l = await loja(s.lojaId);
-      const { avaliacao } = avaliar(s, l);
-      if (!avaliacao.podeGravar)
-        throw new ValidationError(
-          `Não dá para aprovar: ${avaliacao.erros.length} erro(s) nas regras.`,
-          avaliacao.erros.slice(0, 20),
-        );
       const inicio = vigenciaInicio
         ? new Date(`${vigenciaInicio}T00:00:00.000Z`)
         : new Date(new Date().toISOString().slice(0, 10) + 'T00:00:00.000Z');

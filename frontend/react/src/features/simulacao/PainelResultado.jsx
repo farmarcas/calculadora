@@ -26,7 +26,6 @@ export default function PainelResultado({ sim, calculando, dono, podeEscrever, s
   const r = sim.resultado;
   const nContratacoes = r.funcoes.reduce((s, f) => s + f.contratacoes.length, 0);
   const editavel = sim.editavel && podeEscrever;
-  const erros = sim.avaliacao.erros;
   const dinheiro = (v, vazio = "Sem dado") => (v == null ? vazio : reais(v));
   const corSaldo = r.saldoMensal == null ? "var(--text-strong)" : r.saldoMensal > 0.005 ? "var(--func-success-300)" : r.saldoMensal < -0.005 ? "var(--text-danger)" : "var(--text-strong)";
 
@@ -63,9 +62,6 @@ export default function PainelResultado({ sim, calculando, dono, podeEscrever, s
         <Linha calculando={calculando} rotulo="Horas abertas" sub={r.horario.mudou ? `Antes: ${r.horasAbertasAntes}h por semana` : "Sem alteração"} valor={`${r.horasAbertas}h por semana`} />
       </div>
 
-      {erros.length > 0 && (
-        <div className="mt-3"><Aviso tom="atencao">{erros.length === 1 ? erros[0].texto : `${erros.length} erros nas regras impedem salvar: ${erros[0].texto}`}</Aviso></div>
-      )}
 
       <div className="mt-4">
         {editavel ? (

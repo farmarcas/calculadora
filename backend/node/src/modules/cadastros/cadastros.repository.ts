@@ -1,5 +1,6 @@
 import { prisma } from '../../shared/database/prisma.js';
 import { decimalParaHora, horaParaDecimal, mensalDeSemanal } from './carga.js';
+import { funcaoNoCalculo } from './funcoes.js';
 import { normalizarHorarios, resumoHorarios } from './horarios.js';
 import type { Aba } from '../planilhas/leitor.js';
 import type {
@@ -67,6 +68,8 @@ const comoFunc = (r: Record<string, unknown>) => {
   const semanal = r.cargaSemanalH as number | null;
   return {
     ...base,
+    // Apoio e Perfumaria (antigos) são lidos como "Outros cargos", fora do cálculo.
+    funcaoEscala: funcaoNoCalculo(r.funcaoEscala as string | null),
     // Quem só tem a carga semanal (planilhas antigas) mostra a mensal equivalente.
     cargaMensalH:
       (r.cargaMensalH as number | null) ?? (semanal ? mensalDeSemanal(semanal) : undefined),

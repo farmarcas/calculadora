@@ -1,3 +1,4 @@
+import { FUNCOES_NO_CALCULO } from './funcoes.js';
 import { z } from 'zod';
 import { normalizarCnpj } from '../ge/cnpj.js';
 import { UFS, validarCnpj, validarCpf } from './documentos.js';
@@ -79,7 +80,7 @@ export const funcionarioSchema = z
       .refine((v) => v === '' || validarCpf(v), 'CPF inválido')
       .optional(),
     cargo: z.string().trim().max(80).optional(),
-    funcaoEscala: z.enum(FUNCOES).nullable().optional(),
+    funcaoEscala: z.enum(FUNCOES_NO_CALCULO).nullable().optional(),
     cargaSemanalH: z.number().int().min(1).max(60).optional(),
     // Carga mensal digitada (220 h = 44 h); a semanal é derivada (mensal ÷ 5) quando não vem.
     cargaMensalH: z.number().int().min(1).max(260).optional(),

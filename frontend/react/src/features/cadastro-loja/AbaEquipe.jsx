@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../../api/client.js";
 import { Aviso, Botao, Ficha, Modal, Toast } from "../../components/ui/index.jsx";
 import ImportarPlanilha from "../cadastros/ImportarPlanilha.jsx";
-import { formularioDe, formularioVazio, funcionarioParaApi, mascararCpf, resumoDeDias } from "./equipe.js";
+import { cargoDoFuncionario, formularioDe, formularioVazio, funcionarioParaApi, mascararCpf, resumoDeDias } from "./equipe.js";
 import FormFuncionario from "./FormFuncionario.jsx";
 
 const COLUNAS = "minmax(150px,1.5fr) 120px 100px 70px 100px 80px 110px";
@@ -113,7 +113,7 @@ export default function AbaEquipe({ lojaId, podeEscrever, aoMudar }) {
                 {f.nome}
                 {!f.funcaoEscala && <span className="ml-2 align-middle" title="Não entra no cálculo da escala"><Ficha tom="atencao">Fora do cálculo</Ficha></span>}
               </div>
-              <span className="text-sm text-[var(--text-strong)]"><span className="cl-eq-rot">Cargo</span>{f.cargo || f.funcaoEscala || "—"}</span>
+              <span className="text-sm text-[var(--text-strong)]"><span className="cl-eq-rot">Cargo</span>{cargoDoFuncionario(f)}</span>
               <span className="text-sm text-[var(--text-strong)]"><span className="cl-eq-rot">CPF</span>{mascararCpf(f.cpf)}</span>
               <span className="text-sm text-[var(--text-strong)]"><span className="cl-eq-rot">Carga mensal</span>{f.cargaMensalH ? `${f.cargaMensalH}h` : "—"}</span>
               <span className="text-sm text-[var(--text-strong)]"><span className="cl-eq-rot">Entrada–saída</span>{f.entrada && f.saida ? `${f.entrada}–${f.saida}` : "—"}</span>

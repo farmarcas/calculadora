@@ -5,6 +5,7 @@ import { auditorDoGe } from '../../shared/auditoria/auditoria.js';
 import { geDe } from '../../shared/middlewares/ge.js';
 import { exigirPerfil, type Perfil } from '../../shared/middlewares/perfil.js';
 import { readValidated, validate } from '../../shared/middlewares/validate.js';
+import { FUNCOES_NO_CALCULO } from '../cadastros/funcoes.js';
 import { escalaRepository } from '../escala/escala.repository.js';
 import type { PessoaSim } from './avaliar.js';
 import * as S from './simulacoes.schemas.js';
@@ -18,7 +19,7 @@ const v = <T extends z.ZodType>(res: Response) => readValidated<z.infer<T>>(res)
 const cadastroDoGe = (geId: string) => ({
   async funcionariosDaLoja(lojaId: string): Promise<PessoaSim[]> {
     const rows = await prisma.funcionario.findMany({
-      where: { lojaId, loja: { geId }, deletedAt: null, funcaoEscala: { not: null } },
+      where: { lojaId, loja: { geId }, deletedAt: null, funcaoEscala: { in: [...FUNCOES_NO_CALCULO] } },
       orderBy: { nome: 'asc' },
     });
     return rows.map((r) => ({

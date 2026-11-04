@@ -86,7 +86,7 @@ function LinhaEditavel({ d, cad, texto, tocado, onTexto, onTocado, onAjustar, on
   );
 }
 
-export default function PassoHorario({ sim, editavel, modo, onSalvarHorarios }) {
+export default function PassoHorario({ sim, editavel, onSalvarHorarios }) {
   const r = sim.resultado;
   const [dia, setDia] = useState(() => Math.max(0, r.horario.cadastro.findIndex((c) => c.aberta)));
   const [texto, setTexto] = useState([]);
@@ -124,7 +124,7 @@ export default function PassoHorario({ sim, editavel, modo, onSalvarHorarios }) 
   const reabrir = (i) => mudar(i, { abre: r.horario.cadastro[i].abre, fecha: r.horario.cadastro[i].fecha, fechado: false });
   const abertosAgora = texto.filter((t, i) => r.horario.cadastro[i].aberta && !t.fechado).length;
 
-  const editando = modo === "mudar" && editavel;
+  const editando = editavel;
   const totalLinha = (
     <p className="m-0 border-t border-[var(--border-subtle)] bg-[var(--surface-subtle)] px-4 py-3 text-sm text-[var(--text-secondary)]">
       <strong className="text-[var(--text-strong)]">{r.horasAbertas}h abertas por semana</strong> · antes {r.horasAbertasAntes}h
@@ -132,7 +132,7 @@ export default function PassoHorario({ sim, editavel, modo, onSalvarHorarios }) 
   );
 
   return (
-    <Passo numero={1} titulo="Horário e vendas" subtitulo={modo === "manter" ? "Os horários seguem o Cadastro. Para testar outros dias e horas, escolha \"Mudar horários\" acima." : "Edite os dias e horários da loja para testar outro funcionamento. O Cadastro não muda."}>
+    <Passo numero={1} titulo="Horário e vendas" subtitulo="Parte do horário do cenário escolhido. Edite os dias e horários para testar outro funcionamento. O Cadastro não muda.">
       <div className="sim-passo1">
         <div className={CAIXA}>
           <div className="bg-[var(--surface-subtle)] px-4 py-3">
@@ -157,7 +157,7 @@ export default function PassoHorario({ sim, editavel, modo, onSalvarHorarios }) 
           </ul>
           {totalLinha}
         </div>
-        <GraficoVendas resultado={r} dia={dia} onDia={setDia} modo={modo} />
+        <GraficoVendas resultado={r} dia={dia} onDia={setDia} />
       </div>
     </Passo>
   );

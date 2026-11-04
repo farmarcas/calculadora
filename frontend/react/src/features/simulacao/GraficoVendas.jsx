@@ -17,7 +17,7 @@ function Rotulo({ valor, usada, destaque, apagado }) {
 }
 
 // Venda (R$, só o dono) ou clientes por hora do dia escolhido. A altura é fixa: trocar de dia não faz a tela pular.
-export default function GraficoVendas({ resultado: r, dia, onDia, modo }) {
+export default function GraficoVendas({ resultado: r, dia, onDia }) {
   const [metrica, setMetrica] = useState("venda");
   const v = r.vendaPorHora;
     const metricas = [...(v.venda ? [["venda", "Venda (R$)"]] : []), ...(v.clientes ? [["clientes", "Clientes"]] : [])];
@@ -78,7 +78,7 @@ export default function GraficoVendas({ resultado: r, dia, onDia, modo }) {
           ))}
         </ul>
         <strong className="text-sm text-[var(--text-strong)]">
-          {modo === "manter" ? "Horário mantido neste dia" : alterado ? `${fechadasNoDia}h fechadas neste dia` : "Sem alteração neste dia"}
+          {alterado ? `${fechadasNoDia}h fechadas neste dia` : "Sem alteração neste dia"}
         </strong>
       </div>
     </div>

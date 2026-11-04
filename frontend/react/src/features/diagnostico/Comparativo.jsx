@@ -277,7 +277,16 @@ export default function Comparativo({ comparativo, cenarios, lojaId, podeEscreve
         aviso = "Esta loja ainda não tem escala importada: a simulação parte do quadro do Cadastro, sem turnos. Contratações, horários e impacto já funcionam; para montar a escala, importe a planilha em Enviar planilhas.";
       }
       const vagas = vagasDeCenario(c);
-      if (vagas.length) await api(`/simulacoes/${s.id}`, { method: "PUT", body: { vagas } });
+      // A simulação já nasce com as contratações e os horários do cenário clicado (o Cenário 1 mantém o horário do Cadastro).
+      const cadastro = s.resultado?.horario?.cadastro;
+      const horarios = c.ajustes?.length && cadastro?.length === 7
+        ? { versao: 2, dias: cadastro.map((h, i) => {
+            const aj = c.ajustes.find((a) => a.dia === i);
+            if (aj) return aj.depois ? { aberta: true, abre: aj.depois.abre, fecha: aj.depois.fecha } : { aberta: false };
+            return h.aberta ? { aberta: true, abre: h.abre, fecha: h.fecha } : { aberta: false };
+          }) }
+        : null;
+      if (vagas.length || horarios) await api(`/simulacoes/${s.id}`, { method: "PUT", body: { ...(vagas.length ? { vagas } : {}), ...(horarios ? { horarios } : {}) } });
       onSimular?.(s.id, aviso);
     } catch (e) {
       setErro(e.message);

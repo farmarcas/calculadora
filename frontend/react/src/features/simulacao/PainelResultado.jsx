@@ -22,7 +22,7 @@ const tipoDeSolucao = (r) => {
   return "Sem alterações";
 };
 
-export default function PainelResultado({ sim, calculando, modoHorario, dono, podeEscrever, salvando, onSalvar, onClonar }) {
+export default function PainelResultado({ sim, calculando, dono, podeEscrever, salvando, onSalvar, onClonar }) {
   const r = sim.resultado;
   const nContratacoes = r.funcoes.reduce((s, f) => s + f.contratacoes.length, 0);
   const editavel = sim.editavel && podeEscrever;
@@ -51,12 +51,6 @@ export default function PainelResultado({ sim, calculando, modoHorario, dono, po
         </p>
       </div>
 
-      {modoHorario === "mudar" && !r.horario.mudou && (
-        <div className="mt-4 rounded-card bg-[var(--color-primary-soft)] px-4 py-3 text-sm text-[var(--system-800)]">
-          Nenhuma alteração de horário ainda. Edite a lista para recalcular o impacto.
-        </div>
-      )}
-
       <div className="mt-2">
         {dono && (
           <>
@@ -66,7 +60,7 @@ export default function PainelResultado({ sim, calculando, modoHorario, dono, po
             <Linha calculando={calculando} rotulo="Economia de folha" sub="Contra manter o horário e contratar" valor={dinheiro(r.economiaFolha, "—")} />
           </>
         )}
-        <Linha calculando={calculando} rotulo="Horas abertas" sub={r.horario.mudou ? `Antes: ${r.horasAbertasAntes}h por semana` : modoHorario === "mudar" ? "Sem alteração" : "Horário mantido"} valor={`${r.horasAbertas}h por semana`} />
+        <Linha calculando={calculando} rotulo="Horas abertas" sub={r.horario.mudou ? `Antes: ${r.horasAbertasAntes}h por semana` : "Sem alteração"} valor={`${r.horasAbertas}h por semana`} />
       </div>
 
       {erros.length > 0 && (

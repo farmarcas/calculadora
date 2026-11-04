@@ -34,8 +34,6 @@ export const FUNCOES_ESCALA = [
   'Farmacêutico',
   'Atendimento',
   'Caixa',
-  'Apoio',
-  'Perfumaria',
 ] as const;
 
 // Vaga simulada: a matrícula (VAGA-n) só vem de volta para vagas que já existem.

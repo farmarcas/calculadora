@@ -1,3 +1,4 @@
+import { soNoCalculo } from '../cadastros/funcoes.js';
 import type { DiaAberto } from './capacidade.js';
 import type { Fatia, Minimos } from './requisitos.js';
 
@@ -105,11 +106,18 @@ export const exigenciasDaLoja = (
   minimos: Record<string, number>,
   turnos: TurnosLoja | null | undefined,
 ): Minimos => {
-  if (!turnos?.turnos.length || turnos.modo === 'unico') return minimos;
+  // Apoio e Perfumaria (antigos) já não contam: o que sobrou deles no banco é ignorado.
+  const unico = soNoCalculo(minimos);
+  if (!turnos?.turnos.length || turnos.modo === 'unico') return unico;
   const fatias: Fatia[] = turnos.turnos.flatMap((t) =>
-    pedacosDe(t).map((p) => ({ de: p.de, ate: p.ate, minimos: t.minimos, nome: t.nome })),
+    pedacosDe(t).map((p) => ({
+      de: p.de,
+      ate: p.ate,
+      minimos: soNoCalculo(t.minimos),
+      nome: t.nome,
+    })),
   );
-  return { fatias, reserva: minimos };
+  return { fatias, reserva: unico };
 };
 
 // Avisos dos turnos já gravados: o que deixou de ser válido e as horas sem turno (informativo, não bloqueia).

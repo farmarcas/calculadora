@@ -1,8 +1,9 @@
 import { z } from 'zod';
+import { descartarFuncoesFora, FUNCOES_NO_CALCULO } from '../cadastros/funcoes.js';
 
 const vazio = z.object({}).strict();
 const id = z.object({ id: z.string().uuid() }).strict();
-const FUNCOES = ['Farmacêutico', 'Atendimento', 'Caixa', 'Apoio', 'Perfumaria'] as const;
+const FUNCOES = FUNCOES_NO_CALCULO;
 
 // Ajustes de encargos de UMA loja: só o que ela mudou do padrão do regime (RAT de 1% a 3%, FAP de 0,5 a 2,0, rescisão).
 export const ajustesEncargosSchema = z
@@ -18,7 +19,10 @@ export const ajustesEncargosSchema = z
 export const custosSchema = z
   .object({
     // Salário médio mensal por função (estimativa gerencial; nunca salário individual).
-    salarioMedio: z.partialRecord(z.enum(FUNCOES), z.number().positive().max(1_000_000)),
+    salarioMedio: z.preprocess(
+      descartarFuncoesFora,
+      z.partialRecord(z.enum(FUNCOES), z.number().positive().max(1_000_000)),
+    ),
     encargos: ajustesEncargosSchema.optional(),
     encargosPct: z.number().min(0).max(300).optional(),
   })

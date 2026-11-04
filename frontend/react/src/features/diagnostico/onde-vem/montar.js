@@ -3,7 +3,7 @@
 
 const EPS = 1e-9;
 const arred = (n) => Math.round(n * 100) / 100;
-export const ORDEM_FUNCOES = ["Farmacêutico", "Atendimento", "Caixa", "Apoio", "Perfumaria"];
+export const ORDEM_FUNCOES = ["Farmacêutico", "Atendimento", "Caixa"];
 export const LIMITE_PICO = 0.75;
 
 export const horaDeTexto = (t) => {

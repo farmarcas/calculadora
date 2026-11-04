@@ -38,7 +38,7 @@ export const REGIMES = ['simples', 'presumido', 'real'] as const;
 
 const horaHHMM = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Horário inválido (use HH:MM)');
 
-export const FUNCOES = ['Farmacêutico', 'Atendimento', 'Caixa', 'Apoio', 'Perfumaria'] as const;
+export const FUNCOES = FUNCOES_NO_CALCULO;
 
 export const lojaSchema = z
   .object({

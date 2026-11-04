@@ -23,7 +23,7 @@ const ESTILO_PILL = {
 };
 const STATUS = { nao_recomendado: ["atencao", "Não recomendado"], nao_resolve: ["atencao", "Não resolve sozinho"], inviavel: ["alerta", "Inviável"] };
 
-const NOME_FUNCAO = { Farmacêutico: "farmacêutico", Atendimento: "atendente", Caixa: "caixa", Apoio: "apoio", Perfumaria: "perfumaria" };
+const NOME_FUNCAO = { Farmacêutico: "farmacêutico", Atendimento: "atendente", Caixa: "caixa" };
 const nomeFuncao = (f, n) => {
   const base = NOME_FUNCAO[f] ?? f.toLowerCase();
   return n > 1 ? `${base}s` : base;

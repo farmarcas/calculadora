@@ -1,3 +1,4 @@
+import { funcaoNoCalculo } from '../cadastros/funcoes.js';
 import { calcularCusto } from '../custos/custo.js';
 import type { Custos } from '../custos/custos.schemas.js';
 import { verificarRegra, type DiaAberto } from '../regras/capacidade.js';
@@ -105,7 +106,8 @@ export const calcularResultado = (a: {
   dono: boolean;
 }): ResultadoSimulacao => {
   const tabela = a.parametros ?? PARAMETROS_PADRAO;
-  const ativos = a.quadro.filter((p) => !p.desligado && p.funcao);
+  // Pessoa com função antiga (Apoio, Perfumaria) fica fora do cálculo, mesmo em simulação salva antes.
+  const ativos = a.quadro.filter((p) => !p.desligado && funcaoNoCalculo(p.funcao));
   const atuais = ativos.filter((p) => !p.vaga);
   const horasDe = (ds: DiaAberto[]) => arred(ds.reduce((s, d) => s + (d.fecha - d.abre), 0));
   const horasAbertas = horasDe(a.dias);

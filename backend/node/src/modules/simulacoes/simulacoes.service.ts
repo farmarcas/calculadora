@@ -2,6 +2,7 @@ import type { Auditor } from '../../shared/auditoria/auditoria.js';
 import { ConflictError } from '../../shared/errors/conflict-error.js';
 import { NotFoundError } from '../../shared/errors/not-found-error.js';
 import { ValidationError } from '../../shared/errors/validation-error.js';
+import { soNoCalculo } from '../cadastros/funcoes.js';
 import { normalizarHorarios } from '../cadastros/horarios.js';
 import { calcularResultado } from './resultado.js';
 import { diasAbertos, type LojaDiag } from '../escala/diagnostico.js';
@@ -64,7 +65,7 @@ export const makeSimulacoesService = (
     // O horário simulado (rascunho) vale no lugar do Cadastro; nunca grava na loja.
     const p: Premissas = s.premissas ?? {
       horarios: normalizarHorarios(s.horarios) ?? l.horarios,
-      minimos: exigenciasDaLoja({ ...FUNCOES_PADRAO_MINIMO, ...(l.minimos ?? {}) }, l.turnos),
+      minimos: exigenciasDaLoja({ ...FUNCOES_PADRAO_MINIMO, ...soNoCalculo(l.minimos) }, l.turnos),
       convencao8h24: l.convencao8h24,
       custos: l.custos ?? null,
       regra: s.regra,
@@ -113,7 +114,7 @@ export const makeSimulacoesService = (
       JSON.stringify(normalizarHorarios(s.premissas.horarios))
     )
       motivos.push('O horário de funcionamento da loja mudou.');
-    const min = exigenciasDaLoja({ ...FUNCOES_PADRAO_MINIMO, ...(l.minimos ?? {}) }, l.turnos);
+    const min = exigenciasDaLoja({ ...FUNCOES_PADRAO_MINIMO, ...soNoCalculo(l.minimos) }, l.turnos);
     if (!minimosIguais(min, s.premissas.minimos))
       motivos.push('O mínimo de pessoas por função mudou.');
     if (l.convencao8h24 !== s.premissas.convencao8h24)
@@ -281,7 +282,7 @@ export const makeSimulacoesService = (
         const sugeridas = vagasSugeridas(
           regra,
           diasAbertos(l.horarios),
-          exigenciasDaLoja({ ...FUNCOES_PADRAO_MINIMO, ...(l.minimos ?? {}) }, l.turnos),
+          exigenciasDaLoja({ ...FUNCOES_PADRAO_MINIMO, ...soNoCalculo(l.minimos) }, l.turnos),
           base.quadro,
         );
         base = { ...base, ...aplicarVagasEDesligados(base.quadro, base.turnos, sugeridas) };

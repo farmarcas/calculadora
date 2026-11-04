@@ -127,8 +127,8 @@ describe('normalizarTurnos e exigenciasDaLoja', () => {
 
   it('sem turnos, a exigência é o mínimo único', () => {
     const m = { Farmacêutico: 1, Atendimento: 2 };
-    expect(exigenciasDaLoja(m, null)).toBe(m);
-    expect(exigenciasDaLoja(m, { versao: 1, turnos: [] })).toBe(m);
+    expect(exigenciasDaLoja(m, null)).toEqual(m);
+    expect(exigenciasDaLoja(m, { versao: 1, turnos: [] })).toEqual(m);
   });
 
   it('com turnos, cada hora exige o mínimo do seu turno', () => {
@@ -192,10 +192,24 @@ describe('sobreposição e modo do mínimo', () => {
   it('modo "unico": a exigência é o mínimo único e os turnos continuam guardados', () => {
     const m = { Farmacêutico: 1, Atendimento: 1 };
     const turnos = { versao: 1 as const, modo: 'unico' as const, turnos: tres };
-    expect(exigenciasDaLoja(m, turnos)).toBe(m);
+    expect(exigenciasDaLoja(m, turnos)).toEqual(m);
     // Sem modo, ou com modo "turnos", os turnos valem como antes.
-    expect(exigenciasDaLoja(m, { versao: 1, turnos: tres })).not.toBe(m);
-    expect(exigenciasDaLoja(m, { versao: 1, modo: 'turnos', turnos: tres })).not.toBe(m);
+    expect(exigenciasDaLoja(m, { versao: 1, turnos: tres })).not.toEqual(m);
+    expect(exigenciasDaLoja(m, { versao: 1, modo: 'turnos', turnos: tres })).not.toEqual(m);
+  });
+
+  it('Apoio e Perfumaria antigos no mínimo único ou nos turnos são ignorados (não contam mais)', () => {
+    const m = { Farmacêutico: 1, Atendimento: 1, Apoio: 2, Perfumaria: 1 };
+    expect(exigenciasDaLoja(m, null)).toEqual({ Farmacêutico: 1, Atendimento: 1 });
+    const r = requisitos(
+      exigenciasDaLoja(m, {
+        versao: 1,
+        turnos: [t('Dia', '08:00', '20:00', { Atendimento: 2, Apoio: 3 })],
+      }),
+    );
+    expect(r.emHora('Atendimento', 0, 10)).toBe(2);
+    expect(r.emHora('Apoio', 0, 10)).toBe(0);
+    expect(r.funcoes).not.toContain('Apoio');
   });
 });
 

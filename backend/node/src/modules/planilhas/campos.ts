@@ -99,8 +99,6 @@ const FUNCOES_CONFIG: [string, string][] = [
   ['farmaceutico', 'Farmacêutico'],
   ['atendimento', 'Atendimento'],
   ['caixa', 'Caixa'],
-  ['apoio', 'Apoio'],
-  ['perfumaria', 'Perfumaria'],
 ];
 const semAcento = (t: string) => t.normalize('NFD').replace(/\p{M}/gu, '');
 const ehSimNao = (v: string) => /^(sim|nao|não|s|n|x|true|false|1|0|yes|no)$/i.test(v.trim());
@@ -455,8 +453,6 @@ export const FUNCOES_ESCALA = [
   'Farmacêutico',
   'Atendimento',
   'Caixa',
-  'Apoio',
-  'Perfumaria',
 ] as const;
 
 export const CAMPOS_ESCALA: CampoDef[] = [

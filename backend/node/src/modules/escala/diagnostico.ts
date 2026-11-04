@@ -1,3 +1,4 @@
+import { soNoCalculo } from '../cadastros/funcoes.js';
 import { PARAMETROS_PADRAO } from '../regras/parametros.js';
 import { distribuirParcial } from './distribuir-parcial.js';
 import { redistribuir } from './redistribuir.js';
@@ -133,7 +134,7 @@ export const montarDiagnostico = (a: {
   const { loja, escala, turnos, base, vendas } = a;
   const prem = a.premissas ?? PREMISSAS_PADRAO;
   const dias = diasAbertos(loja.horarios);
-  const minimos = { ...FUNCOES_PADRAO_MINIMO, ...(loja.minimos ?? {}) };
+  const minimos = { ...FUNCOES_PADRAO_MINIMO, ...soNoCalculo(loja.minimos) };
   const horasAbertas = dias.reduce((s, d) => s + (d.fecha - d.abre), 0);
 
   const fontes = {

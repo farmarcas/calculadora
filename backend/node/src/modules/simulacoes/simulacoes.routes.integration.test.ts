@@ -347,7 +347,7 @@ describe('simulações (rotas)', () => {
 
     it('vagas ficam congeladas na gravada e vêm junto no clone', async () => {
       const sim = (await criar()).body;
-      await put(sim.id, { vagas: [{ funcao: 'Apoio', cargaH: 16 }] });
+      await put(sim.id, { vagas: [{ funcao: 'Caixa', cargaH: 16 }] });
       await reqGe().post(`/api/v1/simulacoes/${sim.id}/gravar`).set(admin);
       expect((await put(sim.id, { vagas: [] })).status).toBe(409);
       const c = (await reqGe().post(`/api/v1/simulacoes/${sim.id}/clonar`).set(admin)).body;

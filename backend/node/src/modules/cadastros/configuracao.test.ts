@@ -70,11 +70,10 @@ describe('configuracaoDaLinha', () => {
   it.each([
     [{ convencao_8h24: 'talvez' }, 'Convenção 8h24'],
     [{ meta_atendimento: '11' }, 'Meta de Atendimento'],
-    [{ meta_apoio: '-1' }, 'Meta de Apoio'],
     [{ meta_caixa: '1,5' }, 'Meta de Caixa'],
     [{ meta_farmaceutico: '0' }, 'ao menos 1'],
-    [{ salario_perfumaria: '0' }, 'Salário médio de Perfumaria'],
-    [{ salario_apoio: 'abc' }, 'Salário médio de Apoio'],
+    [{ salario_caixa: '0' }, 'Salário médio de Caixa'],
+    [{ salario_atendimento: 'abc' }, 'Salário médio de Atendimento'],
     [{ rat_pct: '3,5' }, 'RAT'],
     [{ rat_pct: '-1' }, 'RAT'],
     [{ fap: '2,5' }, 'FAP'],

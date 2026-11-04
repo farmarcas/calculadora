@@ -1,6 +1,6 @@
 // Contas puras dos turnos (sem React), espelhando as regras do servidor: o mínimo só conta dentro do horário de funcionamento,
 // turnos podem se sobrepor e passar do horário, e hora sem turno é aviso (não erro).
-export const FUNCOES = ["Farmacêutico", "Atendimento", "Caixa", "Apoio", "Perfumaria"];
+export const FUNCOES = ["Farmacêutico", "Atendimento", "Caixa"];
 export const MAX_TURNOS = 6;
 const EPS = 1e-9;
 

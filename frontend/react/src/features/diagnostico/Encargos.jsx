@@ -8,10 +8,14 @@ export const NOTA_ENCARGOS = "Percentuais de referência. Confirme com seu conta
 export const pct = (n) => `${String(Math.round(n * 100) / 100).replace(".", ",")}%`;
 
 // Lista de componentes do encargo (INSS, RAT × FAP, terceiros, FGTS, provisões…), com o total no fim.
-export function ComposicaoEncargos({ encargos }) {
+// `apoio` é uma linha de explicação abaixo do link (opcional).
+export function ComposicaoEncargos({ encargos, apoio = null }) {
   return (
     <details className="text-sm">
-      <summary className="cursor-pointer font-bold text-system-500">Ver composição</summary>
+      <summary className="cursor-pointer">
+        <span className="font-bold text-system-500">Ver composição</span>
+        {apoio && <span className="mt-0.5 block text-sm font-normal text-ink-700">{apoio}</span>}
+      </summary>
       <table className="mt-2 w-full max-w-xl border-collapse text-sm">
         <tbody>
           {encargos.componentes.map((c) => (

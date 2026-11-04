@@ -7,6 +7,7 @@ import {
   melhorEstado,
   passosDe,
   perdaMensal,
+  vendaPerdidaHoraria,
   sequenciaFimDeSemana,
   TRAVAS,
   type EntradaSequencia,
@@ -399,3 +400,90 @@ describe('horário estendido (Cenário 3)', () => {
     expect(melhorEstado({ dias, porDia, margemMes, avaliar }).horasNovas).toBe(0);
   });
 });
+
+describe('venda perdida hora a hora (spec 022)', () => {
+  const dia = (d: number, abre = 8, fecha = 20) => ({ dia: d, abre, fecha });
+  const hojeL: DiaAberto[] = [0, 1, 2, 3, 4, 5, 6].map((d) => dia(d));
+  // Venda média por hora (8h a 19h): segunda a sexta 100; sábado 100 até 15h e 20 depois; domingo 100 até 15h e 50 depois.
+  const tabelaH = (extra: Record<string, number> = {}) => {
+    const venda = Array.from({ length: 7 }, () => new Array<number>(24).fill(0));
+    for (let d = 0; d < 7; d++)
+      for (let h = 8; h < 20; h++) venda[d]![h] = d === 5 && h >= 16 ? 20 : d === 6 && h >= 16 ? 50 : 100;
+    for (const [k, v] of Object.entries(extra)) {
+      const [d, h] = k.split(':').map(Number);
+      venda[d!]![h!] = v;
+    }
+    return { venda, margem: venda.map((l) => l.map((x) => x * 0.3)), dias: 12 };
+  };
+  const SEMANAS = 52 / 12;
+
+  it('corte de fim de dia: soma só a venda das horas que fecham, × 52 ÷ 12, por dia alterado', () => {
+    const final = hojeL.map((d) => (d.dia === 5 ? { ...d, fecha: 16 } : d));
+    const r = vendaPerdidaHoraria(hojeL, final, tabelaH());
+    // sábado: 16h, 17h, 18h e 19h valem 20 cada = 80 por semana
+    expect(r.porDia).toEqual([{ dia: 5, horasFechadas: 4, ate: 16, vendaMes: Math.round(80 * SEMANAS * 100) / 100 }]);
+    expect(r.vendaMes).toBe(Math.round(80 * SEMANAS * 100) / 100);
+  });
+
+  it('perde menos que a divisão igual do dia quando o fim do dia vende pouco', () => {
+    const final = hojeL.map((d) => (d.dia === 5 ? { ...d, fecha: 16 } : d));
+    const porDia = hojeL.map((d) => ({ dia: d.dia, protegido: false, vendaMes: Math.round(((d.dia === 5 ? 880 : 1200) * SEMANAS) * 100) / 100 }));
+    // divisão igual: 4/12 de 880 = 293,33 por semana; hora a hora: 80
+    expect(perdaMensal(hojeL, final, porDia, tabelaH())).toBeLessThan(perdaMensal(hojeL, final, porDia));
+    expect(perdaMensal(hojeL, final, porDia, tabelaH())).toBe(vendaPerdidaHoraria(hojeL, final, tabelaH()).vendaMes);
+  });
+
+  it('dia fechado perde todas as horas; sem mudança perde zero; horário maior não é perda', () => {
+    const fechado = hojeL.filter((d) => d.dia !== 6);
+    const r = vendaPerdidaHoraria(hojeL, fechado, tabelaH());
+    expect(r.porDia).toMatchObject([{ dia: 6, horasFechadas: 12, ate: null }]);
+    expect(r.porDia[0]!.vendaMes).toBe(Math.round((8 * 100 + 4 * 50) * SEMANAS * 100) / 100);
+    expect(vendaPerdidaHoraria(hojeL, hojeL, tabelaH())).toEqual({ vendaMes: 0, porDia: [] });
+    const maior = hojeL.map((d) => (d.dia === 5 ? { ...d, fecha: 22 } : d));
+    expect(vendaPerdidaHoraria(hojeL, maior, tabelaH())).toEqual({ vendaMes: 0, porDia: [] });
+  });
+
+  it('hora sem venda registrada conta zero', () => {
+    const t = tabelaH({ '5:19': 0, '5:18': 0, '5:17': 0, '5:16': 0 });
+    const final = hojeL.map((d) => (d.dia === 5 ? { ...d, fecha: 16 } : d));
+    expect(vendaPerdidaHoraria(hojeL, final, t).vendaMes).toBe(0);
+  });
+
+  it('o Cenário 2 corta primeiro o dia cuja última hora vende menos, não o de menor venda média', () => {
+    const porDia = hojeL.map((d) => ({ dia: d.dia, protegido: false, vendaMes: d.dia === 5 ? 14000 : d.dia === 6 ? 7000 : 10000 }));
+    const horasTotal = (ds: DiaAberto[]) => ds.reduce((s, x) => s + (x.fecha - x.abre), 0);
+    const cobre = (ds: DiaAberto[]) => horasTotal(ds) <= 82;
+    const venda = Array.from({ length: 7 }, () => new Array<number>(24).fill(100));
+    venda[5]![19] = 5;
+    venda[5]![18] = 5;
+    venda[6]![19] = 50;
+    venda[6]![18] = 50;
+    const tabela = { venda, margem: venda, dias: 12 };
+    const comTabela = sequenciaFimDeSemana({ dias: hojeL, porDia, cobre, tabela });
+    expect(comTabela.dias.find((d) => d.dia === 5)!.fecha).toBe(18);
+    expect(comTabela.dias.find((d) => d.dia === 6)!.fecha).toBe(20);
+    // sem a tabela, vale a venda média do dia: o domingo (7000) é o mais barato por hora
+    const semTabela = sequenciaFimDeSemana({ dias: hojeL, porDia, cobre });
+    expect(semTabela.dias.find((d) => d.dia === 6)!.fecha).toBe(18);
+    expect(semTabela.dias.find((d) => d.dia === 5)!.fecha).toBe(20);
+  });
+
+  it('melhorEstado com a tabela: o impacto é custo + venda perdida − venda ganha; sem mudança fica o horário de hoje', () => {
+    const avaliar = () => ({ custo: 0, pessoas: 0 });
+    const porDia = hojeL.map((d) => ({ dia: d.dia, protegido: d.dia >= 5, vendaMes: 10000 }));
+    const r = melhorEstado({ dias: hojeL, porDia, tabela: tabelaH(), avaliar });
+    expect(r.dias).toEqual(hojeL);
+    expect(r.perdida).toBe(0);
+    expect(r.impacto).toBe(0);
+  });
+
+  it('ganhoDasHorasNovas aceita o percentual da hora vizinha', () => {
+    const t = tabelaH();
+    const final = hojeL.map((d) => (d.dia === 5 ? { ...d, fecha: 21 } : d));
+    // hora nova 20h: vizinha é 19h (20 no sábado)
+    expect(ganhoDasHorasNovas(hojeL, final, t).vendaMes).toBe(Math.round(10 * SEMANAS * 100) / 100);
+    expect(ganhoDasHorasNovas(hojeL, final, t, 0.8).vendaMes).toBe(Math.round(16 * SEMANAS * 100) / 100);
+    expect(ganhoDasHorasNovas(hojeL, final, t, 0).vendaMes).toBe(0);
+  });
+});
+

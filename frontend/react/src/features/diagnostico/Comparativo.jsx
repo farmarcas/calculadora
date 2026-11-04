@@ -140,7 +140,7 @@ function Cartao({ posicao, c, descricao, resultado, horarioAtual, horasManter, s
         <div className="text-xs leading-4 font-bold uppercase text-[var(--neutral-mid-300)]">{ehReferencia ? "Custo de folha adicional por mês" : "Saldo mensal estimado"}</div>
         {dono && ehReferencia ? (
           <>
-            <div className="text-[32px] leading-[41.6px] font-bold text-[var(--text-strong)]" data-testid="custo-de-folha">
+            <div className="text-[32px] leading-[41.6px] font-bold" style={{ color: c.folhaAdicionalMensal > 0.005 ? "var(--text-danger)" : "var(--text-strong)" }} data-testid="custo-de-folha">
               {c.folhaAdicionalMensal == null ? "—" : `${c.folhaAdicionalMensal > 0.005 ? "+" : ""}${brl(c.folhaAdicionalMensal)}`}
             </div>
             <div className="text-xs leading-4 font-bold text-[var(--text-strong)]">Referência para comparar os outros cenários</div>
@@ -153,7 +153,7 @@ function Cartao({ posicao, c, descricao, resultado, horarioAtual, horasManter, s
             {c.folhaAdicionalMensal != null && (
               <div className="mb-2 rounded-btn border border-[var(--border-subtle)] bg-[var(--surface-card)] px-3 py-2" data-testid="custo-de-folha">
                 <div className="text-xs leading-4 font-bold uppercase text-[var(--neutral-mid-300)]">Custo de folha adicional</div>
-                <div className="text-[20px] leading-6 font-bold text-[var(--text-strong)]">{c.folhaAdicionalMensal > 0.005 ? "+" : ""}{brl(c.folhaAdicionalMensal)} <span className="text-xs font-normal text-[var(--text-secondary)]">por mês · {brl(c.folhaAdicionalMensal * 12)} por ano</span></div>
+                <div className="text-[20px] leading-6 font-bold" style={{ color: c.folhaAdicionalMensal > 0.005 ? "var(--text-danger)" : "var(--text-strong)" }}>{c.folhaAdicionalMensal > 0.005 ? "+" : ""}{brl(c.folhaAdicionalMensal)} <span className="text-xs font-normal text-[var(--text-secondary)]">por mês · {brl(c.folhaAdicionalMensal * 12)} por ano</span></div>
               </div>
             )}
             <div className="text-[32px] leading-[41.6px] font-bold" style={{ color: corSaldo }}>{saldo == null ? "—" : `${sinal}${mod(saldo)}`}</div>

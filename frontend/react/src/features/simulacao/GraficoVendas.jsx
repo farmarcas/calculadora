@@ -32,10 +32,17 @@ export default function GraficoVendas({ resultado: r, dia, onDia, modo }) {
   const usada = metricas.some(([m]) => m === metrica) ? metrica : metricas[0][0];
   const serie = usada === "venda" ? v.venda[dia] : v.clientes[dia];
   const cad = r.horario.cadastro;
-  // Horas mostradas: da primeira abertura à última hora de fechamento do Cadastro (padrão 07h–21h).
-  const abertos = cad.filter((c) => c.aberta);
-  const de = abertos.length ? Math.min(...abertos.map((c) => Number(c.abre.slice(0, 2)))) : 7;
-  const ate = abertos.length ? Math.max(...abertos.map((c) => Math.ceil(Number(c.fecha.slice(0, 2)) + Number(c.fecha.slice(3)) / 60))) : 22;
+  // Horas mostradas: de quem abre mais cedo a quem fecha mais tarde, olhando o Cadastro, o horário desta simulação (que pode
+  // estender o funcionamento) e qualquer hora com venda na base. Assim lojas que abrem antes das 8h ou fecham depois das 20h
+  // aparecem inteiras; o intervalo é o mesmo em todos os dias, para o gráfico não mudar de largura ao trocar de dia.
+  const faixas = [...cad, ...r.horario.dias].filter((d) => d.aberta && d.abre && d.fecha);
+  let de = faixas.length ? Math.min(...faixas.map((d) => Number(d.abre.slice(0, 2)))) : 7;
+  let ate = faixas.length ? Math.max(...faixas.map((d) => Math.ceil(Number(d.fecha.slice(0, 2)) + Number(d.fecha.slice(3)) / 60))) : 22;
+  for (let d = 0; d < 7; d++) {
+    for (let h = 0; h < 24; h++) {
+      if (((usada === "venda" ? v.venda : v.clientes)?.[d]?.[h] ?? 0) > 0) { de = Math.min(de, h); ate = Math.max(ate, h + 1); }
+    }
+  }
   const horas = Array.from({ length: Math.max(1, ate - de) }, (_, k) => de + k);
   const max = Math.max(...horas.map((h) => serie[h]), 0);
   const pico = (h) => max > 0 && serie[h] >= max * 0.85;

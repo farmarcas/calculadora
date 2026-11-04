@@ -98,11 +98,10 @@ export default function AbaRegras({ painel, rascunho, dono, podeEditar, mostrarE
       {dono && k && enc && (
         <section aria-labelledby="titulo-custos">
           <div className="flex items-center justify-between gap-3">
-            <h3 id="titulo-custos" className="m-0 text-base font-bold text-[var(--text-strong)]">Custos</h3>
+            <h3 id="titulo-custos" className="m-0 text-base font-bold text-[var(--text-strong)]">Custos de Salário em Folha</h3>
             <span className="rounded-full bg-[var(--surface-muted)] px-3 py-1 text-xs text-[var(--text-secondary)]">Visível só para o dono</span>
           </div>
-          <h4 className="m-0 mt-3 text-sm font-bold text-[var(--text-strong)]">Salário e folha</h4>
-          <p className="m-0 mt-1 text-xs text-[var(--text-secondary)]">Informe o salário médio sem premiação. Entra só o que é pago na folha: comissão paga na folha conta; premiação ou bonificação paga via Alelo não conta. É uma estimativa por média de função: não há salário individual.</p>
+          <p className="m-0 mt-1 text-xs text-[var(--text-secondary)]">Informe o salário médio pago em folha. Se a comissão é paga em folha, acrescente. Se for paga por fora, como Alelo, não acrescente. É uma estimativa por média de função: não há salário individual.</p>
           <div className="cl-grid3 mt-3">
             {FUNCOES.map((f) => (
               <label key={f} className="flex flex-col gap-1 text-sm text-[var(--text-strong)]">Salário médio sem premiação · {f}

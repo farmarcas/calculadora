@@ -27,6 +27,6 @@
 - [x] T016 Celular (360 px): faixa recolhida de 56 px, lista empilhada com "Preencher" de largura total, alvos de 44 px, sem rolagem lateral
 
 ## Fatia 6 — Conferência final
-- [ ] T017 Conferir como dono, gestor e Somente consulta (nenhuma aba some; itens do dono sem botão), em 5 larguras (360 a 1920), com teclado e leitor de tela, e no grupo do Sumaré (as 37 lojas: totais e motivo principal coerentes com a regra)
-- [ ] T018 Conferir que o diagnóstico, os cenários e os cálculos não mudaram (diff) e que nenhum valor em R$ aparece nos avisos
-- [ ] T019 README e resumo final; rodar tudo e commitar
+- [x] T017 Conferir como dono, gestor e Somente consulta (nenhuma aba some; itens do dono sem botão), em 5 larguras (360 a 1920), com teclado e leitor de tela, e no grupo do Sumaré (as 37 lojas: totais e motivo principal coerentes com a regra)
+- [x] T018 Conferir que o diagnóstico, os cenários e os cálculos não mudaram (diff) e que nenhum valor em R$ aparece nos avisos
+- [x] T019 README e resumo final; rodar tudo e commitar

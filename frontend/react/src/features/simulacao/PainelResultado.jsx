@@ -65,7 +65,7 @@ export default function PainelResultado({ sim, calculando, dono, podeEscrever, s
 
       <div className="mt-4">
         {editavel ? (
-          <Botao className="w-full" onClick={onSalvar} disabled={!sim.avaliacao.podeGravar || salvando || calculando}>
+          <Botao className="w-full" onClick={onSalvar} disabled={salvando || calculando}>
             {salvando ? "Salvando…" : `Salvar como cenário ${sim.proximoNumeroCenario ?? ""}`.trim()}
           </Botao>
         ) : podeEscrever ? (

@@ -11,6 +11,8 @@ export type Pendencia = {
   // dados, funcionamento, faturamentoDia, faturamentoMes, margem, farmaceutico ou salario:<Função>.
   id: string;
   aba: AbaPendencia;
+  // O nome do item no painel ("Dados da loja", "Margem bruta média").
+  titulo: string;
   // O texto da situação "Revisar" (o de sempre, com o nome do dia ou da função).
   resumo: string;
   // A linha curta do painel.
@@ -73,6 +75,7 @@ export const pendenciasDoCadastro = (
     p.push({
       id: 'dados',
       aba: 'dados',
+      titulo: 'Dados da loja',
       resumo: `Faltam dados da loja: ${lista(nomes)}`,
       texto: `Falta: ${lista(nomes)}.`,
       porque: 'Esses dados identificam a loja e definem os encargos.',
@@ -86,6 +89,7 @@ export const pendenciasDoCadastro = (
     p.push({
       id: 'funcionamento',
       aba: 'dados',
+      titulo: 'Horário de funcionamento',
       resumo: 'Falta definir o funcionamento da loja',
       texto: 'Informe quando a loja abre e fecha em pelo menos um dia.',
       porque: 'Sem o horário de funcionamento não dá para calcular a escala.',
@@ -97,6 +101,7 @@ export const pendenciasDoCadastro = (
     p.push({
       id: 'farmaceutico',
       aba: 'equipe',
+      titulo: 'Farmacêutico na equipe',
       resumo: 'Falta cadastrar um farmacêutico na equipe',
       texto: 'Cadastre pelo menos um farmacêutico.',
       porque: 'A lei exige farmacêutico em todo o horário de funcionamento.',
@@ -112,6 +117,7 @@ export const pendenciasDoCadastro = (
     p.push({
       id: 'faturamentoDia',
       aba: 'dados',
+      titulo: 'Faturamento por dia',
       resumo: nenhum ? 'Falta o faturamento por dia' : `Falta faturamento de ${lista(nomes)}`,
       texto: nenhum
         ? 'Informe o faturamento de cada dia aberto.'
@@ -134,6 +140,7 @@ export const pendenciasDoCadastro = (
     p.push({
       id: 'faturamentoMes',
       aba: 'dados',
+      titulo: 'Faturamento do mês',
       resumo: 'O faturamento mensal informado difere mais de 10% da soma dos dias',
       texto: 'O valor do mês é diferente da soma dos dias. Confira.',
       porque: 'Confira o faturamento do mês: o valor informado é diferente da soma dos dias em mais de 10%.',
@@ -147,6 +154,7 @@ export const pendenciasDoCadastro = (
     p.push({
       id: 'margem',
       aba: 'dados',
+      titulo: 'Margem bruta média',
       resumo: 'Falta a margem bruta média',
       texto: 'Informe a margem bruta em %.',
       porque: 'Sem a margem, o impacto dos cenários fica em branco.',
@@ -160,6 +168,7 @@ export const pendenciasDoCadastro = (
     p.push({
       id: `salario:${f}`,
       aba: 'regras',
+      titulo: `Salário médio · ${f}`,
       resumo: `Falta o salário médio de ${f}`,
       texto: 'Informe o salário médio sem premiação.',
       porque: 'Sem o salário, não dá para calcular o custo de contratar.',

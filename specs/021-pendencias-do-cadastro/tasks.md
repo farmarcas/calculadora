@@ -7,9 +7,9 @@
 - [x] T004 Rodar os testes do servidor e de integração e commitar a fatia
 
 ## Fatia 2 — A mesma regra sobre o rascunho (tela)
-- [ ] T005 `pendencias.js`: função pura que recebe o rascunho (loja e custos), o que o servidor informa da equipe e os itens `soDono` do servidor, e devolve a lista, o total, os feitos, o que o perfil pode preencher e a contagem por aba; para quem não é dono, os itens `soDono` vêm da lista do servidor e não são reavaliados
-- [ ] T006 `pendencias.test.js`: os mesmos casos da T003 (tabela de entradas e saídas), mais campo preenchido tira a pendência antes de salvar, esvaziar a devolve, perfil gestor (itens do dono sem botão), consulta (nenhum botão), contagem por aba só do que a pessoa resolve
-- [ ] T007 Commitar a fatia
+- [x] T005 `pendencias.js`: função pura que recebe o rascunho (loja e custos), o que o servidor informa da equipe e os itens `soDono` do servidor, e devolve a lista, o total, os feitos, o que o perfil pode preencher e a contagem por aba; para quem não é dono, os itens `soDono` vêm da lista do servidor e não são reavaliados
+- [x] T006 `pendencias.test.js`: os mesmos casos da T003 (tabela de entradas e saídas), mais campo preenchido tira a pendência antes de salvar, esvaziar a devolve, perfil gestor (itens do dono sem botão), consulta (nenhum botão), contagem por aba só do que a pessoa resolve
+- [x] T007 Commitar a fatia
 
 ## Fatia 3 — Faixa, abas e navegação (tela)
 - [ ] T008 `PainelPendencias.jsx`: faixa amarela compacta e expandida (título "Faltam N itens…", "X de Y feitos", barra com `role="progressbar"`, "Ver o que falta/Esconder" com `aria-expanded`, itens por aba em colunas, "Preencher"/"Conferir", "Só o dono do grupo preenche", resumo "1 você pode preencher · 2 só o dono"); confirmação "Cadastro completo. Todas as informações foram preenchidas."; região com nome e `aria-live` na contagem; começa aberta em Revisar e recolhida abaixo de 640 px

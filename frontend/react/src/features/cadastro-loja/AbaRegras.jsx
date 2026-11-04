@@ -98,15 +98,15 @@ export default function AbaRegras({ painel, rascunho, dono, podeEditar, mostrarE
       {dono && k && enc && (
         <section aria-labelledby="titulo-custos">
           <div className="flex items-center justify-between gap-3">
-            <h3 id="titulo-custos" className="m-0 text-base font-bold text-[var(--text-strong)]">Custos</h3>
+            <h3 id="titulo-custos" className="m-0 text-base font-bold text-[var(--text-strong)]">Custos de Salário em Folha</h3>
             <span className="rounded-full bg-[var(--surface-muted)] px-3 py-1 text-xs text-[var(--text-secondary)]">Visível só para o dono</span>
           </div>
-          <p className="m-0 mt-1 text-xs text-[var(--text-secondary)]">Estimativa por média de função: não há salário individual.</p>
+          <p className="m-0 mt-1 text-xs text-[var(--text-secondary)]">Informe o salário médio pago em folha. Se a comissão é paga em folha, acrescente. Se for paga por fora, como Alelo, não acrescente. É uma estimativa por média de função: não há salário individual.</p>
           <div className="cl-grid3 mt-3">
             {FUNCOES.map((f) => (
-              <label key={f} className="flex flex-col gap-1 text-sm text-[var(--text-strong)]">Salário médio · {f}
+              <label key={f} className="flex flex-col gap-1 text-sm text-[var(--text-strong)]">Salário médio sem premiação · {f}
                 <div className="relative"><span aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs text-[var(--text-secondary)]">R$</span>
-                  <input data-campo={`salario-${f}`} type="number" min={0} step="0.01" className={`${CAMPO} pl-9`} disabled={!podeEditar} value={k.salarioMedio[f]} aria-invalid={!!erroDe(`salario-${f}`)} aria-label={`Salário médio de ${f}`} onChange={(e) => mudarK({ salarioMedio: { ...k.salarioMedio, [f]: e.target.value } })} /></div>
+                  <input data-campo={`salario-${f}`} type="number" min={0} step="0.01" className={`${CAMPO} pl-9`} disabled={!podeEditar} value={k.salarioMedio[f]} aria-invalid={!!erroDe(`salario-${f}`)} aria-label={`Salário médio sem premiação de ${f}`} onChange={(e) => mudarK({ salarioMedio: { ...k.salarioMedio, [f]: e.target.value } })} /></div>
                 {erroDe(`salario-${f}`) && <span role="alert" className="text-xs text-[var(--text-danger)]">{erroDe(`salario-${f}`)}</span>}
               </label>
             ))}

@@ -112,6 +112,33 @@ describe('montarDiagnostico', () => {
     expect(r.regras.find((x) => x.id === 'atual')!.resumo.turnosEmFalta).toBe(0);
   });
 
+  it('base comercial sem margem usa a margem média cadastrada na loja', () => {
+    // Uma semana de vendas (segunda a sábado, 8h às 19h) sem a coluna de margem.
+    const vendas = [0, 1, 2, 3, 4, 5].flatMap((d) =>
+      Array.from({ length: 12 }, (_, i) => ({
+        data: `2026-09-${String(7 + d).padStart(2, '0')}`,
+        hora: 8 + i,
+        venda: 100,
+        clientes: 5,
+        margem: 0,
+      })),
+    );
+    const diag = (margemPct: number | null) =>
+      montarDiagnostico({
+        loja: { ...loja, faturamento: { dias: [], mensal: null, margemPct } } as never,
+        escala: meta,
+        turnos: [farm('F1', 8, 14, [0, 1, 2, 3, 4, 5], 44)],
+        base: null,
+        vendas: vendas as never,
+      });
+    const margem = (r: ReturnType<typeof diag>) => {
+      if (r.status === 'pendente') throw new Error('esperava diagnóstico');
+      return r.cenarios.r42.economia.margemInformada;
+    };
+    expect(margem(diag(30))).toBe(true);
+    expect(margem(diag(null))).toBe(false);
+  });
+
   describe('horário por dia da semana', () => {
     const aberta = (abre: string, fecha: string) => ({ aberta: true, abre, fecha });
     const semana = (dom: object) => ({

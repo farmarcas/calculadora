@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { api } from "../../api/client.js";
 import { Aviso, Botao } from "../../components/ui/index.jsx";
+import { composicaoDoImpacto, consequencias, faltaCurta, rotuloDoMelhor, visaoDosCartoes } from "./comparativo-regras.js";
 
 const NOMES_DIA = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
 const brl = (n) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
@@ -32,7 +33,7 @@ const nomeFuncao = (f, n) => {
 export const chipsDeContratacao = (c) => {
   const parcialH = c.parcial?.horas ?? 0;
   const cheia = c.inteiras > 0 ? Math.round((c.horasContratadas - parcialH) / c.inteiras) : 0;
-  const meta = c.motivo === "meta" ? " (meta)" : "";
+  const meta = c.motivo === "meta" ? " (opcional)" : "";
   return [
     ...(c.inteiras > 0 ? [`${c.inteiras} ${nomeFuncao(c.funcao, c.inteiras)} · ${cheia}h${meta}`] : []),
     ...(parcialH > 0 ? [`1 ${nomeFuncao(c.funcao, 1)} parcial · ${horas(parcialH)}${meta}`] : []),
@@ -80,14 +81,14 @@ const LinhaTabela = ({ rotulo, children, ultima, alta }) => (
   </div>
 );
 
-function Cartao({ posicao, c, descricao, horarioAtual, horasManter, sugerido, menorImpacto, maisCara, dono, ehReferencia, maiorImpacto, impactoRef, faixas, temAvisos, podeEscrever, ocupado, onPersonalizar }) {
+function Cartao({ posicao, c, descricao, resultado, horarioAtual, horasManter, sugerido, menorImpacto, maisCara, dono, ehReferencia, maiorImpacto, impactoRef, faixas, temAvisos, podeEscrever, ocupado, onPersonalizar }) {
   const idTitulo = `cenario-${posicao}-nome`;
   const status = c.status && STATUS[c.status];
   const impacto = dono ? c.resultadoLiquidoMensal : undefined;
   const dif = c.horasSemana - horasManter;
   const pills = [
     sugerido && ["primaria", "Cenário sugerido"],
-    menorImpacto && ["sucesso", "Menor impacto mensal"],
+    menorImpacto && ["sucesso", rotuloDoMelhor(impacto)],
     status,
     maisCara && ["atencao", "Mais cara que manter"],
   ].filter(Boolean);
@@ -96,6 +97,8 @@ function Cartao({ posicao, c, descricao, horarioAtual, horasManter, sugerido, me
   const horasOciosas = c.contratacoes.reduce((s, x) => s + (x.horasOciosas ?? 0), 0);
   const custoOciosidade = dono && c.folhaAdicionalMensal > 0 && c.ociosidadePct ? Math.round((c.folhaAdicionalMensal * c.ociosidadePct) / 100) : null;
   const horario = c.ajustes?.length ? c.ajustes.map(linhaDeAjuste).join(", ") : mudancaDeHorario(c.diasFechar, horarioAtual);
+  // Cenário inviável não é uma opção: o motivo já está nos avisos, sem somar a faixa de consequência.
+  const faixaAmarela = c.status === "inviavel" ? [] : consequencias(c, { dono, brl, horasAMenos: Math.max(0, -dif) });
   const larguraBarra = impacto != null && maiorImpacto > 0 ? Math.min(100, (Math.abs(impacto) / maiorImpacto) * 100) : 0;
 
   let comparacao = null;
@@ -104,7 +107,7 @@ function Cartao({ posicao, c, descricao, horarioAtual, horasManter, sugerido, me
     if (ehReferencia) comparacao = <span className="text-[var(--text-secondary)]">Referência para comparar os outros cenários</span>;
     else if (d == null) comparacao = <span className="text-[var(--text-secondary)]">Sem comparação disponível</span>;
     else if (d < 0) comparacao = <span className="font-bold text-[var(--func-warning-300)]">{mod(d)} a mais por mês que o Cenário 1</span>;
-    else if (d > 0) comparacao = <span className="font-bold text-[var(--text-strong)]">{mod(d)} a menos por mês que o Cenário 1</span>;
+    else if (d > 0) comparacao = <span className="font-bold text-[var(--text-strong)]">{mod(d)} a menos por mês que o Cenário 1{c.faltaPorFuncao?.length > 0 && `, com ${faltaCurta(c.faltaPorFuncao)}`}</span>;
     else comparacao = <span className="text-[var(--text-secondary)]">Igual ao Cenário 1</span>;
   }
 
@@ -127,8 +130,11 @@ function Cartao({ posicao, c, descricao, horarioAtual, horasManter, sugerido, me
         ))}
       </div>
 
-      {/* 3 · descrição (até 2 linhas) */}
-      <p className="m-0 min-h-10 line-clamp-2 text-sm leading-5 text-[var(--text-secondary)]" title={descricao}>{curto(descricao)}</p>
+      {/* 3 · premissa (fixa) e resultado nesta loja */}
+      <div className="min-h-10 flex flex-col gap-1">
+        <p className="m-0 line-clamp-2 text-sm leading-5 text-[var(--text-secondary)]" title={descricao}>{curto(descricao)}</p>
+        <p className="m-0 text-sm leading-5 font-bold text-[var(--text-strong)]">{resultado}</p>
+      </div>
 
       {/* 4 · impacto */}
       <div className="rounded-card bg-[var(--surface-subtle)] p-4 flex flex-col gap-1 min-h-[134px]">
@@ -137,7 +143,7 @@ function Cartao({ posicao, c, descricao, horarioAtual, horasManter, sugerido, me
           <>
             <div className="text-[32px] leading-[41.6px] font-bold text-[var(--text-strong)]">{impacto == null ? "—" : `${impacto < 0 ? MENOS : impacto > 0 ? "+" : ""}${mod(impacto)}`}</div>
             <div className="text-xs leading-4 text-[var(--text-secondary)]">
-              {c.folhaAdicionalMensal == null ? "Informe os custos para ver a composição" : `Folha adicional ${brl(c.folhaAdicionalMensal)}${c.margemMes == null ? "" : ` + margem perdida ${brl(Math.abs(c.margemMes))}`}`}
+              {composicaoDoImpacto(c, brl)}
             </div>
             <div
               className="mt-2 h-2 rounded-btn bg-[var(--border-subtle)]"
@@ -152,8 +158,15 @@ function Cartao({ posicao, c, descricao, horarioAtual, horasManter, sugerido, me
         )}
       </div>
 
-      {/* 5 · comparação com o cenário 1 */}
-      <div className="min-h-5 text-sm leading-5">{comparacao}</div>
+      {/* 5 · comparação com o cenário 1 e, quando falta cobertura, a consequência em amarelo */}
+      <div className="min-h-5 flex flex-col gap-2 text-sm leading-5">
+        {comparacao}
+        {faixaAmarela.length > 0 && (
+          <div className="rounded-btn px-3 py-2 text-xs leading-4 text-[var(--neutral-dark-900)]" style={ESTILO_PILL.atencao} data-testid="consequencia">
+            {faixaAmarela.map((l, i) => <p key={i} className={`m-0 ${i === 0 ? "font-bold" : ""}`}>{l}</p>)}
+          </div>
+        )}
+      </div>
 
       {/* 6 · contratações */}
       <div className="min-h-24 border-b border-line pb-3 flex flex-col gap-2">
@@ -224,10 +237,11 @@ export default function Comparativo({ comparativo, cenarios, lojaId, podeEscreve
   const [erro, setErro] = useState(null);
   if (!comparativo) return null;
   const { cenarios: colunas, destaque } = comparativo;
+  // O selo "Cenário sugerido" pode ir a outro cenário que não o de menor custo (quando este deixa falta de cobertura).
+  const sugeridoId = comparativo.sugerido !== undefined ? comparativo.sugerido : destaque;
+  const visao = visaoDosCartoes(comparativo);
   const dono = colunas[0].custoFolhaMensal !== undefined;
   const horarioAtual = cenarios?.manter?.horarioSemana;
-  // A descrição é o foco do cenário (curto, sem números): o resumo e as contas ficam nos blocos abaixo dela.
-  const descricoes = { manter: cenarios?.manter?.foco, economia: cenarios?.economia?.foco, equilibrio: cenarios?.equilibrio?.foco };
   const horasManter = colunas.find((x) => x.id === "manter").horasSemana;
 
   const impactos = colunas.map((x) => (dono && typeof x.resultadoLiquidoMensal === "number" ? Math.abs(x.resultadoLiquidoMensal) : null)).filter((v) => v !== null);
@@ -236,7 +250,7 @@ export default function Comparativo({ comparativo, cenarios, lojaId, podeEscreve
   const menor = valores.length ? Math.min(...valores) : null;
   // "Menor impacto mensal": só quando há mais de um cenário comparável e ninguém empata com o menor.
   const unicoMenor = menor !== null && valores.length >= 2 && valores.filter((v) => Math.abs(v - menor) < 0.005).length === 1;
-  const temAvisos = colunas.some((x) => x.alertas.length > 0 || x.faltaH > 0);
+  const temAvisos = visao.visiveis.some((x) => x.alertas.length > 0 || x.faltaH > 0);
   const faixas = FAIXAS + (temAvisos ? 1 : 0);
 
   const personalizar = async (c, n) => {
@@ -273,16 +287,22 @@ export default function Comparativo({ comparativo, cenarios, lojaId, podeEscreve
         </p>
       </div>
       {erro && <Aviso>{erro}</Aviso>}
-      <div className="cenarios-grade">
-        {colunas.map((c, i) => (
+      {visao.cobreTudo ? (
+        <p className="m-0 rounded-card border border-[var(--border-subtle)] bg-[var(--surface-card)] p-6 text-sm leading-5 text-[var(--text-strong)]" data-testid="cobre-tudo">
+          A equipe atual cobre todos os dias. Não há o que contratar nem reduzir.
+        </p>
+      ) : (
+      <div className="cenarios-grade" style={{ "--colunas": visao.visiveis.length }}>
+        {visao.visiveis.map((c) => (
           <Cartao
             key={c.id}
-            posicao={i + 1}
+            posicao={colunas.indexOf(c) + 1}
             c={c}
-            descricao={descricoes[c.id]}
+            descricao={c.premissa}
+            resultado={c.resultado}
             horarioAtual={horarioAtual}
             horasManter={horasManter}
-            sugerido={destaque === c.id}
+            sugerido={sugeridoId === c.id}
             menorImpacto={unicoMenor && destaque === c.id}
             maisCara={dono && c.id === "equilibrio" && typeof c.ganhoFrenteManterMensal === "number" && c.ganhoFrenteManterMensal < 0}
             dono={dono}
@@ -292,10 +312,16 @@ export default function Comparativo({ comparativo, cenarios, lojaId, podeEscreve
             temAvisos={temAvisos}
             podeEscrever={podeEscrever && !!lojaId && !!cenarios?.regra}
             ocupado={ocupado}
-            onPersonalizar={() => personalizar(c, i + 1)}
+            onPersonalizar={() => personalizar(c, colunas.indexOf(c) + 1)}
           />
         ))}
       </div>
+      )}
+      {visao.recolhido && (
+        <p className="m-0 text-sm leading-5 text-[var(--text-secondary)]" data-testid="recolhido">
+          Cenário {colunas.indexOf(colunas.find((x) => x.id === visao.recolhido.id)) + 1} · {visao.recolhido.nome}: mesmo resultado do Cenário {visao.recolhido.de}.
+        </p>
+      )}
     </section>
   );
 }

@@ -299,10 +299,14 @@ export const montarDiagnostico = (a: {
   // Margem simulada (só o dono): substitui a margem da base ou do cadastro em todas as horas, sem gravar nada.
   const margemEmUso = a.margemPctSimulada ?? loja.faturamento?.margemPct ?? null;
   const vendasBrutas = doCadastro?.linhas ?? vendas;
+  // Base comercial sem coluna de margem (tudo zero): vale a margem média cadastrada na loja, como nas vendas do cadastro.
+  const baseSemMargem = vendas.length > 0 && vendas.every((l) => !(l.margem > 0));
+  const margemAplicada =
+    a.margemPctSimulada ?? (baseSemMargem ? (loja.faturamento?.margemPct ?? null) : null);
   const vendasUsadas =
-    a.margemPctSimulada == null
+    margemAplicada == null
       ? vendasBrutas
-      : vendasBrutas.map((l) => ({ ...l, margem: (l.venda * a.margemPctSimulada!) / 100 }));
+      : vendasBrutas.map((l) => ({ ...l, margem: (l.venda * margemAplicada) / 100 }));
   // Sem curva por hora (origem cadastro) não existe "horário de maior venda".
   const resumoVendas = origemVendas === 'base' ? resumirVendas(vendas) : null;
 

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Botao } from "../../components/ui/index.jsx";
-import { CARGAS, DIAS_CURTOS, FUNCOES, OUTRO, errosDoFuncionario, formatarCpf } from "./equipe.js";
+import { CARGAS, DIAS_CURTOS, FUNCOES, OUTRO, ROTULO_OUTRO, errosDoFuncionario, formatarCpf } from "./equipe.js";
 
 const CAMPO = "h-10 w-full rounded-[6px] border border-[var(--border-default)] bg-[var(--surface-card)] px-3 text-sm text-[var(--text-strong)] focus:border-2 focus:border-[var(--system-500)] focus:outline-none aria-[invalid=true]:border-[var(--border-danger)]";
 
@@ -36,7 +36,7 @@ export default function FormFuncionario({ inicial, editando, salvando, onSalvar,
           <select {...aria("cargo")} className={CAMPO} value={v.cargoSel} onChange={set("cargoSel")}>
             <option value="">Selecione</option>
             {FUNCOES.map((f) => <option key={f} value={f}>{f}</option>)}
-            <option value={OUTRO}>Outro (fora do cálculo)</option>
+            <option value={OUTRO}>{ROTULO_OUTRO}</option>
           </select>
           <Erro c="cargo" />
         </label>
@@ -47,9 +47,6 @@ export default function FormFuncionario({ inicial, editando, salvando, onSalvar,
           </select>
         </label>
       </div>
-      {v.cargoSel === OUTRO && (
-        <label className="mt-3 flex max-w-sm flex-col gap-1 text-sm text-[var(--text-strong)]">Qual é o cargo? *<input {...aria("cargoTexto")} className={CAMPO} value={v.cargoTexto} onChange={set("cargoTexto")} /><Erro c="cargoTexto" /></label>
-      )}
       <div className="mt-3 flex flex-wrap items-end gap-x-6 gap-y-3">
         <label className="flex flex-col gap-1 text-sm text-[var(--text-strong)]">Entrada<input {...aria("entrada")} type="time" className={`${CAMPO} w-32`} value={v.entrada} onChange={set("entrada")} /><Erro c="entrada" /></label>
         <label className="flex flex-col gap-1 text-sm text-[var(--text-strong)]">Saída<input {...aria("saida")} type="time" className={`${CAMPO} w-32`} value={v.saida} onChange={set("saida")} /><Erro c="saida" /></label>

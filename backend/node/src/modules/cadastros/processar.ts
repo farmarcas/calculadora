@@ -1,4 +1,5 @@
 import { FUNCOES_ESCALA } from '../planilhas/campos.js';
+import { FUNCOES_NO_CALCULO, funcaoNoCalculo } from './funcoes.js';
 import {
   DIA_24H,
   DIA_FECHADO,
@@ -8,7 +9,7 @@ import {
   type HorariosSemana,
 } from './horarios.js';
 
-export type FuncaoEscala = (typeof FUNCOES_ESCALA)[number];
+export type FuncaoEscala = (typeof FUNCOES_NO_CALCULO)[number];
 import type { Aba } from '../planilhas/leitor.js';
 import type { Mapeamento, MapeamentoAba } from '../planilhas/inferencia.js';
 import { lerDias, lerHora } from '../escala/interpretar.js';
@@ -72,14 +73,12 @@ export const deduzirFuncao = (
   const direta = normalizar(funcaoEscala ?? '');
   if (direta) {
     const achada = FUNCOES_ESCALA.find((f) => normalizar(f) === direta);
-    if (achada) return achada;
+    if (achada) return funcaoNoCalculo(achada) as FuncaoEscala | null;
   }
   const t = normalizar(`${funcaoEscala ?? ''} ${cargo ?? ''}`);
   if (/farmac/.test(t)) return 'Farmacêutico';
   if (/caixa/.test(t)) return 'Caixa';
-  if (/perfum|dermo/.test(t)) return 'Perfumaria';
   if (/balconist|atend|vendedor/.test(t)) return 'Atendimento';
-  if (/apoio|auxiliar|estoq|repositor|limpez|entregador/.test(t)) return 'Apoio';
   return null;
 };
 

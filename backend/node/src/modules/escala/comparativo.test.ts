@@ -236,6 +236,7 @@ describe('comparativo dos cenários 1, 2 e 3', () => {
 
   it('Cenário 3 igual ao Cenário 1: o alerta diz qual', () => {
     const igualManter = comparar({
+      estenderHorario: false,
       pessoas: farm(40, 40),
       custos: { salarioMedio: { Farmacêutico: 1000 }, encargosPct: 0 },
     });
@@ -260,3 +261,143 @@ describe('comparativo dos cenários 1, 2 e 3', () => {
     expect(JSON.stringify(r)).not.toContain('R$');
   });
 });
+
+describe('premissas, recolhimento e selo sugerido', () => {
+  // Farmacêutico coberto e atendimento abaixo do nível de hoje na regra de 42 h: o Cenário 2 não contrata nem muda horário.
+  const semCorte = (extra: Partial<EntradaCenarios> = {}) =>
+    comparar({
+      estenderHorario: false,
+      regraId: 'r42',
+      minimos: { Farmacêutico: 1 },
+      pessoas: [...farm(44, 44, 44), ...[44, 44].map((cargaH) => ({ funcao: 'Atendimento', cargaH }))],
+      custos: { salarioMedio: { Farmacêutico: 10000, Atendimento: 3000 }, encargosPct: 0 },
+      ...extra,
+    });
+
+  it('premissas fixas e resultado por cenário, em qualquer loja', () => {
+    for (const r of [comparar(), semCorte()]) {
+      expect(col(r, 'manter').premissa).toBe('Contratar para cobrir a escala nos horários de hoje');
+      expect(col(r, 'economia').premissa).toBe('Não contratar; ajustar horários só se precisar');
+      expect(col(r, 'equilibrio').premissa).toBe('A melhor combinação entre contratar e ajustar horários');
+      expect(r.cenarios.every((c) => c.resultado.length > 0)).toBe(true);
+    }
+  });
+
+  it('Cenário 2 sem corte: nenhum horário muda e a falta fica por função, sem venda perdida', () => {
+    const eco = col(semCorte(), 'economia');
+    expect(eco.resultado).toBe('Nenhum horário precisa mudar');
+    expect(eco.faltaPorFuncao?.length).toBeGreaterThan(0);
+    expect(eco.semFarmaceuticoH).toBe(0);
+    expect(eco.faturamentoPerdidoMensal).toBe(0);
+  });
+
+  it('Cenário 2 com corte: o resultado descreve o dia que muda', () => {
+    expect(col(comparar(), 'economia').resultado).toContain('Sábado fecha');
+  });
+
+  it('Cenário 3 igual ao 1 fica para recolher, apontando o cenário de origem', () => {
+    const r = semCorte();
+    expect(col(r, 'equilibrio').recolher).toBe('manter');
+    expect(col(r, 'equilibrio').resultado).toBe('Igual ao Cenário 1');
+    expect(col(comparar(), 'equilibrio').recolher).toBeNull();
+  });
+
+  it('o selo "Cenário sugerido" não vai ao Cenário 2 quando ele deixa função abaixo do nível de hoje', () => {
+    const r = semCorte();
+    expect(r.destaque).toBe('economia');
+    expect(r.sugerido).toBe('manter');
+  });
+
+  it('sem função abaixo do nível de hoje, o sugerido é o de menor custo', () => {
+    const r = comparar();
+    expect(r.sugerido).toBe(r.destaque);
+  });
+
+  it('loja que já cobre tudo: os cenários não têm o que mostrar', () => {
+    const r = comparar({ pessoas: farm(44, 44, 44) });
+    expect(r.lojaCobreTudo).toBe(true);
+    expect(semCorte().lojaCobreTudo).toBe(false);
+    expect(comparar().lojaCobreTudo).toBe(false);
+  });
+
+  it('gerente não recebe selo sugerido nem valores, mas recebe a falta em horas', () => {
+    const r = semCorte({ dono: false });
+    expect('sugerido' in r).toBe(false);
+    expect(col(r, 'economia').faltaPorFuncao?.length).toBeGreaterThan(0);
+  });
+
+  it('o resultado do Cenário 1 lista as funções em português corrido', () => {
+    const r = semCorte({ pessoas: farm(44, 44, 44).slice(0, 1).concat([{ funcao: 'Atendimento', cargaH: 40 }]) });
+    expect(col(r, 'manter').resultado).toMatch(/^Contrata \d+ pessoas?: [\p{L}, ]+$/u);
+    expect(col(r, 'manter').resultado).not.toMatch(/ e .* e /);
+  });
+});
+
+describe('Cenário 3 com horário estendido (spec 020)', () => {
+  // Farmacêutico coberto, atendimento com horas ociosas e venda do cadastro: estender o sábado compensa por pouco.
+  const loja = (extra: Partial<EntradaCenarios> = {}): EntradaCenarios =>
+    entrada({
+      regraId: 'r42',
+      minimos: { Farmacêutico: 1 },
+      pessoas: [...farm(44, 44, 44), ...[44, 44].map((cargaH) => ({ funcao: 'Atendimento', cargaH }))],
+      custos: { salarioMedio: { Farmacêutico: 10000, Atendimento: 3000 }, encargosPct: 0 },
+      ...extra,
+    });
+  const calcular = (extra: Partial<EntradaCenarios> = {}) => {
+    const e = loja(extra);
+    const c = montarCenarios(e);
+    return { e, c, r: montarComparativo(e, c) };
+  };
+
+  it('estende o sábado, avisa que a venda das horas novas é estimada e fica melhor que o Cenário 1', () => {
+    const { c, r } = calcular();
+    expect(c.equilibrio.passos).toMatchObject([{ tipo: 'estender', dia: 5 }]);
+    expect(c.equilibrio.horasEstendidas).toEqual([{ dia: 5, horasNovas: 2, origem: 'vizinha' }]);
+    const eq3 = col(r, 'equilibrio');
+    expect(eq3.recolher).toBeNull();
+    expect(eq3.estimativaDeVenda).toBe(true);
+    expect(eq3.resultado).toContain('Sábado fecha 2 h mais tarde');
+    expect(eq3.alertas.join(' ')).toContain('Venda das horas novas é estimada');
+    expect(eq3.ajustes).toEqual([{ dia: 5, antes: { abre: '08:00', fecha: '22:00' }, depois: { abre: '08:00', fecha: '24:00' } }]);
+    // a margem das horas novas abate a folha extra: melhor que contratar sem estender
+    expect(eq3.resultadoLiquidoMensal!).toBeGreaterThan(col(r, 'manter').resultadoLiquidoMensal!);
+    expect(eq3.margemMes!).toBeGreaterThan(0);
+  });
+
+  it('segunda a sexta nunca mudam e só sábado e domingo ganham horas', () => {
+    const { c } = calcular();
+    for (const d of [0, 1, 2, 3, 4]) expect(c.equilibrio.horarioSemana[d]).toMatchObject({ abre: '08:00', fecha: '22:00' });
+  });
+
+  it('com a extensão desligada, o Cenário 3 volta a só cortar (igual ao 1 quando nada compensa)', () => {
+    const { c, r } = calcular({ estenderHorario: false });
+    expect(c.equilibrio.horasEstendidas).toEqual([]);
+    expect(col(r, 'equilibrio').estimativaDeVenda).toBe(false);
+    expect(col(r, 'equilibrio').recolher).toBe('manter');
+  });
+
+  it('o ganho das horas novas e o impacto robusto são só do dono', () => {
+    const { c } = calcular();
+    expect(c.equilibrio.margemGanhaMes).toBeGreaterThan(0);
+    expect(c.equilibrio.impactoRobusto).toBeGreaterThan(c.manter.impactoMensal! - 1000);
+    const g = calcular({ dono: false });
+    expect('margemGanhaMes' in g.c.equilibrio).toBe(false);
+    expect('impactoRobusto' in g.c.equilibrio).toBe(false);
+    expect(col(g.r, 'equilibrio').ajustes).toHaveLength(1);
+    expect(JSON.stringify(g.r)).not.toContain('R$');
+  });
+
+  it('o "Cenário sugerido" só vai ao Cenário 3 com horas novas se resistir à metade da margem estimada', () => {
+    const { e, c } = calcular();
+    const forcado = (impactoRobusto: number) => {
+      const copia = structuredClone(c);
+      copia.destaque = 'equilibrio';
+      copia.equilibrio.impactoRobusto = impactoRobusto;
+      return montarComparativo(e, copia);
+    };
+    const melhorOutro = Math.min(c.manter.impactoMensal!, c.economia.impactoMensal!);
+    expect(forcado(melhorOutro - 100).sugerido).toBe('equilibrio');
+    expect(forcado(melhorOutro + 100).sugerido).not.toBe('equilibrio');
+  });
+});
+

@@ -63,6 +63,12 @@ const main = async () => {
     process.stdout.write(`Já existem lojas cadastradas: seed ignorado (nada foi alterado).\n`);
     return;
   }
+  // Toda loja e funcionário pertence a um Grupo Econômico: usa o "Grupo inicial" criado pela migration.
+  const ge = await prisma.grupoEconomico.upsert({
+    where: { identificacao: 'GE-INICIAL' },
+    update: {},
+    create: { nome: 'Grupo inicial', identificacao: 'GE-INICIAL' },
+  });
   // Horário no formato por dia (segunda a domingo): a loja 001 abre de segunda a sexta; a 002, também aos sábados.
   const dia = (abre: string, fecha: string) => ({ aberta: true, abre, fecha });
   const fechado = { aberta: false };
@@ -80,6 +86,7 @@ const main = async () => {
   };
   const l1 = await prisma.loja.create({
     data: {
+      geId: ge.id,
       codigo: '001',
       nome: 'Farmácia Centro (exemplo)',
       uf: 'SP',
@@ -89,6 +96,7 @@ const main = async () => {
   });
   const l2 = await prisma.loja.create({
     data: {
+      geId: ge.id,
       codigo: '002',
       nome: 'Farmácia Norte (exemplo)',
       uf: 'RJ',
@@ -113,6 +121,7 @@ const main = async () => {
   for (const [matricula, nome, loja, cargo, funcaoEscala, cargaSemanalH] of FUNCIONARIOS)
     await prisma.funcionario.create({
       data: {
+        geId: ge.id,
         matricula,
         nome,
         cargo,

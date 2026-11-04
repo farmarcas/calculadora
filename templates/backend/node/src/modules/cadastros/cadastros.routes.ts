@@ -59,8 +59,8 @@ export const cadastrosRouter = (
     if (body.faturamento !== undefined && perfilDe(res) !== 'TENANT_ADMIN')
       throw new AppError('Só o dono informa o faturamento da loja', 403, 'SEM_PERMISSAO');
   };
-  r.get('/lojas', validate(S.listarReq), async (_req, res) => {
-    const pag = await s(res).listarLojas(v<typeof S.listarReq>(res).query);
+  r.get('/lojas', validate(S.listarLojasReq), async (_req, res) => {
+    const pag = await s(res).listarLojas(v<typeof S.listarLojasReq>(res).query);
     res.json({ ...pag, data: pag.data.map((l) => ocultarFaturamento(l, perfilDe(res))) });
   });
   r.post('/lojas', soOperador, validate(S.criarLojaReq), async (_req, res) => {

@@ -1,3 +1,4 @@
+import { funcaoNoCalculo } from '../cadastros/funcoes.js';
 import { PARAMETROS_PADRAO, type TabelaParametros } from '../regras/parametros.js';
 import type { RegraId } from '../regras/perfis.js';
 import type { PessoaSim } from '../simulacoes/avaliar.js';
@@ -37,7 +38,7 @@ export const calcularCusto = (a: {
   const { salarioMedio, encargosPct } = a.custos;
   const fator = 1 + encargosPct / 100;
   const divisor = divisorDe(a.regra, a.parametros);
-  const ativos = a.quadro.filter((p) => !p.desligado && p.funcao);
+  const ativos = a.quadro.filter((p) => !p.desligado && funcaoNoCalculo(p.funcao));
 
   const funcoes = [...new Set(ativos.map((p) => p.funcao!))];
   const faltamInformar = funcoes.filter((f) => !salarioMedio[f as keyof typeof salarioMedio]);

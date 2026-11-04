@@ -402,6 +402,7 @@ describe('Cenário 3 — equilíbrio com as travas do fim de semana (spec 012)',
   const eq = (extra: Partial<EntradaCenarios> = {}) =>
     montarCenarios(
       base({
+        estenderHorario: false, // estes testes são do corte de fim de semana; a extensão tem os seus abaixo
         minimos: { Farmacêutico: 1 },
         dias: seisDias,
         pessoas: farm(40, 40),
@@ -678,5 +679,70 @@ describe('Direcionamento — destaque de menor impacto financeiro', () => {
     expect('impactoMensal' in r.manter).toBe(false);
     expect('impactoMensal' in r.economia).toBe(false);
     expect('impactoMensal' in r.equilibrio).toBe(false);
+  });
+});
+
+describe('Cenário 2 — premissa, resultado e falta de cobertura', () => {
+  // Farmacêutico coberto; o atendimento fica abaixo do nível de hoje (44 h) quando a regra cai para 42 h.
+  const coberto = (extra: Partial<EntradaCenarios> = {}) =>
+    montarCenarios(
+      base({
+        regraId: 'r42',
+        minimos: { Farmacêutico: 1 },
+        pessoas: [
+          { funcao: 'Farmacêutico', cargaH: 44 },
+          { funcao: 'Farmacêutico', cargaH: 44 },
+          { funcao: 'Farmacêutico', cargaH: 44 },
+          { funcao: 'Atendimento', cargaH: 44 },
+          { funcao: 'Atendimento', cargaH: 44 },
+        ],
+        ...extra,
+      }),
+    ).economia;
+
+  it('sem corte: premissa fixa, nenhum horário muda e a falta aparece por função, sem farmacêutico descoberto', () => {
+    const eco = coberto();
+    expect(eco.foco).toBe('Não contratar; ajustar horários só se precisar');
+    expect(eco.resultado).toBe('Nenhum horário precisa mudar');
+    expect(eco.passos).toEqual([]);
+    expect(eco.semFarmaceuticoH).toBe(0);
+    expect(eco.faltaPorFuncao.length).toBeGreaterThan(0);
+    expect(eco.faltaPorFuncao.every((f) => f.funcao !== 'Farmacêutico' && f.horasSemana > 0)).toBe(true);
+  });
+
+  it('sem falta de nenhuma função: lista vazia', () => {
+    const eco = coberto({ regraId: 'r40', pessoas: base().pessoas.concat(base().pessoas) });
+    expect(eco.faltaPorFuncao).toEqual([]);
+    expect(eco.semFarmaceuticoH).toBe(0);
+  });
+
+  it('quem não é dono recebe as mesmas horas', () => {
+    expect(coberto({ dono: false }).faltaPorFuncao).toEqual(coberto().faltaPorFuncao);
+  });
+
+  it('farmacêutico sem cobertura em todo o horário: mostra as horas descobertas', () => {
+    const eco = coberto({
+      pessoas: [
+        { funcao: 'Farmacêutico', cargaH: 40 },
+        { funcao: 'Atendimento', cargaH: 44 },
+      ],
+    });
+    expect(eco.semFarmaceuticoH).toBeGreaterThan(0);
+  });
+
+  it('com corte de fim de semana: o resultado descreve o dia que muda', () => {
+    const r = montarCenarios(
+      base({
+        regraId: 'r42',
+        dias: [0, 1, 2, 3, 4, 5, 6].map((dia) => ({ dia, abre: 8, fecha: 22 })),
+        pessoas: [
+          { funcao: 'Farmacêutico', cargaH: 44 },
+          { funcao: 'Farmacêutico', cargaH: 44 },
+        ],
+        minimos: { Farmacêutico: 1 },
+      }),
+    ).economia;
+    if (r.passos.length) expect(r.resultado).toContain('fecha');
+    expect(r.resultado).not.toBe('Nenhum horário precisa mudar');
   });
 });

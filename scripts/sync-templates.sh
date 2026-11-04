@@ -25,6 +25,10 @@ copy backend/node/docker/dev-entrypoint.sh      templates/docker/node.dev-entryp
 copy backend/node/.dockerignore                 templates/docker/.dockerignore
 copy frontend/react/Dockerfile                  templates/docker/react.Dockerfile
 copy frontend/react/docker/dev-entrypoint.sh    templates/docker/react.dev-entrypoint.sh
+copy docker-compose.prod.yml                    templates/docker/docker-compose.prod.yml
+copy .env.production.example                    templates/docker/.env.production.example
+copy backend/node/docker/prod-entrypoint.sh     templates/docker/node.prod-entrypoint.sh
+copy frontend/react/docker/nginx.conf.template  templates/docker/react.nginx.conf.template
 
 EXCLUDES="--exclude=afd-exemplo --exclude=skills --exclude=node_modules --exclude=dist --exclude=src/generated --exclude=coverage --exclude=.env"
 if [ "$MODE" = "--check" ]; then

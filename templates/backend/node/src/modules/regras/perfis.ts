@@ -57,6 +57,4 @@ export const FUNCOES_PADRAO_MINIMO: Record<string, number> = {
   Farmacêutico: 1,
   Atendimento: 0,
   Caixa: 0,
-  Apoio: 0,
-  Perfumaria: 0,
 };

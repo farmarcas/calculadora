@@ -20,10 +20,10 @@
 - [x] T013 Rodar os testes do servidor e de integração e commitar a fatia
 
 ## Fatia 4 — Cartões e painel da Simulação (tela)
-- [ ] T014 `Comparativo.jsx`/`comparativo-regras.js`: "Saldo mensal estimado" em verde ("Este cenário compensa") ou vermelho ("Este cenário custa mais do que economiza"), sempre com texto; composição "Economia de folha R$ X − venda perdida R$ Y" (ou "Venda adicional − custo adicional"); a venda perdida por dia ("Sáb até 16h: R$ X por mês") e o total; valor anual e peso no faturamento; o aviso "Sem venda hora a hora, não é possível estimar a venda perdida"; o selo "estimativa" nas horas novas; textos da faixa amarela sem margem
-- [ ] T015 Campo discreto do percentual de venda das horas novas perto do título dos cenários, levado na consulta do Diagnóstico (`EscalaPage.jsx`/`Diagnostico.jsx`); o valor volta ao padrão ao recarregar
-- [ ] T016 `PainelResultado.jsx` (Simulação): venda que sai, custo adicional, economia de folha, saldo e peso, recalculados a cada alteração; sai "Margem perdida"
-- [ ] T017 `pendencias.js`/`ResumoMensal.jsx`: margem sai das pendências do rascunho e o campo fica como detalhe opcional; testes da tela e commitar a fatia
+- [x] T014 `Comparativo.jsx`/`comparativo-regras.js`: "Saldo mensal estimado" em verde ("Este cenário compensa") ou vermelho ("Este cenário custa mais do que economiza"), sempre com texto; composição "Economia de folha R$ X − venda perdida R$ Y" (ou "Venda adicional − custo adicional"); a venda perdida por dia ("Sáb até 16h: R$ X por mês") e o total; valor anual e peso no faturamento; o aviso "Sem venda hora a hora, não é possível estimar a venda perdida"; o selo "estimativa" nas horas novas; textos da faixa amarela sem margem
+- [x] T015 Campo discreto do percentual de venda das horas novas perto do título dos cenários, levado na consulta do Diagnóstico (`EscalaPage.jsx`/`Diagnostico.jsx`); o valor volta ao padrão ao recarregar
+- [x] T016 `PainelResultado.jsx` (Simulação): venda que sai, custo adicional, economia de folha, saldo e peso, recalculados a cada alteração; sai "Margem perdida"
+- [x] T017 `pendencias.js`/`ResumoMensal.jsx`: margem sai das pendências do rascunho e o campo fica como detalhe opcional; testes da tela e commitar a fatia
 
 ## Fatia 5 — Validação com lojas reais e conferência final
 - [ ] T018 Conta aberta fora do repositório com Cosmópolis (sábado fechando às 16h: venda perdida por dia, economia de folha e saldo) e Porto Feliz (estendendo 1 h por dia: custo adicional, venda adicional estimada e saldo), mostrada na resposta final

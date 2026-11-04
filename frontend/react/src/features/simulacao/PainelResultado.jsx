@@ -1,5 +1,5 @@
 import { Aviso, Botao, Ficha } from "../../components/ui/index.jsx";
-import { impacto, reais } from "./formato.js";
+import { reais, saldoComSinal } from "./formato.js";
 
 const Valor = ({ calculando, children }) =>
   calculando ? <span aria-hidden="true" className="inline-block h-5 w-20 animate-pulse rounded bg-[var(--surface-muted)]" /> : <strong className="text-base text-[var(--text-strong)]">{children}</strong>;
@@ -27,8 +27,8 @@ export default function PainelResultado({ sim, calculando, modoHorario, dono, po
   const nContratacoes = r.funcoes.reduce((s, f) => s + f.contratacoes.length, 0);
   const editavel = sim.editavel && podeEscrever;
   const erros = sim.avaliacao.erros;
-  const pctMargem = r.margemPerdida && r.vendaQueSai ? Math.round((r.margemPerdida / r.vendaQueSai) * 100) : null;
   const dinheiro = (v, vazio = "Sem dado") => (v == null ? vazio : reais(v));
+  const corSaldo = r.saldoMensal == null ? "var(--text-strong)" : r.saldoMensal > 0.005 ? "var(--func-success-300)" : r.saldoMensal < -0.005 ? "var(--text-danger)" : "var(--text-strong)";
 
   return (
     <aside aria-label="Resultado da simulação" className="sim-painel rounded-card border border-[var(--border-subtle)] bg-[var(--surface-card)] shadow-card p-6">
@@ -38,12 +38,16 @@ export default function PainelResultado({ sim, calculando, modoHorario, dono, po
       </div>
 
       <div className="mt-4 rounded-card bg-[var(--surface-subtle)] p-4">
-        <div className="text-xs font-bold uppercase text-[var(--text-secondary)]">Impacto por mês</div>
-        <div aria-live="polite" className="mt-1 min-h-10 text-[40px] font-bold leading-10 text-[var(--text-strong)]">
-          {calculando ? <span aria-hidden="true" className="inline-block h-9 w-44 animate-pulse rounded bg-[var(--surface-muted)]" /> : dono ? (r.impactoMensal == null ? "—" : impacto(r.impactoMensal)) : "—"}
+        <div className="text-xs font-bold uppercase text-[var(--text-secondary)]">Saldo por mês</div>
+        <div aria-live="polite" className="mt-1 min-h-10 text-[40px] font-bold leading-10" style={{ color: corSaldo }}>
+          {calculando ? <span aria-hidden="true" className="inline-block h-9 w-44 animate-pulse rounded bg-[var(--surface-muted)]" /> : dono ? (r.saldoMensal == null ? "—" : saldoComSinal(r.saldoMensal)) : "—"}
         </div>
         <p className="m-0 mt-1 text-xs text-[var(--text-secondary)]">
-          {dono ? (r.impactoMensal == null ? "Informe o salário médio das funções em Cadastros para ver o valor." : "Folha extra + hora extra + margem perdida, comparado à situação atual") : "Valores em reais: só o dono do grupo vê."}
+          {dono
+            ? r.saldoMensal != null
+              ? <><strong style={{ color: corSaldo }}>{r.saldoMensal > 0.005 ? "Esta simulação compensa" : r.saldoMensal < -0.005 ? "Esta simulação custa mais do que economiza" : "Esta simulação empata com manter os horários"}.</strong>{" "}Economia de folha − venda que sai, contra manter o horário e contratar para cobri-lo.{r.saldoAnual != null ? ` ${saldoComSinal(r.saldoAnual)} por ano` : ""}{r.pesoNoFaturamentoPct != null ? ` · ${String(r.pesoNoFaturamentoPct).replace(".", ",")}% do faturamento mensal` : ""}.</>
+              : !r.temBase ? "Sem venda hora a hora (base comercial), não é possível estimar a venda que sai e o saldo." : "Informe o salário médio das funções em Cadastros para ver o valor."
+            : "Valores em reais: só o dono do grupo vê."}
         </p>
       </div>
 
@@ -59,7 +63,7 @@ export default function PainelResultado({ sim, calculando, modoHorario, dono, po
             <Linha calculando={calculando} rotulo="Folha extra" sub={`${nContratacoes} ${nContratacoes === 1 ? "contratação" : "contratações"}`} valor={dinheiro(r.folhaExtra, "—")} />
             <Linha calculando={calculando} rotulo="Hora extra" sub={r.horaExtra === 0 ? "Não é necessária" : "Horas que ainda faltam"} valor={dinheiro(r.horaExtra, "—")} />
             <Linha calculando={calculando} rotulo="Venda que sai" sub={!r.temBase ? "Sem base comercial" : r.vendaQueSai === 0 ? "Nenhum horário cortado" : "Por mês, nas horas fechadas"} valor={dinheiro(r.vendaQueSai)} />
-            <Linha calculando={calculando} rotulo="Margem perdida" sub={!r.temBase ? "Sem base comercial" : !r.margemInformada ? "Margem bruta não informada" : pctMargem != null ? `${pctMargem}% sobre a venda que sai` : "Nenhum horário cortado"} valor={dinheiro(r.margemPerdida)} />
+            <Linha calculando={calculando} rotulo="Economia de folha" sub="Contra manter o horário e contratar" valor={dinheiro(r.economiaFolha, "—")} />
           </>
         )}
         <Linha calculando={calculando} rotulo="Horas abertas" sub={r.horario.mudou ? `Antes: ${r.horasAbertasAntes}h por semana` : modoHorario === "mudar" ? "Sem alteração" : "Horário mantido"} valor={`${r.horasAbertas}h por semana`} />

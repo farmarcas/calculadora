@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "../../api/client.js";
 import { Aviso, Botao } from "../../components/ui/index.jsx";
-import { composicaoDoImpacto, consequencias, faltaCurta, rotuloDoMelhor, visaoDosCartoes } from "./comparativo-regras.js";
+import { composicaoDoSaldo, consequencias, faltaCurta, linhaDeVendaPerdida, rotuloDoMelhor, veredictoDoSaldo, visaoDosCartoes } from "./comparativo-regras.js";
 
 const NOMES_DIA = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
 const brl = (n) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
@@ -81,16 +81,15 @@ const LinhaTabela = ({ rotulo, children, ultima, alta }) => (
   </div>
 );
 
-function Cartao({ posicao, c, descricao, resultado, horarioAtual, horasManter, sugerido, menorImpacto, maisCara, dono, ehReferencia, maiorImpacto, impactoRef, faixas, temAvisos, podeEscrever, ocupado, onPersonalizar }) {
+function Cartao({ posicao, c, descricao, resultado, horarioAtual, horasManter, sugerido, melhorSaldo, dono, ehReferencia, maiorSaldo, faixas, temAvisos, podeEscrever, ocupado, onPersonalizar }) {
   const idTitulo = `cenario-${posicao}-nome`;
   const status = c.status && STATUS[c.status];
-  const impacto = dono ? c.resultadoLiquidoMensal : undefined;
+  const saldo = dono ? c.saldoMensal : undefined;
   const dif = c.horasSemana - horasManter;
   const pills = [
     sugerido && ["primaria", "Cenário sugerido"],
-    menorImpacto && ["sucesso", rotuloDoMelhor(impacto)],
+    melhorSaldo && ["sucesso", rotuloDoMelhor()],
     status,
-    maisCara && ["atencao", "Mais cara que manter"],
   ].filter(Boolean);
   const chips = c.contratacoes.flatMap(chipsDeContratacao);
   const mostrados = chips.slice(0, 4);
@@ -99,17 +98,17 @@ function Cartao({ posicao, c, descricao, resultado, horarioAtual, horasManter, s
   const horario = c.ajustes?.length ? c.ajustes.map(linhaDeAjuste).join(", ") : mudancaDeHorario(c.diasFechar, horarioAtual);
   // Cenário inviável não é uma opção: o motivo já está nos avisos, sem somar a faixa de consequência.
   const faixaAmarela = c.status === "inviavel" ? [] : consequencias(c, { dono, brl, horasAMenos: Math.max(0, -dif) });
-  const larguraBarra = impacto != null && maiorImpacto > 0 ? Math.min(100, (Math.abs(impacto) / maiorImpacto) * 100) : 0;
+  const larguraBarra = saldo != null && maiorSaldo > 0 ? Math.min(100, (Math.abs(saldo) / maiorSaldo) * 100) : 0;
+  const veredito = veredictoDoSaldo(saldo, ehReferencia);
+  const corSaldo = saldo == null || ehReferencia ? "var(--text-strong)" : saldo > 0.005 ? "var(--func-success-300)" : saldo < -0.005 ? "var(--text-danger)" : "var(--text-strong)";
+  const sinal = saldo == null ? "" : saldo < -0.005 ? MENOS : saldo > 0.005 ? "+" : "";
 
+  // Sob o saldo: no Cenário 1, a referência; nos outros, o que se perde em cobertura quando não contrata.
   let comparacao = null;
-  if (dono) {
-    const d = c.ganhoFrenteManterMensal;
-    if (ehReferencia) comparacao = <span className="text-[var(--text-secondary)]">Referência para comparar os outros cenários</span>;
-    else if (d == null) comparacao = <span className="text-[var(--text-secondary)]">Sem comparação disponível</span>;
-    else if (d < 0) comparacao = <span className="font-bold text-[var(--func-warning-300)]">{mod(d)} a mais por mês que o Cenário 1</span>;
-    else if (d > 0) comparacao = <span className="font-bold text-[var(--text-strong)]">{mod(d)} a menos por mês que o Cenário 1{c.faltaPorFuncao?.length > 0 && `, com ${faltaCurta(c.faltaPorFuncao)}`}</span>;
-    else comparacao = <span className="text-[var(--text-secondary)]">Igual ao Cenário 1</span>;
-  }
+  if (dono && !ehReferencia && c.faltaPorFuncao?.length > 0)
+    comparacao = <span className="text-[var(--text-secondary)]">Deixa {faltaCurta(c.faltaPorFuncao)}</span>;
+  // Venda perdida por dia alterado e valores anual e de peso no faturamento.
+  const vendasPorDia = (c.vendaPerdidaPorDia ?? []).map((d) => linhaDeVendaPerdida(d, brl));
 
   return (
     <section
@@ -136,21 +135,27 @@ function Cartao({ posicao, c, descricao, resultado, horarioAtual, horasManter, s
         <p className="m-0 text-sm leading-5 font-bold text-[var(--text-strong)]">{resultado}</p>
       </div>
 
-      {/* 4 · impacto */}
+      {/* 4 · saldo */}
       <div className="rounded-card bg-[var(--surface-subtle)] p-4 flex flex-col gap-1 min-h-[134px]">
-        <div className="text-xs leading-4 font-bold uppercase text-[var(--neutral-mid-300)]">Impacto mensal estimado</div>
+        <div className="text-xs leading-4 font-bold uppercase text-[var(--neutral-mid-300)]">Saldo mensal estimado</div>
         {dono ? (
           <>
-            <div className="text-[32px] leading-[41.6px] font-bold text-[var(--text-strong)]">{impacto == null ? "—" : `${impacto < 0 ? MENOS : impacto > 0 ? "+" : ""}${mod(impacto)}`}</div>
+            <div className="text-[32px] leading-[41.6px] font-bold" style={{ color: corSaldo }}>{saldo == null ? "—" : `${sinal}${mod(saldo)}`}</div>
+            {veredito && <div className="text-xs leading-4 font-bold" style={{ color: corSaldo }}>{veredito}</div>}
             <div className="text-xs leading-4 text-[var(--text-secondary)]">
-              {composicaoDoImpacto(c, brl)}
+              {composicaoDoSaldo(c, { brl, ehBase: ehReferencia })}
             </div>
+            {saldo != null && !ehReferencia && (
+              <div className="text-xs leading-4 text-[var(--text-secondary)]">
+                {sinal}{mod(c.saldoAnual ?? saldo * 12)} por ano{c.pesoNoFaturamentoPct != null ? ` · ${c.pesoNoFaturamentoPct < 0 ? MENOS : ""}${pct(Math.abs(c.pesoNoFaturamentoPct))} do faturamento mensal` : ""}
+              </div>
+            )}
             <div
               className="mt-2 h-2 rounded-btn bg-[var(--border-subtle)]"
               role="img"
-              aria-label={`Impacto equivale a ${Math.round(larguraBarra)}% do maior cenário`}
+              aria-label={`Saldo equivale a ${Math.round(larguraBarra)}% do maior saldo entre os cenários`}
             >
-              <div className="h-full rounded-btn" style={{ width: `${larguraBarra}%`, background: sugerido ? "var(--color-primary)" : "var(--neutral-mid-100)" }} />
+              <div className="h-full rounded-btn" style={{ width: `${larguraBarra}%`, background: saldo != null && saldo < -0.005 ? "var(--text-danger)" : saldo != null && saldo > 0.005 ? "var(--func-success-300)" : "var(--neutral-mid-100)" }} />
             </div>
           </>
         ) : (
@@ -192,9 +197,12 @@ function Cartao({ posicao, c, descricao, resultado, horarioAtual, horasManter, s
           {c.horasSemana}h por semana{dif !== 0 && ` (${dif < 0 ? MENOS : "+"}${Math.abs(dif)}h)`}
         </span>
       </LinhaTabela>
-      <LinhaTabela rotulo="Vendas perdidas">
-        <span className={VALOR}>
-          {!dono || c.faturamentoPerdidoMensal == null ? "—" : c.faturamentoPerdidoMensal === 0 ? "Nenhuma" : `${brl(c.faturamentoPerdidoMensal)} por mês${c.faturamentoPerdidoPct != null ? ` (${pct(c.faturamentoPerdidoPct)})` : ""}`}
+      <LinhaTabela rotulo="Venda que deixa de entrar" alta={vendasPorDia.length > 0}>
+        <span className="flex flex-col items-end">
+          <span className={VALOR}>
+            {c.semVendaHoraria ? "Não estimada" : !dono || c.faturamentoPerdidoMensal == null ? (dono ? "—" : vendasPorDia.length ? "Veja os dias" : "—") : c.faturamentoPerdidoMensal === 0 ? "Nenhuma" : `${brl(c.faturamentoPerdidoMensal)} por mês${c.faturamentoPerdidoPct != null ? ` (${pct(c.faturamentoPerdidoPct)})` : ""}`}
+          </span>
+          {vendasPorDia.map((l) => <span key={l} className="text-xs leading-4 text-[var(--text-secondary)]">{l}</span>)}
         </span>
       </LinhaTabela>
       <LinhaTabela rotulo="Horas ociosas da equipe" ultima alta>
@@ -232,9 +240,11 @@ function Cartao({ posicao, c, descricao, resultado, horarioAtual, horasManter, s
 
 // Os cenários 1, 2 e 3 lado a lado para a regra escolhida. Cada faixa fica na mesma altura nos três cartões (grade com
 // subgrid). Só o dono recebe os valores em reais e o cenário sugerido.
-export default function Comparativo({ comparativo, cenarios, lojaId, podeEscrever, onSimular }) {
+export default function Comparativo({ comparativo, cenarios, lojaId, podeEscrever, onSimular, fatorHoraNova = 50, onFatorHoraNova }) {
   const [ocupado, setOcupado] = useState(false);
   const [erro, setErro] = useState(null);
+  const [fatorTxt, setFatorTxt] = useState(String(fatorHoraNova));
+  useEffect(() => setFatorTxt(String(fatorHoraNova)), [fatorHoraNova]);
   if (!comparativo) return null;
   const { cenarios: colunas, destaque } = comparativo;
   // O selo "Cenário sugerido" pode ir a outro cenário que não o de menor custo (quando este deixa falta de cobertura).
@@ -244,12 +254,12 @@ export default function Comparativo({ comparativo, cenarios, lojaId, podeEscreve
   const horarioAtual = cenarios?.manter?.horarioSemana;
   const horasManter = colunas.find((x) => x.id === "manter").horasSemana;
 
-  const impactos = colunas.map((x) => (dono && typeof x.resultadoLiquidoMensal === "number" ? Math.abs(x.resultadoLiquidoMensal) : null)).filter((v) => v !== null);
-  const maiorImpacto = impactos.length ? Math.max(...impactos) : 0;
-  const valores = colunas.filter((x) => dono && x.status === "viavel" && typeof x.resultadoLiquidoMensal === "number").map((x) => Math.abs(x.resultadoLiquidoMensal));
-  const menor = valores.length ? Math.min(...valores) : null;
-  // "Menor impacto mensal": só quando há mais de um cenário comparável e ninguém empata com o menor.
-  const unicoMenor = menor !== null && valores.length >= 2 && valores.filter((v) => Math.abs(v - menor) < 0.005).length === 1;
+  const saldos = colunas.map((x) => (dono && typeof x.saldoMensal === "number" ? Math.abs(x.saldoMensal) : null)).filter((v) => v !== null);
+  const maiorSaldo = saldos.length ? Math.max(...saldos) : 0;
+  const comSaldo = colunas.filter((x) => dono && x.status === "viavel" && typeof x.saldoMensal === "number").map((x) => x.saldoMensal);
+  const melhor = comSaldo.length ? Math.max(...comSaldo) : null;
+  // "Melhor saldo": só quando há mais de um cenário comparável e ninguém empata com o maior.
+  const unicoMelhor = melhor !== null && comSaldo.length >= 2 && comSaldo.filter((v) => Math.abs(v - melhor) < 0.005).length === 1;
   const temAvisos = visao.visiveis.some((x) => x.alertas.length > 0 || x.faltaH > 0);
   const faixas = FAIXAS + (temAvisos ? 1 : 0);
 
@@ -287,6 +297,20 @@ export default function Comparativo({ comparativo, cenarios, lojaId, podeEscreve
         </p>
       </div>
       {erro && <Aviso>{erro}</Aviso>}
+      {dono && onFatorHoraNova && colunas[2]?.semVendaHoraria === false && (
+        <label className="flex flex-wrap items-center gap-2 text-xs leading-4 text-[var(--text-secondary)]">
+          Venda de cada hora nova (estimativa):
+          <input
+            type="number" min={0} max={100} step={5} inputMode="numeric" value={fatorTxt}
+            aria-label="Percentual da venda da hora vizinha que vale uma hora nova"
+            onChange={(e) => setFatorTxt(e.target.value)}
+            onBlur={() => { const v = Math.min(100, Math.max(0, Number(fatorTxt))); if (fatorTxt !== "" && Number.isFinite(v) && v !== fatorHoraNova) onFatorHoraNova(v); else setFatorTxt(String(fatorHoraNova)); }}
+            onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
+            className="h-8 w-16 rounded-input border border-[var(--border-default)] bg-[var(--surface-card)] px-2 text-sm text-[var(--text-strong)]"
+          />
+          % da venda da hora vizinha
+        </label>
+      )}
       {visao.cobreTudo ? (
         <p className="m-0 rounded-card border border-[var(--border-subtle)] bg-[var(--surface-card)] p-6 text-sm leading-5 text-[var(--text-strong)]" data-testid="cobre-tudo">
           A equipe atual cobre todos os dias. Não há o que contratar nem reduzir.
@@ -303,11 +327,10 @@ export default function Comparativo({ comparativo, cenarios, lojaId, podeEscreve
             horarioAtual={horarioAtual}
             horasManter={horasManter}
             sugerido={sugeridoId === c.id}
-            menorImpacto={unicoMenor && destaque === c.id}
-            maisCara={dono && c.id === "equilibrio" && typeof c.ganhoFrenteManterMensal === "number" && c.ganhoFrenteManterMensal < 0}
+            melhorSaldo={unicoMelhor && destaque === c.id}
             dono={dono}
             ehReferencia={c.id === "manter"}
-            maiorImpacto={maiorImpacto}
+            maiorSaldo={maiorSaldo}
             faixas={faixas}
             temAvisos={temAvisos}
             podeEscrever={podeEscrever && !!lojaId && !!cenarios?.regra}

@@ -16,14 +16,14 @@ export const faltaCurta = (faltas = []) => {
 };
 
 // Linhas da faixa amarela do cartão (vazia quando não falta cobertura). `venda` só vem preenchida para o dono.
-// Reduz horários: venda e margem perdidas (o gerente vê as horas). Não reduz, mas deixa função abaixo do nível de hoje:
+// Reduz horários: a venda que deixa de entrar (o gerente vê as horas). Não reduz, mas deixa função abaixo do nível de hoje:
 // a falta em horas, sem venda perdida. Farmacêutico ausente é o único risco para a venda.
 export const consequencias = (c, { dono, brl, horasAMenos }) => {
   const linhas = [];
   if (horasAMenos > 0) {
     linhas.push(
       dono && c.faturamentoPerdidoMensal > 0
-        ? `Reduz ${horasTxt(horasAMenos)} por semana abertas: deixam de entrar ${brl(c.faturamentoPerdidoMensal)} por mês em vendas${c.margemMes ? ` (margem de ${brl(Math.abs(c.margemMes))})` : ""}.`
+        ? `Reduz ${horasTxt(horasAMenos)} por semana abertas: deixam de entrar ${brl(c.faturamentoPerdidoMensal)} por mês em vendas.`
         : `Reduz ${horasTxt(horasAMenos)} por semana abertas.`,
     );
   }
@@ -47,14 +47,34 @@ export const visaoDosCartoes = (comparativo) => {
   };
 };
 
-// Selo do cenário de menor custo: "Melhor resultado" quando ele dá ganho (impacto positivo para o dono).
-export const rotuloDoMelhor = (resultadoLiquidoMensal) => (resultadoLiquidoMensal > 0 ? "Melhor resultado" : "Menor custo");
+// Selo do cenário de maior saldo.
+export const rotuloDoMelhor = () => "Melhor saldo";
 
-// "Folha adicional R$ 3.592 + margem perdida R$ 0" · "Folha adicional R$ 800 − margem ganha R$ 1.000".
-// `margemMes` vem negativo quando o cenário perde margem e positivo quando as horas novas rendem mais do que se perde.
-export const composicaoDoImpacto = (c, brl) => {
-  if (c.folhaAdicionalMensal == null) return "Informe os custos para ver a composição";
-  const folha = `Folha adicional ${brl(c.folhaAdicionalMensal)}`;
-  if (c.margemMes == null) return folha;
-  return c.margemMes > 0 ? `${folha} − margem ganha ${brl(c.margemMes)}` : `${folha} + margem perdida ${brl(Math.abs(c.margemMes))}`;
+const NOMES_DIA = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
+
+// "Sáb até 16h: R$ 3.095 por mês" · "Dom fechado: R$ 5.000 por mês" (o valor só vem para o dono).
+export const linhaDeVendaPerdida = (d, brl) => {
+  const quando = d.ate == null ? "fechado" : `até ${String(Math.floor(d.ate)).padStart(2, "0")}h`;
+  return `${NOMES_DIA[d.dia]} ${quando}${d.vendaMes != null ? `: ${brl(d.vendaMes)} por mês` : ""}`;
+};
+
+// Como o saldo se forma. Cenário 1: o custo de folha em relação à folha atual (a base de comparação). Os outros: economia de
+// folha − venda perdida (+ venda adicional das horas novas, que é estimativa).
+export const composicaoDoSaldo = (c, { brl, ehBase }) => {
+  if (ehBase) return c.folhaAdicionalMensal == null ? "Informe os custos para ver o custo de folha" : `Custo adicional de folha ${brl(c.folhaAdicionalMensal)} em relação à folha atual`;
+  if (c.semVendaHoraria) return "Sem venda hora a hora, não é possível estimar a venda perdida";
+  if (c.economiaFolhaMensal == null) return "Informe os custos para ver a economia de folha";
+  // Economia pode ser negativa (o cenário custa mais de folha que o "manter horário"): sinal tipográfico, como no saldo.
+  const com = (n) => (n < 0 ? `−${brl(-n)}` : brl(n));
+  const base = `Economia de folha ${com(c.economiaFolhaMensal)} − venda perdida ${brl(c.faturamentoPerdidoMensal ?? 0)}`;
+  return c.vendaAdicionalMensal > 0 ? `${base} + venda adicional estimada ${brl(c.vendaAdicionalMensal)}` : base;
+};
+
+// O que o sinal do saldo quer dizer, em palavras (nunca só a cor).
+export const veredictoDoSaldo = (saldo, ehBase) => {
+  if (saldo == null) return null;
+  if (ehBase) return "Referência para comparar os outros cenários";
+  if (saldo > 0.005) return "Este cenário compensa";
+  if (saldo < -0.005) return "Este cenário custa mais do que economiza";
+  return "Este cenário empata com manter os horários";
 };

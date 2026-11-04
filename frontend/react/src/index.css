@@ -87,6 +87,7 @@ body { margin: 0; background: var(--surface-page); color: var(--ink-900); font-f
 .cl-conteiner { container-type: inline-size; container-name: cl; }
 .cl-cartao { border: 1px solid var(--border-subtle); border-radius: 8px; background: var(--surface-card); box-shadow: var(--shadow-0, none); }
 .cl-lista { display: flex; flex-direction: column; min-height: calc(100dvh - 2rem); }
+.cl-detalhe { min-height: calc(100dvh - 2rem); }
 .cl-conteiner[data-vista="lista"] .cl-detalhe { display: none; }
 .cl-conteiner[data-vista="detalhe"] .cl-lista { display: none; }
 @container cl (min-width: 1100px) {

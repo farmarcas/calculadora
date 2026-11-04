@@ -4,7 +4,7 @@ import QuadroCentral from "./QuadroCentral.jsx";
 import OndeVemSecao from "./onde-vem/OndeVemSecao.jsx";
 import Comparativo from "./Comparativo.jsx";
 
-export default function Diagnostico({ diag, podeEscrever, onEnviar, onSimular, onRecarregar, onDefinirFuncao }) {
+export default function Diagnostico({ diag, podeEscrever, onEnviar, onSimular, onRecarregar, onDefinirFuncao, onFatorHoraNova }) {
   const [regraId, setRegraId] = useState("r42");
 
   if (diag.status === "pendente")
@@ -30,7 +30,7 @@ export default function Diagnostico({ diag, podeEscrever, onEnviar, onSimular, o
       {regraId === "atual" ? (
         <Aviso tom="neutro">Os cenários de economia e equilíbrio valem para as regras que vêm aí (42h e 40h). Escolha uma delas acima para vê-los. Aqui você vê como a loja está hoje, na regra de 44h.</Aviso>
       ) : (
-        <Comparativo comparativo={diag.cenarios?.[regraId]?.comparativo} cenarios={diag.cenarios?.[regraId]} lojaId={diag.loja.id} podeEscrever={podeEscrever} onSimular={onSimular} />
+        <Comparativo comparativo={diag.cenarios?.[regraId]?.comparativo} cenarios={diag.cenarios?.[regraId]} lojaId={diag.loja.id} podeEscrever={podeEscrever} onSimular={onSimular} fatorHoraNova={diag.premissas?.fatorHoraNova ?? 50} onFatorHoraNova={onFatorHoraNova} />
       )}
 
       <OndeVemSecao diag={diag} regraId={regraId} podeEscrever={podeEscrever} onEnviar={onEnviar} onRecarregar={onRecarregar} irCadastros={onDefinirFuncao} />

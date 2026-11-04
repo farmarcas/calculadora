@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { UFS } from "./config.js";
+import { MotivoCampo, SeloCampo, classeDoCampo, descricaoDoCampo, usarCampos } from "./campoPendente.jsx";
 import { diaParaTela, errosDaLoja } from "./calculos.js";
 import ResumoMensal from "./ResumoMensal.jsx";
 import TabelaFuncionamento from "./TabelaFuncionamento.jsx";
@@ -39,6 +40,9 @@ export default function AbaDados({ painel, rascunho, dono, operador, podeEditar,
   const erro = (campo) => erros.find((e) => e.campo === campo)?.texto;
   const regimeMudou = salvo.loja && l.regimeTributario !== salvo.loja.regimeTributario;
   const idLoja = operador ? "ID loja *" : "ID loja";
+  const mapa = usarCampos();
+  const pend = (c) => classeDoCampo(mapa, c);
+  const desc = (c) => descricaoDoCampo(mapa, c);
 
   return (
     <div className="flex flex-col gap-8">
@@ -49,21 +53,24 @@ export default function AbaDados({ painel, rascunho, dono, operador, podeEditar,
             <input className={CAMPO} value={l.codigo ?? loja.codigo} disabled={!operador || !podeEditar} onChange={set("codigo")} />
             {!operador && <span className="text-xs text-[var(--text-secondary)]">Só o operador altera</span>}
           </label>
-          <label className="flex flex-col gap-1 text-sm text-[var(--text-strong)]">Nome *
-            <input data-campo="nome" className={CAMPO} value={l.nome} disabled={!podeEditar} aria-invalid={!!erro("nome")} aria-describedby={erro("nome") ? "erro-nome" : undefined} onChange={set("nome")} />
+          <label className="flex flex-col gap-1 text-sm text-[var(--text-strong)]"><span className="flex flex-wrap items-center">Nome *<SeloCampo campo="nome" /></span>
+            <input data-campo="nome" className={`${CAMPO} ${pend("nome")}`} value={l.nome} disabled={!podeEditar} aria-invalid={!!erro("nome")} aria-describedby={erro("nome") ? "erro-nome" : desc("nome")} onChange={set("nome")} />
+            <MotivoCampo campo="nome" />
             {erro("nome") && <span id="erro-nome" role="alert" className="text-xs text-[var(--text-danger)]">{erro("nome")}</span>}
           </label>
           <label className="flex flex-col gap-1 text-sm text-[var(--text-strong)]">CNPJ
             <input className={CAMPO} value={operador ? l.cnpj ?? "" : formatarCnpj(loja.cnpj)} disabled={!operador || !podeEditar} placeholder={loja.cnpj ? undefined : "CNPJ pendente"} onChange={set("cnpj")} />
             {!operador && <span className="text-xs text-[var(--text-secondary)]">Só o operador altera</span>}
           </label>
-          <label className="flex flex-col gap-1 text-sm text-[var(--text-strong)]">Cidade<input className={CAMPO} value={l.cidade} disabled={!podeEditar} onChange={set("cidade")} /></label>
-          <label className="flex flex-col gap-1 text-sm text-[var(--text-strong)]">UF
-            <select className={CAMPO} value={l.uf} disabled={!podeEditar} onChange={set("uf")}><option value="">—</option>{UFS.map((u) => <option key={u} value={u}>{u}</option>)}</select>
+          <label className="flex flex-col gap-1 text-sm text-[var(--text-strong)]"><span className="flex flex-wrap items-center">Cidade<SeloCampo campo="cidade" /></span><input data-campo="cidade" className={`${CAMPO} ${pend("cidade")}`} value={l.cidade} disabled={!podeEditar} aria-describedby={desc("cidade")} onChange={set("cidade")} /><MotivoCampo campo="cidade" /></label>
+          <label className="flex flex-col gap-1 text-sm text-[var(--text-strong)]"><span className="flex flex-wrap items-center">UF<SeloCampo campo="uf" /></span>
+            <select data-campo="uf" className={`${CAMPO} ${pend("uf")}`} value={l.uf} disabled={!podeEditar} aria-describedby={desc("uf")} onChange={set("uf")}><option value="">—</option>{UFS.map((u) => <option key={u} value={u}>{u}</option>)}</select>
+            <MotivoCampo campo="uf" />
           </label>
           <label className="flex flex-col gap-1 text-sm text-[var(--text-strong)]">Bandeira<input className={CAMPO} value={l.marca} disabled={!podeEditar} onChange={set("marca")} /></label>
-          <label className="flex flex-col gap-1 text-sm text-[var(--text-strong)]">Regime tributário
-            <select className={CAMPO} value={l.regimeTributario} disabled={!podeEditar} onChange={set("regimeTributario")}>{REGIMES.map(([v, t]) => <option key={v} value={v}>{t}</option>)}</select>
+          <label className="flex flex-col gap-1 text-sm text-[var(--text-strong)]"><span className="flex flex-wrap items-center">Regime tributário<SeloCampo campo="regime" /></span>
+            <select data-campo="regime" className={`${CAMPO} ${pend("regime")}`} value={l.regimeTributario} disabled={!podeEditar} aria-describedby={desc("regime")} onChange={set("regimeTributario")}>{REGIMES.map(([v, t]) => <option key={v} value={v}>{t}</option>)}</select>
+            <MotivoCampo campo="regime" />
           </label>
         </div>
         {regimeMudou && <p role="status" className="m-0 mt-3 rounded-card bg-[var(--color-primary-soft)] px-4 py-2 text-sm text-[var(--system-800)]">Os encargos foram recalculados pelo novo regime.</p>}

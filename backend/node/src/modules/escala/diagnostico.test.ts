@@ -112,7 +112,7 @@ describe('montarDiagnostico', () => {
     expect(r.regras.find((x) => x.id === 'atual')!.resumo.turnosEmFalta).toBe(0);
   });
 
-  it('base comercial sem margem usa a margem média cadastrada na loja', () => {
+  it('a margem bruta não entra nos cenários: com ou sem ela o resultado em venda é o mesmo, e a base comercial tem venda hora a hora', () => {
     // Uma semana de vendas (segunda a sábado, 8h às 19h) sem a coluna de margem.
     const vendas = [0, 1, 2, 3, 4, 5].flatMap((d) =>
       Array.from({ length: 12 }, (_, i) => ({
@@ -130,13 +130,15 @@ describe('montarDiagnostico', () => {
         turnos: [farm('F1', 8, 14, [0, 1, 2, 3, 4, 5], 44)],
         base: null,
         vendas: vendas as never,
+        dono: true,
       });
-    const margem = (r: ReturnType<typeof diag>) => {
+    const eco = (r: ReturnType<typeof diag>) => {
       if (r.status === 'pendente') throw new Error('esperava diagnóstico');
-      return r.cenarios.r42.economia.margemInformada;
+      return r.cenarios.r42.economia;
     };
-    expect(margem(diag(30))).toBe(true);
-    expect(margem(diag(null))).toBe(false);
+    expect(eco(diag(30)).semVendaHoraria).toBe(false);
+    expect(eco(diag(30)).vendaCortadaMes).toEqual(eco(diag(null)).vendaCortadaMes);
+    expect('margemCortadaMes' in eco(diag(30))).toBe(false);
   });
 
   describe('horário por dia da semana', () => {

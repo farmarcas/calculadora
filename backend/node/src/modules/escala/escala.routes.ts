@@ -46,9 +46,6 @@ export const escalaRouter = (repoDoGe: (geId: string) => EscalaRepository = esca
 
   r.get('/lojas/:id/diagnostico', validate(S.diagnosticoReq), async (_req, res) => {
     const { params, query } = v<typeof S.diagnosticoReq>(res);
-    // A margem simulada mexe nos valores em reais: só o dono.
-    if (query.margemPct !== undefined && perfilDe(res) !== 'TENANT_ADMIN')
-      throw new AppError('Só o dono simula a margem bruta', 403, 'SEM_PERMISSAO');
     res.json(await s(res).diagnostico(params.id, perfilDe(res), query));
   });
   r.get('/lojas/:id/cargas', validate(S.porLojaReq), async (_req, res) =>

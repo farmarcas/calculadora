@@ -14,7 +14,7 @@ import type { CadastrosRepository, LojaRegistro } from './cadastros.service.js';
 import { ocultarFaturamento } from './faturamento.js';
 import { faixasDaSemana, normalizarHorarios } from './horarios.js';
 import type { LojaBody } from './cadastros.schemas.js';
-import { situacaoDoCadastro } from './situacao.js';
+import { pendenciasDoCadastro, situacaoDoCadastro } from './situacao.js';
 
 export type PainelBody = {
   loja?: Partial<LojaBody>;
@@ -142,11 +142,24 @@ export const makePainelService = (geId: string, cadastros: CadastrosRepository, 
     const horarios = normalizarHorarios((loja as unknown as { horarios: unknown }).horarios);
     return {
       loja: ocultarFaturamento(loja as LojaRegistro & { faturamento?: unknown }, perfil),
-      situacao: situacaoDoCadastro(
-        loja as unknown as Parameters<typeof situacaoDoCadastro>[0],
-        achada.farmaceuticos,
-        achada.cadastro,
-      ),
+      situacao: {
+        ...situacaoDoCadastro(
+          loja as unknown as Parameters<typeof situacaoDoCadastro>[0],
+          achada.farmaceuticos,
+          achada.cadastro,
+        ),
+        // Tudo o que falta, para o painel "O que falta preencher" (nunca traz valores em reais).
+        pendencias: pendenciasDoCadastro(
+          loja as unknown as Parameters<typeof pendenciasDoCadastro>[0],
+          achada.farmaceuticos,
+          achada.cadastro,
+        ),
+      },
+      // O que a tela precisa da equipe para refazer a conta sobre o que a pessoa digita (sem salários).
+      equipe: {
+        farmaceuticos: achada.farmaceuticos,
+        funcoesNaEquipe: achada.cadastro.funcoesNaEquipe,
+      },
       avisosDeTurnos: avisosDeTurnos(turnos, faixasDaSemana(horarios)),
     };
   },

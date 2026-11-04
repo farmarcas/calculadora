@@ -1,3 +1,4 @@
+import { MotivoCampo, classeDoCampo, primeiroPendente, usarCampos } from "./campoPendente.jsx";
 import { useRef } from "react";
 import { Chave } from "../../components/ui/index.jsx";
 import { NOMES_DIA, copiarHorarioDaSegunda, erroDoDia, faturamentoDaSemana, horasDaSemana, horasDoDia, lojaEh24h, semana24h } from "./calculos.js";
@@ -11,6 +12,9 @@ const IconeErro = () => (
 
 // Tabela única do funcionamento: uma linha por dia, com o faturamento médio do dia (só o dono) na mesma linha.
 export default function TabelaFuncionamento({ horarios, faturamento, dono, editavel, mostrarErros, onHorarios, onFaturamento }) {
+  const mapa = usarCampos();
+  const diaPendente = primeiroPendente(mapa, "dia-");
+  const fatPendente = primeiroPendente(mapa, "fat-");
   const antes24 = useRef(null);
   const colunas = dono ? "76px 116px 84px 84px 64px minmax(110px,1fr) 52px" : "90px 130px 100px 100px 80px 60px";
   const dia = (i, parte) => onHorarios({ ...horarios, dias: horarios.dias.map((d, j) => (j === i ? { ...d, ...parte } : d)) });
@@ -66,7 +70,7 @@ export default function TabelaFuncionamento({ horarios, faturamento, dono, edita
               {["abre", "fecha"].map((k) => (
                 <div key={k} className="cl-func-hora">
                   <span className="cl-func-rot">{k === "abre" ? "Abre" : "Fecha"}</span>
-                  <input data-campo={`dia-${i}`} aria-label={`${NOMES_DIA[i]}: ${k === "abre" ? "abertura" : "fechamento"}`} inputMode="numeric" maxLength={5} placeholder={bloqueado ? "—" : "HH:mm"} className={CAMPO}
+                  <input data-campo={`dia-${i}`} aria-label={`${NOMES_DIA[i]}: ${k === "abre" ? "abertura" : "fechamento"}`} inputMode="numeric" maxLength={5} placeholder={bloqueado ? "—" : "HH:mm"} className={`${CAMPO} ${classeDoCampo(mapa, `dia-${i}`)}`}
                     disabled={bloqueado} aria-invalid={!!erro} aria-describedby={erro ? idErro : undefined} value={bloqueado ? (fechada ? "" : k === "abre" ? "00:00" : "00:00") : d[k] ?? ""}
                     onChange={(e) => dia(i, { [k]: e.target.value })} />
                 </div>
@@ -79,7 +83,7 @@ export default function TabelaFuncionamento({ horarios, faturamento, dono, edita
                   <span className="cl-func-rot">Faturamento médio</span>
                   <div className="relative">
                     <span aria-hidden="true" className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs text-[var(--text-secondary)]">R$</span>
-                    <input data-campo={`fat-${i}`} type="number" min={0} step="any" aria-label={`Faturamento médio de ${NOMES_DIA[i]}`} placeholder={fechada ? "—" : ""} className={`${CAMPO} pl-8`} disabled={fechada || !editavel}
+                    <input data-campo={`fat-${i}`} type="number" min={0} step="any" aria-label={`Faturamento médio de ${NOMES_DIA[i]}`} placeholder={fechada ? "—" : ""} className={`${CAMPO} pl-8 ${classeDoCampo(mapa, `fat-${i}`)}`} disabled={fechada || !editavel}
                       value={fechada ? "" : faturamento?.dias[i] ?? ""} onChange={(e) => fatDia(i, e.target.value)} />
                   </div>
                 </div>
@@ -89,6 +93,12 @@ export default function TabelaFuncionamento({ horarios, faturamento, dono, edita
             </div>
           );
         })}
+        {(diaPendente || fatPendente) && (
+          <div className="flex flex-col gap-1 border-t border-[var(--border-subtle)] px-4 py-2">
+            {diaPendente && <MotivoCampo campo={diaPendente} />}
+            {fatPendente && <MotivoCampo campo={fatPendente} />}
+          </div>
+        )}
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--border-subtle)] bg-[var(--surface-subtle)] px-4 py-3 text-sm text-[var(--text-strong)]">
           <strong aria-live="polite">{horasDaSemana(horarios)}h abertas por semana</strong>
           {dono && <span aria-live="polite"><strong>{brl(faturamentoDaSemana(horarios, faturamento?.dias))}</strong> por semana</span>}

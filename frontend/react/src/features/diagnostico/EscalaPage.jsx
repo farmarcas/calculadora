@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api } from "../../api/client.js";
 import { Abas, Aviso, Botao, Cartao, entrada } from "../../components/ui/index.jsx";
 import Diagnostico from "./Diagnostico.jsx";
@@ -14,8 +14,6 @@ export default function EscalaPage({ perfil, onIrCadastros }) {
   const [diag, setDiag] = useState(null);
   const [erro, setErro] = useState(null);
   const [enviando, setEnviando] = useState(false);
-  // Premissa só para simular (nunca gravada): quanto da venda da hora vizinha vale uma hora nova. Volta a 50% ao trocar de loja.
-  const fatorHoraNova = useRef(50);
   const [abrirSim, setAbrirSim] = useState(null);
   const [avisoSim, setAvisoSim] = useState(null);
 
@@ -32,7 +30,7 @@ export default function EscalaPage({ perfil, onIrCadastros }) {
     if (!lojaId) return;
     setErro(null);
     try {
-      setDiag(await api(`/lojas/${lojaId}/diagnostico${fatorHoraNova.current === 50 ? "" : `?fatorHoraNova=${fatorHoraNova.current}`}`));
+      setDiag(await api(`/lojas/${lojaId}/diagnostico`));
     } catch (e) {
       setErro(e.message);
     }
@@ -40,13 +38,8 @@ export default function EscalaPage({ perfil, onIrCadastros }) {
 
   useEffect(() => {
     setDiag(null);
-    fatorHoraNova.current = 50;
     carregar();
   }, [carregar]);
-  const mudarFatorHoraNova = (v) => {
-    fatorHoraNova.current = v;
-    carregar();
-  };
 
   if (lojas.length === 0 && !erro)
     return (
@@ -81,7 +74,7 @@ export default function EscalaPage({ perfil, onIrCadastros }) {
       <Abas opcoes={[["diagnostico", "Diagnóstico"], ["grade", "Simulações"]]} valor={aba} onChange={setAba} rotulo="Seções da Escala" />
 
       {!diag && !erro && aba !== "grade" && <p className="text-sm text-ink-500">Carregando…</p>}
-      {diag && aba === "diagnostico" && <Diagnostico diag={diag} onFatorHoraNova={mudarFatorHoraNova} podeEscrever={podeEscrever} onEnviar={() => setEnviando(true)} onRecarregar={carregar} onDefinirFuncao={onIrCadastros} onSimular={(id, aviso) => { setAbrirSim(id); setAvisoSim(aviso ?? null); setAba("grade"); }} />}
+      {diag && aba === "diagnostico" && <Diagnostico diag={diag} podeEscrever={podeEscrever} onEnviar={() => setEnviando(true)} onRecarregar={carregar} onDefinirFuncao={onIrCadastros} onSimular={(id, aviso) => { setAbrirSim(id); setAvisoSim(aviso ?? null); setAba("grade"); }} />}
       {aba === "grade" && <GradeTab lojaId={lojaId} perfil={perfil} podeEscrever={podeEscrever} abrirId={abrirSim} avisoInicial={avisoSim} />}
       {enviando && <EnviarPlanilhas onClose={() => setEnviando(false)} onConcluido={carregar} />}
     </>

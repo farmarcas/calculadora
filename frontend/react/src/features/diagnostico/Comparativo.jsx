@@ -240,11 +240,9 @@ function Cartao({ posicao, c, descricao, resultado, horarioAtual, horasManter, s
 
 // Os cenários 1, 2 e 3 lado a lado para a regra escolhida. Cada faixa fica na mesma altura nos três cartões (grade com
 // subgrid). Só o dono recebe os valores em reais e o cenário sugerido.
-export default function Comparativo({ comparativo, cenarios, lojaId, podeEscrever, onSimular, fatorHoraNova = 50, onFatorHoraNova }) {
+export default function Comparativo({ comparativo, cenarios, lojaId, podeEscrever, onSimular }) {
   const [ocupado, setOcupado] = useState(false);
   const [erro, setErro] = useState(null);
-  const [fatorTxt, setFatorTxt] = useState(String(fatorHoraNova));
-  useEffect(() => setFatorTxt(String(fatorHoraNova)), [fatorHoraNova]);
   if (!comparativo) return null;
   const { cenarios: colunas, destaque } = comparativo;
   // O selo "Cenário sugerido" pode ir a outro cenário que não o de menor custo (quando este deixa falta de cobertura).
@@ -293,24 +291,10 @@ export default function Comparativo({ comparativo, cenarios, lojaId, podeEscreve
       <div>
         <h2 className="m-0 text-xl leading-[26px] font-bold text-[var(--text-strong)]">Cenários sugeridos</h2>
         <p className="mt-1 mb-0 text-sm leading-5 text-[var(--text-secondary)]">
-          Estimativas para a regra de {cenarios?.regra?.nome ?? "referência"}, com o quadro{dono ? ", os salários" : ""} e a base comercial importados. Nada altera o cadastro.
+          Estimativas para a regra de {cenarios?.regra?.nome ?? "referência"}, com o quadro{dono ? ", os salários" : ""} e a base comercial importados. Cada hora nova de funcionamento vale, por estimativa, 50% da venda da hora vizinha. Nada altera o cadastro.
         </p>
       </div>
       {erro && <Aviso>{erro}</Aviso>}
-      {dono && onFatorHoraNova && colunas[2]?.semVendaHoraria === false && (
-        <label className="flex flex-wrap items-center gap-2 text-xs leading-4 text-[var(--text-secondary)]">
-          Venda de cada hora nova (estimativa):
-          <input
-            type="number" min={0} max={100} step={5} inputMode="numeric" value={fatorTxt}
-            aria-label="Percentual da venda da hora vizinha que vale uma hora nova"
-            onChange={(e) => setFatorTxt(e.target.value)}
-            onBlur={() => { const v = Math.min(100, Math.max(0, Number(fatorTxt))); if (fatorTxt !== "" && Number.isFinite(v) && v !== fatorHoraNova) onFatorHoraNova(v); else setFatorTxt(String(fatorHoraNova)); }}
-            onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
-            className="h-8 w-16 rounded-input border border-[var(--border-default)] bg-[var(--surface-card)] px-2 text-sm text-[var(--text-strong)]"
-          />
-          % da venda da hora vizinha
-        </label>
-      )}
       {visao.cobreTudo ? (
         <p className="m-0 rounded-card border border-[var(--border-subtle)] bg-[var(--surface-card)] p-6 text-sm leading-5 text-[var(--text-strong)]" data-testid="cobre-tudo">
           A equipe atual cobre todos os dias. Não há o que contratar nem reduzir.

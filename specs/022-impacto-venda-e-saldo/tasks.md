@@ -7,10 +7,10 @@
 - [x] T004 Rodar os testes do servidor e commitar a fatia
 
 ## Fatia 2 — Cenários e comparativo: venda perdida, economia de folha e saldo (servidor)
-- [ ] T005 `premissas.ts`: `fatorHoraNova` (0 a 100, padrão 50) entra, `margemPct` sai; `escala.service.ts`/`diagnostico.ts` levam o valor até os cenários
-- [ ] T006 `cenarios.ts`: `vendaCortadaPorDia`, `vendaGanhaMes`, `impactoRobusto` (metade da venda ganha); `semVendaHoraria` quando a origem da venda não é a base comercial; os campos de margem dos cenários saem
-- [ ] T007 `comparativo.ts`: por coluna `vendaPerdidaMensal`, `vendaPerdidaPorDia`, `economiaFolhaMensal` (custo do "manter horário" − custo do cenário), `vendaAdicionalMensal`, `saldoMensal`, `saldoAnual`, `pesoNoFaturamentoPct`, `semVendaHoraria`; o Cenário 1 com venda perdida 0, saldo 0 e custo adicional contra a folha atual; sem venda hora a hora os valores vêm nulos (nunca zero); selo de melhor cenário e "Cenário sugerido" pelo saldo, mantida a regra da metade da venda estimada; sai a margem e o "ganho frente a manter"
-- [ ] T008 Testes (`cenarios.test.ts`, `comparativo.test.ts`): 10.000 − 8.000 = −2.000; sem mudança de horário venda perdida 0; loja sem venda hora a hora → aviso e valores nulos; saldo positivo e negativo; anual = mensal × 12; peso no faturamento (e nulo sem faturamento); selo e sugerido pelo saldo; gerente sem R$; ajustar os testes antigos de margem
+- [x] T005 `premissas.ts`: `fatorHoraNova` (0 a 100, padrão 50) entra, `margemPct` sai; `escala.service.ts`/`diagnostico.ts` levam o valor até os cenários
+- [x] T006 `cenarios.ts`: `vendaCortadaPorDia`, `vendaGanhaMes`, `impactoRobusto` (metade da venda ganha); `semVendaHoraria` quando a origem da venda não é a base comercial; os campos de margem dos cenários saem
+- [x] T007 `comparativo.ts`: por coluna `vendaPerdidaMensal`, `vendaPerdidaPorDia`, `economiaFolhaMensal` (custo do "manter horário" − custo do cenário), `vendaAdicionalMensal`, `saldoMensal`, `saldoAnual`, `pesoNoFaturamentoPct`, `semVendaHoraria`; o Cenário 1 com venda perdida 0, saldo 0 e custo adicional contra a folha atual; sem venda hora a hora os valores vêm nulos (nunca zero); selo de melhor cenário e "Cenário sugerido" pelo saldo, mantida a regra da metade da venda estimada; sai a margem e o "ganho frente a manter"
+- [x] T008 Testes (`cenarios.test.ts`, `comparativo.test.ts`): 10.000 − 8.000 = −2.000; sem mudança de horário venda perdida 0; loja sem venda hora a hora → aviso e valores nulos; saldo positivo e negativo; anual = mensal × 12; peso no faturamento (e nulo sem faturamento); selo e sugerido pelo saldo; gerente sem R$; ajustar os testes antigos de margem
 - [ ] T009 Rodar tudo e commitar a fatia
 
 ## Fatia 3 — Simulação, Cadastro e soma do grupo (servidor)

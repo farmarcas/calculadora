@@ -424,6 +424,8 @@ export const melhorEstado = <T extends { custo: number; pessoas: number }>(a: {
   porDia: EntradaSequencia['porDia'];
   margemMes?: (dia: number) => number;
   tabela?: VendaDiaHora | null;
+  // Parte da venda de um dia fechado que fica (1 − recaptura); só vale com `tabela`.
+  fica?: number;
   avaliar: (dias: DiaAberto[]) => T;
   // Com `ganhoMes`, o horário pode ser estendido; devolve o ganho mensal das horas novas de um horário.
   ganhoMes?: (dias: DiaAberto[]) => number;
@@ -433,7 +435,7 @@ export const melhorEstado = <T extends { custo: number; pessoas: number }>(a: {
   for (const dias of estadosPermitidos({ ...a, estender: a.ganhoMes !== undefined })) {
     const avaliacao = a.avaliar(dias);
     const perdida = a.tabela
-      ? vendaPerdidaHoraria(hoje, dias, a.tabela).vendaMes
+      ? vendaPerdidaHoraria(hoje, dias, a.tabela).vendaMes * (a.fica ?? 1)
       : perdaPonderada(hoje, dias, a.margemMes ?? (() => 0));
     const ganho = a.ganhoMes ? a.ganhoMes(dias) : 0;
     const atual: EstadoEscolhido<T> = {

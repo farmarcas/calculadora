@@ -28,9 +28,9 @@ export default function ResumoMensal({ horarios, faturamento, editavel, erros, o
           <output aria-live="polite" className={`${CAMPO} flex items-center bg-[var(--surface-muted)] text-[var(--text-secondary)]`}>{brl(calculado)}</output>
           <span className="text-xs text-[var(--text-secondary)]">{brl(semanal)} por semana × 52 semanas ÷ 12 meses</span>
         </div>
-        <label className="flex flex-col gap-1 text-sm text-[var(--text-strong)]">Margem bruta média
+        <label className="flex flex-col gap-1 text-sm text-[var(--text-strong)]">Margem bruta média (lucro bruto ÷ faturamento)
           <div className="relative"><input data-campo="margem" type="number" min={0} max={100} step="any" className={`${CAMPO} pr-8`} disabled={!editavel} value={faturamento.margemPct} aria-invalid={!!erro("margem")} onChange={(e) => mudar({ margemPct: e.target.value })} /><span aria-hidden="true" className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[var(--text-secondary)]">%</span></div>
-          {erro("margem") ? <span role="alert" className="text-xs text-[var(--text-danger)]">{erro("margem")}</span> : <span className="text-xs text-[var(--text-secondary)]">Estima o ganho dos cenários.</span>}
+          {erro("margem") ? <span role="alert" className="text-xs text-[var(--text-danger)]">{erro("margem")}</span> : <span className="text-xs text-[var(--text-secondary)]">Lucro bruto ÷ faturamento, em %. Margem bruta = Faturamento − CMV (custo da mercadoria vendida). Estima o ganho dos cenários.</span>}
         </label>
       </div>
       {div.diverge && (

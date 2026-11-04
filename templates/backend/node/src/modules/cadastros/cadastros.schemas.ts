@@ -1,3 +1,4 @@
+import { FUNCOES_NO_CALCULO } from './funcoes.js';
 import { z } from 'zod';
 import { normalizarCnpj } from '../ge/cnpj.js';
 import { UFS, validarCnpj, validarCpf } from './documentos.js';
@@ -22,7 +23,7 @@ const horariosNovo = z.object({ versao: z.literal(2), dias: z.array(diaNovo).len
 const horariosAntigo = z
   .object({ semana: horario.optional(), sabado: horario.optional(), domingo: horario.optional() })
   .strict();
-const horariosEntrada = z.union([horariosNovo, horariosAntigo]).transform((h, ctx) => {
+export const horariosEntrada = z.union([horariosNovo, horariosAntigo]).transform((h, ctx) => {
   const n = normalizarHorarios(h);
   if (!n) {
     ctx.issues.push({ code: 'custom', message: 'Informe o horário de ao menos um dia', input: h });
@@ -37,7 +38,7 @@ export const REGIMES = ['simples', 'presumido', 'real'] as const;
 
 const horaHHMM = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Horário inválido (use HH:MM)');
 
-export const FUNCOES = ['Farmacêutico', 'Atendimento', 'Caixa', 'Apoio', 'Perfumaria'] as const;
+export const FUNCOES = FUNCOES_NO_CALCULO;
 
 export const lojaSchema = z
   .object({
@@ -79,7 +80,7 @@ export const funcionarioSchema = z
       .refine((v) => v === '' || validarCpf(v), 'CPF inválido')
       .optional(),
     cargo: z.string().trim().max(80).optional(),
-    funcaoEscala: z.enum(FUNCOES).nullable().optional(),
+    funcaoEscala: z.enum(FUNCOES_NO_CALCULO).nullable().optional(),
     cargaSemanalH: z.number().int().min(1).max(60).optional(),
     // Carga mensal digitada (220 h = 44 h); a semanal é derivada (mensal ÷ 5) quando não vem.
     cargaMensalH: z.number().int().min(1).max(260).optional(),
@@ -110,6 +111,15 @@ const req = <B extends z.ZodType, P extends z.ZodType, Q extends z.ZodType>(
 ) => z.object({ body, params, query });
 
 export const listarReq = req(vazio.default({}), vazio.default({}), paginacao);
+// Lojas: além da busca (nome, código ou CNPJ), filtram por UF e pela situação do cadastro.
+export const listarLojasReq = req(
+  vazio.default({}),
+  vazio.default({}),
+  paginacao.extend({
+    uf: z.string().trim().length(2).toUpperCase().optional(),
+    situacao: z.enum(['completo', 'revisar']).optional(),
+  }),
+);
 // Loja nova (só o operador cria) exige CNPJ válido.
 export const criarLojaReq = req(
   lojaSchema.extend({

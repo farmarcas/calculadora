@@ -42,7 +42,7 @@ describe('planilha modelo', () => {
       'Margem bruta média (%)',
       // configuração
       'Convenção permite 8h24 (Sim/Não)',
-      ...['Farmacêutico', 'Atendimento', 'Caixa', 'Apoio', 'Perfumaria'].flatMap((f) => [
+      ...['Farmacêutico', 'Atendimento', 'Caixa'].flatMap((f) => [
         `Meta de ${f} (pessoas por hora)`,
         `Salário médio de ${f}`,
       ]),

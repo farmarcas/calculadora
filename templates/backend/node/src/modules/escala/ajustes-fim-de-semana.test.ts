@@ -2,6 +2,10 @@ import { describe, expect, it } from 'vitest';
 import type { DiaAberto } from '../regras/capacidade.js';
 import {
   estadosPermitidos,
+  ganhoDasHorasNovas,
+  LIMITES_EXTENSAO,
+  melhorEstado,
+  passosDe,
   perdaMensal,
   sequenciaFimDeSemana,
   TRAVAS,
@@ -263,5 +267,135 @@ describe('estadosPermitidos (Cenário 3)', () => {
     const estados = estadosPermitidos({ dias, porDia });
     // fechar sábado e/ou domingo: 4 combinações; perda de fechar um = 1000 ÷ 7000 = 14,3% > 10% → só o original passa
     expect(estados).toHaveLength(1);
+  });
+});
+
+describe('horário estendido (Cenário 3)', () => {
+  const dia = (d: number, abre = 8, fecha = 20) => ({ dia: d, abre, fecha });
+  const dias = [0, 1, 2, 3, 4, 5, 6].map((d) => dia(d));
+  const porDia = [0, 1, 2, 3, 4, 5, 6].map((d) => ({ dia: d, vendaMes: 10000, protegido: d >= 5 }));
+  // Venda e margem por hora iguais a 100 e 30 nas horas abertas (8h a 19h), em todos os dias.
+  const tabela = (extra: Record<string, number> = {}) => {
+    const venda = Array.from({ length: 7 }, () => new Array<number>(24).fill(0));
+    const margem = Array.from({ length: 7 }, () => new Array<number>(24).fill(0));
+    for (let d = 0; d < 7; d++)
+      for (let h = 8; h < 20; h++) {
+        venda[d]![h] = 100;
+        margem[d]![h] = 30;
+      }
+    for (const [chave, v] of Object.entries(extra)) {
+      const [d, h] = chave.split(':').map(Number);
+      venda[d!]![h!] = v;
+      margem[d!]![h!] = v * 0.3;
+    }
+    return { venda, margem, dias: 12 };
+  };
+
+  it('os limites são decididos em uma constante só', () => {
+    expect(LIMITES_EXTENSAO).toEqual({
+      horasMax: 3,
+      aberturaMin: 6,
+      fechamentoMax: 24,
+      horasMaxDia: 16,
+      fatorHoraNova: 0.5,
+    });
+  });
+
+  it('sem `estender`, nada muda: os estados são os de sempre', () => {
+    const base = estadosPermitidos({ dias, porDia });
+    expect(estadosPermitidos({ dias, porDia, estender: false })).toEqual(base);
+  });
+
+  it('com `estender`, só sábado e domingo ganham horas, o primeiro estado segue sendo o de hoje e nenhum passa dos limites', () => {
+    const estados = estadosPermitidos({ dias, porDia, estender: true });
+    expect(estados[0]).toEqual(dias);
+    expect(estados.length).toBeGreaterThan(estadosPermitidos({ dias, porDia }).length);
+    for (const e of estados) {
+      for (const d of [0, 1, 2, 3, 4]) expect(e.find((x) => x.dia === d)).toEqual(dia(d));
+      for (const x of e) {
+        expect(x.abre).toBeGreaterThanOrEqual(LIMITES_EXTENSAO.aberturaMin);
+        expect(x.fecha).toBeLessThanOrEqual(LIMITES_EXTENSAO.fechamentoMax);
+        expect(x.fecha - x.abre).toBeLessThanOrEqual(LIMITES_EXTENSAO.horasMaxDia);
+      }
+    }
+    // sábado: abrir 1 a 3 h mais cedo e/ou fechar 1 a 3 h mais tarde, no total de 1 a 3 h (9 combinações)
+    const sabados = new Set(estados.map((e) => JSON.stringify(e.find((x) => x.dia === 5))));
+    expect(sabados).toContain(JSON.stringify({ dia: 5, abre: 7, fecha: 21 }));
+    expect(sabados).toContain(JSON.stringify({ dia: 5, abre: 8, fecha: 23 }));
+  });
+
+  it('respeita 6h, 24h e 16 h por dia', () => {
+    const cedo = [dia(5, 6, 20), dia(6, 8, 23)];
+    const estados = estadosPermitidos({ dias: cedo, porDia, estender: true });
+    expect(estados.every((e) => (e.find((x) => x.dia === 5)?.abre ?? 6) >= 6)).toBe(true);
+    // domingo já em 23h: só dá para fechar 1 h mais tarde (24h)
+    expect(Math.max(...estados.map((e) => e.find((x) => x.dia === 6)?.fecha ?? 0))).toBe(24);
+    const longo = [dia(5, 7, 23), dia(6, 8, 20)]; // sábado com 16 h: não estende
+    expect(
+      estadosPermitidos({ dias: longo, porDia, estender: true }).every(
+        (e) => (e.find((x) => x.dia === 5)?.fecha ?? 23) <= 23 && (e.find((x) => x.dia === 5)?.abre ?? 7) >= 7,
+      ),
+    ).toBe(true);
+  });
+
+  it('passo "estender" descreve as horas novas', () => {
+    const final = dias.map((d) => (d.dia === 5 ? { ...d, abre: 7, fecha: 22 } : d));
+    expect(passosDe(dias, final)).toEqual([
+      {
+        tipo: 'estender',
+        dia: 5,
+        horas: 3,
+        de: { abre: 8, fecha: 20 },
+        para: { abre: 7, fecha: 22 },
+      },
+    ]);
+  });
+
+  it('venda registrada na hora vale o registrado; sem registro vale metade da hora de borda', () => {
+    const final = dias.map((d) => (d.dia === 5 ? { ...d, fecha: 22 } : d)); // 20h e 21h novas
+    // 20h com 80 de venda registrada; 21h sem registro → 50% da última hora aberta (19h: 100)
+    const g = ganhoDasHorasNovas(dias, final, tabela({ '5:20': 80 }));
+    expect(g.porDia).toEqual([
+      { dia: 5, horasNovas: 2, origem: 'mista', vendaMes: 563.33, margemMes: 169 },
+    ]);
+    // (80 + 50) × 52/12 = 563,33; margem (24 + 15) × 52/12 = 169
+    expect(g.margemMes).toBe(169);
+    expect(ganhoDasHorasNovas(dias, final, tabela()).porDia[0]!.origem).toBe('vizinha');
+    expect(ganhoDasHorasNovas(dias, final, tabela({ '5:20': 80, '5:21': 60 })).porDia[0]!.origem).toBe('registrada');
+  });
+
+  it('sem tabela de vendas por hora, o ganho é zero', () => {
+    const final = dias.map((d) => (d.dia === 5 ? { ...d, fecha: 22 } : d));
+    expect(ganhoDasHorasNovas(dias, final, null)).toEqual({ vendaMes: 0, margemMes: 0, porDia: [] });
+  });
+
+  it('dia reduzido ou igual a hoje não gera ganho', () => {
+    const reduzido = dias.map((d) => (d.dia === 5 ? { ...d, fecha: 18 } : d));
+    expect(ganhoDasHorasNovas(dias, reduzido, tabela()).porDia).toEqual([]);
+  });
+
+  it('a perda de um horário maior que o de hoje é zero (o ganho é calculado à parte)', () => {
+    const final = dias.map((d) => (d.dia === 5 ? { ...d, fecha: 22 } : d));
+    expect(perdaMensal(dias, final, porDia)).toBe(0);
+  });
+
+  it('melhorEstado escolhe estender quando a margem das horas novas passa do custo, e não quando não passa', () => {
+    const avaliar = (d: DiaAberto[]) => ({
+      // cada hora aberta além de hoje (20h) custa 10 de folha
+      custo: d.reduce((s, x) => s + Math.max(0, x.fecha - 20) * 10, 0),
+      pessoas: 0,
+    });
+    const margemMes = () => 0;
+    const comGanho = (porHora: number) => (d: DiaAberto[]) =>
+      d.reduce((s, x) => s + Math.max(0, x.fecha - 20) * porHora, 0);
+    const bom = melhorEstado({ dias, porDia, margemMes, avaliar, ganhoMes: comGanho(50) });
+    expect(bom.horasNovas).toBeGreaterThan(0);
+    expect(bom.impacto).toBeLessThan(0);
+    expect(bom.ganho).toBeGreaterThan(0);
+    const ruim = melhorEstado({ dias, porDia, margemMes, avaliar, ganhoMes: comGanho(5) });
+    expect(ruim.dias).toEqual(dias);
+    expect(ruim.horasNovas).toBe(0);
+    // sem `ganhoMes` nunca estende
+    expect(melhorEstado({ dias, porDia, margemMes, avaliar }).horasNovas).toBe(0);
   });
 });

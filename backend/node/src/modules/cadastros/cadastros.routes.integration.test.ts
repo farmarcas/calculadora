@@ -909,7 +909,7 @@ describe('cadastros (rotas)', () => {
       expect((await lista('?uf=XX')).body.data).toEqual([]);
     });
 
-    it('sem margem ou sem salário médio a loja fica em Revisar, e a lista nunca traz os custos', async () => {
+    it('sem salário médio a loja fica em Revisar (a margem é opcional), e a lista nunca traz os custos', async () => {
       const c = await postLoja({ codigo: '010', nome: 'Sem custos', ...dadosOk });
       await reqGe().patch(`/api/v1/lojas/${c.body.id}`).set(admin).send({ faturamento: fatCompleto });
       await reqGe()
@@ -923,7 +923,7 @@ describe('cadastros (rotas)', () => {
         quantidade: 1,
       });
       await reqGe().patch(`/api/v1/lojas/${c.body.id}`).set(admin).send({ faturamento: { ...fatCompleto, margemPct: null } });
-      expect((await lista('?busca=010')).body.data[0].situacao.motivo).toBe('Falta a margem bruta média');
+      expect((await lista('?busca=010')).body.data[0].situacao.motivo).toBe('Falta o salário médio de Farmacêutico');
       await reqGe().put(`/api/v1/lojas/${c.body.id}/custos`).set(admin).send({ salarioMedio: { Farmacêutico: 9000 } });
       for (const h of [admin, gestor]) {
         const l = (await lista('?busca=010', h)).body.data[0];
@@ -936,12 +936,12 @@ describe('cadastros (rotas)', () => {
       const c = await postLoja({ codigo: '011', nome: 'Pendências', ...dadosOk });
       const painel = (await reqGe().get(`/api/v1/lojas/${c.body.id}/painel`).set(admin)).body;
       const ids = painel.situacao.pendencias.map((p: { id: string }) => p.id);
-      expect(ids).toEqual(['farmaceutico', 'faturamentoDia', 'margem', 'salario:Farmacêutico']);
-      expect(painel.situacao.quantidade).toBe(4);
+      expect(ids).toEqual(['farmaceutico', 'faturamentoDia', 'salario:Farmacêutico']);
+      expect(painel.situacao.quantidade).toBe(3);
       expect(painel.equipe).toEqual({ farmaceuticos: 0, funcoesNaEquipe: [] });
       expect(JSON.stringify(painel.situacao.pendencias)).not.toMatch(/R\$|\d{4}/);
       const linha = (await lista('?busca=011')).body.data[0];
-      expect(linha.situacao).toEqual({ status: 'revisar', motivo: 'Falta cadastrar um farmacêutico na equipe', quantidade: 4 });
+      expect(linha.situacao).toEqual({ status: 'revisar', motivo: 'Falta cadastrar um farmacêutico na equipe', quantidade: 3 });
       expect('pendencias' in linha.situacao).toBe(false);
     });
 

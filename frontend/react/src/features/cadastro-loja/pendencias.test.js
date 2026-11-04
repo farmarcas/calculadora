@@ -20,23 +20,23 @@ describe("pendências sobre o rascunho (dono)", () => {
 
   it("tudo pendente, na ordem de verificação, com aba e quem preenche", () => {
     const r = pendenciasDoRascunho({
-      loja: { nome: "", cidade: "", uf: "", regimeTributario: "", horarios: semana([]), faturamento: fat(["", "", "", "", "", "", ""], { margemPct: "" }) },
+      loja: { nome: "", cidade: "", uf: "", regimeTributario: "", horarios: semana([]), faturamento: fat(["", "", "", "", "", "", ""]) },
       custos: { salarioMedio: { Farmacêutico: "" } },
       equipe: { farmaceuticos: 0, funcoesNaEquipe: [] },
       dono: true,
       perfil: "TENANT_ADMIN",
     });
-    expect(ids(r)).toEqual(["dados", "funcionamento", "farmaceutico", "margem", "salario:Farmacêutico"]);
+    expect(ids(r)).toEqual(["dados", "funcionamento", "farmaceutico", "salario:Farmacêutico"]);
     expect(r.itens[0]).toMatchObject({ campos: ["nome", "cidade", "uf", "regime"], texto: "Falta: nome, cidade, UF e regime tributário.", titulo: "Dados da loja" });
   });
 
   it("2 ou 3 pendências em abas diferentes", () => {
     const r = dono({
-      loja: { ...ok, faturamento: fat(undefined, { margemPct: "" }) },
+      loja: { ...ok, faturamento: fat(["20000", "15000", "", "18000", "20000", "11000", ""]) },
       equipe: { farmaceuticos: 0, funcoesNaEquipe: ["Atendimento"] },
       custos: { salarioMedio: { Farmacêutico: "9000", Atendimento: "" } },
     });
-    expect(ids(r)).toEqual(["farmaceutico", "margem", "salario:Atendimento"]);
+    expect(ids(r)).toEqual(["farmaceutico", "faturamentoDia", "salario:Atendimento"]);
     expect(r.porAba).toEqual({ dados: 1, equipe: 1, regras: 1 });
   });
 
@@ -65,18 +65,24 @@ describe("pendências sobre o rascunho (dono)", () => {
   });
 
   it("preencher o campo tira a pendência antes de salvar, e esvaziar a devolve; o total não muda", () => {
-    const sem = dono({ loja: { ...ok, faturamento: fat(undefined, { margemPct: "" }) } });
-    expect(ids(sem)).toEqual(["margem"]);
-    const com = dono({ loja: { ...ok, faturamento: fat(undefined, { margemPct: "30" }) } });
+    const sem = dono({ custos: { salarioMedio: { Farmacêutico: "", Atendimento: "2500" } } });
+    expect(ids(sem)).toEqual(["salario:Farmacêutico"]);
+    const com = dono({ custos: { salarioMedio: { Farmacêutico: "9000", Atendimento: "2500" } } });
     expect(ids(com)).toEqual([]);
-    expect(com.itens.find((i) => i.id === "margem").feito).toBe(true);
+    expect(com.itens.find((i) => i.id === "salario:Farmacêutico").feito).toBe(true);
     expect(com.total).toBe(sem.total);
     expect(com.feitos).toBe(sem.feitos + 1);
-    expect(ids(dono({ loja: { ...ok, faturamento: fat(undefined, { margemPct: "" }) } }))).toEqual(["margem"]);
+    expect(ids(dono({ custos: { salarioMedio: { Farmacêutico: "", Atendimento: "2500" } } }))).toEqual(["salario:Farmacêutico"]);
+  });
+
+  it("a margem bruta é opcional: sem ela não há pendência", () => {
+    const r = dono({ loja: { ...ok, faturamento: fat(undefined, { margemPct: "" }) } });
+    expect(ids(r)).toEqual([]);
+    expect(r.itens.some((i) => i.id === "margem")).toBe(false);
   });
 
   it("nenhum texto traz valores em reais", () => {
-    const r = dono({ loja: { ...ok, faturamento: fat(undefined, { mensal: "999999", margemPct: "" }) } });
+    const r = dono({ loja: { ...ok, faturamento: fat(undefined, { mensal: "999999" }) } });
     for (const i of r.itens) expect(`${i.titulo} ${i.texto} ${i.porque}`).not.toMatch(/R\$|\d{3}/);
   });
 });
@@ -84,17 +90,17 @@ describe("pendências sobre o rascunho (dono)", () => {
 describe("pendências para quem não é dono", () => {
   // O gestor não recebe faturamento nem salários: os itens do dono vêm da lista do servidor, sem botão.
   const doServidor = [
-    { id: "margem", aba: "dados", titulo: "Margem bruta média", texto: "Informe a margem bruta em %.", porque: "x", campos: ["margem"], soDono: true },
+    { id: "faturamentoDia", aba: "dados", titulo: "Faturamento por dia", texto: "Informe o faturamento de cada dia aberto.", porque: "x", campos: ["fat-2"], soDono: true },
     { id: "salario:Farmacêutico", aba: "regras", titulo: "Salário médio · Farmacêutico", texto: "Informe o salário médio sem premiação.", porque: "x", campos: ["salario-Farmacêutico"], soDono: true },
   ];
   const gestor = (extra = {}) => pendenciasDoRascunho({ servidor: doServidor, loja: { ...ok, faturamento: undefined }, equipe: { farmaceuticos: 0, funcoesNaEquipe: ["Farmacêutico"] }, dono: false, perfil: "SCHEDULE_MANAGER", ...extra });
 
   it("gestor: itens do dono continuam pendentes e sem botão; o resto ele pode resolver", () => {
     const r = gestor();
-    expect(ids(r)).toEqual(["farmaceutico", "margem", "salario:Farmacêutico"]);
+    expect(ids(r)).toEqual(["farmaceutico", "faturamentoDia", "salario:Farmacêutico"]);
     expect(r.voceResolve).toBe(1);
     expect(r.soDono).toBe(2);
-    expect(podePreencher(r.itens.find((i) => i.id === "margem"), "SCHEDULE_MANAGER")).toBe(false);
+    expect(podePreencher(r.itens.find((i) => i.id === "faturamentoDia"), "SCHEDULE_MANAGER")).toBe(false);
     expect(podePreencher(r.itens.find((i) => i.id === "farmaceutico"), "SCHEDULE_MANAGER")).toBe(true);
   });
 
@@ -131,24 +137,24 @@ describe("título da faixa", () => {
 });
 
 describe("estado de cada campo (destaque)", () => {
-  const dono = (loja) => pendenciasDoRascunho({ loja, custos, equipe, dono: true, perfil: "TENANT_ADMIN" });
-  const semMargem = { ...ok, faturamento: fat(undefined, { margemPct: "" }) };
-  const aoAbrir = dono(semMargem).itens.filter((i) => !i.feito);
+  const dono = (loja, custosX = custos) => pendenciasDoRascunho({ loja, custos: custosX, equipe, dono: true, perfil: "TENANT_ADMIN" });
+  const semSalario = { salarioMedio: { Farmacêutico: "", Atendimento: "2500" } };
+  const aoAbrir = dono(ok, semSalario).itens.filter((i) => !i.feito);
 
   it("campo pendente fica pendente, com a frase do porquê", () => {
-    expect(estadoDosCampos(dono(semMargem), aoAbrir).margem).toMatchObject({ estado: "pendente", porque: "Sem a margem, o impacto dos cenários fica em branco." });
+    expect(estadoDosCampos(dono(ok, semSalario), aoAbrir)["salario-Farmacêutico"]).toMatchObject({ estado: "pendente", porque: "Sem o salário, não dá para calcular o custo de contratar." });
   });
   it("campo preenchido (ainda sem salvar) vira 'preenchido'; esvaziar volta a pendente", () => {
-    expect(estadoDosCampos(dono(ok), aoAbrir).margem.estado).toBe("preenchido");
-    expect(estadoDosCampos(dono(semMargem), aoAbrir).margem.estado).toBe("pendente");
+    expect(estadoDosCampos(dono(ok), aoAbrir)["salario-Farmacêutico"].estado).toBe("preenchido");
+    expect(estadoDosCampos(dono(ok, semSalario), aoAbrir)["salario-Farmacêutico"].estado).toBe("pendente");
   });
   it("campo que nunca esteve pendente não aparece, e o que se apaga depois aparece como pendente", () => {
-    expect(estadoDosCampos(dono(ok), []).margem).toBeUndefined();
-    expect(estadoDosCampos(dono(semMargem), []).margem.estado).toBe("pendente");
+    expect(estadoDosCampos(dono(ok), [])["salario-Farmacêutico"]).toBeUndefined();
+    expect(estadoDosCampos(dono(ok, semSalario), [])["salario-Farmacêutico"].estado).toBe("pendente");
   });
   it("dados da loja: só os campos que faltam ficam pendentes, cada um com a sua frase", () => {
     const m = estadoDosCampos(dono({ ...ok, cidade: "", uf: "" }), []);
-    expect(Object.keys(m).sort()).toEqual(["cidade", "margem", "uf"].filter((k) => k !== "margem").sort());
+    expect(Object.keys(m).sort()).toEqual(["cidade", "uf"]);
     expect(m.cidade.porque).toBe("Informe a cidade.");
     expect(m.uf.porque).toBe("Escolha o estado.");
   });

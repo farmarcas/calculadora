@@ -21,7 +21,6 @@ const modelo = {
     porque: "Sem o faturamento por dia não dá para estimar o impacto dos cenários.", campos: dias.map((i) => `fat-${i}`),
   }),
   faturamentoMes: () => ({ id: "faturamentoMes", aba: "dados", titulo: "Faturamento do mês", texto: "O valor do mês é diferente da soma dos dias. Confira.", porque: "Confira o faturamento do mês: o valor informado é diferente da soma dos dias em mais de 10%.", campos: ["mensal"], soDono: true, alerta: true }),
-  margem: () => ({ id: "margem", aba: "dados", titulo: "Margem bruta média", texto: "Informe a margem bruta em %.", porque: "Sem a margem, o impacto dos cenários fica em branco.", campos: ["margem"], soDono: true }),
   salario: (f) => ({ id: `salario:${f}`, aba: "regras", titulo: `Salário médio · ${f}`, texto: "Informe o salário médio sem premiação.", porque: "Sem o salário, não dá para calcular o custo de contratar.", campos: [`salario-${f}`], soDono: true }),
 };
 
@@ -61,7 +60,7 @@ export const pendenciasDoRascunho = ({ servidor = [], loja, custos, equipe = { f
     mes = !semFat.length && preenchido(fat.mensal) && informado > 0 && calculado > 0 && Math.abs(informado - calculado) / calculado > TOLERANCIA_MENSAL ? modelo.faturamentoMes() : null;
   }
   itens.push({ id: "faturamentoMes", pendente: mes, aplica: !!(mes || doServidor("faturamentoMes")) });
-  itens.push({ id: "margem", pendente: fat ? (Number(fat.margemPct) > 0 ? null : modelo.margem()) : doServidor("margem"), aplica: true });
+  // A margem bruta é opcional (o impacto é em venda e folha): não é pendência.
 
   // salário médio: o Farmacêutico sempre; as demais funções só com gente na equipe
   const precisam = ["Farmacêutico", ...equipe.funcoesNaEquipe.filter((f) => f !== "Farmacêutico")];
@@ -95,7 +94,7 @@ export const pendenciasDoRascunho = ({ servidor = [], loja, custos, equipe = { f
 // Texto de um item que já foi resolvido (para aparecer riscado como "Feito").
 function modeloDoId(id) {
   if (id.startsWith("salario:")) return modelo.salario(id.slice(8));
-  const f = { dados: () => modelo.dados(CAMPOS_DA_LOJA), funcionamento: modelo.funcionamento, farmaceutico: modelo.farmaceutico, faturamentoDia: () => modelo.faturamentoDia([], true), faturamentoMes: modelo.faturamentoMes, margem: modelo.margem }[id];
+  const f = { dados: () => modelo.dados(CAMPOS_DA_LOJA), funcionamento: modelo.funcionamento, farmaceutico: modelo.farmaceutico, faturamentoDia: () => modelo.faturamentoDia([], true), faturamentoMes: modelo.faturamentoMes }[id];
   return f();
 }
 

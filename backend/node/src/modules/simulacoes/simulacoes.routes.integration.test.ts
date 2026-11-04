@@ -627,11 +627,11 @@ describe('simulações (rotas)', () => {
       const viewer = { 'X-Perfil': 'SCHEDULE_VIEWER', 'X-GE': GE_INICIAL_ID };
       const g = await editar(sim.id, { horarios: semana('18:00') }, gestor);
       expect(g.status).toBe(200);
-      expect(g.body.resultado).not.toHaveProperty('impactoMensal');
+      expect(g.body.resultado).not.toHaveProperty('saldoMensal');
       expect(g.body.resultado).not.toHaveProperty('vendaQueSai');
       expect((await editar(sim.id, { horarios: semana('17:00') }, viewer)).status).toBe(403);
       const dono = await reqGe().get(`/api/v1/simulacoes/${sim.id}`).set(admin);
-      expect(dono.body.resultado).toHaveProperty('impactoMensal');
+      expect(dono.body.resultado).toHaveProperty('saldoMensal');
     });
   });
   describe('número do cenário (spec 016)', () => {

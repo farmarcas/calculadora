@@ -7,6 +7,7 @@ import type { Regra, RegraId } from '../regras/perfis.js';
 import type { Minimos } from '../regras/requisitos.js';
 import { SEMANAS_NO_MES } from '../escala/cenarios-dias.js';
 import { diaDaSemana, vendasPorDiaEHora, type VendaLinha } from '../escala/vendas.js';
+import { contratacoesDe, custoDasVagas } from '../escala/cenarios.js';
 import type { PessoaSim } from './avaliar.js';
 
 const arred = (n: number) => Math.round(n * 100) / 100;
@@ -44,13 +45,18 @@ export type FuncaoResultado = {
 };
 
 export type ResultadoSimulacao = {
-  // Só para o dono (valores em reais): custo adicional por mês, sem sinal.
-  impactoMensal?: number | null;
+  // Só para o dono (valores em reais), por mês. O saldo é a economia de folha menos a venda que sai; a economia é o custo do
+  // "manter horário" (contratar para cobrir o horário do Cadastro com a equipe de hoje) menos o custo desta simulação.
   folhaExtra?: number | null;
   horaExtra?: number | null;
+  // Folha extra + hora extra desta simulação (custo adicional); nulo sem salário informado.
+  custoAdicional?: number | null;
+  economiaFolha?: number | null;
   vendaQueSai?: number | null;
-  margemPerdida?: number | null;
-  margemInformada: boolean;
+  saldoMensal?: number | null;
+  saldoAnual?: number | null;
+  // Saldo ÷ faturamento mensal médio (vendas da base × 52 ÷ 12); nulo sem base.
+  pesoNoFaturamentoPct?: number | null;
   temBase: boolean;
   horasAbertas: number;
   horasAbertasAntes: number;
@@ -126,7 +132,7 @@ export const calcularResultado = (a: {
     };
   });
 
-  // Venda e margem das horas que o Cadastro abre e a simulação fecha, por mês (média de um dia × 52 ÷ 12).
+  // Venda das horas que o Cadastro abre e a simulação fecha, por mês (média de um dia × 52 ÷ 12).
   const vb = vendasPorDiaEHora(a.vendas);
   const fechadas = Array.from({ length: 7 }, (_, d) =>
     Array.from(
@@ -135,18 +141,9 @@ export const calcularResultado = (a: {
     ),
   );
   let venda = 0;
-  let margem = 0;
-  let margemTotal = 0;
   if (vb)
     for (let d = 0; d < 7; d++)
-      for (let h = 0; h < 24; h++) {
-        margemTotal += vb.margem[d]![h]!;
-        if (fechadas[d]![h]) {
-          venda += vb.venda[d]![h]!;
-          margem += vb.margem[d]![h]!;
-        }
-      }
-  const margemInformada = margemTotal > 0;
+      for (let h = 0; h < 24; h++) if (fechadas[d]![h]) venda += vb.venda[d]![h]!;
   const clientes = clientesPorDiaEHora(a.vendas);
   const totalVenda = vb ? vb.venda.flat().reduce((s, v) => s + v, 0) : 0;
   const totalClientes = clientes ? clientes.flat().reduce((s, v) => s + v, 0) : 0;
@@ -230,7 +227,6 @@ export const calcularResultado = (a: {
   })();
 
   const base: ResultadoSimulacao = {
-    margemInformada,
     temBase: !!vb,
     horasAbertas,
     horasAbertasAntes,
@@ -271,8 +267,29 @@ export const calcularResultado = (a: {
   }
   if (horaExtra !== null) horaExtra = arred(horaExtra);
   const vendaQueSai = vb ? arred(venda * SEMANAS_NO_MES) : null;
-  const margemPerdida = vb && margemInformada ? arred(margem * SEMANAS_NO_MES) : null;
-  const impactoMensal =
-    folhaExtra == null || horaExtra == null ? null : arred(folhaExtra + horaExtra + (margemPerdida ?? 0));
-  return { ...base, impactoMensal, folhaExtra, horaExtra, vendaQueSai, margemPerdida };
+  const custoAdicional = folhaExtra == null || horaExtra == null ? null : arred(folhaExtra + horaExtra);
+  // "Manter horário": as contratações que cobrem o horário do Cadastro com a equipe de hoje.
+  const linhasManter = verificarRegra(a.regra, a.diasCadastro, a.minimos, pessoasDe(atuais), opcoes);
+  const custoManter = custoDasVagas(
+    a.regraId,
+    contratacoesDe(linhasManter),
+    linhasManter,
+    a.custos,
+    a.parametros,
+  );
+  const economiaFolha = custoManter == null || custoAdicional == null ? null : arred(custoManter - custoAdicional);
+  const saldo = economiaFolha == null || vendaQueSai == null ? null : arred(economiaFolha - vendaQueSai);
+  const faturamento = totalVenda * SEMANAS_NO_MES;
+  return {
+    ...base,
+    folhaExtra,
+    horaExtra,
+    custoAdicional,
+    economiaFolha,
+    vendaQueSai,
+    saldoMensal: saldo,
+    saldoAnual: saldo == null ? null : arred(saldo * 12),
+    pesoNoFaturamentoPct:
+      saldo == null || faturamento <= 0 ? null : Math.round((saldo / faturamento) * 1000) / 10,
+  };
 };

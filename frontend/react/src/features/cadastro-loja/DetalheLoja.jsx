@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Abas, Aviso, Botao } from "../../components/ui/index.jsx";
 import { cuidaDoGrupo, editaLoja, ehOperador, formatarCnpj } from "../../api/perfis.js";
 import AbaDados from "./AbaDados.jsx";
@@ -6,15 +6,18 @@ import { errosDaLoja } from "./calculos.js";
 import { ABAS } from "./config.js";
 import AbaEquipe from "./AbaEquipe.jsx";
 import AbaRegras, { errosDaRegras } from "./AbaRegras.jsx";
-
-const IconeAtencao = () => (
-  <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0zM12 9v4M12 17h.01" /></svg>
-);
+import PainelPendencias from "./PainelPendencias.jsx";
+import { CamposPendentes } from "./campoPendente.jsx";
+import { estadoDosCampos, pendenciasDoRascunho } from "./pendencias.js";
 
 // Detalhe da loja escolhida: cabeçalho com a situação e o motivo, 3 abas e o rodapé com o contador e "Salvar alterações".
 export default function DetalheLoja({ lojaId, aba, onAba, perfil, painel, carregando, erro, rascunho, onVoltar, aoMudarEquipe }) {
   const [tentou, setTentou] = useState(false);
   useEffect(() => setTentou(false), [lojaId]);
+  // O painel de pendências abre sozinho, menos em tela de celular; "Preencher" o recolhe para o campo aparecer.
+  const [painelAberto, setPainelAberto] = useState(() => window.innerWidth >= 640);
+  useEffect(() => setPainelAberto(window.innerWidth >= 640), [lojaId]);
+  const pendente = useRef(null);
   const dono = perfil === "TENANT_ADMIN";
   const operador = ehOperador(perfil);
   const podeEditar = editaLoja(perfil);
@@ -54,7 +57,32 @@ export default function DetalheLoja({ lojaId, aba, onAba, perfil, painel, carreg
     await rascunho.salvar();
   };
   const cancelar = () => { setTentou(false); rascunho.cancelar(); };
-  const abas = ABAS.map(([id, t]) => [id, id === "equipe" ? `${t} (${loja.funcionarios ?? 0})` : t]);
+  const resultado = pendenciasDoRascunho({
+    servidor: situacao.pendencias ?? [],
+    loja: rascunho.rascunho.loja,
+    custos: rascunho.rascunho.custos,
+    equipe: painel.equipe,
+    dono,
+    perfil,
+  });
+  const mapaDeCampos = estadoDosCampos(resultado, situacao.pendencias ?? []);
+  const abas = ABAS.map(([id, t]) => [id, id === "equipe" ? `${t} (${loja.funcionarios ?? 0})` : t, { pendentes: resultado.porAba[id] }]);
+  // "Preencher": abre a aba do item, rola até o campo, dá foco e recolhe o painel (espera a aba aparecer).
+  const preencher = (item) => {
+    setPainelAberto(false);
+    onAba(item.aba);
+    const alvo = item.campos[0] ? `[data-campo="${item.campos[0]}"]` : "[data-campo-novo-funcionario]";
+    let tentativas = 0;
+    clearInterval(pendente.current);
+    pendente.current = setInterval(() => {
+      const el = document.querySelector(alvo);
+      if ((el && !el.disabled) || ++tentativas > 20) {
+        clearInterval(pendente.current);
+        el?.scrollIntoView({ block: "center", behavior: "smooth" });
+        el?.focus();
+      }
+    }, 50);
+  };
 
   return (
     <div className="flex min-h-full flex-col">
@@ -67,19 +95,19 @@ export default function DetalheLoja({ lojaId, aba, onAba, perfil, painel, carreg
         <p className="m-0 mt-1 text-xs text-[var(--text-secondary)]">
           Código {loja.codigo}{loja.cnpj ? ` · CNPJ ${formatarCnpj(loja.cnpj)}` : ""}{loja.uf ? ` · ${loja.uf}` : ""}
         </p>
-        {!completo && situacao.motivo && (
-          <p className="m-0 mt-2 flex items-center gap-1.5 text-sm font-medium text-[var(--text-strong)]"><span className="text-[var(--text-danger)]"><IconeAtencao /></span>{situacao.motivo}</p>
-        )}
+        <PainelPendencias resultado={resultado} perfil={perfil} aberto={painelAberto} onAbrir={setPainelAberto} onPreencher={preencher} completoNoServidor={completo} pendentesNaAbertura={(situacao.pendencias ?? []).map((p) => p.id)} />
         <Abas opcoes={abas} valor={aba} onChange={onAba} rotulo="Seções da loja" className="mt-4" />
       </div>
 
       {rascunho.erro && <div className="px-6 pt-4"><Aviso>{rascunho.erro}</Aviso></div>}
 
+      <CamposPendentes mapa={mapaDeCampos}>
       <div className="flex-1 px-6 py-6">
         {aba === "dados" && <AbaDados painel={painel} rascunho={rascunho} dono={dono} operador={operador} podeEditar={podeEditar} mostrarErros={tentou} />}
         {aba === "equipe" && <AbaEquipe lojaId={lojaId} podeEscrever={podeEquipe} aoMudar={aoMudarEquipe} />}
         {aba === "regras" && <AbaRegras painel={painel} rascunho={rascunho} dono={dono} podeEditar={podeEquipe} mostrarErros={tentou} />}
       </div>
+      </CamposPendentes>
 
       <div className="cl-rodape sticky bottom-0 flex min-h-16 flex-wrap items-center justify-between gap-3 border-t border-[var(--border-subtle)] bg-[var(--surface-card)] px-6 py-3">
         {aba === "equipe" ? (

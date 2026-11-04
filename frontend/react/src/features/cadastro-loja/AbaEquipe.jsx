@@ -94,7 +94,7 @@ export default function AbaEquipe({ lojaId, podeEscrever, aoMudar }) {
         <div className="flex flex-wrap items-center gap-2">
           <input aria-label="Buscar na equipe" placeholder="Buscar por nome ou cargo" value={busca} onChange={(e) => setBusca(e.target.value)} className="h-10 w-56 rounded-[6px] border border-[var(--border-default)] bg-[var(--surface-card)] px-3 text-sm" />
           {podeEscrever && <Botao tipo="secundario" onClick={() => setImportando(true)}>Importar equipe</Botao>}
-          {podeEscrever && !form && <Botao onClick={() => setForm({ inicial: formularioVazio() })}>Adicionar funcionário</Botao>}
+          {podeEscrever && !form && <Botao data-campo-novo-funcionario onClick={() => setForm({ inicial: formularioVazio() })}>Adicionar funcionário</Botao>}
         </div>
       </div>
       {erro && <Aviso>{erro}</Aviso>}

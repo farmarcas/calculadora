@@ -136,3 +136,7 @@ body { margin: 0; background: var(--surface-page); color: var(--ink-900); font-f
 }
 .cl-grid2 { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
 @container det (min-width: 760px) { .cl-grid2 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* Campo que falta preencher (Cadastro de loja): anel com o token de atenção; o foco azul do campo continua por cima. */
+.cl-pendente { border-color: var(--func-warning-300) !important; box-shadow: 0 0 0 3px var(--func-attention-100); }
+.cl-pendente:focus { box-shadow: 0 0 0 3px var(--func-attention-100), 0 0 0 5px var(--system-500); }

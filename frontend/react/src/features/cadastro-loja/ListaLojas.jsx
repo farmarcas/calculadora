@@ -99,11 +99,16 @@ export default function ListaLojas({ lojaId, versao, podeCriar, onSelecionar, on
           const ok = l.situacao?.status === "completo";
           return (
             <button key={l.id} type="button" role="option" aria-selected={sel} data-loja={l.id} onClick={() => onSelecionar(l.id)}
-              className={`flex h-[68px] w-full items-center justify-between gap-3 border-0 border-b border-[var(--border-subtle)] px-6 text-left cursor-pointer focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--border-focus)] ${sel ? "bg-[var(--color-primary-soft)]" : "bg-transparent hover:bg-[var(--surface-hover)]"}`}
+              className={`flex min-h-[68px] w-full items-center py-2 justify-between gap-3 border-0 border-b border-[var(--border-subtle)] px-6 text-left cursor-pointer focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--border-focus)] ${sel ? "bg-[var(--color-primary-soft)]" : "bg-transparent hover:bg-[var(--surface-hover)]"}`}
               style={{ boxShadow: sel ? "inset 3px 0 0 var(--color-primary)" : "none" }}>
               <span className="min-w-0">
                 <strong className="block truncate text-sm text-[var(--text-strong)]">{l.nome}</strong>
                 <span className="block truncate text-xs text-[var(--text-secondary)]">Código {l.codigo}{l.uf ? ` · ${l.uf}` : ""} · {l.funcionarios ?? 0} {l.funcionarios === 1 ? "funcionário" : "funcionários"}</span>
+                {!ok && l.situacao?.quantidade > 0 && (
+                  <span className="block truncate text-xs text-[var(--text-secondary)]">
+                    <strong className="text-[var(--text-strong)]">{l.situacao.quantidade} {l.situacao.quantidade === 1 ? "pendência" : "pendências"}</strong>{l.situacao.motivo ? ` · ${l.situacao.motivo}` : ""}
+                  </span>
+                )}
               </span>
               <span className="inline-flex h-7 shrink-0 items-center rounded-full px-3 text-xs font-bold text-[var(--text-strong)]" style={{ background: ok ? "var(--func-success-100)" : "var(--func-attention-100)" }}>{ok ? "Completo" : "Revisar"}</span>
             </button>

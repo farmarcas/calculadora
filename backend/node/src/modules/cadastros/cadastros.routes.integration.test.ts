@@ -887,7 +887,7 @@ describe('cadastros (rotas)', () => {
       await postLoja({ codigo: '002', nome: 'Sem nada' });
       const r = (await lista()).body;
       const por = Object.fromEntries(r.data.map((l: { codigo: string }) => [l.codigo, l]));
-      expect(por['001'].situacao).toEqual({ status: 'completo', motivo: null });
+      expect(por['001'].situacao).toEqual({ status: 'completo', motivo: null, quantidade: 0 });
       expect(por['002'].situacao.status).toBe('revisar');
       expect(por['002'].situacao.motivo).toMatch(/Faltam dados da loja/);
     });
@@ -917,7 +917,11 @@ describe('cadastros (rotas)', () => {
         .set(admin)
         .send({ matricula: 'F-010', nome: 'Farma 010', lojaId: c.body.id, funcaoEscala: 'Farmacêutico' });
       const sem = (await lista('?busca=010')).body.data[0];
-      expect(sem.situacao).toEqual({ status: 'revisar', motivo: 'Falta o salário médio de Farmacêutico' });
+      expect(sem.situacao).toEqual({
+        status: 'revisar',
+        motivo: 'Falta o salário médio de Farmacêutico',
+        quantidade: 1,
+      });
       await reqGe().patch(`/api/v1/lojas/${c.body.id}`).set(admin).send({ faturamento: { ...fatCompleto, margemPct: null } });
       expect((await lista('?busca=010')).body.data[0].situacao.motivo).toBe('Falta a margem bruta média');
       await reqGe().put(`/api/v1/lojas/${c.body.id}/custos`).set(admin).send({ salarioMedio: { Farmacêutico: 9000 } });
@@ -926,6 +930,19 @@ describe('cadastros (rotas)', () => {
         expect('custos' in l).toBe(false);
         expect(JSON.stringify(l)).not.toContain('9000');
       }
+    });
+
+    it('o painel da loja traz todas as pendências e a equipe, sem valores; a lista traz só a quantidade', async () => {
+      const c = await postLoja({ codigo: '011', nome: 'Pendências', ...dadosOk });
+      const painel = (await reqGe().get(`/api/v1/lojas/${c.body.id}/painel`).set(admin)).body;
+      const ids = painel.situacao.pendencias.map((p: { id: string }) => p.id);
+      expect(ids).toEqual(['farmaceutico', 'faturamentoDia', 'margem', 'salario:Farmacêutico']);
+      expect(painel.situacao.quantidade).toBe(4);
+      expect(painel.equipe).toEqual({ farmaceuticos: 0, funcoesNaEquipe: [] });
+      expect(JSON.stringify(painel.situacao.pendencias)).not.toMatch(/R\$|\d{4}/);
+      const linha = (await lista('?busca=011')).body.data[0];
+      expect(linha.situacao).toEqual({ status: 'revisar', motivo: 'Falta cadastrar um farmacêutico na equipe', quantidade: 4 });
+      expect('pendencias' in linha.situacao).toBe(false);
     });
 
     it('busca pelo CNPJ, com ou sem pontuação, e pelo código', async () => {

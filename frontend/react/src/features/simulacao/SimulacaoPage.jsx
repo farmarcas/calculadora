@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { api } from "../../api/client.js";
 import { Aviso, Botao } from "../../components/ui/index.jsx";
 import Aprovar from "../grade/Aprovar.jsx";
@@ -12,29 +12,14 @@ import useSimulacao from "./useSimulacao.js";
 // Simulação de um cenário (abre em "Personalizar"): parâmetros, 3 passos e o painel de resultado.
 export default function SimulacaoPage({ id, perfil, podeEscrever, aviso, onVoltar, onMudou, onAbrir }) {
   const { sim, erro, setErro, calculando, salvar, recarregar } = useSimulacao(id);
-  const [modoHorario, setModoHorario] = useState("manter");
   const [aprovando, setAprovando] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const dono = perfil === "TENANT_ADMIN";
-
-  // Simulação que já tem horário editado abre direto em "Mudar horários".
-  useEffect(() => {
-    if (sim?.resultado.horario.mudou) setModoHorario("mudar");
-  }, [sim?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (erro && !sim) return <Aviso>{erro}</Aviso>;
   if (!sim) return <p className="text-sm text-ink-500">Carregando simulação…</p>;
 
   const editavel = sim.editavel && podeEscrever;
-
-  // Voltar para "Manter horários" descarta o que foi editado (com confirmação).
-  const trocarModo = (modo) => {
-    if (modo === "manter" && sim.resultado.horario.mudou) {
-      if (!window.confirm("Voltar para \"Manter horários\" descarta as alterações de horário desta simulação. Continuar?")) return;
-      salvar({ horarios: null });
-    }
-    setModoHorario(modo);
-  };
 
   const clonar = async () => {
     setErro(null);
@@ -96,15 +81,15 @@ export default function SimulacaoPage({ id, perfil, podeEscrever, aviso, onVolta
       {erro && <Aviso>{erro}</Aviso>}
       {sim.desatualizada && <Aviso tom="atencao">Simulação em uso desatualizada: {sim.motivosDesatualizada.join(" ")} Clone, ajuste e marque a nova como em uso.</Aviso>}
 
-      <BarraParametros sim={sim} editavel={editavel} modoHorario={modoHorario} onModoHorario={trocarModo} onRegra={(regra) => salvar({ regra })} />
+      <BarraParametros sim={sim} editavel={editavel} onRegra={(regra) => salvar({ regra })} />
 
       <div className="sim-grade">
         <div className="sim-esq flex flex-col gap-4 min-w-0">
-          <PassoHorario sim={sim} editavel={editavel} modo={modoHorario} onSalvarHorarios={(horarios) => salvar({ horarios })} />
+          <PassoHorario sim={sim} editavel={editavel} onSalvarHorarios={(horarios) => salvar({ horarios })} />
           <PassoContratacoes sim={sim} editavel={editavel} dono={dono} onSalvar={salvar} />
           <PassoEscala sim={sim} editavel={editavel} onSalvarTurnos={(turnos) => salvar({ turnos })} />
         </div>
-        <PainelResultado sim={sim} calculando={calculando} modoHorario={modoHorario} dono={dono} podeEscrever={podeEscrever} salvando={salvando} onSalvar={salvarComoCenario} onClonar={clonar} />
+        <PainelResultado sim={sim} calculando={calculando} dono={dono} podeEscrever={podeEscrever} salvando={salvando} onSalvar={salvarComoCenario} onClonar={clonar} />
       </div>
     </div>
   );

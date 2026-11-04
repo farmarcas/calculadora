@@ -142,9 +142,12 @@ function Cartao({ posicao, c, descricao, resultado, horarioAtual, horasManter, s
           <>
             <div className="text-[32px] leading-[41.6px] font-bold" style={{ color: corSaldo }}>{saldo == null ? "—" : `${sinal}${mod(saldo)}`}</div>
             {veredito && <div className="text-xs leading-4 font-bold" style={{ color: corSaldo }}>{veredito}</div>}
-            <div className="text-xs leading-4 text-[var(--text-secondary)]">
+            <div className={`text-xs leading-4 ${ehReferencia ? "font-bold text-[var(--text-strong)]" : "text-[var(--text-secondary)]"}`}>
               {composicaoDoSaldo(c, { brl, ehBase: ehReferencia })}
             </div>
+            {ehReferencia && c.folhaAdicionalMensal != null && (
+              <div className="text-xs leading-4 text-[var(--text-secondary)]">{brl(c.folhaAdicionalMensal * 12)} por ano de folha a mais; os outros cenários são comparados com este custo</div>
+            )}
             {saldo != null && !ehReferencia && (
               <div className="text-xs leading-4 text-[var(--text-secondary)]">
                 {sinal}{mod(c.saldoAnual ?? saldo * 12)} por ano{c.pesoNoFaturamentoPct != null ? ` · ${c.pesoNoFaturamentoPct < 0 ? MENOS : ""}${pct(Math.abs(c.pesoNoFaturamentoPct))} do faturamento mensal` : ""}

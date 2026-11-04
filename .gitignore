@@ -20,3 +20,6 @@ src/generated/
 .vscode/
 *.log
 afd-exemplo/
+
+# Dados reais exportados para a produção (dado pessoal): nunca versionar
+dados-para-producao/

@@ -40,16 +40,16 @@ const base = (over: Partial<Parameters<typeof calcularResultado>[0]> = {}) =>
 const segundaAte20: DiaAberto[] = [{ dia: 0, abre: 7, fecha: 20 }, ...cadastro.slice(1)];
 
 describe('calcularResultado', () => {
-  it('sem editar o horário, nada de venda ou margem sai e as horas abertas não mudam', () => {
+  it('sem editar o horário, nenhuma venda sai e as horas abertas não mudam', () => {
     const r = base();
     expect(r.horario.mudou).toBe(false);
     expect(r.horasAbertas).toBe(90);
     expect(r.horasAbertasAntes).toBe(90);
     expect(r.vendaQueSai).toBe(0);
-    expect(r.margemPerdida).toBe(0);
+    expect(r.saldoMensal).toBe(r.economiaFolha);
   });
 
-  it('fechar a segunda às 20h: venda e margem das horas 20 e 21 saem, por mês (× 52 ÷ 12)', () => {
+  it('fechar a segunda às 20h: a venda das horas 20 e 21 sai, por mês (× 52 ÷ 12)', () => {
     const r = base({ dias: segundaAte20 });
     expect(r.horario.mudou).toBe(true);
     expect(r.horario.dias[0]).toMatchObject({ fecha: '20:00', horas: 13, alterado: true });
@@ -59,28 +59,41 @@ describe('calcularResultado', () => {
     expect(r.horario.dias[1]!.alterado).toBe(false);
     expect(r.horasAbertas).toBe(88);
     expect(r.vendaQueSai).toBeCloseTo((2000 * 52) / 12, 1);
-    expect(r.margemPerdida).toBeCloseTo((520 * 52) / 12, 1);
     expect(r.vendaPorHora.fechadas[0]![20]).toBe(true);
     expect(r.vendaPorHora.fechadas[0]![19]).toBe(false);
     expect(r.vendaPorHora.fechadas[1]![20]).toBe(false);
   });
 
-  it('sem base comercial, venda e margem que saem são nulas, não zero', () => {
+  it('sem base comercial, a venda que sai e o saldo são nulos, não zero', () => {
     const r = base({ dias: segundaAte20, vendas: [] });
     expect(r.temBase).toBe(false);
     expect(r.vendaQueSai).toBeNull();
-    expect(r.margemPerdida).toBeNull();
+    expect(r.saldoMensal).toBeNull();
+    expect(r.saldoAnual).toBeNull();
+    expect(r.pesoNoFaturamentoPct).toBeNull();
     expect(r.vendaPorHora.venda).toBeNull();
   });
 
-  it('sem margem informada, a margem perdida é nula e a venda que sai continua', () => {
-    const r = base({
-      dias: segundaAte20,
-      vendas: [venda(20, 1000, 0), venda(21, 1000, 0)],
-    });
-    expect(r.margemInformada).toBe(false);
-    expect(r.margemPerdida).toBeNull();
-    expect(r.vendaQueSai).toBeCloseTo((2000 * 52) / 12, 1);
+  it('a margem não importa: sem ela a venda que sai e o saldo são os mesmos', () => {
+    const com = base({ dias: segundaAte20, vendas: [venda(20, 1000), venda(21, 1000)] });
+    const sem = base({ dias: segundaAte20, vendas: [venda(20, 1000, 0), venda(21, 1000, 0)] });
+    expect(sem.vendaQueSai).toBeCloseTo((2000 * 52) / 12, 1);
+    expect(sem.vendaQueSai).toBe(com.vendaQueSai);
+    expect(sem.saldoMensal).toBe(com.saldoMensal);
+    expect('margemPerdida' in sem).toBe(false);
+  });
+
+  it('saldo = economia de folha − venda que sai; anual = mensal × 12; peso sobre o faturamento da base', () => {
+    // Duas farmacêuticas de 40h para 90h abertas: o "manter horário" contrata o que falta; a simulação fecha a segunda às 20h
+    // (venda de 2 horas = 2000 × 52 ÷ 12 = 8666,67) e não contrata ninguém: a economia é o custo do manter horário.
+    const r = base({ dias: segundaAte20, vendas: [venda(10, 1000), venda(20, 1000), venda(21, 1000)] });
+    expect(r.custoAdicional).toBe(r.folhaExtra! + r.horaExtra!);
+    // (a hora extra que sobra do horário menor pode custar mais que as contratações do "manter horário": a economia fica negativa)
+    expect(typeof r.economiaFolha).toBe('number');
+    expect(r.saldoMensal).toBeCloseTo(r.economiaFolha! - r.vendaQueSai!, 1);
+    expect(r.saldoAnual).toBeCloseTo(r.saldoMensal! * 12, 0);
+    const faturamento = 3000 * (52 / 12);
+    expect(r.pesoNoFaturamentoPct).toBeCloseTo((r.saldoMensal! / faturamento) * 100, 0);
   });
 
   it('contratação simulada: folha extra pelo custo da vaga e função coberta', () => {
@@ -101,7 +114,7 @@ describe('calcularResultado', () => {
     // 6000 × 40h × 5 ÷ 200 (divisor da regra de 40h) × 1,4 = 8400
     expect(com.folhaExtra).toBe(8400);
     expect(f1.custoMensal).toBe(8400);
-    expect(com.impactoMensal).toBe(com.folhaExtra! + com.horaExtra!);
+    expect(com.custoAdicional).toBe(com.folhaExtra! + com.horaExtra!);
   });
 
   it('sem salário informado, folha e hora extra ficam nulas (nunca parciais)', () => {
@@ -113,12 +126,13 @@ describe('calcularResultado', () => {
       custos: { salarioMedio: {}, encargosPct: 40 },
     });
     expect(r.folhaExtra).toBeNull();
-    expect(r.impactoMensal).toBeNull();
+    expect(r.custoAdicional).toBeNull();
+    expect(r.saldoMensal).toBeNull();
   });
 
   it('quem não é dono não recebe nenhum valor em reais', () => {
     const r = base({ dias: segundaAte20, dono: false });
-    for (const k of ['impactoMensal', 'folhaExtra', 'horaExtra', 'vendaQueSai', 'margemPerdida'])
+    for (const k of ['custoAdicional', 'economiaFolha', 'saldoMensal', 'saldoAnual', 'folhaExtra', 'horaExtra', 'vendaQueSai'])
       expect(r).not.toHaveProperty(k);
     expect(r.vendaPorHora.venda).toBeNull();
     expect(r.horasAbertas).toBe(88);

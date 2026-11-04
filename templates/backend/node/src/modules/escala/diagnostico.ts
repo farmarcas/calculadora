@@ -129,7 +129,6 @@ export const montarDiagnostico = (a: {
   parametros?: TabelaParametros;
   // Premissas só para simular (recaptura, fator de dia novo, dias protegidos, limite do parcial) e a margem simulada do dono.
   premissas?: Premissas;
-  margemPctSimulada?: number | null;
 }) => {
   const { loja, escala, turnos, base, vendas } = a;
   const prem = a.premissas ?? PREMISSAS_PADRAO;
@@ -297,17 +296,8 @@ export const montarDiagnostico = (a: {
   const doCadastro = vendas.length === 0 ? vendasDoCadastro(loja.faturamento, dias) : null;
   const origemVendas =
     vendas.length > 0 ? ('base' as const) : doCadastro ? ('cadastro' as const) : null;
-  // Margem simulada (só o dono): substitui a margem da base ou do cadastro em todas as horas, sem gravar nada.
-  const margemEmUso = a.margemPctSimulada ?? loja.faturamento?.margemPct ?? null;
-  const vendasBrutas = doCadastro?.linhas ?? vendas;
-  // Base comercial sem coluna de margem (tudo zero): vale a margem média cadastrada na loja, como nas vendas do cadastro.
-  const baseSemMargem = vendas.length > 0 && vendas.every((l) => !(l.margem > 0));
-  const margemAplicada =
-    a.margemPctSimulada ?? (baseSemMargem ? (loja.faturamento?.margemPct ?? null) : null);
-  const vendasUsadas =
-    margemAplicada == null
-      ? vendasBrutas
-      : vendasBrutas.map((l) => ({ ...l, margem: (l.venda * margemAplicada) / 100 }));
+  // A margem bruta da loja é só um detalhe do Cadastro: os cenários trabalham com a venda (e a folha).
+  const vendasUsadas = doCadastro?.linhas ?? vendas;
   // Sem curva por hora (origem cadastro) não existe "horário de maior venda".
   const resumoVendas = origemVendas === 'base' ? resumirVendas(vendas) : null;
 
@@ -443,6 +433,7 @@ export const montarDiagnostico = (a: {
         recaptura: prem.recaptura / 100,
         diasProtegidos: prem.diasProtegidos,
         fatorDiaNovo: prem.fatorDiaNovo / 100,
+        fatorHoraNova: prem.fatorHoraNova,
         limiteParcial: prem.limiteParcial,
       };
       const cenarios = montarCenarios(entrada);
@@ -504,13 +495,6 @@ export const montarDiagnostico = (a: {
     etapas,
     premissas: {
       ...prem,
-      // A margem (valor em reais indireto) só o dono vê: a em uso e a do cadastro, para voltar a ela.
-      ...(a.dono
-        ? {
-            margemPct: margemEmUso,
-            margemPctCadastro: loja.faturamento?.margemPct ?? null,
-          }
-        : {}),
     },
     pontosAtencao: atencao,
     colaboradores: turnos.map((t) => ({

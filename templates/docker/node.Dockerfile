@@ -18,6 +18,8 @@ COPY prisma.config.ts tsconfig.json tsconfig.build.json ./
 RUN npm ci
 COPY src ./src
 RUN npx prisma generate && npm run build
+# Seed de dados fictícios, compilado para rodar na produção só sob demanda (nunca no deploy): node dist/seed.js
+RUN npx esbuild prisma/seed.ts --bundle --platform=node --format=esm --packages=external --outfile=dist/seed.js
 
 FROM node:22-alpine AS runtime
 ENV NODE_ENV=production

@@ -5,7 +5,6 @@ import ImportarPlanilha from "../cadastros/ImportarPlanilha.jsx";
 import { formularioDe, formularioVazio, funcionarioParaApi, mascararCpf, resumoDeDias } from "./equipe.js";
 import FormFuncionario from "./FormFuncionario.jsx";
 
-const VISIVEIS = 6;
 const COLUNAS = "minmax(150px,1.5fr) 120px 100px 70px 100px 80px 110px";
 
 // Equipe da loja: cada ação (salvar, editar, remover) grava na hora, com aviso e, na remoção, "Desfazer".
@@ -13,7 +12,6 @@ export default function AbaEquipe({ lojaId, podeEscrever, aoMudar }) {
   const [lista, setLista] = useState(null);
   const [total, setTotal] = useState(0);
   const [busca, setBusca] = useState("");
-  const [todos, setTodos] = useState(false);
   const [form, setForm] = useState(null); // { id?, inicial }
   const [salvando, setSalvando] = useState(false);
   const [remover, setRemover] = useState(null);
@@ -84,7 +82,8 @@ export default function AbaEquipe({ lojaId, podeEscrever, aoMudar }) {
     }
   };
 
-  const mostradas = lista ? (todos || busca ? lista : lista.slice(0, VISIVEIS)) : [];
+  // Todos aparecem; quem não cabe na janela é visto rolando a página.
+  const mostradas = lista ?? [];
   return (
     <section aria-label="Equipe da loja" className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -131,7 +130,6 @@ export default function AbaEquipe({ lojaId, podeEscrever, aoMudar }) {
           ))}
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--border-subtle)] bg-[var(--surface-subtle)] px-4 py-3 text-xs text-[var(--text-secondary)]">
             <span aria-live="polite">Mostrando {mostradas.length} de {total} funcionários</span>
-            {!busca && lista.length > VISIVEIS && <button type="button" className="border-0 bg-transparent p-0 text-sm font-bold text-[var(--text-link)] cursor-pointer" onClick={() => setTodos(!todos)}>{todos ? "Ver menos" : "Ver todos"}</button>}
           </div>
         </div>
       )}

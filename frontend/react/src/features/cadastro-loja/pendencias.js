@@ -98,3 +98,7 @@ function modeloDoId(id) {
   const f = { dados: () => modelo.dados(CAMPOS_DA_LOJA), funcionamento: modelo.funcionamento, farmaceutico: modelo.farmaceutico, faturamentoDia: () => modelo.faturamentoDia([], true), faturamentoMes: modelo.faturamentoMes, margem: modelo.margem }[id];
   return f();
 }
+
+// Título da faixa: singular e plural.
+export const tituloDoPainel = (abertos) =>
+  abertos === 1 ? "Falta 1 item para o cadastro ficar completo" : `Faltam ${abertos} itens para o cadastro ficar completo`;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { pendenciasDoRascunho, podePreencher } from "./pendencias.js";
+import { pendenciasDoRascunho, podePreencher, tituloDoPainel } from "./pendencias.js";
 
 // Os mesmos casos de backend/.../situacao.test.ts, sobre o rascunho (textos que a tela edita).
 const dia = (aberta = true) => (aberta ? { aberta: true, h24: false, abre: "08:00", fecha: "21:00" } : { aberta: false, h24: false, abre: "", fecha: "" });
@@ -120,5 +120,12 @@ describe("antes de a aba abrir, vale a lista do servidor", () => {
     const servidor = [{ id: "dados", aba: "dados", titulo: "Dados da loja", texto: "Falta: cidade.", porque: "x", campos: ["cidade"], soDono: false }];
     const r = pendenciasDoRascunho({ servidor, equipe, dono: true, perfil: "TENANT_ADMIN" });
     expect(r.itens.find((i) => i.id === "dados")).toMatchObject({ feito: false, texto: "Falta: cidade." });
+  });
+});
+
+describe("título da faixa", () => {
+  it("singular e plural", () => {
+    expect(tituloDoPainel(1)).toBe("Falta 1 item para o cadastro ficar completo");
+    expect(tituloDoPainel(3)).toBe("Faltam 3 itens para o cadastro ficar completo");
   });
 });

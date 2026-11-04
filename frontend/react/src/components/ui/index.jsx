@@ -82,8 +82,9 @@ export const entrada =
 export function Abas({ opcoes = [], valor, onChange, rotulo, className = "" }) {
   return (
     <div className={`flex flex-wrap gap-x-4 border-b border-line ${className}`} role="tablist" aria-label={rotulo}>
-      {opcoes.map(([id, texto]) => {
+      {opcoes.map(([id, texto, extra]) => {
         const ativa = id === valor;
+        const pendentes = extra?.pendentes ?? 0;
         return (
           <button
             key={id}
@@ -95,6 +96,12 @@ export function Abas({ opcoes = [], valor, onChange, rotulo, className = "" }) {
             style={{ boxShadow: ativa ? "inset 0 -3px 0 var(--color-primary)" : "none" }}
           >
             {texto}
+            {pendentes > 0 && (
+              <span className="ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 align-middle text-xs font-bold text-[var(--text-strong)]" style={{ background: "var(--func-attention-100)" }}>
+                <span aria-hidden="true">{pendentes}</span>
+                <span className="sr-only"> {pendentes} {pendentes === 1 ? "pendência" : "pendências"}</span>
+              </span>
+            )}
           </button>
         );
       })}

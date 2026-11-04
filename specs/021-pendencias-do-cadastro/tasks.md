@@ -12,10 +12,10 @@
 - [x] T007 Commitar a fatia
 
 ## Fatia 3 — Faixa, abas e navegação (tela)
-- [ ] T008 `PainelPendencias.jsx`: faixa amarela compacta e expandida (título "Faltam N itens…", "X de Y feitos", barra com `role="progressbar"`, "Ver o que falta/Esconder" com `aria-expanded`, itens por aba em colunas, "Preencher"/"Conferir", "Só o dono do grupo preenche", resumo "1 você pode preencher · 2 só o dono"); confirmação "Cadastro completo. Todas as informações foram preenchidas."; região com nome e `aria-live` na contagem; começa aberta em Revisar e recolhida abaixo de 640 px
-- [ ] T009 `components/ui/index.jsx` (Abas): número opcional por aba, em amarelo, com texto para leitor de tela ("1 pendência"); `DetalheLoja.jsx`: painel no lugar da linha do primeiro motivo, contador nas abas, e "Preencher" (troca de aba, rolagem centralizada até o campo, foco, painel recolhe, leitor de tela anuncia o nome do campo e o motivo)
-- [ ] T010 Itens feitos viram "Feito" (riscado) e a contagem anuncia "Faltam N itens"; ao salvar, recalcula (Completo vira confirmação, etiqueta e contadores se atualizam)
-- [ ] T011 Testes puros do que for lógica (textos, plural, resumo por perfil) e commitar a fatia
+- [x] T008 `PainelPendencias.jsx`: faixa amarela compacta e expandida (título "Faltam N itens…", "X de Y feitos", barra com `role="progressbar"`, "Ver o que falta/Esconder" com `aria-expanded`, itens por aba em colunas, "Preencher"/"Conferir", "Só o dono do grupo preenche", resumo "1 você pode preencher · 2 só o dono"); confirmação "Cadastro completo. Todas as informações foram preenchidas."; região com nome e `aria-live` na contagem; começa aberta em Revisar e recolhida abaixo de 640 px
+- [x] T009 `components/ui/index.jsx` (Abas): número opcional por aba, em amarelo, com texto para leitor de tela ("1 pendência"); `DetalheLoja.jsx`: painel no lugar da linha do primeiro motivo, contador nas abas, e "Preencher" (troca de aba, rolagem centralizada até o campo, foco, painel recolhe, leitor de tela anuncia o nome do campo e o motivo)
+- [x] T010 Itens feitos viram "Feito" (riscado) e a contagem anuncia "Faltam N itens"; ao salvar, recalcula (Completo vira confirmação, etiqueta e contadores se atualizam)
+- [x] T011 Testes puros do que for lógica (textos, plural, resumo por perfil) e commitar a fatia
 
 ## Fatia 4 — Destaque nos campos (tela)
 - [ ] T012 `index.css` e um pequeno auxiliar: classe `cl-pendente` (anel com o token de atenção), selo "Preencher"/"✓ Preenchido" e motivo ligado por `aria-describedby`; o anel de foco azul continua por cima

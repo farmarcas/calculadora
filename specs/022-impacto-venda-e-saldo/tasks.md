@@ -26,6 +26,6 @@
 - [x] T017 `pendencias.js`/`ResumoMensal.jsx`: margem sai das pendências do rascunho e o campo fica como detalhe opcional; testes da tela e commitar a fatia
 
 ## Fatia 5 — Validação com lojas reais e conferência final
-- [ ] T018 Conta aberta fora do repositório com Cosmópolis (sábado fechando às 16h: venda perdida por dia, economia de folha e saldo) e Porto Feliz (estendendo 1 h por dia: custo adicional, venda adicional estimada e saldo), mostrada na resposta final
-- [ ] T019 Conferir na tela como dono e gerente, uma loja sem venda hora a hora, 360 e 1920 px, e que nenhum texto de nenhuma tela mostra "margem perdida"
-- [ ] T020 README e resumo final; rodar tudo, commitar e enviar a branch para o PR
+- [x] T018 Conta aberta fora do repositório com Cosmópolis (sábado fechando às 16h: venda perdida por dia, economia de folha e saldo) e Porto Feliz (estendendo 1 h por dia: custo adicional, venda adicional estimada e saldo), mostrada na resposta final
+- [x] T019 Conferir na tela como dono e gerente, uma loja sem venda hora a hora, 360 e 1920 px, e que nenhum texto de nenhuma tela mostra "margem perdida"
+- [x] T020 README e resumo final; rodar tudo, commitar e enviar a branch para o PR

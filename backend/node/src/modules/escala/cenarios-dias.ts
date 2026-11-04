@@ -107,13 +107,13 @@ export type Combinacao<T extends Avaliacao> = {
   abertos: DiaAberto[];
   avaliacao: T;
   perdida: number; // margem mensal que deixa de entrar com os dias fechados
-  impacto: number; // custo adicional de folha + margem perdida
+  impacto: number; // custo adicional de folha + perda (margem do dia, no cenário de dias fechados)
 };
 
 const MESMO_VALOR = 0.005; // meio centavo: abaixo disso, empate
 
 // Todas as combinações de dias a fechar entre os que não são protegidos (no máximo 2^7), sem nunca fechar o último dia aberto,
-// e a de menor impacto: custo adicional de folha + margem perdida (é o mesmo que o maior resultado líquido).
+// e a de menor impacto: custo adicional de folha + perda dos dias fechados.
 // Empate: menos contratações, depois menos dias fechados, depois fecha os dias mais tardios da semana.
 export const melhorCombinacao = <T extends Avaliacao>(a: {
   dias: DiaAberto[];

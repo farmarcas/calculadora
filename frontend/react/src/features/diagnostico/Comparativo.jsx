@@ -137,15 +137,31 @@ function Cartao({ posicao, c, descricao, resultado, horarioAtual, horasManter, s
 
       {/* 4 · saldo */}
       <div className="rounded-card bg-[var(--surface-subtle)] p-4 flex flex-col gap-1 min-h-[134px]">
-        <div className="text-xs leading-4 font-bold uppercase text-[var(--neutral-mid-300)]">Saldo mensal estimado</div>
-        {dono ? (
+        <div className="text-xs leading-4 font-bold uppercase text-[var(--neutral-mid-300)]">{ehReferencia ? "Custo de folha adicional por mês" : "Saldo mensal estimado"}</div>
+        {dono && ehReferencia ? (
           <>
+            <div className="text-[32px] leading-[41.6px] font-bold" style={{ color: c.folhaAdicionalMensal > 0.005 ? "var(--text-danger)" : "var(--text-strong)" }} data-testid="custo-de-folha">
+              {c.folhaAdicionalMensal == null ? "—" : `${c.folhaAdicionalMensal > 0.005 ? "+" : ""}${brl(c.folhaAdicionalMensal)}`}
+            </div>
+            <div className="text-xs leading-4 font-bold text-[var(--text-strong)]">Referência para comparar os outros cenários</div>
+            <div className="text-xs leading-4 text-[var(--text-secondary)]">
+              {c.folhaAdicionalMensal == null ? "Informe os custos para ver o custo de folha" : `${brl(c.folhaAdicionalMensal * 12)} por ano de folha a mais que a folha atual`}
+            </div>
+          </>
+        ) : dono ? (
+          <>
+            {c.folhaAdicionalMensal != null && (
+              <div className="mb-2 rounded-btn border border-[var(--border-subtle)] bg-[var(--surface-card)] px-3 py-2" data-testid="custo-de-folha">
+                <div className="text-xs leading-4 font-bold uppercase text-[var(--neutral-mid-300)]">Custo de folha adicional</div>
+                <div className="text-[20px] leading-6 font-bold" style={{ color: c.folhaAdicionalMensal > 0.005 ? "var(--text-danger)" : "var(--text-strong)" }}>{c.folhaAdicionalMensal > 0.005 ? "+" : ""}{brl(c.folhaAdicionalMensal)} <span className="text-xs font-normal text-[var(--text-secondary)]">por mês · {brl(c.folhaAdicionalMensal * 12)} por ano</span></div>
+              </div>
+            )}
             <div className="text-[32px] leading-[41.6px] font-bold" style={{ color: corSaldo }}>{saldo == null ? "—" : `${sinal}${mod(saldo)}`}</div>
             {veredito && <div className="text-xs leading-4 font-bold" style={{ color: corSaldo }}>{veredito}</div>}
             <div className="text-xs leading-4 text-[var(--text-secondary)]">
-              {composicaoDoSaldo(c, { brl, ehBase: ehReferencia })}
+              {composicaoDoSaldo(c, { brl, ehBase: false })}
             </div>
-            {saldo != null && !ehReferencia && (
+            {saldo != null && (
               <div className="text-xs leading-4 text-[var(--text-secondary)]">
                 {sinal}{mod(c.saldoAnual ?? saldo * 12)} por ano{c.pesoNoFaturamentoPct != null ? ` · ${c.pesoNoFaturamentoPct < 0 ? MENOS : ""}${pct(Math.abs(c.pesoNoFaturamentoPct))} do faturamento mensal` : ""}
               </div>

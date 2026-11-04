@@ -1,4 +1,4 @@
-import { situacaoDoCadastro } from './situacao.js';
+import { situacaoDoCadastro, type CadastroDaLoja } from './situacao.js';
 import { AppError } from '../../shared/errors/app-error.js';
 import { ConflictError } from '../../shared/errors/conflict-error.js';
 import { NotFoundError } from '../../shared/errors/not-found-error.js';
@@ -32,7 +32,9 @@ export type ImportacaoRegistro = { id: string; arquivo: string; status: string; 
 export type CadastrosRepository = {
   listarLojas: (f: Filtro) => Promise<{ data: LojaRegistro[]; total: number }>;
   // Todas as lojas ativas do GE, com os farmacêuticos ativos de cada uma (para a situação do cadastro e os filtros).
-  lojasComEquipe: () => Promise<{ loja: LojaRegistro; farmaceuticos: number }[]>;
+  lojasComEquipe: () => Promise<
+    { loja: LojaRegistro; farmaceuticos: number; cadastro: CadastroDaLoja }[]
+  >;
   buscarLoja: (id: string) => Promise<LojaRegistro | null>;
   buscarLojaPorCodigo: (codigo: string) => Promise<LojaRegistro | null>;
   // Vale no sistema todo (o CNPJ é único entre todos os GEs); só diz se está em uso, sem mostrar de quem.
@@ -127,11 +129,12 @@ export const makeCadastrosService = (repo: CadastrosRepository, auditar: Auditor
   // A situação do cadastro (Completo/Revisar) depende da equipe, do funcionamento e do faturamento: é calculada para as lojas
   // do grupo e a busca, os filtros e a paginação acontecem em memória (um grupo tem centenas de lojas, não milhares).
   async listarLojas(f: FiltroLojas) {
-    const todas = (await repo.lojasComEquipe()).map(({ loja, farmaceuticos }) => ({
+    const todas = (await repo.lojasComEquipe()).map(({ loja, farmaceuticos, cadastro }) => ({
       ...loja,
       situacao: situacaoDoCadastro(
         loja as unknown as Parameters<typeof situacaoDoCadastro>[0],
         farmaceuticos,
+        cadastro,
       ),
     }));
     const termo = f.busca?.trim().toLowerCase() ?? '';

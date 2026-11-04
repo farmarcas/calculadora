@@ -1,8 +1,8 @@
 import type { Faturamento } from './faturamento.js';
 import { faixasDaSemana, type HorariosSemana } from './horarios.js';
 
-// Situação do cadastro de uma loja: "Completo" quando a Escala já tem o que precisa para simular; senão "Revisar", com o
-// primeiro motivo em texto. É a ÚNICA regra disso (suposição provisória do pedido, marcada "a confirmar"): mudar aqui muda
+// Situação do cadastro de uma loja: "Completo" quando a Escala já tem o que precisa para simular e para o diagnóstico (inclui
+// a margem bruta e o salário médio das funções que contam); senão "Revisar", com o primeiro motivo em texto. É a ÚNICA regra disso (suposição provisória do pedido, marcada "a confirmar"): mudar aqui muda
 // a lista, o filtro e o detalhe. O motivo nunca traz valores em reais, só o que falta.
 export type SituacaoCadastro = { status: 'completo' | 'revisar'; motivo: string | null };
 
@@ -22,7 +22,14 @@ export const TOLERANCIA_MENSAL = 0.1;
 const lista = (xs: string[]) =>
   xs.length <= 1 ? (xs[0] ?? '') : `${xs.slice(0, -1).join(', ')} e ${xs[xs.length - 1]}`;
 
-export const situacaoDoCadastro = (loja: LojaParaSituacao, farmaceuticos: number): SituacaoCadastro => {
+// O que o cadastro da equipe e dos custos informa: funções que têm gente na equipe e funções com salário médio informado.
+export type CadastroDaLoja = { funcoesNaEquipe: string[]; salariosInformados: string[] };
+
+export const situacaoDoCadastro = (
+  loja: LojaParaSituacao,
+  farmaceuticos: number,
+  cadastro: CadastroDaLoja = { funcoesNaEquipe: [], salariosInformados: [] },
+): SituacaoCadastro => {
   const revisar = (motivo: string): SituacaoCadastro => ({ status: 'revisar', motivo });
 
   const faltam = [
@@ -49,6 +56,12 @@ export const situacaoDoCadastro = (loja: LojaParaSituacao, farmaceuticos: number
   const calculado = (soma * 52) / 12;
   if (mensal && calculado > 0 && Math.abs(mensal - calculado) / calculado > TOLERANCIA_MENSAL)
     return revisar('O faturamento mensal informado difere mais de 10% da soma dos dias');
+
+  // Sem a margem e os salários o diagnóstico não calcula o impacto dos cenários nem a folha.
+  if (!((loja.faturamento?.margemPct ?? 0) > 0)) return revisar('Falta a margem bruta média');
+  const precisam = ['Farmacêutico', ...cadastro.funcoesNaEquipe.filter((f) => f !== 'Farmacêutico')];
+  const semSalario = precisam.filter((f) => !cadastro.salariosInformados.includes(f));
+  if (semSalario.length) return revisar(`Falta o salário médio de ${lista(semSalario)}`);
 
   return { status: 'completo', motivo: null };
 };

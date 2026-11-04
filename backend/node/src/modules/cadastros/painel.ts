@@ -145,6 +145,7 @@ export const makePainelService = (geId: string, cadastros: CadastrosRepository, 
       situacao: situacaoDoCadastro(
         loja as unknown as Parameters<typeof situacaoDoCadastro>[0],
         achada.farmaceuticos,
+        achada.cadastro,
       ),
       avisosDeTurnos: avisosDeTurnos(turnos, faixasDaSemana(horarios)),
     };

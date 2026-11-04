@@ -193,7 +193,7 @@ describe('importação em massa: configuração da loja e horário fixo', () => 
         nome: 1,
         convencao_8h24: 2,
         meta_atendimento: 3,
-        salario_apoio: 4,
+        salario_caixa: 4,
         encargos_pct: 5,
       },
     },
@@ -220,7 +220,7 @@ describe('importação em massa: configuração da loja e horário fixo', () => 
     expect(r.lojas[0]?.configuracao).toEqual({
       convencao8h24: true,
       minimos: { Atendimento: 2 },
-      custos: { salarioMedio: { Apoio: 1900 }, encargosPct: 66 },
+      custos: { salarioMedio: { Caixa: 1900 }, encargosPct: 66 },
     });
     expect(r.lojas[1]?.configuracao).toBeUndefined();
   });

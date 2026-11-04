@@ -7,6 +7,7 @@ import { requestId } from './shared/middlewares/request-id.js';
 import { exigirGe } from './shared/middlewares/ge.js';
 import { lerPerfil } from './shared/middlewares/perfil.js';
 import { cadastrosRouter } from './modules/cadastros/cadastros.routes.js';
+import { painelRouter } from './modules/cadastros/painel.routes.js';
 import { escalaRouter } from './modules/escala/escala.routes.js';
 import { simulacoesRouter } from './modules/simulacoes/simulacoes.routes.js';
 import { custosRouter } from './modules/custos/custos.routes.js';
@@ -61,6 +62,7 @@ export const createApp = (deps: AppDeps = {}) => {
     // Daqui para baixo tudo é de um GE: o cabeçalho X-GE é obrigatório e conferido.
     exigirGe,
     cadastrosRouter(),
+    painelRouter(),
     escalaRouter(),
     simulacoesRouter(),
     custosRouter(),

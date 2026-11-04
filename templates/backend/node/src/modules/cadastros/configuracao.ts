@@ -4,8 +4,6 @@ export const FUNCOES_CONFIG = [
   ['farmaceutico', 'Farmacêutico'],
   ['atendimento', 'Atendimento'],
   ['caixa', 'Caixa'],
-  ['apoio', 'Apoio'],
-  ['perfumaria', 'Perfumaria'],
 ] as const;
 
 const SIM = /^(sim|s|x|true|1|yes)$/i;

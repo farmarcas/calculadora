@@ -1,3 +1,4 @@
+import { soNoCalculo } from '../cadastros/funcoes.js';
 import { PARAMETROS_PADRAO } from '../regras/parametros.js';
 import { distribuirParcial } from './distribuir-parcial.js';
 import { redistribuir } from './redistribuir.js';
@@ -133,7 +134,7 @@ export const montarDiagnostico = (a: {
   const { loja, escala, turnos, base, vendas } = a;
   const prem = a.premissas ?? PREMISSAS_PADRAO;
   const dias = diasAbertos(loja.horarios);
-  const minimos = { ...FUNCOES_PADRAO_MINIMO, ...(loja.minimos ?? {}) };
+  const minimos = { ...FUNCOES_PADRAO_MINIMO, ...soNoCalculo(loja.minimos) };
   const horasAbertas = dias.reduce((s, d) => s + (d.fecha - d.abre), 0);
 
   const fontes = {
@@ -157,6 +158,7 @@ export const montarDiagnostico = (a: {
     convencao8h24: loja.convencao8h24,
     minimos,
     turnos: loja.turnos?.turnos ?? null,
+    modoMinimo: loja.turnos?.modo ?? 'turnos',
     turnosAvisos: avisosDeTurnos(loja.turnos, dias),
   };
   const lojaInfo = {
@@ -231,6 +233,24 @@ export const montarDiagnostico = (a: {
         : distribuirParcial(dias, [], f.sugestao.parcialH, exigido, true);
       return { ...f, sugestao: { ...f.sugestao, distribuicao: final } };
     });
+    // "E se a convenção coletiva permitir 8h24?": a mesma verificação da regra de 42h com a convenção ligada. Só para a
+    // regra de 42h e só quando a loja ainda não permite; é informação a mais, nenhum outro campo muda.
+    const com8h24 =
+      id === 'r42' && !loja.convencao8h24
+        ? {
+            funcoes: verificarRegra(regraPara('r42', true, a.parametros), dias, exigencias, pessoas, {
+              limiteParcial: prem.limiteParcial,
+              regraAtual: regraPara('atual', loja.convencao8h24, a.parametros),
+              divisor: (a.parametros ?? PARAMETROS_PADRAO)[id].divisor,
+            }).map((f) => ({
+              funcao: f.funcao,
+              capacidadeH: f.capacidadeH,
+              necessidadeH: f.necessidadeH,
+              saldoH: f.saldoH,
+              gapH: f.gapH,
+            })),
+          }
+        : undefined;
     return {
       id,
       nome: regra.nome,
@@ -238,6 +258,7 @@ export const montarDiagnostico = (a: {
       descricao: regra.descricao,
       passa: passa(funcoes),
       funcoes,
+      ...(com8h24 ? { com8h24 } : {}),
       redistribuicao: {
         descoberto: redis.descoberto,
         avisos: redis.avisos,
@@ -279,10 +300,14 @@ export const montarDiagnostico = (a: {
   // Margem simulada (só o dono): substitui a margem da base ou do cadastro em todas as horas, sem gravar nada.
   const margemEmUso = a.margemPctSimulada ?? loja.faturamento?.margemPct ?? null;
   const vendasBrutas = doCadastro?.linhas ?? vendas;
+  // Base comercial sem coluna de margem (tudo zero): vale a margem média cadastrada na loja, como nas vendas do cadastro.
+  const baseSemMargem = vendas.length > 0 && vendas.every((l) => !(l.margem > 0));
+  const margemAplicada =
+    a.margemPctSimulada ?? (baseSemMargem ? (loja.faturamento?.margemPct ?? null) : null);
   const vendasUsadas =
-    a.margemPctSimulada == null
+    margemAplicada == null
       ? vendasBrutas
-      : vendasBrutas.map((l) => ({ ...l, margem: (l.venda * a.margemPctSimulada!) / 100 }));
+      : vendasBrutas.map((l) => ({ ...l, margem: (l.venda * margemAplicada) / 100 }));
   // Sem curva por hora (origem cadastro) não existe "horário de maior venda".
   const resumoVendas = origemVendas === 'base' ? resumirVendas(vendas) : null;
 

@@ -8,6 +8,16 @@ export type IdColuna = 'manter' | 'economia' | 'equilibrio';
 export type ColunaComparativo = {
   id: IdColuna;
   nome: string;
+  // Premissa fixa do cenário (igual em toda loja) e o que acontece nesta loja.
+  premissa: string;
+  resultado: string;
+  // Só no Cenário 2: horas por semana abaixo do nível de hoje, por função, e horas sem farmacêutico (0 se coberto).
+  faltaPorFuncao?: { funcao: string; horasSemana: number }[];
+  semFarmaceuticoH?: number;
+  // Só no Cenário 3: o cenário de que ele é cópia e que a tela mostra recolhido.
+  recolher?: 'manter' | 'economia' | null;
+  // Só no Cenário 3: abre horas a mais e a venda delas é estimada (a tela avisa).
+  estimativaDeVenda?: boolean;
   contratacoes: Contratacao[];
   // Dias da semana que o cenário fecha (0 = segunda); nenhum no Cenário 1.
   diasFechar: number[];
@@ -36,8 +46,13 @@ export type ColunaComparativo = {
 
 export type Comparativo = {
   cenarios: ColunaComparativo[];
-  // Só para o dono: o cenário de maior resultado líquido (o mesmo do selo de menor impacto).
+  // Só para o dono: o cenário de maior resultado líquido (o selo "Menor custo").
   destaque?: IdColuna | null;
+  // Só para o dono: o cenário que leva o selo "Cenário sugerido". É o de menor custo, salvo quando ele deixa
+  // função abaixo do nível de hoje; aí a sugestão vai para o Cenário 1.
+  sugerido?: IdColuna | null;
+  // A equipe atual cobre tudo: nada a contratar nem a reduzir, então os cenários não têm o que mostrar.
+  lojaCobreTudo: boolean;
 };
 
 const arred = (n: number) => Math.round(n * 100) / 100;
@@ -85,6 +100,8 @@ export const montarComparativo = (e: EntradaCenarios, c: CenariosRegra): Compara
   const colManter: ColunaComparativo = {
     id: 'manter',
     nome: 'Manter horários',
+    premissa: manter.foco,
+    resultado: manter.resultado,
     contratacoes: manter.contratacoes,
     diasFechar: [],
     horasSemana: manter.horasSemana,
@@ -125,6 +142,10 @@ export const montarComparativo = (e: EntradaCenarios, c: CenariosRegra): Compara
   const colEco: ColunaComparativo = {
     id: 'economia',
     nome: 'Foco em economia',
+    premissa: economia.foco,
+    resultado: economia.resultado,
+    faltaPorFuncao: economia.faltaPorFuncao,
+    semFarmaceuticoH: economia.semFarmaceuticoH,
     contratacoes: [],
     diasFechar: economia.diasFechar.map((d) => d.dia),
     horasSemana: economia.horasSemana,
@@ -155,10 +176,25 @@ export const montarComparativo = (e: EntradaCenarios, c: CenariosRegra): Compara
     if (equilibrio.coincideComEconomia)
       alertas(alertasEq, 'O melhor caminho é o mesmo do Cenário 2.');
     if (estimada) alertas(alertasEq, avisoEstimativa);
+    if (equilibrio.estimativaDeVenda)
+      alertas(
+        alertasEq,
+        'Venda das horas novas é estimada: onde não há venda registrada nessa hora, vale metade da venda da hora vizinha.',
+      );
   }
   const colEq: ColunaComparativo = {
     id: 'equilibrio',
     nome: 'Equilíbrio',
+    premissa: equilibrio.foco,
+    resultado: equilibrio.resultado,
+    estimativaDeVenda: equilibrio.estimativaDeVenda,
+    recolher: equilibrio.indisponivel
+      ? null
+      : equilibrio.coincideComManter
+        ? 'manter'
+        : equilibrio.coincideComEconomia
+          ? 'economia'
+          : null,
     contratacoes: equilibrio.contratacoes,
     diasFechar: equilibrio.diasFechar.map((d) => d.dia),
     horasSemana: equilibrio.horasSemana,
@@ -171,7 +207,10 @@ export const montarComparativo = (e: EntradaCenarios, c: CenariosRegra): Compara
       ? valores(null, null)
       : valores(
           equilibrio.custoAdicionalMensal ?? null,
-          equilibrio.margemCortadaMes,
+          // Margem perdida menos a margem ganha com as horas novas: negativa quando o cenário ganha.
+          equilibrio.margemCortadaMes === null
+            ? null
+            : equilibrio.margemCortadaMes - (equilibrio.margemGanhaMes ?? 0),
           equilibrio.vendaCortadaMes,
         )),
   };
@@ -186,8 +225,33 @@ export const montarComparativo = (e: EntradaCenarios, c: CenariosRegra): Compara
           ? null
           : arred(a - base) || 0;
     }
-  const r: Comparativo = { cenarios: cols };
-  if (e.dono) r.destaque = c.destaque ?? null;
+  const r: Comparativo = {
+    cenarios: cols,
+    lojaCobreTudo:
+      manter.contratacoes.length === 0 &&
+      economia.viavel &&
+      economia.passos.length === 0 &&
+      economia.faltaPorFuncao.length === 0 &&
+      economia.semFarmaceuticoH === 0,
+  };
+  if (e.dono) {
+    r.destaque = c.destaque ?? null;
+    const deixaFalta = economia.faltaPorFuncao.length > 0 || economia.semFarmaceuticoH > 0;
+    // O Cenário 3 com horas novas só é sugerido se resistir à metade da margem estimada para elas.
+    const outros = [
+      { id: 'manter' as const, impacto: manter.impactoMensal ?? null },
+      { id: 'economia' as const, impacto: economia.impactoMensal ?? null },
+    ].filter((o): o is { id: 'manter' | 'economia'; impacto: number } => o.impacto !== null);
+    const melhorOutro = [...outros].sort((a, b) => a.impacto - b.impacto)[0];
+    const robusto =
+      equilibrio.impactoRobusto != null &&
+      (melhorOutro === undefined || equilibrio.impactoRobusto < melhorOutro.impacto - 0.005);
+    let sug: IdColuna | null = r.destaque;
+    if (sug === 'equilibrio' && equilibrio.estimativaDeVenda && !robusto)
+      sug = melhorOutro?.id ?? 'manter';
+    if (sug === 'economia' && deixaFalta) sug = 'manter';
+    r.sugerido = sug;
+  }
   return r;
 };
 

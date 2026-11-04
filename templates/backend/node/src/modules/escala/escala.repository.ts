@@ -6,6 +6,7 @@ import type { TurnosLoja } from '../regras/turnos.js';
 import { custosEfetivos, tabelaEncargosDeHoje } from '../custos/encargos-loja.js';
 import type { CustosGravados } from '../custos/custos.schemas.js';
 import { parametrosRepository } from '../parametros/parametros.repository.js';
+import { funcaoNoCalculo } from '../cadastros/funcoes.js';
 import { normalizarHorarios } from '../cadastros/horarios.js';
 import type { CargaMeta, LojaDiag, TurnoDiag } from './diagnostico.js';
 import type { CadastroPessoa, TurnoLinha } from './interpretar.js';
@@ -38,7 +39,11 @@ export const escalaRepository = (geId: string) => {
       return new Map(
         rows.map((r) => [
           r.matricula,
-          { nome: r.nome, funcaoEscala: r.funcaoEscala, cargaSemanalH: r.cargaSemanalH },
+          {
+            nome: r.nome,
+            funcaoEscala: funcaoNoCalculo(r.funcaoEscala),
+            cargaSemanalH: r.cargaSemanalH,
+          },
         ]),
       );
     },
@@ -199,7 +204,7 @@ export const escalaRepository = (geId: string) => {
       });
       return fs.map((f) => ({
         nome: f.nome,
-        motivo: !f.funcaoEscala
+        motivo: !funcaoNoCalculo(f.funcaoEscala)
           ? 'sem função de escala'
           : f.entrada == null || f.saida == null || f.dias.length === 0
             ? 'sem horário de entrada, saída e dias trabalhados'
@@ -233,7 +238,7 @@ export const escalaRepository = (geId: string) => {
       return fs
         .filter((f) => f.saida! > f.entrada!)
         .map((f) => ({
-          funcao: f.funcaoEscala,
+          funcao: funcaoNoCalculo(f.funcaoEscala),
           matricula: f.matricula,
           nome: f.nome,
           dias: f.dias,
@@ -242,7 +247,7 @@ export const escalaRepository = (geId: string) => {
           iniIntervalo: null,
           fimIntervalo: null,
           cargaH: f.cargaSemanalH ?? Math.round(f.dias.length * (f.saida! - f.entrada!)),
-          status: f.funcaoEscala ? 'ok' : 'fora_calculo',
+          status: funcaoNoCalculo(f.funcaoEscala) ? 'ok' : 'fora_calculo',
           motivo: null,
         }));
     },

@@ -1,5 +1,6 @@
 import { prisma } from '../../shared/database/prisma.js';
 import { decimalParaHora, horaParaDecimal, mensalDeSemanal } from './carga.js';
+import { FUNCOES_NO_CALCULO, funcaoNoCalculo } from './funcoes.js';
 import { normalizarHorarios, resumoHorarios } from './horarios.js';
 import type { Aba } from '../planilhas/leitor.js';
 import type {
@@ -67,6 +68,8 @@ const comoFunc = (r: Record<string, unknown>) => {
   const semanal = r.cargaSemanalH as number | null;
   return {
     ...base,
+    // Apoio e Perfumaria (antigos) são lidos como "Outros cargos", fora do cálculo.
+    funcaoEscala: funcaoNoCalculo(r.funcaoEscala as string | null),
     // Quem só tem a carga semanal (planilhas antigas) mostra a mensal equivalente.
     cargaMensalH:
       (r.cargaMensalH as number | null) ?? (semanal ? mensalDeSemanal(semanal) : undefined),
@@ -109,6 +112,44 @@ export const cadastrosRepository = (geId: string): CadastrosRepository => ({
       prisma.loja.count({ where }),
     ]);
     return { data: rows.map(comoLoja), total };
+  },
+  async lojasComEquipe() {
+    const [rows, porFuncao] = await Promise.all([
+      prisma.loja.findMany({
+        where: { ...ativo, geId },
+        select: {
+          ...lojaSel,
+          custos: true,
+          _count: { select: { funcionarios: { where: ativo } } },
+        },
+        orderBy: { codigo: 'asc' },
+      }),
+      prisma.funcionario.groupBy({
+        by: ['lojaId', 'funcaoEscala'],
+        where: { ...ativo, funcaoEscala: { in: [...FUNCOES_NO_CALCULO] }, loja: { geId } },
+        _count: { _all: true },
+      }),
+    ]);
+    const farmaceuticos = new Map<string, number>();
+    const funcoes = new Map<string, string[]>();
+    for (const g of porFuncao) {
+      if (g.funcaoEscala === 'Farmacêutico') farmaceuticos.set(g.lojaId, g._count._all);
+      funcoes.set(g.lojaId, [...(funcoes.get(g.lojaId) ?? []), g.funcaoEscala!]);
+    }
+    return rows.map(({ custos, ...resto }) => {
+      const salarios = (custos as { salarioMedio?: Record<string, number> } | null)?.salarioMedio ?? {};
+      return {
+        // Os salários não saem daqui (só o dono os vê): a lista leva só quais funções têm salário informado.
+        loja: comoLoja(resto),
+        farmaceuticos: farmaceuticos.get(resto.id) ?? 0,
+        cadastro: {
+          funcoesNaEquipe: funcoes.get(resto.id) ?? [],
+          salariosInformados: Object.entries(salarios)
+            .filter(([, v]) => Number(v) > 0)
+            .map(([f]) => f),
+        },
+      };
+    });
   },
   async buscarLoja(id) {
     const r = await prisma.loja.findFirst({ where: { id, geId, ...ativo }, select: lojaSel });

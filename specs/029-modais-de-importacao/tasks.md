@@ -31,14 +31,14 @@ Formato: `- [ ] ID [P] [História] descrição com o arquivo`. Servidor em `back
 - [x] T020 Rodar os testes da tela e do servidor, abrir o fluxo no navegador local (modelo → revisão → gravar) e commitar a fatia
 
 ## Fatia 5 — Modal "Enviar base comercial" (História 2 e 3)
-- [ ] T021 [US2] `features/diagnostico/ModalEnviarBase.jsx`: título com a etiqueta "Opcional", texto de abertura, aviso azul, três passos com "Baixar modelo" (`/planilha-modelo-base`) e a área de envio, rodapé com "Cancelar" e "Enviar base comercial" desabilitado até haver arquivo válido
-- [ ] T022 [US2] Arquivo escolhido: chama `/cargas/base/revisar`, mostra o quadro (nome, "3,2 MB · 14 lojas · 01/10/2026 a 31/10/2026" com os dados reais e "Trocar arquivo") e, quando `substitui` não está vazio, a caixa de atenção "Este envio substitui o de dd/mm/aaaa." e "As N lojas passam a usar a nova planilha. A anterior fica no histórico."; lojas não cadastradas avisadas; erros de arquivo no lugar do quadro, com o motivo e como corrigir
-- [ ] T023 [US2] Envio e estados: "Enviar base comercial" chama `/cargas/base`; durante a leitura e o envio, progresso e modal fixo; sucesso fecha e mostra "Base comercial enviada para N lojas."; `onConcluido` recarrega o Diagnóstico; trocar o uso em `App.jsx` e apagar `EnviarPlanilhas.jsx`; testes de unidade da lógica de estados e de formatação do quadro
-- [ ] T024 Rodar os testes e commitar a fatia
+- [x] T021 [US2] `features/diagnostico/ModalEnviarBase.jsx`: título com a etiqueta "Opcional", texto de abertura, aviso azul, três passos com "Baixar modelo" (`/planilha-modelo-base`) e a área de envio, rodapé com "Cancelar" e "Enviar base comercial" desabilitado até haver arquivo válido
+- [x] T022 [US2] Arquivo escolhido: chama `/cargas/base/revisar`, mostra o quadro (nome, "3,2 MB · 14 lojas · 01/10/2026 a 31/10/2026" com os dados reais e "Trocar arquivo") e, quando `substitui` não está vazio, a caixa de atenção "Este envio substitui o de dd/mm/aaaa." e "As N lojas passam a usar a nova planilha. A anterior fica no histórico."; lojas não cadastradas avisadas; erros de arquivo no lugar do quadro, com o motivo e como corrigir
+- [x] T023 [US2] Envio e estados: "Enviar base comercial" chama `/cargas/base`; durante a leitura e o envio, progresso e modal fixo; sucesso fecha e mostra "Base comercial enviada para N lojas."; `onConcluido` recarrega o Diagnóstico; trocar o uso em `App.jsx` e apagar `EnviarPlanilhas.jsx`; testes de unidade da lógica de estados e de formatação do quadro
+- [x] T024 Rodar os testes e commitar a fatia
 
 ## Fatia 6 — Validação e entrega
-- [ ] T025 Percorrer o `quickstart.md` no navegador local (os dois modais, arrastar e clicar, só teclado, Esc e foco, erros de arquivo, aviso de sucesso) e conferir que nenhum campo de arquivo nativo aparece
-- [ ] T026 Reiniciar a API, rodar tudo (servidor, integração e tela), type-check; commitar e subir a branch `feat/modais-de-importacao`
+- [x] T025 Percorrer o `quickstart.md` no navegador local (os dois modais, arrastar e clicar, só teclado, Esc e foco, erros de arquivo, aviso de sucesso) e conferir que nenhum campo de arquivo nativo aparece
+- [x] T026 Reiniciar a API, rodar tudo (servidor, integração e tela), type-check; commitar e subir a branch `feat/modais-de-importacao`
 
 ## Dependências e ordem
 - Fatias 1 e 2 (servidor) vêm antes das telas que as usam (4 e 5); entre si são independentes.

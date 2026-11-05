@@ -31,6 +31,8 @@ export default function AbaDados({ painel, rascunho, dono, operador, podeEditar,
   const { loja } = painel;
   const { registrar, alterar, rascunho: r, salvo } = rascunho;
   useEffect(() => { registrar("loja", baseDaLoja(loja, { dono, operador })); }, [loja.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Todos os hooks vêm antes de qualquer retorno antecipado (regra dos hooks do React).
+  const mapa = usarCampos();
 
   const l = r.loja;
   if (!l) return null;
@@ -39,7 +41,6 @@ export default function AbaDados({ painel, rascunho, dono, operador, podeEditar,
   const erro = (campo) => erros.find((e) => e.campo === campo)?.texto;
   const regimeMudou = salvo.loja && l.regimeTributario !== salvo.loja.regimeTributario;
   const idLoja = operador ? "ID loja *" : "ID loja";
-  const mapa = usarCampos();
   const pend = (c) => classeDoCampo(mapa, c);
   const desc = (c) => descricaoDoCampo(mapa, c);
 

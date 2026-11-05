@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../../api/client.js";
-import { Aviso, Cartao } from "../../components/ui/index.jsx";
+import { Abas, Aviso, Cartao } from "../../components/ui/index.jsx";
 import Diagnostico from "./Diagnostico.jsx";
 import GradeTab from "../grade/GradeTab.jsx";
 import { cuidaDoGrupo } from "../../api/perfis.js";
@@ -42,10 +42,12 @@ export default function EscalaPage({ perfil, lojaId, semLojas, secao, versaoDado
   return (
     <>
       <div>
-        <p className="m-0 text-xs text-ink-500">Escala › {aba === "grade" ? "Simulações" : "Diagnóstico"}</p>
-        <h1 className="mt-1 mb-0 text-2xl font-bold">{aba === "grade" ? "Simulações" : "Escala"}</h1>
-        <p className="mt-1 mb-0 text-sm text-ink-500">{aba === "grade" ? "Cenários da loja para comparar contratação e horário." : "Escala atual frente às regras de 42h e 40h (EC 141/2026)."}</p>
+        <h1 className="m-0 text-2xl font-bold">Escala</h1>
+        <p className="mt-1 mb-0 text-sm text-ink-500">Diagnóstico da escala atual frente às regras de 42h e 40h (EC 141/2026).</p>
       </div>
+
+      {/* As abas valem para toda a Escala (Diagnóstico e Simulações); o menu lateral leva às mesmas duas seções. */}
+      <Abas opcoes={[["diagnostico", "Diagnóstico"], ["grade", "Simulações"]]} valor={aba} onChange={onSecao} rotulo="Seções da Escala" />
 
       {erro && <Aviso>{erro}</Aviso>}
 

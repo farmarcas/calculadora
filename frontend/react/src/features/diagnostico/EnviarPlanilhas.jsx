@@ -79,20 +79,12 @@ function Bloco({ titulo, descricao, caminho, modelo, nomeModelo, onConcluido }) 
 
 export default function EnviarPlanilhas({ onClose, onConcluido }) {
   return (
-    <Modal titulo="Enviar planilhas" onClose={onClose} largo>
+    <Modal titulo="Enviar base comercial" onClose={onClose} largo>
       <div className="flex flex-col gap-4">
-        <Aviso tom="neutro">Pode vir mais de uma loja no mesmo arquivo: cada linha vai para a loja do código informado. Uma nova planilha da mesma loja substitui a anterior, que fica no histórico.</Aviso>
-        <Bloco
-          titulo="Escala atual"
-          descricao="Uma linha por colaborador, com dias de trabalho, entrada, intervalo e saída."
-          caminho="/cargas/escala"
-          modelo="/planilha-modelo-escala"
-          nomeModelo="modelo-escala-atual.xlsx"
-          onConcluido={onConcluido}
-        />
+        <Aviso tom="neutro">Pode vir mais de uma loja no mesmo arquivo: cada linha vai para a loja do código informado. Uma nova planilha da mesma loja substitui a anterior, que fica no histórico. A equipe e os horários dos funcionários ficam no Cadastro (Cadastros › Equipe ou a planilha de funcionários).</Aviso>
         <Bloco
           titulo="Base comercial"
-          descricao="Opcional. Vendas por data e hora: mostra os horários de maior movimento e deixa a estimativa dos cenários mais precisa. Sem ela, o Diagnóstico usa o faturamento cadastrado na loja."
+          descricao="Vendas por data e hora: mostra os horários de maior movimento e deixa a estimativa dos cenários mais precisa. Sem ela, o Diagnóstico usa o faturamento cadastrado na loja."
           caminho="/cargas/base"
           modelo="/planilha-modelo-base"
           nomeModelo="modelo-base-comercial.xlsx"

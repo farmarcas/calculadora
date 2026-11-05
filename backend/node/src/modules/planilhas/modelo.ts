@@ -1,7 +1,6 @@
 import ExcelJS from 'exceljs';
 import {
   CAMPOS_BASE,
-  CAMPOS_ESCALA,
   CAMPOS_FUNCIONARIO,
   CAMPOS_LOJA,
   FUNCOES_ESCALA,
@@ -44,6 +43,9 @@ export const gerarModelo = async (): Promise<Buffer> => {
     [
       'Horários no formato HH:MM.',
     ],
+    [
+      'Intervalo (opcional): informe o início e o fim juntos, dentro do horário de trabalho (por exemplo, 12:00 e 13:00). A cobertura por hora desconta quem está no intervalo.',
+    ],
     [''],
     ['Aba Lojas: configuração para o cálculo da Escala'],
     ['"Convenção permite 8h24": Sim ou Não. Define se a regra de 42h cabe em 5 dias.'],
@@ -81,13 +83,6 @@ const modeloSimples = async (nome: string, campos: CampoDef[], dica: string): Pr
   wb.getWorksheet('Como preencher')!.getColumn(1).width = 110;
   return Buffer.from(await wb.xlsx.writeBuffer());
 };
-
-export const gerarModeloEscala = () =>
-  modeloSimples(
-    'Escala atual',
-    CAMPOS_ESCALA,
-    'Uma linha por colaborador, com o turno que ele cumpre em cada dia trabalhado. Dias: "Seg a Sáb" ou "Seg,Ter,Qua". Várias lojas podem vir no mesmo arquivo.',
-  );
 
 export const gerarModeloBase = () =>
   modeloSimples(

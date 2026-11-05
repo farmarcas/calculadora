@@ -1,6 +1,7 @@
 import type { Auditor } from '../../shared/auditoria/auditoria.js';
 import { ConflictError } from '../../shared/errors/conflict-error.js';
 import { NotFoundError } from '../../shared/errors/not-found-error.js';
+import { AppError } from '../../shared/errors/app-error.js';
 import { ValidationError } from '../../shared/errors/validation-error.js';
 import { soNoCalculo } from '../cadastros/funcoes.js';
 import { normalizarHorarios } from '../cadastros/horarios.js';
@@ -197,11 +198,13 @@ export const makeSimulacoesService = (
   };
 
   const doEscalaAtual = async (lojaId: string) => {
-    const e = await lojas.escalaAtiva(lojaId);
-    const ts = e?.turnos.filter((t) => t.funcao) ?? [];
+    // A equipe e os horários vêm só do Cadastro de funcionários (a planilha de escala foi aposentada, spec 026).
+    const ts = (await lojas.turnosDoCadastro(lojaId)).filter((t) => t.funcao);
     if (ts.length === 0)
-      throw new ValidationError(
-        'Importe a escala atual da loja antes de criar a simulação a partir dela.',
+      throw new AppError(
+        'Cadastre o horário dos funcionários da loja antes de criar a simulação a partir da equipe.',
+        400,
+        'SEM_HORARIO_NO_CADASTRO',
       );
     const quadro: PessoaSim[] = ts.map((t) => ({
       matricula: t.matricula,
@@ -277,7 +280,7 @@ export const makeSimulacoesService = (
       }
       if (b.comVagasSugeridas) {
         if (b.origem !== 'escala_atual')
-          throw new ValidationError('As contratações sugeridas só valem a partir da escala atual.');
+          throw new ValidationError('As contratações sugeridas só valem a partir da equipe do Cadastro com horários.');
         const regra = regraPara(b.regra, l.convencao8h24, tabela);
         const sugeridas = vagasSugeridas(
           regra,
@@ -400,7 +403,7 @@ export const makeSimulacoesService = (
       const s = await simulacao(id);
       if (s.status !== 'gravada')
         throw new ConflictError('Só simulação gravada pode ser aprovada.', 'SIMULACAO_NAO_GRAVADA');
-      const l = await loja(s.lojaId);
+      await loja(s.lojaId); // garante que a loja ainda existe
       const inicio = vigenciaInicio
         ? new Date(`${vigenciaInicio}T00:00:00.000Z`)
         : new Date(new Date().toISOString().slice(0, 10) + 'T00:00:00.000Z');

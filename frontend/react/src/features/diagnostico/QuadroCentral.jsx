@@ -123,16 +123,13 @@ export default function QuadroCentral({ diag, regraId, onRegra, podeEscrever, on
     pendencias.push({ chave: "semfarm", texto: `${plural(n.faixasSemFarmaceutico, "hora", "horas")} do pior dia ficam sem farmacêutico.` });
   if (n.faixasAbaixoDoMinimo > 0)
     pendencias.push({ chave: "meta", texto: `${plural(n.faixasAbaixoDoMinimo, "hora", "horas")} do pior dia ficam abaixo da meta.` });
-  if (n.linhasRejeitadas > 0)
-    pendencias.push({ chave: "linhas", texto: `${plural(n.linhasRejeitadas, "linha rejeitada", "linhas rejeitadas")} na importação da escala.` });
   const emDia = [
     n.faixasSemFarmaceutico === 0 && "cobertura de farmacêutico",
     n.faixasAbaixoDoMinimo === 0 && "metas",
-    n.linhasRejeitadas === 0 && "importação",
   ].filter(Boolean);
   const fraseEmDia =
-    emDia.length === 3 ? "Sem pendências em cobertura, metas e importação." : emDia.length ? `Sem pendências em ${emDia.slice(0, -1).join(", ")}${emDia.length > 1 ? " e " : ""}${emDia[emDia.length - 1]}.` : null;
-  const detalhes = `Horas do pior dia sem farmacêutico: ${n.faixasSemFarmaceutico} · horas abaixo da meta: ${n.faixasAbaixoDoMinimo} · linhas rejeitadas na importação: ${n.linhasRejeitadas}`;
+    emDia.length ? `Sem pendências em ${emDia.slice(0, -1).join(", ")}${emDia.length > 1 ? " e " : ""}${emDia[emDia.length - 1]}.` : null;
+  const detalhes = `Horas do pior dia sem farmacêutico: ${n.faixasSemFarmaceutico} · horas abaixo da meta: ${n.faixasAbaixoDoMinimo}`;
 
   return (
     <section aria-label="Diagnóstico da escala" className="diag-conteiner flex flex-col gap-4">
@@ -175,7 +172,7 @@ export default function QuadroCentral({ diag, regraId, onRegra, podeEscrever, on
             ) : folha ? (
               <Celula rotulo="Folha mensal atual" valor="—" sub="Informe os custos em Cadastro de Loja › Editar › Funcionários e configuração" />
             ) : (
-              <Celula rotulo="Funcionários no cálculo" valor={n.colaboradoresNoCalculo} sub="Da escala atual" />
+              <Celula rotulo="Funcionários no cálculo" valor={n.colaboradoresNoCalculo} sub="Do Cadastro de funcionários" />
             )}
             <Celula rotulo="Equipe toda" valor={c ? saldoTxt(c.saldoHoras) : "—"} sub={c ? "Por semana: capacidade menos necessidade ou meta" : "Sem cálculo para esta regra"} />
           </div>

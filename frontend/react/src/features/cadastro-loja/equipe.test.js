@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cargoDoFuncionario, cpfValido, errosDoFuncionario, formularioDe, formularioVazio, FUNCOES, funcionarioParaApi, mascararCpf, ROTULO_OUTRO, resumoDeDias } from "./equipe.js";
+import { cargoDoFuncionario, cpfValido, erroDoIntervalo, errosDoFuncionario, formularioDe, formularioVazio, FUNCOES, funcionarioParaApi, mascararCpf, ROTULO_OUTRO, resumoDeDias } from "./equipe.js";
 
 describe("CPF", () => {
   it("valida os dígitos verificadores", () => {
@@ -68,5 +68,38 @@ describe("cargo é só o do dropdown", () => {
     expect(formularioDe({ nome: "A", funcaoEscala: null, cargo: "Gerente" }).cargoSel).toBe("outro");
     expect(formularioDe({ nome: "A", funcaoEscala: "Caixa" }).cargoSel).toBe("Caixa");
     expect("cargoTexto" in formularioVazio()).toBe(false);
+  });
+});
+
+describe("intervalo do funcionário", () => {
+  const base = { entrada: "08:00", saida: "17:00", iniIntervalo: "", fimIntervalo: "" };
+  it("sem intervalo é válido", () => {
+    expect(erroDoIntervalo(base)).toBeNull();
+  });
+  it("12:00 às 13:00 dentro de 08:00 às 17:00 é válido", () => {
+    expect(erroDoIntervalo({ ...base, iniIntervalo: "12:00", fimIntervalo: "13:00" })).toBeNull();
+  });
+  it("só um dos dois, fim antes do início, fora do turno e sem horário de trabalho", () => {
+    expect(erroDoIntervalo({ ...base, iniIntervalo: "12:00" })).toMatchObject({ campo: "fimIntervalo", texto: expect.stringContaining("início e o fim") });
+    expect(erroDoIntervalo({ ...base, fimIntervalo: "13:00" })).toMatchObject({ campo: "iniIntervalo" });
+    expect(erroDoIntervalo({ ...base, iniIntervalo: "13:00", fimIntervalo: "12:00" })).toMatchObject({ campo: "fimIntervalo", texto: expect.stringContaining("depois do início") });
+    expect(erroDoIntervalo({ ...base, iniIntervalo: "07:00", fimIntervalo: "08:30" })).toMatchObject({ texto: expect.stringContaining("dentro do horário") });
+    expect(erroDoIntervalo({ ...base, iniIntervalo: "16:30", fimIntervalo: "17:30" })).toMatchObject({ texto: expect.stringContaining("dentro do horário") });
+    expect(erroDoIntervalo({ ...base, entrada: "", saida: "", iniIntervalo: "12:00", fimIntervalo: "13:00" })).toMatchObject({ texto: expect.stringContaining("entrada e a saída") });
+  });
+  it("entra nos erros do formulário", () => {
+    const ok = { ...formularioVazio(), nome: "Ana Souza", cargoSel: "Caixa" };
+    expect(errosDoFuncionario({ ...ok, iniIntervalo: "12:00" }).map((e) => e.campo)).toContain("fimIntervalo");
+    expect(errosDoFuncionario({ ...ok, iniIntervalo: "12:00", fimIntervalo: "13:00" })).toEqual([]);
+  });
+  it("corpo da API: ao criar só vai se informado; ao editar em branco limpa", () => {
+    const v = { ...formularioVazio(), nome: "Ana Souza", cargoSel: "Caixa" };
+    expect(funcionarioParaApi(v, "L1", true)).not.toHaveProperty("iniIntervalo");
+    expect(funcionarioParaApi({ ...v, iniIntervalo: "12:00", fimIntervalo: "13:00" }, "L1", true)).toMatchObject({ iniIntervalo: "12:00", fimIntervalo: "13:00" });
+    expect(funcionarioParaApi(v, "L1", false)).toMatchObject({ iniIntervalo: null, fimIntervalo: null });
+  });
+  it("formulário de um funcionário traz o intervalo gravado", () => {
+    expect(formularioDe({ entrada: "08:00", saida: "17:00", iniIntervalo: "12:00", fimIntervalo: "13:00" })).toMatchObject({ iniIntervalo: "12:00", fimIntervalo: "13:00" });
+    expect(formularioDe({})).toMatchObject({ iniIntervalo: "", fimIntervalo: "" });
   });
 });

@@ -424,9 +424,6 @@ const porDiaDoCenario = (p: VendaPerdidaDia, fica: number, dono: boolean): Venda
 const temVendaHoraria = (e: EntradaCenarios) =>
   e.origemVenda === undefined ? e.vendas.length > 0 : e.origemVenda === 'base';
 
-const AVISO_SEM_VENDA_HORARIA =
-  'Sem venda hora a hora, não é possível estimar a venda perdida e comparar os cenários.';
-
 const montarEconomia = (
   e: EntradaCenarios,
   linhas: LinhaFuncao[],

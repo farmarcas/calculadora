@@ -38,8 +38,8 @@ function Nova({ lojaId, lista, onClose, onCriada }) {
         </Campo>
         <Campo rotulo="Começar de">
           <select className={entrada} value={origem} onChange={(e) => setOrigem(e.target.value)}>
-            <option value="escala_atual">Escala atual importada</option>
-            <option value="vazia">Do zero (funcionários do cadastro, sem turnos)</option>
+            <option value="escala_atual">Equipe do Cadastro, com horários</option>
+            <option value="vazia">Do zero (funcionários do Cadastro, sem horários)</option>
             {lista.map((s) => <option key={s.id} value={s.id}>Clonar: {s.nome}</option>)}
           </select>
         </Campo>
@@ -124,7 +124,7 @@ export default function GradeTab({ lojaId, perfil, podeEscrever, abrirId, avisoI
         }
       >
         {lista.length === 0 ? (
-          <p className="m-0 px-6 py-8 text-sm text-ink-500 text-center">Nenhuma simulação ainda. Crie a primeira a partir da escala atual importada.</p>
+          <p className="m-0 px-6 py-8 text-sm text-ink-500 text-center">Nenhuma simulação ainda. Crie a primeira a partir da equipe do Cadastro.</p>
         ) : (
           <table className="w-full border-collapse text-sm">
             <thead>

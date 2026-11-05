@@ -158,9 +158,12 @@ describe('simulações (rotas)', () => {
     ).toBe(400);
   });
 
-  it('cria vazia a partir do cadastro e avisa quando falta escala atual', async () => {
-    await prisma.carga.deleteMany();
-    expect((await criar()).status).toBe(400);
+  it('cria vazia a partir do cadastro e avisa quando nenhum funcionário tem horário no Cadastro', async () => {
+    await prisma.funcionario.deleteMany();
+    const sem = await criar();
+    expect(sem.status).toBe(400);
+    expect(sem.body.error.code).toBe('SEM_HORARIO_NO_CADASTRO');
+    expect(sem.body.error.message).toContain('Cadastre o horário dos funcionários');
     await reqGe().post('/api/v1/funcionarios').set(admin).send({
       matricula: 'M1',
       nome: 'Carla',

@@ -783,6 +783,36 @@ describe('cadastros (rotas)', () => {
       expect(lista[0]).toMatchObject({ cpf: '529.982.247-25', entrada: '08:00' });
     });
 
+    it('intervalo: guarda, devolve, edita, limpa e recusa os erros em português', async () => {
+      const r = await novo({ entrada: '08:00', saida: '17:00', iniIntervalo: '12:00', fimIntervalo: '13:00', dias: [0, 1] });
+      expect(r.status).toBe(201);
+      expect(r.body).toMatchObject({ iniIntervalo: '12:00', fimIntervalo: '13:00' });
+      const lista = (await reqGe().get(`/api/v1/funcionarios?lojaId=${lojaId}`).set(admin)).body.data;
+      expect(lista[0]).toMatchObject({ iniIntervalo: '12:00', fimIntervalo: '13:00' });
+      const id = r.body.id;
+      const edita = (corpo: object) => reqGe().patch(`/api/v1/funcionarios/${id}`).set(admin).send(corpo);
+      expect((await edita({ iniIntervalo: '12:30', fimIntervalo: '13:30' })).body).toMatchObject({ iniIntervalo: '12:30', fimIntervalo: '13:30' });
+      // só um dos dois
+      const so = await edita({ fimIntervalo: null });
+      expect(so.status).toBe(400);
+      expect(so.body.error.message).toContain('início e o fim do intervalo');
+      // fim antes do início, e fora do turno (a saída que fica é a de 17:00)
+      expect((await edita({ iniIntervalo: '13:00', fimIntervalo: '12:00' })).body.error.message).toContain('depois do início');
+      expect((await edita({ iniIntervalo: '16:30', fimIntervalo: '17:30' })).body.error.message).toContain('dentro do horário');
+      // encurtar o turno para antes do intervalo também é recusado
+      expect((await edita({ saida: '12:15' })).status).toBe(400);
+      // limpar os dois
+      const limpo = await edita({ iniIntervalo: null, fimIntervalo: null });
+      expect(limpo.status).toBe(200);
+      expect(limpo.body.iniIntervalo).toBeUndefined();
+    });
+
+    it('intervalo sem entrada e saída é recusado', async () => {
+      const r = await novo({ iniIntervalo: '12:00', fimIntervalo: '13:00' });
+      expect(r.status).toBe(400);
+      expect(r.body.error.message).toContain('entrada e a saída');
+    });
+
     it('quem só tem carga semanal mostra a mensal equivalente', async () => {
       const r = await novo({ cargaSemanalH: 42 });
       expect(r.body.cargaMensalH).toBe(210);

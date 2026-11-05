@@ -15,6 +15,7 @@ import type { Mapeamento, MapeamentoAba } from '../planilhas/inferencia.js';
 import { lerDias, lerHora } from '../escala/interpretar.js';
 import { normalizar } from '../planilhas/normalizar.js';
 import { decimalParaHora, semanalDeMensal } from './carga.js';
+import { validarIntervalo } from './intervalo.js';
 import { faturamentoDaLinha, type Faturamento } from './faturamento.js';
 import { configuracaoDaLinha, lerSimNao, type ConfiguracaoLinha } from './configuracao.js';
 
@@ -54,6 +55,8 @@ export type FuncionarioInput = {
   cargaMensalH?: number;
   entrada?: string;
   saida?: string;
+  iniIntervalo?: string;
+  fimIntervalo?: string;
   dias?: number[];
   regime?: string;
   horarioFixo?: boolean;
@@ -215,6 +218,19 @@ export const processarLinhas = (abas: Aba[], mapa: Mapeamento): Processado => {
         return erro('Informe a entrada e a saída (ou deixe as duas em branco)');
       if (entrada !== null && entrada === saida)
         return erro('A saída deve ser diferente da entrada');
+      const iniTxt = celula(l, m, 'inicio_intervalo');
+      const fimTxt = celula(l, m, 'fim_intervalo');
+      const ini = iniTxt ? lerHora(iniTxt) : null;
+      const fim = fimTxt ? lerHora(fimTxt) : null;
+      if ((iniTxt && ini === null) || (fimTxt && fim === null))
+        return erro('Horário de início ou fim do intervalo inválido');
+      const erroIntervalo = validarIntervalo({
+        entrada: entrada === null ? null : decimalParaHora(entrada),
+        saida: saida === null ? null : decimalParaHora(saida),
+        ini: ini === null ? null : decimalParaHora(ini),
+        fim: fim === null ? null : decimalParaHora(fim),
+      });
+      if (erroIntervalo) return erro(erroIntervalo);
       const diasTxt = celula(l, m, 'dias');
       const dias = diasTxt ? lerDias(diasTxt) : null;
       if (diasTxt && !dias) return erro('Dias trabalhados inválidos');
@@ -233,6 +249,8 @@ export const processarLinhas = (abas: Aba[], mapa: Mapeamento): Processado => {
         cargaMensalH: mensal,
         entrada: entrada === null ? undefined : decimalParaHora(entrada),
         saida: saida === null ? undefined : decimalParaHora(saida!),
+        iniIntervalo: ini === null ? undefined : decimalParaHora(ini),
+        fimIntervalo: fim === null ? undefined : decimalParaHora(fim),
         dias: dias ?? undefined,
         regime: celula(l, m, 'regime') || undefined,
         horarioFixo: fixo === null ? undefined : (fixo as boolean),

@@ -116,7 +116,7 @@ export default function AbaEquipe({ lojaId, podeEscrever, aoMudar }) {
               <span className="text-sm text-[var(--text-strong)]"><span className="cl-eq-rot">Cargo</span>{cargoDoFuncionario(f)}</span>
               <span className="text-sm text-[var(--text-strong)]"><span className="cl-eq-rot">CPF</span>{mascararCpf(f.cpf)}</span>
               <span className="text-sm text-[var(--text-strong)]"><span className="cl-eq-rot">Carga mensal</span>{f.cargaMensalH ? `${f.cargaMensalH}h` : "—"}</span>
-              <span className="text-sm text-[var(--text-strong)]"><span className="cl-eq-rot">Entrada–saída</span>{f.entrada && f.saida ? `${f.entrada}–${f.saida}` : "—"}</span>
+              <span className="text-sm text-[var(--text-strong)]"><span className="cl-eq-rot">Entrada–saída</span>{f.entrada && f.saida ? `${f.entrada}–${f.saida}` : "—"}{f.iniIntervalo && f.fimIntervalo ? <span className="block text-xs text-[var(--text-secondary)]">Intervalo {f.iniIntervalo}–{f.fimIntervalo}</span> : null}</span>
               <span className="text-sm text-[var(--text-strong)]"><span className="cl-eq-rot">Dias</span>{resumoDeDias(f.dias)}</span>
               <span className="flex items-center justify-end gap-3 text-sm">
                 {podeEscrever && (

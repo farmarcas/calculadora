@@ -184,6 +184,49 @@ describe('equipe: carga mensal, horário e dias', () => {
   });
 });
 
+describe('equipe: intervalo (início e fim)', () => {
+  const m = {
+    lojas: null,
+    funcionarios: {
+      aba: 'F',
+      colunas: { matricula: 0, nome: 1, loja: 2, entrada: 3, saida: 4, inicio_intervalo: 5, fim_intervalo: 6 },
+    },
+  };
+  const rodar = (linha: string[]) =>
+    processarLinhas([{ nome: 'F', cabecalhos: [], linhas: [linha] }], m);
+
+  it('lê o início e o fim do intervalo', () => {
+    const r = rodar(['F1', 'Ana', '001', '08:00', '17:00', '12:00', '13:00']);
+    expect(r.erros).toEqual([]);
+    expect(r.funcionarios[0]).toMatchObject({ iniIntervalo: '12:00', fimIntervalo: '13:00' });
+  });
+  it('sem as colunas de intervalo, ou em branco, continua válido', () => {
+    const r = rodar(['F1', 'Ana', '001', '08:00', '17:00', '', '']);
+    expect(r.erros).toEqual([]);
+    expect(r.funcionarios[0]?.iniIntervalo).toBeUndefined();
+    const antiga = processarLinhas(
+      [{ nome: 'F', cabecalhos: [], linhas: [['F1', 'Ana', '001', '08:00', '17:00']] }],
+      { lojas: null, funcionarios: { aba: 'F', colunas: { matricula: 0, nome: 1, loja: 2, entrada: 3, saida: 4 } } },
+    );
+    expect(antiga.erros).toEqual([]);
+  });
+  it('recusa só um dos dois, fim antes do início, fora do turno e sem horário de trabalho', () => {
+    expect(rodar(['F1', 'Ana', '001', '08:00', '17:00', '12:00', '']).erros[0]?.motivo).toContain('início e o fim do intervalo');
+    expect(rodar(['F1', 'Ana', '001', '08:00', '17:00', '13:00', '12:00']).erros[0]?.motivo).toContain('depois do início');
+    expect(rodar(['F1', 'Ana', '001', '08:00', '17:00', '07:00', '08:30']).erros[0]?.motivo).toContain('dentro do horário');
+    expect(rodar(['F1', 'Ana', '001', '', '', '12:00', '13:00']).erros[0]?.motivo).toContain('entrada e a saída');
+    expect(rodar(['F1', 'Ana', '001', '08:00', '17:00', 'abc', '13:00']).erros[0]?.motivo).toContain('inválido');
+  });
+  it('só a linha com erro é recusada; as outras entram', () => {
+    const r = processarLinhas(
+      [{ nome: 'F', cabecalhos: [], linhas: [['F1', 'Ana', '001', '08:00', '17:00', '12:00', ''], ['F2', 'Bia', '001', '08:00', '17:00', '12:00', '13:00']] }],
+      m,
+    );
+    expect(r.erros).toHaveLength(1);
+    expect(r.funcionarios.map((f) => f.matricula)).toEqual(['F2']);
+  });
+});
+
 describe('importação em massa: configuração da loja e horário fixo', () => {
   const m = {
     lojas: {

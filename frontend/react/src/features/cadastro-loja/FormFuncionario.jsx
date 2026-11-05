@@ -50,6 +50,8 @@ export default function FormFuncionario({ inicial, editando, salvando, onSalvar,
       <div className="mt-3 flex flex-wrap items-end gap-x-6 gap-y-3">
         <label className="flex flex-col gap-1 text-sm text-[var(--text-strong)]">Entrada<input {...aria("entrada")} type="time" className={`${CAMPO} w-32`} value={v.entrada} onChange={set("entrada")} /><Erro c="entrada" /></label>
         <label className="flex flex-col gap-1 text-sm text-[var(--text-strong)]">Saída<input {...aria("saida")} type="time" className={`${CAMPO} w-32`} value={v.saida} onChange={set("saida")} /><Erro c="saida" /></label>
+        <label className="flex flex-col gap-1 text-sm text-[var(--text-strong)]">Início do intervalo<input {...aria("iniIntervalo")} type="time" className={`${CAMPO} w-32`} value={v.iniIntervalo} onChange={set("iniIntervalo")} /><Erro c="iniIntervalo" /></label>
+        <label className="flex flex-col gap-1 text-sm text-[var(--text-strong)]">Fim do intervalo<input {...aria("fimIntervalo")} type="time" className={`${CAMPO} w-32`} value={v.fimIntervalo} onChange={set("fimIntervalo")} /><Erro c="fimIntervalo" /></label>
         <fieldset className="m-0 min-w-0 border-0 p-0">
           <legend className="mb-1 p-0 text-sm text-[var(--text-strong)]">Dias de trabalho</legend>
           <div className="flex flex-wrap gap-1.5">

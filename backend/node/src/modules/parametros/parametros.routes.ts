@@ -42,8 +42,8 @@ const v = (res: Response) => readValidated<z.infer<typeof criarReq>>(res);
 export const parametrosRouter = (repo: ParametrosRepository = parametrosRepository) => {
   const r = Router();
 
-  // Todos os perfis veem; a alteração é só do dono do grupo.
-  r.get('/parametros-legais', validate(listarReq), async (_req, res) => {
+  // Parâmetros legais valem para toda a plataforma: ver e alterar é só do operador da plataforma.
+  r.get('/parametros-legais', exigirPerfil('PLATFORM_OPERATOR'), validate(listarReq), async (_req, res) => {
     const versoes = await repo.listar();
     const hoje = hojeISO();
     res.json({
@@ -63,7 +63,7 @@ export const parametrosRouter = (repo: ParametrosRepository = parametrosReposito
 
   r.post(
     '/parametros-legais',
-    exigirPerfil('TENANT_ADMIN'),
+    exigirPerfil('PLATFORM_OPERATOR'),
     validate(criarReq),
     async (_req, res) => {
       const { body } = v(res);

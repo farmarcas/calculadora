@@ -16,9 +16,9 @@ const paraForm = (v) => ({
   vigenciaInicio: "",
 });
 
-// Parâmetros legais de cada fase. Todos veem; só o dono altera, e alterar cria uma nova versão com data de início.
+// Parâmetros legais de cada fase. Só o operador da plataforma vê e altera; alterar cria uma nova versão com data de início.
 export default function ParametrosLegais({ perfil }) {
-  const dono = perfil === "TENANT_ADMIN";
+  const dono = perfil === "PLATFORM_OPERATOR"; // quem altera (o nome da variável vem de antes: hoje é o operador)
   const [dados, setDados] = useState(null);
   const [erro, setErro] = useState(null);
   const [ok, setOk] = useState(null);
@@ -69,7 +69,6 @@ export default function ParametrosLegais({ perfil }) {
           Vale a versão mais recente que já começou. Se todas ainda começam no futuro, vale a mais antiga.
         </p>
       </div>
-      {!dono && <Aviso tom="neutro">Só o dono do grupo altera os parâmetros. Você pode consultar os valores e o histórico.</Aviso>}
       {erro && <Aviso>{erro}</Aviso>}
       {ok && <Aviso tom="ok">{ok}</Aviso>}
 

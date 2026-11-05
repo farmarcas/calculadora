@@ -5,13 +5,17 @@ import ImportarPlanilha from "./ImportarPlanilha.jsx";
 import ParametrosLegais from "../parametros/ParametrosLegais.jsx";
 import { cuidaDoGrupo, ehOperador } from "../../api/perfis.js";
 
-const SECOES = [["cadastro", "Lojas"], ["parametros", "Parâmetros legais"]];
+const SECAO_LOJAS = ["cadastro", "Lojas"];
+// Parâmetros legais e encargos valem para toda a plataforma: só o operador vê e altera.
+const SECAO_PARAMETROS = ["parametros", "Parâmetros legais"];
 
 export default function CadastrosPage({ perfil }) {
   // A loja vem da plataforma (o operador cria e remove); o empresário corrige a loja e cuida da equipe.
   const operador = ehOperador(perfil);
   const podeEscrever = cuidaDoGrupo(perfil);
-  const [secao, setSecao] = useState("cadastro");
+  const [secaoEscolhida, setSecao] = useState("cadastro");
+  const SECOES = operador ? [SECAO_LOJAS, SECAO_PARAMETROS] : [SECAO_LOJAS];
+  const secao = operador ? secaoEscolhida : "cadastro"; // trocar o papel na demonstração nunca deixa a pessoa numa seção que não é dela
   const [importando, setImportando] = useState(false);
   const [versao, setVersao] = useState(0);
 
@@ -29,9 +33,9 @@ export default function CadastrosPage({ perfil }) {
 
       {perfil === "SCHEDULE_VIEWER" && <Aviso tom="neutro">Você está como "Somente consulta": não pode criar, editar nem importar.</Aviso>}
 
-      <Abas opcoes={SECOES} valor={secao} onChange={setSecao} rotulo="Seções do cadastro" />
+      {operador && <Abas opcoes={SECOES} valor={secao} onChange={setSecao} rotulo="Seções do cadastro" />}
 
-      {secao === "parametros" && <ParametrosLegais perfil={perfil} />}
+      {secao === "parametros" && operador && <ParametrosLegais perfil={perfil} />}
       {secao === "cadastro" && <CadastroLojaPage key={versao} perfil={perfil} />}
 
       {importando && <ImportarPlanilha podeLojas={operador || perfil === "TENANT_ADMIN"} operador={operador} onClose={() => setImportando(false)} onConcluido={() => setVersao((v) => v + 1)} />}

@@ -63,9 +63,9 @@ export default function GraficoVendas({ resultado: r, dia, onDia }) {
           const nova = e === "nova";
           return (
             <div key={h} className="flex min-w-0 flex-1 flex-col justify-end" title={`${h}h · ${nova ? "hora nova, venda estimada" : e === "fechada" ? "fechada na simulação" : e === "pico" ? "pico" : "aberta"}`}>
-              <div className="flex flex-col" style={{ height: `calc((100% - 32px) * ${frac} + 32px)`, minHeight: 36 }}>
-                <span aria-hidden="true" className={`flex h-7 shrink-0 items-end justify-center text-[11px] leading-3 whitespace-nowrap ${nova ? "font-bold text-[var(--text-success-strong)]" : e === "pico" ? "font-bold text-[var(--text-strong)]" : e === "fechada" ? "text-[var(--text-secondary)]" : "text-[var(--text-secondary)]"}`}>
-                  {nova && usada !== "venda" ? "" : rotuloDaBarra(valor, { metrica: usada, nova })}
+              <div className="flex flex-col" style={{ height: `calc((100% - 40px) * ${frac} + 40px)`, minHeight: 44 }}>
+                <span aria-hidden="true" className={`flex h-9 shrink-0 flex-col items-center justify-end text-[11px] leading-3 whitespace-nowrap ${nova ? "font-bold text-[var(--text-success-strong)]" : e === "pico" ? "font-bold text-[var(--text-strong)]" : "text-[var(--text-secondary)]"}`}>
+                  {nova && usada !== "venda" ? "" : <Rotulo texto={rotuloDaBarra(valor, { metrica: usada, nova })} />}
                 </span>
                 <div className="mt-1 min-h-1 flex-1 rounded-t-[3px]" style={FUNDO[e]} />
               </div>
@@ -97,6 +97,19 @@ export default function GraficoVendas({ resultado: r, dia, onDia }) {
     </div>
   );
 }
+
+// Rótulo com a máscara de reais em até três linhas ("R$", o número e "mil"), para caber na largura da barra mesmo com o gráfico estreito.
+const Rotulo = ({ texto }) => {
+  const m = /^(\+?)R\$ (.+?)( mil)?$/.exec(texto);
+  if (!m) return <span>{texto}</span>;
+  return (
+    <>
+      <span className="text-[9px] leading-[10px]">{m[1]}R$</span>
+      <span>{m[2]}</span>
+      {m[3] && <span className="text-[9px] leading-[10px]">mil</span>}
+    </>
+  );
+};
 
 const Resumo = ({ titulo, valor, apoio, cor = "var(--text-strong)" }) => (
   <div className="flex flex-col gap-0.5 rounded-card bg-[var(--surface-subtle)] px-4 py-3">

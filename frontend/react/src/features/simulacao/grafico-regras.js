@@ -2,7 +2,9 @@
 import { horasDoDia, paraMinutos } from "./horario/horario-regras.js";
 
 const MENOS = "−"; // U+2212
-const mil = (v) => (v / 1000).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+// Valor em reais para o rótulo da barra: "R$ 2,3 mil" a partir de mil e "R$ 848" abaixo disso.
+const mil = (v) => `R$ ${(v / 1000).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} mil`;
+const reaisCurto = (v) => (v >= 1000 ? mil(v) : `R$ ${Math.round(v).toLocaleString("pt-BR")}`);
 
 // Hora de início da barra aberta na simulação: a hora inteira cabe no horário.
 const abertaNaHora = (dia, h) => {
@@ -57,10 +59,11 @@ export const estadosDoDia = ({ dia, horas, resultado, serie }) => {
   return estados;
 };
 
-// Rótulo da barra: R$ mil com uma casa ("1,3"); hora nova com "+" ("+0,3"). Em clientes, número inteiro.
+// Rótulo da barra com a máscara de reais: "R$ 1,3 mil" (a partir de mil) ou "R$ 848"; hora nova com "+" ("+R$ 300"). Em clientes,
+// número inteiro.
 export const rotuloDaBarra = (valor, { metrica = "venda", nova = false } = {}) => {
   if (metrica !== "venda") return String(Math.round(valor));
-  return `${nova ? "+" : ""}${mil(valor)}`;
+  return `${nova ? "+" : ""}${reaisCurto(valor)}`;
 };
 
 const soma = (xs) => xs.reduce((s, v) => s + (v ?? 0), 0);
@@ -99,6 +102,6 @@ export const legenda = ({ temNova }) => [
 ];
 
 export const apoioDoGrafico = ({ temNova, metrica = "venda" }) =>
-  `${metrica === "venda" ? "Venda por hora, em R$ mil" : "Clientes por hora"} · dados do sistema de vendas${temNova ? " · horas novas em verde, com venda estimada" : ""}`;
+  `${metrica === "venda" ? "Venda por hora, em R$" : "Clientes por hora"} · dados do sistema de vendas${temNova ? " · horas novas em verde, com venda estimada" : ""}`;
 
 export { MENOS };

@@ -70,17 +70,18 @@ describe("estado de cada barra", () => {
 });
 
 describe("rótulos", () => {
-  it("R$ mil com uma casa e vírgula", () => {
-    expect(rotuloDaBarra(1300)).toBe("1,3");
-    expect(rotuloDaBarra(848)).toBe("0,8");
-    expect(rotuloDaBarra(0)).toBe("0,0");
-    expect(rotuloDaBarra(1900)).toBe("1,9");
+  it("máscara de reais: R$ mil com uma casa a partir de mil e R$ inteiro abaixo", () => {
+    expect(rotuloDaBarra(1300)).toBe("R$ 1,3 mil");
+    expect(rotuloDaBarra(1900)).toBe("R$ 1,9 mil");
+    expect(rotuloDaBarra(2300)).toBe("R$ 2,3 mil");
+    expect(rotuloDaBarra(848)).toBe("R$ 848");
+    expect(rotuloDaBarra(0)).toBe("R$ 0");
   });
   it("hora nova com +", () => {
-    expect(rotuloDaBarra(300, { nova: true })).toBe("+0,3");
-    expect(rotuloDaBarra(400, { nova: true })).toBe("+0,4");
+    expect(rotuloDaBarra(300, { nova: true })).toBe("+R$ 300");
+    expect(rotuloDaBarra(1200, { nova: true })).toBe("+R$ 1,2 mil");
   });
-  it("clientes em número inteiro", () => {
+  it("clientes em número inteiro, sem R$", () => {
     expect(rotuloDaBarra(12.4, { metrica: "clientes" })).toBe("12");
   });
 });
@@ -128,7 +129,7 @@ describe("legenda e apoio", () => {
     expect(legenda({ temNova: true }).map((x) => x[1])).toEqual(["Pico", "Demais horas", "Hora nova · venda estimada", "Fechada na simulação"]);
   });
   it("apoio do gráfico acrescenta as horas novas só quando existem", () => {
-    expect(apoioDoGrafico({ temNova: false })).toBe("Venda por hora, em R$ mil · dados do sistema de vendas");
-    expect(apoioDoGrafico({ temNova: true })).toBe("Venda por hora, em R$ mil · dados do sistema de vendas · horas novas em verde, com venda estimada");
+    expect(apoioDoGrafico({ temNova: false })).toBe("Venda por hora, em R$ · dados do sistema de vendas");
+    expect(apoioDoGrafico({ temNova: true })).toBe("Venda por hora, em R$ · dados do sistema de vendas · horas novas em verde, com venda estimada");
   });
 });

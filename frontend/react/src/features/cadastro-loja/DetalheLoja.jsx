@@ -15,8 +15,9 @@ export default function DetalheLoja({ lojaId, aba, onAba, perfil, painel, carreg
   const [tentou, setTentou] = useState(false);
   useEffect(() => setTentou(false), [lojaId]);
   // O painel de pendências abre sozinho, menos em tela de celular; "Preencher" o recolhe para o campo aparecer.
-  const [painelAberto, setPainelAberto] = useState(() => window.innerWidth >= 640);
-  useEffect(() => setPainelAberto(window.innerWidth >= 640), [lojaId]);
+  // O painel "O que falta preencher" abre recolhido; a pessoa expande quando quiser (e ao trocar de loja volta a recolher).
+  const [painelAberto, setPainelAberto] = useState(false);
+  useEffect(() => setPainelAberto(false), [lojaId]);
   const pendente = useRef(null);
   const dono = perfil === "TENANT_ADMIN";
   const operador = ehOperador(perfil);

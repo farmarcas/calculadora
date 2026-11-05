@@ -46,6 +46,16 @@ export const validarCnpj = (valor: string) => {
   return d1 === Number(d[12]) && digito(d.slice(0, 13), p2) === Number(d[13]);
 };
 
+// CNPJ lido de uma planilha: só os dígitos; o Excel perde zeros à esquerda quando guarda o CNPJ como número, então um valor
+// com 8 a 13 dígitos é completado com zeros até 14 antes de validar.
+export const cnpjDaPlanilha = (texto: string): { cnpj?: string; erro?: string } => {
+  let d = soDigitos(texto);
+  if (!d) return { erro: 'CNPJ da loja vazio' };
+  if (d.length >= 8 && d.length < 14) d = d.padStart(14, '0');
+  if (!validarCnpj(d)) return { erro: 'CNPJ inválido' };
+  return { cnpj: d };
+};
+
 export const validarCpf = (valor: string) => {
   const d = soDigitos(valor);
   if (d.length !== 11 || /^(\d)\1+$/.test(d)) return false;

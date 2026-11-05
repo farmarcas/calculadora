@@ -8,6 +8,8 @@ export type CampoDef = {
   conteudo?: (valor: string) => boolean;
   // Coluna de planilhas antigas: ainda é entendida na importação, mas não vai no modelo novo.
   legado?: boolean;
+  // Aparece com asterisco no modelo novo mesmo quando a importação aceita o formato antigo sem ele.
+  obrigatorioNoModelo?: boolean;
 };
 
 const reCnpj = /^\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2}$/;
@@ -192,7 +194,8 @@ export const CAMPOS_LOJA: CampoDef[] = [
   {
     chave: 'codigo',
     rotulo: 'Código da loja',
-    obrigatorio: true,
+    obrigatorio: false,
+    legado: true,
     exemplo: '001',
     sinonimos: [
       'codigo',
@@ -207,28 +210,31 @@ export const CAMPOS_LOJA: CampoDef[] = [
     ],
   },
   {
+    chave: 'cnpj',
+    rotulo: 'CNPJ',
+    obrigatorio: false,
+    obrigatorioNoModelo: true,
+    exemplo: '00.000.000/0001-00',
+    sinonimos: ['cnpj', 'cnpj loja', 'cnpj da loja', 'documento'],
+    conteudo: (v) => reCnpj.test(v),
+  },
+  {
     chave: 'nome',
-    rotulo: 'Nome da loja',
-    obrigatorio: true,
+    rotulo: 'Nome da loja / Apelido',
+    obrigatorio: false,
     exemplo: 'Loja Exemplo',
     sinonimos: [
       'nome',
       'nome loja',
       'nome_loja',
       'nome da loja',
+      'nome da loja apelido',
+      'apelido',
       'loja',
       'razao social',
       'fantasia',
       'descricao',
     ],
-  },
-  {
-    chave: 'cnpj',
-    rotulo: 'CNPJ',
-    obrigatorio: false,
-    exemplo: '00.000.000/0001-00',
-    sinonimos: ['cnpj', 'cnpj loja', 'documento'],
-    conteudo: (v) => reCnpj.test(v),
   },
   {
     chave: 'cidade',
@@ -347,9 +353,19 @@ export const CAMPOS_FUNCIONARIO: CampoDef[] = [
     ],
   },
   {
+    chave: 'cnpj_loja',
+    rotulo: 'CNPJ da loja',
+    obrigatorio: false,
+    obrigatorioNoModelo: true,
+    exemplo: '00.000.000/0001-00',
+    sinonimos: ['cnpj da loja', 'cnpj loja', 'cnpj lotacao', 'cnpj da loja de lotacao', 'cnpj'],
+    conteudo: (v) => reCnpj.test(v),
+  },
+  {
     chave: 'loja',
     rotulo: 'Código da loja de lotação',
-    obrigatorio: true,
+    obrigatorio: false,
+    legado: true,
     exemplo: '001',
     sinonimos: [
       'loja',
@@ -371,18 +387,12 @@ export const CAMPOS_FUNCIONARIO: CampoDef[] = [
     conteudo: (v) => reCpf.test(v),
   },
   {
-    chave: 'cargo',
-    rotulo: 'Cargo',
-    obrigatorio: false,
-    exemplo: 'Balconista',
-    sinonimos: ['cargo', 'funcao', 'ocupacao', 'posicao'],
-  },
-  {
     chave: 'funcao_escala',
-    rotulo: 'Função de escala',
+    rotulo: 'Cargo',
     obrigatorio: false,
     exemplo: 'Atendimento',
     sinonimos: [
+      'cargo',
       'funcao escala',
       'funcao de escala',
       'funcao_escala',
@@ -390,6 +400,14 @@ export const CAMPOS_FUNCIONARIO: CampoDef[] = [
       'setor',
       'departamento',
     ],
+  },
+  {
+    chave: 'cargo',
+    rotulo: 'Cargo (texto livre)',
+    obrigatorio: false,
+    legado: true,
+    exemplo: 'Balconista',
+    sinonimos: ['cargo', 'funcao', 'ocupacao', 'posicao'],
   },
   {
     chave: 'carga_semanal',

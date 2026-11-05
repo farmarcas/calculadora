@@ -8,7 +8,7 @@ import { CAMPOS_FUNCIONARIO, CAMPOS_LOJA } from '../planilhas/campos.js';
 import { inferirMapeamento, type Mapeamento } from '../planilhas/inferencia.js';
 import { lerPlanilha, type Aba } from '../planilhas/leitor.js';
 import type { FuncionarioBody, LojaBody } from './cadastros.schemas.js';
-import { normalizarCnpj, validarCnpj } from '../ge/cnpj.js';
+import { formatarCnpj, normalizarCnpj, validarCnpj } from '../ge/cnpj.js';
 import { semanalDeMensal } from './carga.js';
 import { soDigitos } from './documentos.js';
 import { validarIntervalo } from './intervalo.js';
@@ -37,6 +37,7 @@ export type CadastrosRepository = {
   >;
   buscarLoja: (id: string) => Promise<LojaRegistro | null>;
   buscarLojaPorCodigo: (codigo: string) => Promise<LojaRegistro | null>;
+  buscarLojaPorCnpj: (cnpj: string) => Promise<LojaRegistro | null>;
   // Vale no sistema todo (o CNPJ é único entre todos os GEs); só diz se está em uso, sem mostrar de quem.
   cnpjEmUso: (cnpj: string, exceto?: string) => Promise<boolean>;
   criarLoja: (i: LojaBody) => Promise<LojaRegistro>;
@@ -134,9 +135,9 @@ const prepararFuncionario = async <T extends Partial<FuncionarioBody>>(
 const mapeamentoOferecido = (m: Mapeamento, perfil: string): Mapeamento => {
   if (perfil === 'PLATFORM_OPERATOR') return m;
   if (perfil !== 'TENANT_ADMIN' || !m.lojas) return { ...m, lojas: null };
-  const completa = CAMPOS_LOJA.filter((c) => c.obrigatorio).every(
-    (c) => m.lojas!.colunas[c.chave] != null,
-  );
+  const completa =
+    CAMPOS_LOJA.filter((c) => c.obrigatorio).every((c) => m.lojas!.colunas[c.chave] != null) &&
+    (m.lojas.colunas.cnpj != null || m.lojas.colunas.codigo != null);
   return completa ? m : { ...m, lojas: null };
 };
 
@@ -276,17 +277,20 @@ export const makeCadastrosService = (repo: CadastrosRepository, auditar: Auditor
       mapeamento: mapeamentoOferecido(inf.mapeamento, perfil),
       sugestoes: inf.sugestoes,
       campos: {
-        lojas: CAMPOS_LOJA.map(({ chave, rotulo, obrigatorio, legado }) => ({
+        lojas: CAMPOS_LOJA.map(({ chave, rotulo, obrigatorio, obrigatorioNoModelo, legado }) => ({
           chave,
           rotulo,
-          obrigatorio,
+          obrigatorio: obrigatorio || !!obrigatorioNoModelo,
           legado: !!legado,
         })),
-        funcionarios: CAMPOS_FUNCIONARIO.map(({ chave, rotulo, obrigatorio }) => ({
-          chave,
-          rotulo,
-          obrigatorio,
-        })),
+        funcionarios: CAMPOS_FUNCIONARIO.map(
+          ({ chave, rotulo, obrigatorio, obrigatorioNoModelo, legado }) => ({
+            chave,
+            rotulo,
+            obrigatorio: obrigatorio || !!obrigatorioNoModelo,
+            legado: !!legado,
+          }),
+        ),
       },
     };
   },
@@ -310,6 +314,11 @@ export const makeCadastrosService = (repo: CadastrosRepository, auditar: Auditor
       const falta = campos
         .filter((c) => c.obrigatorio && parte.colunas[c.chave] == null)
         .map((c) => c.rotulo);
+      // A loja é identificada pelo CNPJ; planilha antiga, sem a coluna de CNPJ, pode usar o código.
+      const [porCnpj, porCodigo] =
+        chave === 'lojas' ? (['cnpj', 'codigo'] as const) : (['cnpj_loja', 'loja'] as const);
+      if (parte.colunas[porCnpj] == null && parte.colunas[porCodigo] == null)
+        falta.push(chave === 'lojas' ? 'CNPJ' : 'CNPJ da loja');
       if (falta.length)
         throw new ValidationError(`Faltou indicar a coluna: ${falta.join(', ')} (${chave})`);
     }
@@ -340,34 +349,42 @@ export const makeCadastrosService = (repo: CadastrosRepository, auditar: Auditor
     for (const loja of lojasDaPlanilha) {
       const { linha, configuracao, faturamento, ...dados } = loja;
       const n = linha ?? 0;
+      const rotulo = dados.cnpj ? `CNPJ ${formatarCnpj(dados.cnpj)}` : `Loja ${dados.codigo}`;
       const erro = (motivo: string) => resumo.erros.push({ aba: abaLojas, linha: n, motivo });
       const l = { ...dados } as LojaInput;
       // Faturamento, salário e encargos são valores em reais: só o dono grava.
       if (dono && faturamento) l.faturamento = faturamento;
-      if (!dono && (faturamento || configuracao?.custos)) semPermissaoDeValores.add(l.codigo);
+      if (!dono && (faturamento || configuracao?.custos)) semPermissaoDeValores.add(rotulo);
 
-      const existente = await repo.buscarLojaPorCodigo(l.codigo);
-      if (!existente && !operador) {
-        erro(`Loja ${l.codigo} não cadastrada: só o operador cria lojas`);
+      // O CNPJ identifica a loja; sem loja com esse CNPJ no grupo, vale o código (planilha antiga).
+      const porCnpj = l.cnpj ? await repo.buscarLojaPorCnpj(l.cnpj) : null;
+      const porCodigo = !porCnpj && l.codigo ? await repo.buscarLojaPorCodigo(l.codigo) : null;
+      const existente = porCnpj ?? porCodigo;
+      if (!existente && l.cnpj && !l.codigo) {
+        erro('CNPJ não encontrado entre as lojas do grupo');
         continue;
       }
-      if (!operador) {
-        // O CNPJ identifica a loja na carga da plataforma: o dono não muda.
-        if (l.cnpj && normalizarCnpj(l.cnpj) !== (existente?.cnpj ?? undefined))
-          avisos.push(
-            `Loja ${l.codigo}: o CNPJ da planilha foi ignorado (só o operador altera o CNPJ).`,
-          );
+      if (!existente && !operador) {
+        erro(`${rotulo} não cadastrada: só o operador cria lojas`);
+        continue;
+      }
+      if (!existente && (!l.codigo || !l.nome)) {
+        erro('Para criar uma loja informe o código e o nome da loja');
+        continue;
+      }
+      // Achada pelo CNPJ: o código e o CNPJ cadastrados não mudam por aqui.
+      if (porCnpj) {
+        delete l.codigo;
         delete l.cnpj;
       }
-      if (l.cnpj) {
-        if (!validarCnpj(l.cnpj)) {
-          erro(`Loja ${l.codigo}: CNPJ inválido`);
-          continue;
-        }
-        l.cnpj = normalizarCnpj(l.cnpj);
+      if (porCodigo && !operador) {
+        // O CNPJ identifica a loja na carga da plataforma: o dono não muda.
+        if (l.cnpj && normalizarCnpj(l.cnpj) !== (existente?.cnpj ?? undefined))
+          avisos.push(`${rotulo}: o CNPJ da planilha foi ignorado (só o operador altera o CNPJ).`);
+        delete l.cnpj;
       }
       if (l.cnpj && (await repo.cnpjEmUso(l.cnpj, existente?.id))) {
-        erro(`Loja ${l.codigo}: este CNPJ já está cadastrado`);
+        erro(`${rotulo}: este CNPJ já está cadastrado`);
         continue;
       }
       let lojaId: string;
@@ -376,10 +393,12 @@ export const makeCadastrosService = (repo: CadastrosRepository, auditar: Auditor
         lojaId = existente.id;
         resumo.lojas.atualizados++;
       } else {
-        lojaId = (await repo.criarLoja(l)).id;
+        lojaId = (await repo.criarLoja({ ...l, codigo: l.codigo!, nome: l.nome! })).id;
         resumo.lojas.novos++;
       }
-      lojaIds.set(l.codigo, lojaId);
+      if (dados.codigo) lojaIds.set(`codigo:${dados.codigo}`, lojaId);
+      if (dados.cnpj) lojaIds.set(`cnpj:${dados.cnpj}`, lojaId);
+      if (existente?.cnpj) lojaIds.set(`cnpj:${existente.cnpj}`, lojaId);
 
       if (configuracao) {
         const atual = await repo.configuracaoDaLoja(lojaId);
@@ -392,7 +411,7 @@ export const makeCadastrosService = (repo: CadastrosRepository, auditar: Auditor
           // O encargo vem do regime tributário da loja: a coluna "Encargos (%)" da planilha não vale mais.
           if (configuracao.custos.encargosPct !== undefined)
             avisos.push(
-              `Loja ${l.codigo}: a coluna Encargos (%) foi ignorada, o encargo agora vem do regime tributário da loja.`,
+              `${rotulo}: a coluna Encargos (%) foi ignorada, o encargo agora vem do regime tributário da loja.`,
             );
           // Os ajustes antigos de RAT/FAP/rescisão que já estavam guardados seguem como estão (o `...atual.custos` os mantém).
           const salarios = configuracao.custos.salarioMedio as Record<string, number>;
@@ -411,18 +430,24 @@ export const makeCadastrosService = (repo: CadastrosRepository, auditar: Auditor
       );
 
     for (const f of proc.funcionarios as FuncionarioInput[]) {
-      const lojaId =
-        lojaIds.get(f.lojaCodigo) ?? (await repo.buscarLojaPorCodigo(f.lojaCodigo))?.id;
+      // A loja de lotação: pelo CNPJ (modelo novo) ou, planilha antiga, pelo código.
+      const lojaId = f.lojaCnpj
+        ? (lojaIds.get(`cnpj:${f.lojaCnpj}`) ?? (await repo.buscarLojaPorCnpj(f.lojaCnpj))?.id)
+        : (lojaIds.get(`codigo:${f.lojaCodigo}`) ??
+          (await repo.buscarLojaPorCodigo(f.lojaCodigo ?? ''))?.id);
       if (!lojaId) {
         resumo.erros.push({
           aba: mapeamento.funcionarios!.aba,
           linha: f.linha ?? 0,
-          motivo: `Funcionário ${f.matricula}: loja ${f.lojaCodigo} não existe`,
+          motivo: f.lojaCnpj
+            ? `Funcionário ${f.matricula}: CNPJ ${formatarCnpj(f.lojaCnpj)} não encontrado entre as lojas do grupo`
+            : `Funcionário ${f.matricula}: loja ${f.lojaCodigo} não existe`,
         });
         continue;
       }
-      const { lojaCodigo: _omit, linha: _linha, ...dados } = f;
+      const { lojaCodigo: _omit, lojaCnpj: _omitCnpj, linha: _linha, ...dados } = f;
       void _omit;
+      void _omitCnpj;
       void _linha;
       const corpo = { ...dados, lojaId };
       const existente = await repo.buscarFuncionarioPorMatricula(f.matricula);

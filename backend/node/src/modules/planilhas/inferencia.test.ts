@@ -9,8 +9,9 @@ describe('inferirMapeamento', () => {
     const { mapeamento } = inferirMapeamento(abas.filter((a) => a.nome !== 'Como preencher'));
     expect(mapeamento.lojas?.aba).toBe('Lojas');
     expect(mapeamento.funcionarios?.aba).toBe('Funcionários');
-    expect(mapeamento.lojas?.colunas.codigo).toBe(0);
-    expect(mapeamento.funcionarios?.colunas.loja).toBe(2);
+    expect(mapeamento.lojas?.colunas.cnpj).toBe(0);
+    expect(mapeamento.funcionarios?.colunas.cnpj_loja).toBe(2);
+    expect(mapeamento.funcionarios?.colunas.funcao_escala).not.toBeNull(); // a coluna "Cargo" do modelo novo
   });
 
   it('o modelo novo é reconhecido inteiro: configuração, custos e horário fixo entram no mapeamento', async () => {
@@ -143,5 +144,27 @@ describe('inferirMapeamento', () => {
     expect(Object.values(mapeamento.lojas!.colunas).filter((c) => c !== null)).toHaveLength(
       lojas.cabecalhos.length,
     );
+  });
+
+  it('planilha antiga com "Cargo" e "Função de escala": cada coluna vai para o seu campo; só "Cargo": vale como cargo da escala', () => {
+    const duas = inferirMapeamento([
+      {
+        nome: 'Funcionários',
+        cabecalhos: ['Matrícula', 'Nome', 'Código da loja de lotação', 'Cargo', 'Função de escala'],
+        linhas: [['F1', 'Ana', '001', 'Balconista', 'Caixa']],
+      },
+    ]).mapeamento.funcionarios!.colunas;
+    expect(duas.cargo).toBe(3);
+    expect(duas.funcao_escala).toBe(4);
+    expect(duas.loja).toBe(2);
+    const so = inferirMapeamento([
+      {
+        nome: 'Funcionários',
+        cabecalhos: ['Matrícula', 'Nome', 'CNPJ da loja', 'Cargo'],
+        linhas: [['F1', 'Ana', '11.222.333/0001-81', 'Caixa']],
+      },
+    ]).mapeamento.funcionarios!.colunas;
+    expect(so.funcao_escala).toBe(3);
+    expect(so.cnpj_loja).toBe(2);
   });
 });

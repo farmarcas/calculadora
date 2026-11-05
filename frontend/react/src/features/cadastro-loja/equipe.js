@@ -44,7 +44,7 @@ export const ROTULO_OUTRO = "Outros Cargos (Fora do Cálculo)";
 export const cargoDoFuncionario = (f) => (FUNCOES.includes(f.funcaoEscala) ? f.funcaoEscala : ROTULO_OUTRO);
 export const funcaoDoSelect = (sel) => (sel === OUTRO || !sel ? null : sel);
 
-export const formularioVazio = () => ({ nome: "", cpf: "", cargoSel: "", cargaMensalH: "220", entrada: "08:00", saida: "17:00", dias: [0, 1, 2, 3, 4], matricula: "", horarioFixo: false });
+export const formularioVazio = () => ({ nome: "", cpf: "", cargoSel: "", cargaMensalH: "220", entrada: "08:00", saida: "17:00", iniIntervalo: "", fimIntervalo: "", dias: [0, 1, 2, 3, 4], matricula: "", horarioFixo: false });
 export const formularioDe = (f) => ({
   nome: f.nome ?? "",
   cpf: f.cpf ? formatarCpf(f.cpf) : "",
@@ -52,10 +52,28 @@ export const formularioDe = (f) => ({
   cargaMensalH: f.cargaMensalH ? String(f.cargaMensalH) : "",
   entrada: f.entrada ?? "",
   saida: f.saida ?? "",
+  iniIntervalo: f.iniIntervalo ?? "",
+  fimIntervalo: f.fimIntervalo ?? "",
   dias: f.dias ?? [],
   matricula: f.matricula ?? "",
   horarioFixo: f.horarioFixo === true,
 });
+
+const minutos = (t) => (/^\d{2}:\d{2}$/.test(t ?? "") ? Number(t.slice(0, 2)) * 60 + Number(t.slice(3)) : null);
+
+// Intervalo (as mesmas regras e mensagens do servidor): os dois ou nenhum; fim depois do início; dentro do horário de trabalho;
+// e só existe com entrada e saída. Devolve { campo, texto } ou nulo.
+export const erroDoIntervalo = (v) => {
+  if (!v.iniIntervalo && !v.fimIntervalo) return null;
+  if (!v.iniIntervalo || !v.fimIntervalo) return { campo: v.iniIntervalo ? "fimIntervalo" : "iniIntervalo", texto: "Informe o início e o fim do intervalo (ou deixe os dois em branco)." };
+  if (!v.entrada || !v.saida) return { campo: "iniIntervalo", texto: "Informe a entrada e a saída antes do intervalo." };
+  const ini = minutos(v.iniIntervalo);
+  const fim = minutos(v.fimIntervalo);
+  if (ini === null || fim === null) return { campo: "iniIntervalo", texto: "Use o formato HH:MM no intervalo." };
+  if (fim <= ini) return { campo: "fimIntervalo", texto: "O fim do intervalo deve ser depois do início." };
+  if (ini < minutos(v.entrada) || fim > minutos(v.saida)) return { campo: "iniIntervalo", texto: "O intervalo deve ficar dentro do horário de trabalho." };
+  return null;
+};
 
 // Erros em texto, com o campo para focar.
 export const errosDoFuncionario = (v) => {
@@ -65,6 +83,8 @@ export const errosDoFuncionario = (v) => {
   if (!v.cargoSel) e.push({ campo: "cargo", texto: "Escolha o cargo." });
   if (!!v.entrada !== !!v.saida) e.push({ campo: v.entrada ? "saida" : "entrada", texto: "Informe a entrada e a saída juntas." });
   else if (v.entrada && v.entrada === v.saida) e.push({ campo: "saida", texto: "A saída precisa ser diferente da entrada." });
+  const erroIntervalo = erroDoIntervalo(v);
+  if (erroIntervalo) e.push(erroIntervalo);
   return e;
 };
 
@@ -84,6 +104,11 @@ export const funcionarioParaApi = (v, lojaId, novo) => {
   if (v.entrada || v.saida || !novo) {
     b.entrada = v.entrada || null;
     b.saida = v.saida || null;
+  }
+  // Intervalo: ao editar, em branco limpa; ao criar, só vai se foi informado.
+  if (v.iniIntervalo || v.fimIntervalo || !novo) {
+    b.iniIntervalo = v.iniIntervalo || null;
+    b.fimIntervalo = v.fimIntervalo || null;
   }
   return b;
 };

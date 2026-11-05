@@ -14,8 +14,8 @@ export default function Diagnostico({ diag, podeEscrever, onEnviar, onSimular, o
       <Cartao>
         <div className="p-10 text-center">
           <p className="m-0 text-base font-medium">{diag.mensagem}</p>
-          <p className="mt-2 mb-4 text-sm text-ink-500">Sem a escala atual não há quadro por função, capacidade de horas e turnos nem cobertura por faixa.</p>
-          {podeEscrever && <Botao onClick={onEnviar}>Enviar planilhas</Botao>}
+          <p className="mt-2 mb-4 text-sm text-ink-500">Sem o horário dos funcionários não há quadro por função, capacidade de horas e turnos nem cobertura por faixa.</p>
+          {podeEscrever && onDefinirFuncao && <Botao onClick={onDefinirFuncao}>Cadastrar horários dos funcionários</Botao>}
         </div>
       </Cartao>
       </div>

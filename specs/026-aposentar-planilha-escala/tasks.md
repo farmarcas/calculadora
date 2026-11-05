@@ -27,11 +27,11 @@ Formato: `- [ ] ID [P] [História] descrição com o arquivo`. Servidor em `back
 - [x] T018 Rodar os testes do servidor e da tela e commitar a fatia
 
 ## Fatia 4 — Tela: Equipe com intervalo e envio só da Base comercial (Histórias 2 e 4)
-- [ ] T019 [US2] `cadastro-loja/equipe.js`, `FormFuncionario.jsx`, `AbaEquipe.jsx`: campos "Início do intervalo" e "Fim do intervalo" junto da entrada e da saída, as mesmas validações e mensagens do servidor (dois juntos, fim depois do início, dentro do turno), e o intervalo na lista da Equipe
-- [ ] T020 [P] [US2] Testes de lógica da tela (`equipe.test.js`): validações do intervalo e montagem do corpo da requisição (inclui limpar)
-- [ ] T021 [US4] `diagnostico/EnviarPlanilhas.jsx`: sai o bloco "Escala atual" e o modelo dela; o título e o texto explicam que o envio é só da Base comercial
-- [ ] T022 [US4] `Diagnostico.jsx`, `QuadroCentral.jsx` e `EscalaPage.jsx`: textos que mandavam enviar a escala ("Sem a escala atual não há quadro por função…", "Da escala atual", pendência de linhas rejeitadas, botão "Enviar planilhas" do estado vazio) passam a orientar o Cadastro de funcionários; o botão do estado vazio leva ao Cadastro
-- [ ] T023 Conferir no navegador (editar intervalo na Equipe com os erros; Importar só com Base comercial; Diagnóstico sem pendência de escala; aviso da Simulação) e commitar a fatia
+- [x] T019 [US2] `cadastro-loja/equipe.js`, `FormFuncionario.jsx`, `AbaEquipe.jsx`: campos "Início do intervalo" e "Fim do intervalo" junto da entrada e da saída, as mesmas validações e mensagens do servidor (dois juntos, fim depois do início, dentro do turno), e o intervalo na lista da Equipe
+- [x] T020 [P] [US2] Testes de lógica da tela (`equipe.test.js`): validações do intervalo e montagem do corpo da requisição (inclui limpar)
+- [x] T021 [US4] `diagnostico/EnviarPlanilhas.jsx`: sai o bloco "Escala atual" e o modelo dela; o título e o texto explicam que o envio é só da Base comercial
+- [x] T022 [US4] `Diagnostico.jsx`, `QuadroCentral.jsx` e `EscalaPage.jsx`: textos que mandavam enviar a escala ("Sem a escala atual não há quadro por função…", "Da escala atual", pendência de linhas rejeitadas, botão "Enviar planilhas" do estado vazio) passam a orientar o Cadastro de funcionários; o botão do estado vazio leva ao Cadastro
+- [x] T023 Conferir no navegador (editar intervalo na Equipe com os erros; Importar só com Base comercial; Diagnóstico sem pendência de escala; aviso da Simulação) e commitar a fatia
 
 ## Fatia 5 — Migração das escalas já importadas (História 3, P1)
 - [ ] T024 [US3] `prisma/migrar-escala-para-cadastro.ts` e script `npm run migrar-escala` no `package.json`: ensaio por padrão e `--aplicar` para gravar (uma transação por loja); para cada loja com escala importada ativa e cada turno, achar o funcionário da mesma loja e matrícula e preencher só o que está vazio (dias, entrada, saída, início e fim do intervalo, função de escala, carga semanal); nunca criar funcionário, nunca sobrescrever, nunca apagar; imprimir o relatório por loja (preenchidos, já tinham dados, sem correspondente) e os totais

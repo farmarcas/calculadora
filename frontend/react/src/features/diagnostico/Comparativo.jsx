@@ -50,10 +50,10 @@ export default function Comparativo({ comparativo, cenarios, lojaId, podeEscreve
       try {
         s = await api(`/lojas/${lojaId}/simulacoes`, { method: "POST", body: { ...corpo, origem: "escala_atual" } });
       } catch (e) {
-        // Sem escala importada: a simulação parte do quadro do Cadastro, sem turnos.
-        if (!/Importe a escala atual/.test(e.message)) throw e;
+        // Nenhum funcionário com horário no Cadastro: a simulação parte do quadro do Cadastro, sem horários.
+        if (e.code !== "SEM_HORARIO_NO_CADASTRO") throw e;
         s = await api(`/lojas/${lojaId}/simulacoes`, { method: "POST", body: { ...corpo, origem: "vazia" } });
-        aviso = "Esta loja ainda não tem escala importada: a simulação parte do quadro do Cadastro, sem turnos. Contratações, horários e impacto já funcionam; para montar a escala, importe a planilha em Enviar planilhas.";
+        aviso = "Esta loja ainda não tem funcionários com horário no Cadastro: a simulação parte do quadro do Cadastro, sem horários. Contratações, horários e impacto já funcionam; para ver a cobertura de quem já trabalha, cadastre o horário dos funcionários em Cadastros › Equipe.";
       }
       const vagas = vagasDeCenario(c);
       // A simulação já nasce com as contratações e os horários do cenário clicado (o Cenário 1 mantém o horário do Cadastro).

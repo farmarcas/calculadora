@@ -11,10 +11,10 @@ Formato: `- [ ] ID [P] [História] descrição com o arquivo`. Servidor em `back
 - [x] T006 Rodar os testes do servidor (unidade e integração) e commitar a fatia
 
 ## Fatia 2 — Regras da tela e token de cor (Histórias 3 e 4)
-- [ ] T007 [P] [US3] `grade/formato.js` (novo, puro): reais com sinal (`+R$ 4.900`, `−R$ 2.299` com U+2212, `R$ 2.299`), horas (`89h por semana`), rótulos do tipo do cenário, "—" para valor ausente; `formato.test.js`
-- [ ] T008 [US3] `grade/comparacao.js` (novo, puro): as 15 métricas em 4 grupos com o sentido da cor de cada uma (contrato `regras-da-comparacao.md`); `diferenca(metrica, valor, base)`; `corDaDiferenca`; `trocarBase(ids, id)` (move para a frente); `contarMudancas` ("N de M itens", com M = 11 sem valores em reais); `linhasVisiveis(soOQueMudou)` (esconde iguais e grupos vazios); `comparacao.test.js` cobrindo cada regra de cor, a troca de base, a contagem e o filtro
-- [ ] T009 [P] `styles/alquimia.css`: token `--text-success-strong: #3E7500` (e a variante para o tema escuro, se houver)
-- [ ] T010 Rodar os testes da tela e commitar a fatia
+- [x] T007 [P] [US3] `grade/formato.js` (novo, puro): reais com sinal (`+R$ 4.900`, `−R$ 2.299` com U+2212, `R$ 2.299`), horas (`89h por semana`), rótulos do tipo do cenário, "—" para valor ausente; `formato.test.js`
+- [x] T008 [US3] `grade/comparacao.js` (novo, puro): as 15 métricas em 4 grupos com o sentido da cor de cada uma (contrato `regras-da-comparacao.md`); `diferenca(metrica, valor, base)`; `corDaDiferenca`; `trocarBase(ids, id)` (move para a frente); `contarMudancas` ("N de M itens", com M = 11 sem valores em reais); `linhasVisiveis(soOQueMudou)` (esconde iguais e grupos vazios); `comparacao.test.js` cobrindo cada regra de cor, a troca de base, a contagem e o filtro
+- [x] T009 [P] (o token já existia no projeto) `styles/alquimia.css`: token `--text-success-strong: #3E7500` (e a variante para o tema escuro, se houver)
+- [x] T010 Rodar os testes da tela e commitar a fatia
 
 ## Fatia 3 — Lista de simulações com resultado e seleção (Histórias 1 e 2, P1)
 - [ ] T011 [US1] `grade/ListaDeSimulacoes.jsx` (substitui a tabela de `GradeTab.jsx`): título, subtítulo, "Mostrar descartadas" e "Nova simulação"; colunas seleção, Nome (com o tipo em linha de apoio), Situação (selos Rascunho, Gravada, Desatualizada com dica por `title` e `aria-describedby`), Saldo por mês (16 px, negrito, verde/vermelho, sinal), Horas abertas, Folha extra, Criada (data e "por <nome legível>") e "Abrir"; linha selecionada com `--color-primary-soft`, altura mínima 64 px; colunas em reais só quando a API as devolve; estado vazio com o texto do board

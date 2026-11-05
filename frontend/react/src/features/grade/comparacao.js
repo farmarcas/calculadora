@@ -82,6 +82,7 @@ const textoDaDiferenca = (metrica, delta) => {
 export const textoDoValor = (metrica, valor) => {
   if (valor == null) return VAZIO;
   if (metrica.tipo === "marca") return valor ? "Falta" : "Cobre tudo";
+  if (metrica.chave === "saldo") return reaisComSinal(valor); // o saldo sempre com sinal: +R$ 4.900 / −R$ 2.299
   if (metrica.un === "reais") return reais(valor);
   if (metrica.un === "h") return horas(valor);
   if (metrica.un === "%") return `${arred(valor)}%`;

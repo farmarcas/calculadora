@@ -4,7 +4,7 @@ import { Aviso, Botao, Campo, Modal, entrada } from "../../components/ui/index.j
 import BarraDeComparar from "./BarraDeComparar.jsx";
 import ListaDeSimulacoes from "./ListaDeSimulacoes.jsx";
 import { MENSAGEM_LIMITE, alternarSelecao, marcadasValidas, mostrarBarra } from "./selecao.js";
-import Comparar from "./Comparar.jsx";
+import ComparacaoDeSimulacoes from "./ComparacaoDeSimulacoes.jsx";
 import SimulacaoPage from "../simulacao/SimulacaoPage.jsx";
 
 function Nova({ lojaId, lista, onClose, onCriada }) {
@@ -61,6 +61,7 @@ export default function GradeTab({ lojaId, perfil, podeEscrever, abrirId, avisoI
   const [comparando, setComparando] = useState(false);
   const [aviso, setAviso] = useState(null);
   const [limite, setLimite] = useState(false);
+  const [avisoLista, setAvisoLista] = useState(null);
 
   const carregar = useCallback(async () => {
     try {
@@ -82,6 +83,7 @@ export default function GradeTab({ lojaId, perfil, podeEscrever, abrirId, avisoI
     const r = alternarSelecao(marcadas, id);
     setMarcadas(r.marcadas);
     setLimite(r.barrada);
+    setAvisoLista(null);
   };
   useEffect(() => {
     carregar();
@@ -95,7 +97,12 @@ export default function GradeTab({ lojaId, perfil, podeEscrever, abrirId, avisoI
 
   if (comparando)
     return (
-      <Comparar lojaId={lojaId} ids={marcadas} onVoltar={() => { setComparando(false); carregar(); }} />
+      <ComparacaoDeSimulacoes
+        lojaId={lojaId}
+        ids={marcadas}
+        lista={lista}
+        onVoltar={(mensagem) => { setComparando(false); setMarcadas(mensagem ? [] : marcadas); setAvisoLista(mensagem ?? null); carregar(); }}
+      />
     );
 
   if (aberta)
@@ -114,6 +121,7 @@ export default function GradeTab({ lojaId, perfil, podeEscrever, abrirId, avisoI
   return (
     <div className="flex flex-col gap-6">
       {erro && <Aviso>{erro}</Aviso>}
+      {avisoLista && <Aviso tom="neutro">{avisoLista}</Aviso>}
       <div>
         <ListaDeSimulacoes
           lista={lista}

@@ -6,13 +6,13 @@
 
 **Status**: Draft
 
-**Input**: User description: "Refazer os cartões de Cenários sugeridos conforme os quadros 'Cenários · B2 · Custo e venda iguais, saldo em destaque' e 'Ver todos os dias (painel de detalhe)': sempre três cenários (Manter horários, Foco em economia, Equilíbrio), faixa de resultado com saldo em destaque e custo de folha e venda do mesmo tamanho, contratações com barras de horas, horas ociosas, faixa da semana com os dias alterados e painel 'Dias e horários' aberto por 'Ver todos os dias'."
+**Input**: User description: "Refazer os cartões de Cenários sugeridos conforme os quadros 'Cenários · B2 · Custo e venda iguais, saldo em destaque' e 'Ver todos os dias (painel de detalhe)': sempre três cenários (Manter horários, Sem contratações, Equilíbrio), faixa de resultado com saldo em destaque e custo de folha e venda do mesmo tamanho, contratações com barras de horas, horas ociosas, faixa da semana com os dias alterados e painel 'Dias e horários' aberto por 'Ver todos os dias'."
 
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Comparar os três cenários de relance (Priority: P1)
 
-O dono vê três cartões lado a lado, sempre nesta ordem: **1 Manter horários**, **2 Foco em economia**, **3 Equilíbrio**. Cada cartão traz, em destaque, o **saldo da operação por mês** (folha e venda somadas) e, logo abaixo, dois blocos do mesmo tamanho: o que acontece com a **folha** e o que acontece com a **venda**. Abaixo vêm o status do cenário, a comparação com o Cenário 1, a descrição, as contratações, as horas ociosas e o horário da semana. O cartão do cenário sugerido tem borda azul, o selo "Cenário sugerido" e o botão principal; os outros trazem "Alternativa" e o botão de contorno.
+O dono vê três cartões lado a lado, sempre nesta ordem: **1 Manter horários**, **2 Sem contratações**, **3 Equilíbrio**. Cada cartão traz, em destaque, o **saldo da operação por mês** (folha e venda somadas) e, logo abaixo, dois blocos do mesmo tamanho: o que acontece com a **folha** e o que acontece com a **venda**. Abaixo vêm o status do cenário, a comparação com o Cenário 1, a descrição, as contratações, as horas ociosas e o horário da semana. O cartão do cenário sugerido tem borda azul, o selo "Cenário sugerido" e o botão principal; os outros trazem "Alternativa" e o botão de contorno.
 
 **Why this priority**: É a tela de decisão do produto; o resto do pedido depende dela.
 
@@ -20,7 +20,7 @@ O dono vê três cartões lado a lado, sempre nesta ordem: **1 Manter horários*
 
 **Acceptance Scenarios**:
 
-1. **Given** uma loja com cenários calculados, **When** os cartões aparecem, **Then** são exatamente três, com os nomes "Manter horários", "Foco em economia" e "Equilíbrio", nessa ordem, e nunca um quarto.
+1. **Given** uma loja com cenários calculados, **When** os cartões aparecem, **Then** são exatamente três, com os nomes "Manter horários", "Sem contratações" e "Equilíbrio", nessa ordem, e nunca um quarto.
 2. **Given** um cenário com saldo positivo, **When** o cartão é mostrado, **Then** o saldo aparece como "+ R$ 29.280" em verde; com saldo negativo, "− R$ 6.480" em vermelho; com saldo zero, "R$ 0" em preto.
 3. **Given** um cenário que acrescenta folha e perde venda, **When** a faixa de resultado é mostrada, **Then** a coluna da folha traz "CUSTO DE FOLHA" em vermelho com "a mais por mês" e a coluna da venda traz "VENDA QUE DEIXA DE ENTRAR" em vermelho com o percentual por mês, as duas com o mesmo tamanho.
 4. **Given** um cenário que amplia horários, **When** a coluna da venda é mostrada, **Then** traz "VENDA ESTIMADA" em verde com "+x% por mês".
@@ -81,7 +81,7 @@ O cartão lista **uma linha por contratação** (letra da função, nome, barra 
 
 ### Functional Requirements
 
-- **FR-001**: A tela MUST mostrar sempre três cartões, na ordem Manter horários, Foco em economia e Equilíbrio, sem nunca criar um quarto.
+- **FR-001**: A tela MUST mostrar sempre três cartões, na ordem Manter horários, Sem contratações e Equilíbrio, sem nunca criar um quarto.
 - **FR-002**: Cada cartão MUST seguir esta ordem: selo e título com número, faixa de resultado, status e comparação com o Cenário 1, descrição, contratações, horas ociosas, horário da semana e botão Personalizar.
 - **FR-003**: O cartão do cenário sugerido MUST ter borda azul, selo "CENÁRIO SUGERIDO" e botão principal; os demais "ALTERNATIVA" e botão de contorno. O cenário sugerido segue a regra de hoje (melhor saldo que resiste à metade da venda estimada).
 - **FR-004**: A faixa de resultado MUST ter altura fixa e mostrar, nesta ordem: o rótulo "SALDO DA OPERAÇÃO POR MÊS", o saldo em tamanho maior que qualquer outro valor da faixa, "folha e venda somadas", e duas colunas de mesmo tamanho (folha e venda).

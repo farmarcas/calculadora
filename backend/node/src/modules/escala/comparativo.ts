@@ -172,7 +172,7 @@ export const montarComparativo = (e: EntradaCenarios, c: CenariosRegra): Compara
     alertas(alertasEco, 'Sem venda hora a hora, não é possível estimar a venda perdida.');
   const colEco: ColunaComparativo = {
     id: 'economia',
-    nome: 'Foco em economia',
+    nome: 'Sem contratações',
     premissa: economia.foco,
     resultado: economia.resultado,
     faltaPorFuncao: economia.faltaPorFuncao,

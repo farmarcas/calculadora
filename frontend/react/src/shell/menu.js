@@ -1,20 +1,11 @@
 // O menu inteiro descrito uma vez. Quem vê cada item depende só do perfil; o item atual, só da tela e da seção.
-// Minhas Lojas = Cadastros (rotas de sempre); Escala traz Diagnóstico e Simulações.
+// Minhas Lojas = Cadastros (rotas de sempre); Escala leva à tela da Escala, que tem as abas Diagnóstico e Simulações.
 const ITENS = [
-  {
-    id: "lojas", rotulo: "Minhas Lojas", icone: "loja", tela: "cadastros",
-    filhos: [
-      { id: "lojas-lista", rotulo: "Lojas", icone: "loja", tela: "cadastros", secao: "lojas" },
-      { id: "lojas-parametros", rotulo: "Parâmetros legais", icone: "parametros", tela: "cadastros", secao: "parametros", soOperador: true },
-    ],
-  },
-  {
-    id: "escala", rotulo: "Escala", icone: "calendario", tela: "escala",
-    filhos: [
-      { id: "escala-diagnostico", rotulo: "Diagnóstico", icone: "prancheta", tela: "escala", secao: "diagnostico" },
-      { id: "escala-simulacoes", rotulo: "Simulações", icone: "play", tela: "escala", secao: "grade" },
-    ],
-  },
+  { id: "lojas", rotulo: "Minhas Lojas", icone: "loja", tela: "cadastros", secao: "lojas" },
+  // Parâmetros legais valem para toda a plataforma: só o operador vê, como item próprio.
+  { id: "parametros", rotulo: "Parâmetros legais", icone: "parametros", tela: "cadastros", secao: "parametros", soOperador: true },
+  // Diagnóstico e Simulações ficam nas abas da própria tela da Escala; o menu leva à Escala (que abre no Diagnóstico).
+  { id: "escala", rotulo: "Escala", icone: "calendario", tela: "escala", secao: "diagnostico" },
   { id: "grupos", rotulo: "Grupos", icone: "grupo", tela: "grupos", soOperador: true },
 ];
 

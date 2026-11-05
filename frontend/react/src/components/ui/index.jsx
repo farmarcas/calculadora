@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { forwardRef, useEffect } from "react";
 
 // Alquimia DS · Button: 40 px (normal) ou 32 px (pequeno), 14 px / 12 px em negrito, raio de 4 px.
 // primario = primary-filled · secundario = primary-outline · texto = primary-unfilled (ação de linha: pequeno).
@@ -10,13 +10,15 @@ const botoes = {
 };
 const tamanhos = { normal: "h-10 px-4 text-sm", pequeno: "h-8 px-3 text-xs" };
 
-export const Botao = ({ tipo = "primario", tamanho, className = "", ...p }) => (
+export const Botao = forwardRef(({ tipo = "primario", tamanho, className = "", ...p }, ref) => (
   <button
+    ref={ref}
     type="button"
     {...p}
     className={`inline-flex items-center justify-center gap-2 rounded-btn font-bold whitespace-nowrap transition-colors disabled:cursor-not-allowed ${tamanhos[tamanho ?? (tipo === "texto" ? "pequeno" : "normal")]} ${botoes[tipo]} ${className}`}
   />
-);
+));
+Botao.displayName = "Botao";
 
 // Ícone de upload (Lucide, traço de 2 px), herda a cor do texto. Decorativo: o botão já tem o rótulo.
 export const IconeUpload = ({ tamanho = 18 }) => (

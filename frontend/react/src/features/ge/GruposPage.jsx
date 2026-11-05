@@ -60,7 +60,7 @@ export default function GruposPage({ geAtual, onAbrir, onMudou }) {
 
       <Cartao
         titulo={`Grupos (${grupos.length})`}
-        subtitulo={`${totalLojas} lojas no total, ${totalEquipe} já com equipe cadastrada · Dados fictícios enquanto o parecer de proteção de dados não existir`}
+        subtitulo={`${totalLojas} lojas no total, ${totalEquipe} já com equipe cadastrada`}
         acoes={<input aria-label="Buscar grupo" placeholder="Buscar por nome, número ou responsável" value={busca} onChange={(e) => { setBusca(e.target.value); setMostrar(POR_PAGINA); }} className={`${entrada} w-72`} />}
       >
         <div className="overflow-x-auto">

@@ -2,7 +2,7 @@
 let perfil = localStorage.getItem("perfil") || "TENANT_ADMIN";
 
 // GE de demonstração (sem login real nesta fase). Enquanto a tela de escolha do GE não existe, usa o GE inicial.
-const GE_INICIAL = "00000000-0000-7000-8000-000000000001";
+export const GE_INICIAL = "00000000-0000-7000-8000-000000000001";
 let ge = localStorage.getItem("ge") || GE_INICIAL;
 
 export const getGe = () => ge;

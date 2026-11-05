@@ -10,10 +10,10 @@ Formato: `- [ ] ID [P] [História] descrição com o arquivo`. Servidor em `back
 - [x] T005 Rodar os testes do servidor (unidade e integração) e commitar a fatia
 
 ## Fatia 2 — Revisão da base comercial (servidor) (História 2, P1)
-- [ ] T006 [US2] `escala/escala.service.ts` e `escala.routes.ts`: `revisarBase(arquivo, buffer)` e `POST /cargas/base/revisar` (multipart, mesmas permissões de `/cargas/base`): lê, soma por loja, **não grava**; devolve `{ arquivo, linhas, lojas, lojasNaoCadastradas, periodo: { inicio, fim }, substitui: [{ codigo, desde }], erros, totalErros }`; `desde` é a data do envio ativo da loja (`baseAtiva`)
-- [ ] T007 [US2] Mensagens: coluna faltando no formato `Não encontramos a coluna Hora. Baixe o modelo e confira os nomes das colunas.` (`abrir` do serviço); arquivo acima de 10 MB com a mensagem `O arquivo tem mais de 10 MB. Divida a planilha em arquivos menores.` (tratamento do erro do Multer no `uploadPlanilha`)
-- [ ] T008 [US2] Testes de integração: a revisão não grava (cargas e vendas iguais antes e depois); período e número de lojas corretos; `substitui` traz a loja e a data quando já havia base e vem vazio quando não havia; loja não cadastrada listada; coluna faltando, formato errado e arquivo acima do limite
-- [ ] T009 Rodar os testes do servidor e commitar a fatia
+- [x] T006 [US2] `escala/escala.service.ts` e `escala.routes.ts`: `revisarBase(arquivo, buffer)` e `POST /cargas/base/revisar` (multipart, mesmas permissões de `/cargas/base`): lê, soma por loja, **não grava**; devolve `{ arquivo, linhas, lojas, lojasNaoCadastradas, periodo: { inicio, fim }, substitui: [{ codigo, desde }], erros, totalErros }`; `desde` é a data do envio ativo da loja (`baseAtiva`)
+- [x] T007 [US2] Mensagens: coluna faltando no formato `Não encontramos a coluna Hora. Baixe o modelo e confira os nomes das colunas.` (`abrir` do serviço); arquivo acima de 10 MB com a mensagem `O arquivo tem mais de 10 MB. Divida a planilha em arquivos menores.` (tratamento do erro do Multer no `uploadPlanilha`)
+- [x] T008 [US2] Testes de integração: a revisão não grava (cargas e vendas iguais antes e depois); período e número de lojas corretos; `substitui` traz a loja e a data quando já havia base e vem vazio quando não havia; loja não cadastrada listada; coluna faltando, formato errado e arquivo acima do limite
+- [x] T009 Rodar os testes do servidor e commitar a fatia
 
 ## Fatia 3 — Componentes comuns da tela (História 3, P1)
 - [ ] T010 [P] [US3] `components/importacao/useArmadilhaDeFoco.js`: hook que prende Tab e Shift+Tab dentro da janela, fecha com Esc (quando permitido), trava a rolagem do corpo e devolve o foco ao elemento que abriu; `formato.js`: tamanho em KB/MB, datas dd/mm/aaaa, período, e `listaDeErrosCsv(erros)`; testes de unidade de `formato.js` e da lógica de foco/Esc

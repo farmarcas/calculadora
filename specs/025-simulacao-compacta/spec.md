@@ -62,7 +62,7 @@ O card "Resultado da simulação" fica sempre na coluna da direita e acompanha a
 1. **Given** uma simulação que reduz horários, **When** o Resultado é mostrado, **Then** "Venda que deixa de entrar" traz o valor por mês ("nas horas fechadas") e "Venda estimada" fica "R$ 0".
 2. **Given** uma simulação que abre mais a loja, **When** o Resultado é mostrado, **Then** "Venda estimada" traz "+R$ …" em verde ("por mês, nas horas abertas a mais") e o saldo soma essa venda.
 3. **Given** um saldo negativo, **When** o bloco é mostrado, **Then** o valor aparece em vermelho com o sinal "−" e "Esta simulação custa mais do que economiza."; com saldo positivo, em verde com "+" e "Esta simulação rende mais do que custa."
-4. **Given** o saldo, **When** é calculado, **Then** vale `(economia de folha − folha extra − hora extra) + (venda estimada − venda que deixa de entrar)`; mostra também o valor por ano e o percentual do faturamento mensal.
+4. **Given** o saldo, **When** é calculado, **Then** vale `−folha extra − hora extra + venda estimada − venda que deixa de entrar`, sempre contra a folha atual da loja (a mesma regra dos cartões dos cenários); mostra também o valor por ano e o percentual do faturamento mensal; a "Economia de folha" continua na tela como informação.
 5. **Given** uma tela larga, **When** a página rola, **Then** o Resultado continua visível à direita e não passa para baixo do conteúdo em nenhuma largura de computador.
 6. **Given** uma loja sem venda hora a hora, **When** o Resultado é mostrado, **Then** a venda que deixa de entrar e o saldo não são estimados (nunca R$ 0) e o texto diz o que falta.
 
@@ -108,7 +108,7 @@ A lista de horários (largura fixa) e o gráfico (ocupa o resto) ficam lado a la
 - **FR-008**: Os três resumos do dia MUST seguir as regras das cenas 3 e 4 da História 2, com "Venda que deixa de entrar" em vermelho quando maior que zero e "Venda estimada nas horas novas" em verde.
 - **FR-009**: O card Resultado MUST ficar à direita (360 px), fixo ao rolar, com o chip do modo, o saldo por mês em destaque e as linhas na ordem Folha extra, Hora extra, Venda que deixa de entrar, Venda estimada, Economia de folha, Horas abertas, mais o botão "Salvar como cenário N" e o texto de apoio.
 - **FR-010**: A "Venda estimada" MUST ser a soma, por mês, da venda estimada das horas novas de todos os dias (50% da venda da hora vizinha onde não há venda registrada), sem valor para quem não é dono, e MUST ser "R$ 0" quando nenhum horário aumenta.
-- **FR-011**: O saldo MUST ser calculado numa única função: `(economia de folha − folha extra − hora extra) + (venda estimada − venda que deixa de entrar)`; mostra o valor por ano e o percentual do faturamento mensal; sem dado, não é estimado (nunca R$ 0).
+- **FR-011**: O saldo MUST ser calculado numa única função: `−folha extra − hora extra + venda estimada − venda que deixa de entrar`, contra a folha atual (a mesma regra dos cartões, então a Simulação de um cenário mostra o mesmo saldo do cartão dele); mostra o valor por ano e o percentual do faturamento mensal; sem dado, não é estimado (nunca R$ 0). A "Economia de folha" (contra manter o horário e contratar) segue como linha informativa, fora da conta.
 - **FR-012**: Os textos MUST usar só o vocabulário Folha extra, Hora extra, Venda que deixa de entrar, Venda estimada, Economia de folha, Horas abertas e Saldo por mês; "Venda que sai" e "margem" MUST sair da tela inteira.
 - **FR-013**: A lista (400 px fixa) e o gráfico (restante) MUST ficar lado a lado, com a dica "+ e − mudam de 30 em 30 minutos. Também dá para digitar o horário." embaixo.
 - **FR-014**: Verde de texto MUST usar o token `--text-success-strong` (#3E7500).
@@ -127,14 +127,14 @@ A lista de horários (largura fixa) e o gráfico (ocupa o resto) ficam lado a la
 - **SC-001**: A abertura e o fechamento de qualquer dia mudam de 30 em 30 minutos com "+" e "−" e por digitação, em 100% dos dias, sem permitir horário inválido.
 - **SC-002**: Ao reduzir um horário, as horas fechadas aparecem listradas e "Venda que deixa de entrar" ganha valor; ao aumentar, a hora nova aparece em verde, "Venda estimada" ganha valor e o saldo recalcula, tudo em menos de 1 segundo após o clique.
 - **SC-003**: O Resultado fica visível à direita em todas as larguras de computador (1280 a 1920 px) durante toda a rolagem.
-- **SC-004**: Para os dois exemplos do desenho (reduzindo: folha extra R$ 0, venda que deixa de entrar R$ 41.916, economia de folha R$ 1.641, saldo −R$ 40.275; abrindo mais: folha extra R$ 4.200, venda estimada R$ 9.100, saldo +R$ 4.900), a conta do saldo bate exatamente.
+- **SC-004**: Para os exemplos do desenho, a conta do saldo bate exatamente: reduzindo (folha extra R$ 0, venda que deixa de entrar R$ 41.916) dá −R$ 41.916 (o quadro mostrava −R$ 40.275 por contar a economia de folha de R$ 1.641 contra manter o horário, o que foi trocado de propósito), e abrindo mais (folha extra R$ 4.200, venda estimada R$ 9.100) dá +R$ 4.900. O saldo da Simulação de um cenário é igual ao saldo do cartão desse cenário.
 - **SC-005**: Nenhum texto da tela usa "Venda que sai" nem "margem", e nenhum texto verde usa o tom antigo de baixo contraste.
 - **SC-006**: A lista e o gráfico ficam alinhados a 1440 px, sem espaço vazio visível embaixo do gráfico.
 
 ## Assumptions
 
 - **Decisão (venda estimada)**: calculada no servidor, com a mesma regra dos cenários (50% da venda da hora vizinha onde não há venda registrada), para a tela e os cenários nunca mostrarem números diferentes. *Por quê*: hoje a Simulação não tem venda estimada; o servidor já tem a regra.
-- **Decisão (saldo)**: a fórmula do pedido, isolada numa função. *Por quê*: o próprio pedido diz que ainda precisa de confirmação com o produto e quer a troca fácil.
+- **Decisão (saldo)**: contra a folha atual, como nos cartões, isolado numa função. *Por quê*: confirmado com a pessoa. A fórmula literal do quadro descontava a folha extra duas vezes quando há contratação e daria um saldo diferente do cartão do mesmo cenário; o próprio pedido diz que a regra precisa de confirmação e pede a troca fácil.
 - **Decisão (dia fechado)**: "Fechar dia" leva a "Fechado nesta simulação" com "Reabrir"; um dia fechado no Cadastro mostra "Fechado" com "Abrir". Será mostrado no plano antes de implementar. *Por quê*: o quadro não desenha esse estado.
 - **Decisão (limites do gráfico)**: de 06h a 21h por padrão, ampliando para cobrir qualquer hora aberta. *Por quê*: lojas abrem antes das 8h ou depois das 20h.
 - **Decisão (toque)**: botões de 32×20 px no computador, sem mudar para 44 px agora. *Por quê*: o pedido deixa a versão em toque para depois.

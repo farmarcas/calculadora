@@ -1,26 +1,25 @@
 import { useState } from "react";
 import { Aviso, Segmentado } from "../../components/ui/index.jsx";
-import { NOMES_DIA, reais } from "./formato.js";
+import { NOMES_DIA } from "./formato.js";
+import { apoioDoGrafico, estadosDoDia, horasDoGrafico, legenda, resumoDoDia, rotuloDaBarra } from "./grafico-regras.js";
 
-const ALTURA = 150;
+const NOMES_LONGOS = ["segunda", "terça", "quarta", "quinta", "sexta", "sábado", "domingo"];
+const LISTRADO = "repeating-linear-gradient(135deg, var(--surface-muted) 0 4px, var(--surface-card) 4px 8px)";
+const VERDE_CLARO = "color-mix(in srgb, var(--func-success-100) 40%, white)";
+const FUNDO = {
+  aberta: { background: "var(--system-100)" },
+  pico: { background: "var(--system-500)" },
+  fechada: { background: LISTRADO, border: "1px solid var(--border-subtle)" },
+  nova: { background: VERDE_CLARO, border: "1px dashed var(--text-success-strong)" },
+};
+const COR_RESUMO = { perigo: "var(--text-danger)", sucesso: "var(--text-success-strong)", neutro: "var(--text-strong)" };
 
-// Valor acima de cada barra, curto: "15,5" com "mil" embaixo (ou o número inteiro abaixo de mil).
-function Rotulo({ valor, usada, destaque, apagado }) {
-  const mil = usada === "venda" && valor >= 1000;
-  const numero = mil ? (valor / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 }) : Math.round(valor).toLocaleString("pt-BR");
-  return (
-    <span aria-hidden="true" className={`flex h-7 flex-col items-center justify-end whitespace-nowrap leading-3 ${apagado ? "text-[var(--text-disabled)]" : destaque ? "font-bold text-[var(--text-strong)]" : "text-[var(--text-secondary)]"}`}>
-      <span className="text-[11px]">{numero}</span>
-      {mil && <span className="text-[10px]">mil</span>}
-    </span>
-  );
-}
-
-// Venda (R$, só o dono) ou clientes por hora do dia escolhido. A altura é fixa: trocar de dia não faz a tela pular.
+// Venda (R$, só o dono) ou clientes por hora do dia escolhido. As barras crescem até a altura da coluna: o gráfico preenche o
+// espaço ao lado da lista de horários, sem sobra embaixo.
 export default function GraficoVendas({ resultado: r, dia, onDia }) {
   const [metrica, setMetrica] = useState("venda");
   const v = r.vendaPorHora;
-    const metricas = [...(v.venda ? [["venda", "Venda (R$)"]] : []), ...(v.clientes ? [["clientes", "Clientes"]] : [])];
+  const metricas = [...(v.venda ? [["venda", "Venda (R$)"]] : []), ...(v.clientes ? [["clientes", "Clientes"]] : [])];
 
   if (!r.temBase || metricas.length === 0)
     return (
@@ -30,64 +29,92 @@ export default function GraficoVendas({ resultado: r, dia, onDia }) {
     );
 
   const usada = metricas.some(([m]) => m === metrica) ? metrica : metricas[0][0];
-  const serie = usada === "venda" ? v.venda[dia] : v.clientes[dia];
-  const cad = r.horario.cadastro;
-  // Horas mostradas: de quem abre mais cedo a quem fecha mais tarde, olhando o Cadastro, o horário desta simulação (que pode
-  // estender o funcionamento) e qualquer hora com venda na base. Assim lojas que abrem antes das 8h ou fecham depois das 20h
-  // aparecem inteiras; o intervalo é o mesmo em todos os dias, para o gráfico não mudar de largura ao trocar de dia.
-  const faixas = [...cad, ...r.horario.dias].filter((d) => d.aberta && d.abre && d.fecha);
-  let de = faixas.length ? Math.min(...faixas.map((d) => Number(d.abre.slice(0, 2)))) : 7;
-  let ate = faixas.length ? Math.max(...faixas.map((d) => Math.ceil(Number(d.fecha.slice(0, 2)) + Number(d.fecha.slice(3)) / 60))) : 22;
-  for (let d = 0; d < 7; d++) {
-    for (let h = 0; h < 24; h++) {
-      if (((usada === "venda" ? v.venda : v.clientes)?.[d]?.[h] ?? 0) > 0) { de = Math.min(de, h); ate = Math.max(ate, h + 1); }
-    }
-  }
-  const horas = Array.from({ length: Math.max(1, ate - de) }, (_, k) => de + k);
-  const max = Math.max(...horas.map((h) => serie[h]), 0);
-  const pico = (h) => max > 0 && serie[h] >= max * 0.85;
-  const maior = horas.find((h) => serie[h] === max);
-  const valor = (n) => (usada === "venda" ? reais(n) : `${Math.round(n)} clientes`);
-  const fechadasNoDia = horas.filter((h) => v.fechadas[dia][h]).length;
-  const alterado = r.horario.dias[dia]?.alterado;
+  const matriz = usada === "venda" ? v.venda : v.clientes;
+  const serie = matriz[dia];
+  const horas = horasDoGrafico(r.horario.cadastro, r.horario.dias, matriz);
+  const estados = estadosDoDia({ dia, horas, resultado: r, serie });
+  const estimada = usada === "venda" ? v.estimada?.[dia] ?? null : null;
+  const valorDe = (h, e) => (e === "nova" ? estimada?.[h] ?? 0 : serie[h] ?? 0);
+  const max = Math.max(...horas.map((h, i) => valorDe(h, estados[i])), 0);
+  const resumo = resumoDoDia({ dia, resultado: r });
+  const itens = legenda({ temNova: resumo.temNova });
+  const pico = horas[estados.indexOf("pico")];
 
   return (
-    <div className="min-w-0">
+    <div className="flex min-h-[360px] min-w-0 flex-col">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <Segmentado rotulo="Dia da semana" opcoes={NOMES_DIA.map((n, i) => [i, n, r.horario.cadastro[i].aberta ? undefined : { desabilitado: true, dica: `${n}: loja fechada` }])} valor={dia} onChange={onDia} />
+        <div role="tablist" aria-label="Dia da semana" className="inline-flex overflow-hidden rounded-btn border border-[var(--border-default)] bg-[var(--surface-card)]">
+          {NOMES_DIA.map((n, i) => (
+            <button key={n} type="button" role="tab" aria-selected={i === dia} onClick={() => onDia(i)} className={`h-10 min-w-10 cursor-pointer border-0 px-3 text-sm focus-visible:outline-2 focus-visible:outline-[var(--border-focus)] ${i === dia ? "bg-[var(--neutral-dark-900)] font-bold text-white" : "bg-transparent text-[var(--text-secondary)] hover:bg-[var(--surface-subtle)]"}`}>{n}</button>
+          ))}
+        </div>
         {metricas.length > 1 && <Segmentado rotulo="Métrica" opcoes={metricas} valor={usada} onChange={setMetrica} />}
       </div>
       <p className="m-0 mt-3 text-xs text-[var(--text-secondary)]">
-        {usada === "venda" ? "Venda por hora" : "Clientes por hora"}
-        {usada === "venda" && v.ticketMedio ? ` · ticket médio R$ ${v.ticketMedio.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : ""} · dados do sistema de vendas
+        {apoioDoGrafico({ temNova: resumo.temNova, metrica: usada })}
+        {usada === "venda" && v.ticketMedio ? ` · ticket médio R$ ${v.ticketMedio.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : ""}
       </p>
 
-      <div role="img" aria-label={`${usada === "venda" ? "Venda" : "Clientes"} por hora, ${NOMES_DIA[dia]}. Maior valor às ${maior}h.`} className="mt-4 flex items-end gap-1.5" style={{ height: ALTURA + 28 }}>
-        {horas.map((h) => {
-          const fechada = v.fechadas[dia][h];
-          const altura = max > 0 ? Math.max(4, Math.round((serie[h] / max) * ALTURA)) : 4;
+      <div role="img" aria-label={`${usada === "venda" ? "Venda" : "Clientes"} por hora, ${NOMES_LONGOS[dia]}.${pico !== undefined ? ` Maior valor às ${pico}h.` : ""}`} className="mt-4 flex min-h-[220px] flex-1 items-stretch gap-1.5">
+        {horas.map((h, i) => {
+          const e = estados[i];
+          const valor = valorDe(h, e);
+          const frac = max > 0 ? valor / max : 0;
+          const nova = e === "nova";
           return (
-            <div key={h} className="flex min-w-0 flex-1 flex-col items-center justify-end" style={{ height: "100%" }} title={`${h}h · ${valor(serie[h])}${fechada ? " (fechada na simulação)" : pico(h) ? " (pico)" : ""}`}>
-              <Rotulo valor={serie[h]} usada={usada} destaque={h === maior && !fechada} apagado={fechada} />
-              <div className="w-full rounded-t-[3px]" style={{ height: altura, background: fechada ? "var(--surface-muted)" : pico(h) ? "var(--system-500)" : "var(--system-100)" }} />
+            <div key={h} className="flex min-w-0 flex-1 flex-col justify-end" title={`${h}h · ${nova ? "hora nova, venda estimada" : e === "fechada" ? "fechada na simulação" : e === "pico" ? "pico" : "aberta"}`}>
+              <div className="flex flex-col" style={{ height: `calc((100% - 40px) * ${frac} + 40px)`, minHeight: 44 }}>
+                <span aria-hidden="true" className={`flex h-9 shrink-0 flex-col items-center justify-end text-[11px] leading-3 whitespace-nowrap ${nova ? "font-bold text-[var(--text-success-strong)]" : e === "pico" ? "font-bold text-[var(--text-strong)]" : "text-[var(--text-secondary)]"}`}>
+                  {nova && usada !== "venda" ? "" : <Rotulo texto={rotuloDaBarra(valor, { metrica: usada, nova })} />}
+                </span>
+                <div className="mt-1 min-h-1 flex-1 rounded-t-[3px]" style={FUNDO[e]} />
+              </div>
             </div>
           );
         })}
       </div>
       <div aria-hidden="true" className="mt-1 flex gap-1.5">
-        {horas.map((h) => <span key={h} className={`min-w-0 flex-1 text-center text-xs ${h === maior ? "font-bold text-[var(--text-strong)]" : "text-[var(--text-secondary)]"}`}>{String(h).padStart(2, "0")}h</span>)}
+        {horas.map((h, i) => <span key={h} className={`min-w-0 flex-1 text-center text-xs ${estados[i] === "nova" ? "font-bold text-[var(--text-success-strong)]" : estados[i] === "pico" ? "font-bold text-[var(--text-strong)]" : "text-[var(--text-secondary)]"}`}>{String(h).padStart(2, "0")}h</span>)}
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-xs text-[var(--text-secondary)]">
-        <ul className="m-0 flex list-none flex-wrap gap-x-4 gap-y-1 p-0">
-          {[["var(--system-500)", "Pico"], ["var(--system-100)", "Demais horas"], ["var(--surface-muted)", "Fechada na simulação"]].map(([cor, t]) => (
-            <li key={t} className="flex items-center gap-1.5"><span aria-hidden="true" className="inline-block h-3 w-3 rounded-[2px]" style={{ background: cor }} />{t}</li>
-          ))}
-        </ul>
-        <strong className="text-sm text-[var(--text-strong)]">
-          {alterado ? `${fechadasNoDia}h fechadas neste dia` : "Sem alteração neste dia"}
-        </strong>
+      <ul className="m-0 mt-4 flex list-none flex-wrap gap-x-4 gap-y-1 p-0 text-xs text-[var(--text-secondary)]">
+        {itens.map(([tipo, t]) => (
+          <li key={tipo} className="flex items-center gap-1.5"><span aria-hidden="true" className="inline-block h-3 w-3 rounded-[2px]" style={FUNDO[tipo]} />{t}</li>
+        ))}
+      </ul>
+
+      <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
+        <Resumo titulo={`Horas abertas, ${NOMES_LONGOS[dia]}`} valor={`${String(resumo.horasAbertas.valor).replace(".", ",")}h`} apoio={resumo.horasAbertas.apoio} />
+        {resumo.temNova
+          ? resumo.vendaEstimadaNasHorasNovas && <Resumo titulo="Venda estimada nas horas novas" valor={resumo.vendaEstimadaNasHorasNovas.texto} apoio={resumo.vendaEstimadaNasHorasNovas.apoio} cor={COR_RESUMO.sucesso} />
+          : (
+            <>
+              {resumo.vendaEstimadaNoDia && <Resumo titulo="Venda estimada no dia" valor={resumo.vendaEstimadaNoDia.texto} />}
+              {resumo.vendaQueDeixaDeEntrar && <Resumo titulo="Venda que deixa de entrar no dia" valor={resumo.vendaQueDeixaDeEntrar.texto} apoio={resumo.vendaQueDeixaDeEntrar.apoio} cor={COR_RESUMO[resumo.vendaQueDeixaDeEntrar.tom]} />}
+            </>
+          )}
       </div>
     </div>
   );
 }
+
+// Rótulo com a máscara de reais em até três linhas ("R$", o número e "mil"), para caber na largura da barra mesmo com o gráfico estreito.
+const Rotulo = ({ texto }) => {
+  const m = /^(\+?)R\$ (.+?)( mil)?$/.exec(texto);
+  if (!m) return <span>{texto}</span>;
+  return (
+    <>
+      <span className="text-[9px] leading-[10px]">{m[1]}R$</span>
+      <span>{m[2]}</span>
+      {m[3] && <span className="text-[9px] leading-[10px]">mil</span>}
+    </>
+  );
+};
+
+const Resumo = ({ titulo, valor, apoio, cor = "var(--text-strong)" }) => (
+  <div className="flex flex-col gap-0.5 rounded-card bg-[var(--surface-subtle)] px-4 py-3">
+    <span className="text-xs leading-4 text-[var(--text-secondary)]">{titulo}</span>
+    <span className="text-xl leading-7 font-bold" style={{ color: cor }}>{valor}</span>
+    {apoio && <span className="text-xs leading-4 text-[var(--text-secondary)]">{apoio}</span>}
+  </div>
+);

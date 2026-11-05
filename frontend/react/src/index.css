@@ -58,13 +58,13 @@ body { margin: 0; background: var(--surface-page); color: var(--ink-900); font-f
 .sim-painel { position: static; }
 /* A coluna dos passos tem a sua própria medida: o painel de 360 px já tirou espaço dela. */
 .sim-esq { container-type: inline-size; container-name: passos; }
-@container sim (min-width: 1100px) {
+@container sim (min-width: 840px) {
   .sim-grade { grid-template-columns: minmax(0, 1fr) 360px; gap: 24px; }
   .sim-painel { position: sticky; top: 16px; }
 }
-/* Passo 1: lista de horários (400 px) e gráfico lado a lado a partir de 880 px de conteúdo; o gráfico estica até a altura da lista. */
+/* Passo 1: lista de horários (400 px) e gráfico lado a lado a partir de 800 px de largura do card; o gráfico estica até a altura da lista. */
 .sim-passo1 { display: grid; grid-template-columns: minmax(0, 1fr); gap: 32px; align-items: stretch; }
-@container passos (min-width: 880px) { .sim-passo1 { grid-template-columns: 400px minmax(0, 1fr); } }
+@container passos (min-width: 800px) { .sim-passo1 { grid-template-columns: 400px minmax(0, 1fr); } }
 /* Passo 2: tabela de contratações. Estreita: um bloco por função, com rótulos; média (600 px): 3 colunas;
    larga (900 px): as 5 colunas do desenho. */
 .sim-contr-cab { display: none; }

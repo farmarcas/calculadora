@@ -80,6 +80,34 @@ describe('comparativo dos cenários 1, 2 e 3', () => {
     expect(col(r, 'equilibrio')).toMatchObject({ recolher: 'manter', folhaAdicionalMensal: 11000, economiaFolhaMensal: 0, saldoMensal: 0 });
   });
 
+  it('saldo da operação (spec 024): contra a folha atual, é o saldo antigo menos o custo de folha do Cenário 1', () => {
+    const r = comparar({ estenderHorario: false });
+    const custo1 = col(r, 'manter').folhaAdicionalMensal!;
+    // Cenário 1: custo de folha 11000 e nenhuma venda perdida = −11000 (antes: R$ 0, a base).
+    expect(col(r, 'manter').saldoOperacaoMensal).toBe(-custo1);
+    // Os outros: o saldo novo = o antigo − o custo do Cenário 1; a ordem entre os cenários não muda.
+    for (const id of ['economia', 'equilibrio'] as const) {
+      const c = col(r, id);
+      expect(c.saldoOperacaoMensal!).toBeCloseTo(c.saldoMensal! - custo1, 1);
+    }
+    const ordem = (campo: 'saldoMensal' | 'saldoOperacaoMensal') =>
+      [...r.cenarios].sort((a, b) => a[campo]! - b[campo]!).map((c) => c.id);
+    expect(ordem('saldoOperacaoMensal')).toEqual(ordem('saldoMensal'));
+  });
+
+  it('saldo da operação e venda estimada em %: só para o dono e nulos sem dado', () => {
+    const naoDono = comparar({ dono: false });
+    for (const c of naoDono.cenarios) {
+      expect(c).not.toHaveProperty('saldoOperacaoMensal');
+      expect(c).not.toHaveProperty('vendaAdicionalPct');
+    }
+    const r = comparar();
+    for (const c of r.cenarios) {
+      expect(c).toHaveProperty('saldoOperacaoMensal');
+      expect(c).toHaveProperty('vendaAdicionalPct');
+    }
+  });
+
   it('com a folha cara (40000) cortar o sábado compensa: o Cenário 3 corta 4 h, economiza folha e fica com saldo positivo', () => {
     const r = comparar({ custos: cara, estenderHorario: false });
     // Cenário 1: 1 integral (40000) + parcial de 4 h (4000) = 44000. Cenário 3: sábado até 18h, 1 integral (40000):

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { api } from "../../api/client.js";
 import { ehOperador } from "../../api/perfis.js";
-import { AVISO_DADOS_FICTICIOS, LARGURA_DUAS_COLUNAS } from "./config.js";
+import { LARGURA_DUAS_COLUNAS } from "./config.js";
 import DetalheLoja from "./DetalheLoja.jsx";
 import ListaLojas from "./ListaLojas.jsx";
 import NovaLoja from "./NovaLoja.jsx";
@@ -91,12 +91,6 @@ export default function CadastroLojaPage({ perfil }) {
 
   return (
     <>
-      {AVISO_DADOS_FICTICIOS && (
-        <p className="m-0 flex items-center gap-2 text-xs text-[var(--text-secondary)]">
-          <span aria-hidden="true" className="inline-block h-2 w-2 rounded-full bg-[var(--color-primary)]" />
-          Dados fictícios enquanto o parecer de proteção de dados não existir.
-        </p>
-      )}
       <div ref={caixa} className="cl-conteiner" data-vista={vista} data-largo={largo}>
         <div className="cl-cartao">
           <div className="cl-lista">

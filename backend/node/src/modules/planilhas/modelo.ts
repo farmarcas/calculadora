@@ -42,7 +42,7 @@ export const gerarModelo = async (): Promise<Buffer> => {
       `Função de escala aceita: ${FUNCOES_ESCALA.join(', ')}. Deixando em branco, o sistema tenta deduzir pelo cargo.`,
     ],
     [
-      'Horários no formato HH:MM. Use apenas dados fictícios enquanto o parecer de proteção de dados não existir.',
+      'Horários no formato HH:MM.',
     ],
     [''],
     ['Aba Lojas: configuração para o cálculo da Escala'],

@@ -1,5 +1,7 @@
+import { Prisma } from '../../generated/prisma/client.js';
 import { prisma } from '../../shared/database/prisma.js';
 import { decimalParaHora, horaParaDecimal, mensalDeSemanal } from './carga.js';
+import { manterMargem, type Faturamento } from './faturamento.js';
 import { FUNCOES_NO_CALCULO, funcaoNoCalculo } from './funcoes.js';
 import { normalizarHorarios, resumoHorarios } from './horarios.js';
 import type { Aba } from '../planilhas/leitor.js';
@@ -183,18 +185,28 @@ export const cadastrosRepository = (geId: string): CadastrosRepository => ({
     );
   },
   async criarLoja(i) {
+    const dados = limpa(i) as Record<string, unknown>;
+    // Loja nova nasce sem margem: ela só existe nas lojas que já a tinham guardada.
+    if (dados.faturamento) dados.faturamento = manterMargem(dados.faturamento as Faturamento, null);
     return comoLoja(
       await prisma.loja.create({
-        data: { ...limpa(i), geId } as never,
+        data: { ...dados, geId } as never,
         select: lojaSel,
       }),
     );
   },
   async atualizarLoja(id, i) {
+    const dados = limpa(i) as Record<string, unknown>;
+    // A margem que já estava guardada no faturamento nunca muda por aqui.
+    if (dados.faturamento !== undefined) {
+      const atual = await prisma.loja.findFirst({ where: { id, geId }, select: { faturamento: true } });
+      const fat = manterMargem(dados.faturamento as Faturamento | null, atual?.faturamento);
+      dados.faturamento = fat === null ? Prisma.JsonNull : fat;
+    }
     return comoLoja(
       await prisma.loja.update({
         where: { id, geId },
-        data: limpa(i) as never,
+        data: dados as never,
         select: lojaSel,
       }),
     );

@@ -41,7 +41,7 @@ describe('salvar tudo: PUT /lojas/:id/painel (spec 017)', () => {
   });
 
   it('o dono grava dados, funcionamento, faturamento, configuração e custos numa só chamada', async () => {
-    const fat = { dias: [1000, 1000, 1000, 1000, 1000, 1000, null], mensal: null, margemPct: 30 };
+    const fat = { dias: [1000, 1000, 1000, 1000, 1000, 1000, null], mensal: null };
     const r = await salvar({
       loja: { nome: 'Centro Novo', cidade: 'Sumaré', uf: 'SP', regimeTributario: 'real', horarios: semana(), faturamento: fat },
       configuracao: {
@@ -93,7 +93,7 @@ describe('salvar tudo: PUT /lojas/:id/painel (spec 017)', () => {
   });
 
   it('permissões: faturamento e custos só do dono; configuração não é do operador; consulta não grava', async () => {
-    const fat = { dias: [1, 1, 1, 1, 1, 1, null], mensal: null, margemPct: null };
+    const fat = { dias: [1, 1, 1, 1, 1, 1, null], mensal: null };
     const g = await salvar({ loja: { faturamento: fat } }, gestor);
     expect(g.status).toBe(403);
     expect((await salvar({ custos: { salarioMedio: { Caixa: 2000 } } }, gestor)).status).toBe(403);
@@ -120,7 +120,7 @@ describe('salvar tudo: PUT /lojas/:id/painel (spec 017)', () => {
     await salvar({ configuracao: { turnos: [turno('Dia', '08:00', '20:00')] } });
     await salvar({ configuracao: { modoMinimo: 'unico' } });
     expect(await doBanco()).toMatchObject({ turnos: { modo: 'unico', turnos: [{ nome: 'Dia' }] } });
-    await salvar({ loja: { faturamento: { dias: [1, 1, 1, 1, 1, 1, null], mensal: null, margemPct: null } } });
+    await salvar({ loja: { faturamento: { dias: [1, 1, 1, 1, 1, 1, null], mensal: null } } });
     const r = await salvar({ loja: { faturamento: null } });
     expect(r.status).toBe(200);
     expect(r.body.loja.faturamento ?? null).toBeNull();

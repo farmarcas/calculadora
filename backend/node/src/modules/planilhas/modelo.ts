@@ -65,7 +65,7 @@ export const gerarModelo = async (): Promise<Buffer> => {
     [''],
     ['Quem importa o quê'],
     [
-      'O operador cria e atualiza lojas. O dono atualiza as lojas que já existem (horário, faturamento, margem e configuração), mas não cria loja nem muda código ou CNPJ. O gestor importa só a equipe.',
+      'O operador cria e atualiza lojas. O dono atualiza as lojas que já existem (horário, faturamento e configuração), mas não cria loja nem muda código ou CNPJ. O gestor importa só a equipe.',
     ],
     ['Coluna em branco mantém o que já está cadastrado: vazio nunca apaga.'],
   ]);

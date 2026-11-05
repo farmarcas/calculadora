@@ -86,11 +86,13 @@ const CAMPOS_FATURAMENTO: CampoDef[] = [
     exemplo: '420000',
     sinonimos: ['fat mensal', 'faturamento mensal', 'faturamento medio mensal'],
   },
+  // Formato antigo: margem bruta média. Ainda é entendida na importação (para não cair em outra coluna), mas é ignorada.
   {
     chave: 'margem_pct',
     rotulo: 'Margem bruta média (%)',
     obrigatorio: false,
-    exemplo: '28',
+    legado: true,
+    exemplo: '',
     sinonimos: ['margem pct', 'margem bruta', 'margem bruta media', 'margem %'],
   },
 ];

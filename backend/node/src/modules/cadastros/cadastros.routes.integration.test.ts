@@ -432,7 +432,6 @@ describe('cadastros (rotas)', () => {
     const fat = {
       dias: [12000, 12000, 12000, 12000, 15000, 18000, null],
       mensal: 420000,
-      margemPct: 28,
     };
 
     it('o dono grava e lê; gestor e consulta nem recebem o campo', async () => {
@@ -486,8 +485,9 @@ describe('cadastros (rotas)', () => {
       expect(up.body.mapeamento.lojas.colunas).toMatchObject({
         fat_seg: 2,
         fat_mensal: 3,
-        margem_pct: 4,
       });
+      // A coluna de margem de planilhas antigas é reconhecida (não cai em outra coluna) e ignorada.
+      expect(up.body.mapeamento.lojas.colunas).toMatchObject({ margem_pct: 4 });
       const ok = await reqGe()
         .post(`/api/v1/importacoes/cadastro/${up.body.id}/confirmar`)
         .set(operador)
@@ -496,7 +496,7 @@ describe('cadastros (rotas)', () => {
       expect(ok.body.lojas).toEqual({ novos: 1, atualizados: 0 });
       expect(ok.body.avisos.join(' ')).toContain('só o dono do grupo grava');
       expect((await prisma.loja.findFirst({ where: { codigo: '050' } }))?.faturamento).toBeNull();
-      // O dono, na mesma loja que já existe, grava o faturamento e a margem.
+      // O dono, na mesma loja que já existe, grava o faturamento (a margem da planilha é ignorada).
       const up2 = await reqGe()
         .post('/api/v1/importacoes/cadastro')
         .set(admin)
@@ -509,7 +509,51 @@ describe('cadastros (rotas)', () => {
       expect(ok2.body.lojas).toEqual({ novos: 0, atualizados: 1 });
       expect(
         (await prisma.loja.findFirst({ where: { codigo: '050' } }))?.faturamento,
-      ).toMatchObject({ mensal: 300000, margemPct: 25 });
+      ).toEqual({ dias: [10000, null, null, null, null, null, null], mensal: 300000 });
+    });
+
+    it('a margem que já estava guardada na loja continua a mesma ao salvar o faturamento e ao importar planilha antiga', async () => {
+      const c = await postLoja({ codigo: '060', nome: 'Loja M' });
+      expect(c.status).toBe(201);
+      // O dono grava o faturamento: a margem enviada é ignorada (loja sem margem guardada não ganha uma).
+      await reqGe()
+        .patch(`/api/v1/lojas/${c.body.id}`)
+        .set(admin)
+        .send({ faturamento: { ...fat, margemPct: 28 } });
+      expect(
+        (await prisma.loja.findFirst({ where: { codigo: '060' } }))?.faturamento,
+      ).not.toHaveProperty('margemPct');
+      // Valor antigo guardado direto no banco (como em lojas que já tinham margem).
+      const antigo = { ...fat, margemPct: 30 };
+      await prisma.loja.update({ where: { id: c.body.id }, data: { faturamento: antigo } });
+      // Salvar pela tela (sem margem, ou com outra) não a muda.
+      await reqGe()
+        .patch(`/api/v1/lojas/${c.body.id}`)
+        .set(admin)
+        .send({ faturamento: { dias: [1, 1, 1, 1, 1, 1, 1], mensal: 5 } });
+      await reqGe()
+        .patch(`/api/v1/lojas/${c.body.id}`)
+        .set(admin)
+        .send({ faturamento: { dias: [2, 2, 2, 2, 2, 2, 2], mensal: 6, margemPct: 99 } });
+      expect(
+        (await prisma.loja.findFirst({ where: { codigo: '060' } }))?.faturamento,
+      ).toMatchObject({ mensal: 6, margemPct: 30 });
+      // Planilha antiga com a coluna de margem (até 150) importa sem erro e não mexe nela.
+      const cab = ['Cód_Loja', 'Nome_Loja', 'Fat_Seg', 'Fat_Mensal', 'Margem_Pct'];
+      const buf = await planilha([['060', 'Loja M', '7000', '70000', '150']], [], cab);
+      const up = await reqGe()
+        .post('/api/v1/importacoes/cadastro')
+        .set(admin)
+        .attach('arquivo', buf, 'f.xlsx');
+      const ok = await reqGe()
+        .post(`/api/v1/importacoes/cadastro/${up.body.id}/confirmar`)
+        .set(admin)
+        .send({ mapeamento: up.body.mapeamento });
+      expect(ok.status).toBe(200);
+      expect(ok.body.erros ?? []).toEqual([]);
+      expect(
+        (await prisma.loja.findFirst({ where: { codigo: '060' } }))?.faturamento,
+      ).toMatchObject({ mensal: 70000, margemPct: 30 });
     });
   });
   describe('importação em massa: configuração da loja e horário fixo (spec 014)', () => {

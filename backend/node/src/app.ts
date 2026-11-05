@@ -6,6 +6,8 @@ import { errorHandler } from './shared/middlewares/error-handler.js';
 import { requestId } from './shared/middlewares/request-id.js';
 import { exigirGe } from './shared/middlewares/ge.js';
 import { lerPerfil } from './shared/middlewares/perfil.js';
+import { autenticarRadar, modoRadar, type GePermitido } from './shared/middlewares/auth.js';
+import { perfilNoGe } from './shared/auth/mapa-perfil.js';
 import { cadastrosRouter } from './modules/cadastros/cadastros.routes.js';
 import { painelRouter } from './modules/cadastros/painel.routes.js';
 import { escalaRouter } from './modules/escala/escala.routes.js';
@@ -51,9 +53,36 @@ export const createApp = (deps: AppDeps = {}) => {
   });
 
   app.use('/api/v1/users', usersRouter(deps.usersRepository));
+
+  // Autenticação: no modo 'radar' exige o login do Radar; no 'header' (local/testes) só lê o X-Perfil.
+  const autenticar = modoRadar ? autenticarRadar : lerPerfil;
+
+  // Quem é o usuário logado + GEs que ele pode usar (o front usa para montar o seletor de GE).
+  app.get('/api/v1/session', autenticar, (_req, res) => {
+    if (!modoRadar) {
+      res.json({ modo: 'header' });
+      return;
+    }
+    const sessao = res.locals.sessao!;
+    const ges = (res.locals.gesPermitidos ?? []) as GePermitido[];
+    res.json({
+      modo: 'radar',
+      email: sessao.email,
+      perfil: res.locals.perfil,
+      operador: sessao.operador,
+      // Perfil por GE: dono da loja vira gestor; os demais, consulta (mesmo mapa do servidor).
+      ges: ges.map((g) => ({
+        id: g.calcId,
+        nome: g.nome,
+        dono: g.dono,
+        perfil: perfilNoGe(sessao, g.dono),
+      })),
+    });
+  });
+
   app.use(
     '/api/v1',
-    lerPerfil,
+    autenticar,
     // Regras legais, grupos e carga de lojas são da plataforma: não pedem o GE.
     parametrosRouter(),
     encargosRouter(),

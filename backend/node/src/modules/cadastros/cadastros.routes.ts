@@ -44,6 +44,16 @@ export const cadastrosRouter = (
       .status(201)
       .json(await s(res).receberPlanilha(req.file.originalname, req.file.buffer, perfilDe(res)));
   });
+  // Revisão antes de gravar: lê o arquivo como a gravação leria, mas não grava nada.
+  r.post(
+    '/importacoes/cadastro/:id/revisar',
+    importa,
+    validate(S.confirmarReq),
+    async (_req, res) => {
+      const { params, body } = v<typeof S.confirmarReq>(res);
+      res.json(await s(res).revisarImportacao(params.id, body.mapeamento, perfilDe(res)));
+    },
+  );
   r.post(
     '/importacoes/cadastro/:id/confirmar',
     importa,

@@ -1,37 +1,48 @@
 import { useCallback, useEffect, useState } from "react";
-import { api, getGe, getPerfil, setGe, setPerfil } from "./api/client.js";
-import { PERFIS, ehOperador } from "./api/perfis.js";
+import { api, getGe, getPerfil, GE_INICIAL, setGe, setPerfil } from "./api/client.js";
+import { ehOperador, cuidaDoGrupo } from "./api/perfis.js";
 import CadastrosPage from "./features/cadastros/CadastrosPage.jsx";
 import EscalaPage from "./features/diagnostico/EscalaPage.jsx";
+import EnviarPlanilhas from "./features/diagnostico/EnviarPlanilhas.jsx";
 import { confirmarSaida } from "./features/cadastro-loja/guardaSaida.js";
 import { lerUrl } from "./features/cadastro-loja/urlDaLoja.js";
 import GruposPage from "./features/ge/GruposPage.jsx";
+import AppShell from "./shell/AppShell.jsx";
+import FaixaDeContexto from "./shell/FaixaDeContexto.jsx";
+import MenuDaConta from "./shell/MenuDaConta.jsx";
+import { horasDeFuncionamento } from "./shell/horas.js";
+import { SECAO_INICIAL, folhaAtual, folhas, telaTemFaixa } from "./shell/menu.js";
 
-const MENU = [
-  { id: "grupos", rotulo: "Grupos", soOperador: true },
-  { id: "cadastros", rotulo: "Cadastros" },
-  { id: "escala", rotulo: "Escala" },
-];
+const TELAS = ["cadastros", "escala", "grupos"];
 
 export default function App() {
   const [perfil, setP] = useState(getPerfil());
   const [ge, setG] = useState(getGe());
   const [ges, setGes] = useState([]);
-  // Em tela estreita (celular) o menu começa recolhido.
-  const [aberto, setAberto] = useState(() => window.innerWidth >= 768);
-  const [tela, setTela] = useState(() => (["cadastros", "escala", "grupos"].includes(lerUrl().tela) ? lerUrl().tela : "cadastros"));
-  // Trocar de tela com alterações não salvas pergunta antes.
-  const irPara = (id) => { if (id !== tela && !confirmarSaida()) return; setTela(id); if (id !== "cadastros") window.history.replaceState(null, "", `${window.location.pathname}?tela=${id}`); };
+  const [tela, setTela] = useState(() => (TELAS.includes(lerUrl().tela) ? lerUrl().tela : "cadastros"));
+  const [secao, setSecao] = useState(() => SECAO_INICIAL[TELAS.includes(lerUrl().tela) ? lerUrl().tela : "cadastros"]);
+  // Lojas do grupo e a loja escolhida: o filtro da faixa é o único lugar de trocar de loja.
+  const [lojas, setLojas] = useState(null);
+  const [lojaId, setLojaId] = useState("");
+  const [importando, setImportando] = useState(false);
+  const [versaoDados, setVersaoDados] = useState(0);
 
-  // Ao estreitar a janela (ou girar o celular) o menu recolhe sozinho; ao alargar, abre.
-  useEffect(() => {
-    const mq = window.matchMedia("(min-width: 768px)");
-    const ajustar = (e) => setAberto(e.matches);
-    mq.addEventListener("change", ajustar);
-    return () => mq.removeEventListener("change", ajustar);
+  // O papel pode não ver a tela atual (ex.: sair de operador estando em Grupos): vai para a primeira permitida.
+  const folha = folhaAtual(perfil, tela, secao);
+
+  const irPara = (f) => {
+    if (f.tela !== folha.tela && !confirmarSaida()) return;
+    setTela(f.tela);
+    setSecao(f.secao ?? null);
+    if (f.tela !== "cadastros") window.history.replaceState(null, "", `${window.location.pathname}?tela=${f.tela}`);
+  };
+  const irParaInicio = () => irPara(folhas(perfil)[0]);
+
+  // Sem login (o SSO virá depois): o papel e o grupo são escolhidos no menu da conta, só para demonstração.
+  const escolherGe = useCallback((id) => {
+    setGe(id);
+    setG(id);
   }, []);
-
-  // Sem login (o SSO virá depois): o papel e o grupo são escolhidos aqui, só para demonstração.
   const carregarGes = useCallback(async () => {
     try {
       const lista = (await api("/ge")).data;
@@ -41,89 +52,75 @@ export default function App() {
     } catch {
       setGes([]);
     }
-  }, []);
+  }, [escolherGe]);
   useEffect(() => { carregarGes(); }, [carregarGes]);
 
-  const escolherGe = (id) => {
-    setGe(id);
-    setG(id);
-  };
-  const trocar = (p) => {
+  // Lojas do grupo (recarrega ao trocar de grupo e depois de uma importação).
+  useEffect(() => {
+    let vivo = true;
+    api("/lojas?pageSize=100")
+      .then((r) => {
+        if (!vivo) return;
+        setLojas(r.data);
+        setLojaId((atual) => (r.data.some((l) => l.id === atual) ? atual : r.data[0]?.id ?? ""));
+      })
+      .catch(() => vivo && setLojas([]));
+    return () => { vivo = false; };
+  }, [ge, versaoDados]);
+
+  const trocarPerfil = (p) => {
     setPerfil(p);
     setP(p);
-    // Só o operador vê "Grupos".
-    if (!ehOperador(p) && tela === "grupos") setTela("cadastros");
+  };
+  const sair = () => {
+    // Sem login não há sessão para encerrar: volta ao padrão de demonstração.
+    trocarPerfil("TENANT_ADMIN");
+    escolherGe(GE_INICIAL);
   };
 
-  const menu = MENU.filter((m) => !m.soOperador || ehOperador(perfil));
-  const atual = menu.find((m) => m.id === tela) ?? menu[0];
   const geAtual = ges.find((g) => g.id === ge);
+  const lojaAtual = lojas?.find((l) => l.id === lojaId);
+  const podeEscrever = cuidaDoGrupo(perfil);
+
+  const faixa = telaTemFaixa(folha.tela) ? (
+    <FaixaDeContexto
+      lojas={lojas ?? []}
+      lojaId={lojaId}
+      onLoja={setLojaId}
+      horas={horasDeFuncionamento(lojaAtual?.horarios)}
+      podeImportar={podeEscrever}
+      onImportar={() => setImportando(true)}
+    />
+  ) : null;
 
   return (
-    <div className="flex min-h-screen">
-      <nav className={`${aberto ? "w-56" : "w-[72px]"} shrink-0 bg-white border-r border-line transition-all`} aria-label="Menu">
-        <div className="h-16 flex items-center justify-between px-4 border-b border-line">
-          {aberto && <strong className="text-system-700">Suíte</strong>}
-          <button aria-label="Recolher menu" onClick={() => setAberto(!aberto)} className="text-ink-500">☰</button>
-        </div>
-        <ul className="list-none m-0 p-2 flex flex-col gap-1">
-          {menu.map((m) => (
-            <li key={m.id}>
-              <button
-                onClick={() => irPara(m.id)}
-                aria-current={atual.id === m.id ? "page" : undefined}
-                className={`w-full text-left rounded-btn px-3 h-9 flex items-center text-sm ${
-                  atual.id === m.id ? "bg-system-200 text-ink-900 font-medium" : "text-ink-700 hover:bg-surface-subtle"
-                }`}
-              >
-                <span title={m.rotulo}>{aberto ? m.rotulo : m.rotulo[0]}</span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      </nav>
-      <div className="flex-1 min-w-0 flex flex-col">
-        <header className="bg-white border-b border-line flex flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 sm:px-6 py-3 min-h-16">
-          <span className="text-ink-500 text-sm">
-            Escala · {atual.rotulo}
-            {geAtual && atual.id !== "grupos" && <strong className="ml-2 text-ink-900" data-testid="ge-atual">· {geAtual.nome}</strong>}
-          </span>
-          <div className="flex flex-wrap items-center gap-4">
-            <label className="flex items-center gap-2 text-xs text-ink-500">
-              {ehOperador(perfil) ? "Grupo aberto" : "Grupo (demonstração)"}
-              <select
-                aria-label="Grupo"
-                value={ge}
-                onChange={(e) => escolherGe(e.target.value)}
-                className="h-9 max-w-56 rounded-input border border-ink-300 bg-white px-2 text-sm text-ink-900"
-              >
-                {ges.map((g) => (
-                  <option key={g.id} value={g.id}>{g.nome} ({g.identificacao})</option>
-                ))}
-              </select>
-            </label>
-            <label className="flex items-center gap-2 text-xs text-ink-500">
-              Papel de demonstração
-              <select
-                aria-label="Papel de demonstração"
-                value={perfil}
-                onChange={(e) => trocar(e.target.value)}
-                className="h-9 rounded-input border border-ink-300 bg-white px-2 text-sm text-ink-900"
-              >
-                {Object.entries(PERFIS).map(([k, v]) => (
-                  <option key={k} value={k}>{v}</option>
-                ))}
-              </select>
-            </label>
-          </div>
-        </header>
-        <main className="p-4 sm:p-6 flex flex-col gap-6">
-          {atual.id === "grupos" && <GruposPage geAtual={ge} onAbrir={(id) => { escolherGe(id); setTela("cadastros"); }} onMudou={carregarGes} />}
-          {/* Trocar de grupo recarrega a tela inteira: nada do grupo anterior fica. */}
-          {atual.id === "cadastros" && <CadastrosPage key={ge} perfil={perfil} />}
-          {atual.id === "escala" && <EscalaPage key={ge} perfil={perfil} onIrCadastros={() => setTela("cadastros")} />}
-        </main>
-      </div>
-    </div>
+    <>
+      <AppShell
+        perfil={perfil}
+        folha={folha}
+        onNavegar={irPara}
+        onInicio={irParaInicio}
+        faixa={faixa}
+        conta={<MenuDaConta perfil={perfil} ge={ge} ges={ges} geAtual={geAtual} onPerfil={trocarPerfil} onGe={escolherGe} onSair={sair} />}
+      >
+        {folha.tela === "grupos" && ehOperador(perfil) && <GruposPage geAtual={ge} onAbrir={(id) => { escolherGe(id); irPara(folhas(perfil).find((f) => f.tela === "cadastros")); }} onMudou={carregarGes} />}
+        {/* Trocar de grupo recarrega a tela inteira: nada do grupo anterior fica. */}
+        {folha.tela === "cadastros" && <CadastrosPage key={ge} perfil={perfil} secao={folha.secao} />}
+        {folha.tela === "escala" && (
+          <EscalaPage
+            key={ge}
+            perfil={perfil}
+            lojaId={lojaId}
+            semLojas={lojas !== null && lojas.length === 0}
+            secao={folha.secao}
+            versaoDados={versaoDados}
+            onImportar={() => setImportando(true)}
+            onSecao={(s) => irPara(folhas(perfil).find((f) => f.tela === "escala" && f.secao === s))}
+            onIrCadastros={() => irPara(folhas(perfil).find((f) => f.tela === "cadastros"))}
+          />
+        )}
+      </AppShell>
+      {importando && <EnviarPlanilhas onClose={() => setImportando(false)} onConcluido={() => setVersaoDados((v) => v + 1)} />}
+    </>
   );
 }

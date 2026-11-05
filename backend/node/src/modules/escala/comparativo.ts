@@ -5,6 +5,7 @@ import type {
   HorarioAjustado,
   VendaPerdidaDiaCenario,
 } from './cenarios.js';
+import { saldoDaOperacao } from './saldo-operacao.js';
 
 // Comparativo dos cenários 1, 2 e 3 lado a lado, para a fase escolhida. Os cenários 4 (abrir um dia) e 5 (reduzir
 // equipe) seguem como cartões à parte e ficam fora da tabela e do destaque.
@@ -53,6 +54,10 @@ export type ColunaComparativo = {
   saldoMensal?: number | null;
   saldoAnual?: number | null;
   pesoNoFaturamentoPct?: number | null;
+  // Cartões da spec 024: saldo contra a folha ATUAL = (economia − custo de folha) + (venda estimada − venda que deixa de
+  // entrar), e a venda estimada em % do faturamento mensal. Só para o dono; nulos quando falta dado.
+  saldoOperacaoMensal?: number | null;
+  vendaAdicionalPct?: number | null;
 };
 
 export type Comparativo = {
@@ -104,6 +109,14 @@ export const montarComparativo = (e: EntradaCenarios, c: CenariosRegra): Compara
       faturamentoPerdidoPct:
         vendaPerdida !== null && fat !== null && fat > 0 ? pct((vendaPerdida / fat) * 100) : null,
       vendaAdicionalMensal: vendaAdicional === null ? null : arred(vendaAdicional) || 0,
+      saldoOperacaoMensal: saldoDaOperacao({
+        economiaFolha: custoAdicional === null ? null : 0,
+        custoFolha: custoAdicional === null ? null : arred(custoAdicional) || 0,
+        vendaEstimada: vendaAdicional,
+        vendaPerdida,
+      }),
+      vendaAdicionalPct:
+        vendaAdicional !== null && fat !== null && fat > 0 ? pct((vendaAdicional / fat) * 100) : null,
       saldoMensal: saldo === null ? null : arred(saldo) || 0,
       saldoAnual: saldo === null ? null : arred(saldo * 12) || 0,
       pesoNoFaturamentoPct: saldo !== null && fat !== null && fat > 0 ? pct((saldo / fat) * 100) : null,

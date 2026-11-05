@@ -3,11 +3,11 @@
 Formato: `- [ ] ID [P] [História] descrição com o arquivo`. Servidor em `backend/node/src/modules/escala`, tela em `frontend/react/src/features/diagnostico`. Cada fatia termina com os testes passando e um commit.
 
 ## Fatia 1 — Saldo contra a folha atual (servidor)
-- [ ] T001 `saldo-operacao.ts`: `saldoDaOperacao({ economiaFolha, custoFolha, vendaEstimada, vendaPerdida })` = (economiaFolha − custoFolha) + (vendaEstimada − vendaPerdida); devolve `null` quando falta folha ou venda (nunca zero por engano); soma faturamento com folha, não margem (comentário no código)
-- [ ] T002 [P] `saldo-operacao.test.ts`: exemplos do desenho — C1 custo 6.480 sem venda = −6.480; C2 custo 0 e venda perdida 64.968 = −64.968; C3 reduzindo custo 1.013 e perdida 31.200 = −32.213; C3 ampliando custo 8.920 e estimada 38.200 = +29.280; economia de folha positiva soma; nulos devolvem `null`; zero e zero = 0
-- [ ] T003 `comparativo.ts`: por coluna, `saldoOperacaoMensal` (só dono; economia 0 e custo = `folhaAdicionalMensal`; venda estimada = `vendaAdicionalMensal`; perdida = `faturamentoPerdidoMensal`; nulo com `semVendaHoraria`) e `vendaAdicionalPct` (venda adicional ÷ faturamento mensal, 1 casa; nulo sem faturamento); campos existentes e o "sugerido" intactos
-- [ ] T004 Testes (`comparativo.test.ts`): o novo saldo = o antigo − o custo de folha do Cenário 1 (mesma ordem entre cenários); `sugerido` e `destaque` não mudam; gestor e consulta não recebem os campos; sem venda hora a hora o saldo vem nulo
-- [ ] T005 Rodar os testes do servidor e commitar a fatia
+- [x] T001 `saldo-operacao.ts`: `saldoDaOperacao({ economiaFolha, custoFolha, vendaEstimada, vendaPerdida })` = (economiaFolha − custoFolha) + (vendaEstimada − vendaPerdida); devolve `null` quando falta folha ou venda (nunca zero por engano); soma faturamento com folha, não margem (comentário no código)
+- [x] T002 [P] `saldo-operacao.test.ts`: exemplos do desenho — C1 custo 6.480 sem venda = −6.480; C2 custo 0 e venda perdida 64.968 = −64.968; C3 reduzindo custo 1.013 e perdida 31.200 = −32.213; C3 ampliando custo 8.920 e estimada 38.200 = +29.280; economia de folha positiva soma; nulos devolvem `null`; zero e zero = 0
+- [x] T003 `comparativo.ts`: por coluna, `saldoOperacaoMensal` (só dono; economia 0 e custo = `folhaAdicionalMensal`; venda estimada = `vendaAdicionalMensal`; perdida = `faturamentoPerdidoMensal`; nulo com `semVendaHoraria`) e `vendaAdicionalPct` (venda adicional ÷ faturamento mensal, 1 casa; nulo sem faturamento); campos existentes e o "sugerido" intactos
+- [x] T004 Testes (`comparativo.test.ts`): o novo saldo = o antigo − o custo de folha do Cenário 1 (mesma ordem entre cenários); `sugerido` e `destaque` não mudam; gestor e consulta não recebem os campos; sem venda hora a hora o saldo vem nulo
+- [x] T005 Rodar os testes do servidor e commitar a fatia
 
 ## Fatia 2 — Contas do cartão e verde de texto (tela, sem mudar o visual ainda)
 - [ ] T006 [P] `styles/alquimia.css`: token `--text-success-strong: #3E7500` (e comentário com o motivo: contraste de 5:1 sobre branco e cinza)

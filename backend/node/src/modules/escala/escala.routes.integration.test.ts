@@ -331,7 +331,7 @@ describe('escala (rotas)', () => {
     expect(sem.passos).toEqual([]);
 
     // loja de segunda a sexta (12h) e sábado (6h): 66h e 11 turnos; 1 farmacêutica de 40h tem 40h e 5 turnos.
-    // Faturamento por dia e margem de 25%: sábado vende 800 × 52 ÷ 12 = 3466,67 por mês (577,78 por hora); a venda
+    // Faturamento por dia: sábado vende 800 × 52 ÷ 12 = 3466,67 por mês (577,78 por hora); a venda
     // dos seis dias é 6500 × 52 ÷ 12 = 28166,67.
     await reqGe()
       .patch(`/api/v1/lojas/${lojaId}`)
@@ -340,7 +340,6 @@ describe('escala (rotas)', () => {
         faturamento: {
           dias: [1000, 1100, 900, 1200, 1500, 800, null],
           mensal: null,
-          margemPct: 25,
         },
       });
     const dono = await eco();
@@ -373,7 +372,7 @@ describe('escala (rotas)', () => {
     ]);
     expect(dono.impactoMensal).toBeNull(); // não resolve sozinho: fora da escolha do selo
 
-    // a margem não entra mais na conta: sem ela nada muda
+    // sem base comercial a venda do Cadastro não dá o corte por hora: nada muda ao salvar de novo
     await reqGe()
       .patch(`/api/v1/lojas/${lojaId}`)
       .set(admin)
@@ -381,7 +380,6 @@ describe('escala (rotas)', () => {
         faturamento: {
           dias: [1000, 1100, 900, 1200, 1500, 800, null],
           mensal: null,
-          margemPct: null,
         },
       });
     const semMargem = await eco();
@@ -395,7 +393,6 @@ describe('escala (rotas)', () => {
         faturamento: {
           dias: [1000, 1100, 900, 1200, 1500, 800, null],
           mensal: null,
-          margemPct: 25,
         },
       });
 
@@ -453,7 +450,6 @@ describe('escala (rotas)', () => {
         faturamento: {
           dias: [1000, 1100, 900, 1200, 1500, 800, null],
           mensal: null,
-          margemPct: null,
         },
       });
     const semHoraria = (await cen()).equilibrio;
@@ -599,17 +595,18 @@ describe('escala (rotas)', () => {
     const sem = await est();
     expect(sem.disponivel).toBe(true);
     expect(sem.diasAbrir).toEqual([
-      { dia: 6, abre: '08:00', fecha: '14:00', vendaMes: null, margemMes: null },
+      { dia: 6, abre: '08:00', fecha: '14:00', vendaMes: null },
     ]);
     expect(sem.horasEstender).toBe(6);
     expect(sem.horasSemana).toBe(72);
-    expect(sem.margemRefMes).toBeNull();
+    expect(sem.vendaRefMes).toBeNull();
     expect(sem.aviso).toContain('Sem venda informada');
     expect(sem.custoAdicionalMensal).toBe(0); // a equipe já cobre o horário
-    expect(sem.impactoMensal).toBeNull();
+    expect(sem.saldoMensal).toBeNull();
 
-    // Com faturamento (segunda a sexta 1000, sábado 800, margem de 25%): a margem média dos dias abertos é 1047,22 por
-    // mês; o domingo vale 50% disso: 523,61 de margem e 2094,44 de venda por mês.
+    // Com faturamento (segunda a sexta 1000, sábado 800): a venda média dos dias abertos é 4188,89 por mês; o domingo
+    // vale 50% disso: 2094,44 de venda por mês (a equipe já cobre o dia: custo 0, saldo 2094,44).
+
     await reqGe()
       .patch(`/api/v1/lojas/${lojaId}`)
       .set(admin)
@@ -617,20 +614,19 @@ describe('escala (rotas)', () => {
         faturamento: {
           dias: [1000, 1000, 1000, 1000, 1000, 800, null],
           mensal: null,
-          margemPct: 25,
         },
       });
     const com = await est();
     expect(com.diasAbrir.map((d: { dia: number }) => d.dia)).toEqual([6]);
-    expect(com.margemRefMes).toBe(523.61);
     expect(com.vendaRefMes).toBe(2094.44);
-    expect(com.impactoMensal).toBe(-523.61);
+    expect(com.saldoMensal).toBe(2094.44);
+    expect(JSON.stringify(com)).not.toContain('margem');
     expect(com.aviso).toContain('50%');
 
-    // O fator de dia novo é uma premissa: com 100% o domingo vale a média inteira (2 × 523,61 = 1047,22)
+    // O fator de dia novo é uma premissa: com 100% o domingo vale a média inteira (2 × 2094,44 = 4188,89)
     const cheio = (await reqGe().get(`${url}?fatorDiaNovo=100`).set(admin)).body.cenarios.r40
       .estender;
-    expect(cheio.margemRefMes).toBe(1047.22);
+    expect(cheio.vendaRefMes).toBe(4188.89);
     expect(cheio.aviso).toContain('100%');
 
     for (const h of [
@@ -639,8 +635,7 @@ describe('escala (rotas)', () => {
     ]) {
       const r = await est(h);
       expect(r.diasAbrir).toEqual([{ dia: 6, abre: '08:00', fecha: '14:00' }]);
-      for (const campo of ['custoAdicionalMensal', 'impactoMensal']) expect(campo in r).toBe(false);
-      expect(r.margemRefMes).toBeUndefined();
+      for (const campo of ['custoAdicionalMensal', 'saldoMensal']) expect(campo in r).toBe(false);
       expect(r.vendaRefMes).toBeUndefined();
       const texto = JSON.stringify(r);
       for (const valor of ['523.61', '2094.44', 'R$']) expect(texto).not.toContain(valor);
@@ -673,7 +668,7 @@ describe('escala (rotas)', () => {
     expect(nada.origemVendas).toBeNull();
     expect(JSON.stringify(nada.pontosAtencao)).toContain('cadastre o faturamento da loja');
 
-    // faturamento no cadastro (loja 08–20 seg a sex, 08–14 sáb), margem de 25%
+    // faturamento no cadastro (loja 08–20 seg a sex, 08–14 sáb)
     await reqGe()
       .patch(`/api/v1/lojas/${lojaId}`)
       .set(admin)
@@ -681,7 +676,6 @@ describe('escala (rotas)', () => {
         faturamento: {
           dias: [12000, 12000, 12000, 12000, 12000, 6000, null],
           mensal: null,
-          margemPct: 25,
         },
       });
     const dono = (await reqGe().get(url).set(admin)).body;
@@ -691,7 +685,8 @@ describe('escala (rotas)', () => {
     expect(JSON.stringify(dono.pontosAtencao)).toContain('Venda estimada pelo faturamento');
     const est = dono.cenarios.r40.estender;
     expect(est.disponivel).toBe(true);
-    expect(typeof est.margemRefMes).toBe('number');
+    expect(typeof est.vendaRefMes).toBe('number');
+    expect(est.saldoMensal).toBeNull(); // sem salário médio da loja não há custo para comparar
     expect(est.aviso).toContain('referência');
     expect(dono.cenarios.r40.economia.semVendaHoraria).toBe(true);
     expect(est.aviso).not.toContain('dias de venda');
@@ -787,7 +782,7 @@ describe('escala (rotas)', () => {
     expect(completo.avisoEstimativa).toContain('contador');
   });
 
-  it('venda e margem por dia da semana: origem, dias protegidos e valores só para o dono', async () => {
+  it('venda por dia da semana: origem, dias protegidos e valores só para o dono', async () => {
     await reqGe()
       .post('/api/v1/cargas/escala')
       .set(admin)
@@ -803,7 +798,7 @@ describe('escala (rotas)', () => {
     const regra40 = async (perfil = admin) =>
       (await reqGe().get(url).set(perfil)).body.cenarios.r40;
 
-    // faturamento por dia (loja aberta de segunda a sábado) com margem de 25%
+    // faturamento por dia (loja aberta de segunda a sábado)
     await reqGe()
       .patch(`/api/v1/lojas/${lojaId}`)
       .set(admin)
@@ -811,7 +806,6 @@ describe('escala (rotas)', () => {
         faturamento: {
           dias: [1010, 1120, 910, 1230, 1530, 830, null],
           mensal: null,
-          margemPct: 25,
         },
       });
     const dono = await regra40();
@@ -819,13 +813,9 @@ describe('escala (rotas)', () => {
     expect(dono.vendasPorDia.map((d: { venda: number }) => d.venda)).toEqual([
       1010, 1120, 910, 1230, 1530, 830, 0,
     ]);
-    // sexta: margem 382,50 por dia × 52 ÷ 12 = 1657,50 por mês
-    expect(dono.vendasPorDia[4]).toMatchObject({
-      aberto: true,
-      protegido: true,
-      margem: 382.5,
-      margemMes: 1657.5,
-    });
+    // sexta: venda 1530 por dia × 52 ÷ 12 = 6630 por mês
+    expect(dono.vendasPorDia[4]).toMatchObject({ aberto: true, protegido: true, vendaMes: 6630 });
+    expect(dono.vendasPorDia[4]).not.toHaveProperty('margem');
     // os três dias de maior faturamento (sexta 1530, quinta 1230, terça 1120) são protegidos
     expect(dono.diasProtegidos).toEqual([1, 3, 4]);
     expect(dono.vendasPorDia[6]).toMatchObject({ aberto: false, protegido: false, venda: 0 });
@@ -847,7 +837,6 @@ describe('escala (rotas)', () => {
         faturamento: {
           dias: [null, null, null, null, null, null, null],
           mensal: 52000,
-          margemPct: 25,
         },
       });
     const est = await regra40();
@@ -875,7 +864,7 @@ describe('escala (rotas)', () => {
     const base = await regra40();
     expect(base.origemVenda).toBe('base');
     // duas segundas (07/09 e 14/09/2026): (200 + 300) ÷ 2 = 250 por segunda
-    expect(base.vendasPorDia[0]).toMatchObject({ venda: 250, margem: 50 });
+    expect(base.vendasPorDia[0]).toMatchObject({ venda: 250 });
 
     // O painel de vendas por hora traz o valor em reais só para o dono; os demais veem a participação de cada hora
     const donoVendas = (await reqGe().get(url).set(admin)).body.vendas;
@@ -919,7 +908,6 @@ describe('escala (rotas)', () => {
         faturamento: {
           dias: [1000, 1100, 900, 1200, 1500, 800, null],
           mensal: null,
-          margemPct: 25,
         },
       });
     const url = `/api/v1/lojas/${lojaId}/diagnostico`;
@@ -1009,12 +997,12 @@ describe('escala (rotas)', () => {
     });
     expect(JSON.stringify(g)).not.toContain('"margemPct"');
 
-    // Nada foi gravado: sem premissas voltam os padrões, e a margem da loja segue 25%
+    // Nada foi gravado: sem premissas voltam os padrões, e o faturamento da loja segue o mesmo
     const depois = await r40();
     expect(depois.premissas.recaptura).toBe(0);
-    expect((await prisma.loja.findFirst({ where: { codigo: '001' } }))?.faturamento).toMatchObject({
-      margemPct: 25,
-    });
+    expect((await prisma.loja.findFirst({ where: { codigo: '001' } }))?.faturamento).toHaveProperty(
+      'dias',
+    );
   });
 
   it('cenário 5: mostra a sobra de gente por cargo; economia só para o dono', async () => {

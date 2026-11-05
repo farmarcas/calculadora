@@ -34,6 +34,8 @@ const funcSel = {
   cargaMensalH: true,
   entrada: true,
   saida: true,
+  iniIntervalo: true,
+  fimIntervalo: true,
   dias: true,
   regime: true,
   horarioFixo: true,
@@ -75,13 +77,26 @@ const comoFunc = (r: Record<string, unknown>) => {
       (r.cargaMensalH as number | null) ?? (semanal ? mensalDeSemanal(semanal) : undefined),
     entrada: r.entrada == null ? undefined : decimalParaHora(r.entrada as number),
     saida: r.saida == null ? undefined : decimalParaHora(r.saida as number),
+    iniIntervalo: r.iniIntervalo == null ? undefined : decimalParaHora(r.iniIntervalo as number),
+    fimIntervalo: r.fimIntervalo == null ? undefined : decimalParaHora(r.fimIntervalo as number),
   } as unknown as FuncionarioRegistro;
 };
 // API (texto "HH:MM") → banco (horas decimais).
-const paraBanco = <T extends { entrada?: string | null; saida?: string | null }>(i: T) => ({
+const paraBanco = <
+  T extends {
+    entrada?: string | null;
+    saida?: string | null;
+    iniIntervalo?: string | null;
+    fimIntervalo?: string | null;
+  },
+>(
+  i: T,
+) => ({
   ...i,
   entrada: i.entrada == null ? i.entrada : horaParaDecimal(i.entrada),
   saida: i.saida == null ? i.saida : horaParaDecimal(i.saida),
+  iniIntervalo: i.iniIntervalo == null ? i.iniIntervalo : horaParaDecimal(i.iniIntervalo),
+  fimIntervalo: i.fimIntervalo == null ? i.fimIntervalo : horaParaDecimal(i.fimIntervalo),
 });
 const limpa = <T extends object>(o: T) =>
   Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined)) as T;

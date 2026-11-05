@@ -3,14 +3,14 @@
 Formato: `- [ ] ID [P] [História] descrição com o arquivo`. Servidor em `backend/node`, tela em `frontend/react/src/features`. Cada fatia termina com os testes passando e um commit.
 
 ## Fatia 1 — Intervalo no funcionário (servidor) (História 2, P1)
-- [ ] T001 [US2] `prisma/schema.prisma` e migration `<data>_intervalo_funcionario`: `Funcionario.iniIntervalo` e `fimIntervalo` (`Float?`, mapeadas para `ini_intervalo` e `fim_intervalo`, sem valor padrão); aplicar a migration no banco local e regenerar o cliente
-- [ ] T002 [P] [US2] `cadastros/intervalo.ts` (nova, pura): `validarIntervalo({ entrada, saida, ini, fim })` com as regras — os dois juntos ou nenhum; fim depois do início; entrada ≤ início e fim ≤ saída; sem entrada e saída não há intervalo — devolvendo a mensagem em português de cada erro (as do contrato) ou nulo
-- [ ] T003 [P] [US2] `cadastros/intervalo.test.ts`: válido (12:00–13:00 em 08:00–17:00); só o início; só o fim; fim igual ou antes do início; início antes da entrada; fim depois da saída; sem entrada e saída; ambos vazios = válido
-- [ ] T004 [US2] `cadastros.schemas.ts`, `cadastros.service.ts`, `cadastros.repository.ts`: `iniIntervalo` e `fimIntervalo` ("HH:MM", opcionais, `null` para limpar) em criar, editar e listar; validação pelo `validarIntervalo` com a entrada e a saída que ficarão no registro; conversão HH:MM ↔ horas decimais como a de entrada e saída
-- [ ] T005 [US2] `planilhas/campos.ts`: colunas opcionais `inicio_intervalo` e `fim_intervalo` em `CAMPOS_FUNCIONARIO` (com sinônimos como "início do intervalo", "saída para almoço", "volta do almoço"); `cadastros/processar.ts`: ler e validar por linha (só a linha com erro é recusada), planilha sem as colunas continua válida
-- [ ] T006 [US2] `planilhas/modelo.ts`: o modelo de funcionários traz as colunas de intervalo, com exemplo e uma linha de instrução
-- [ ] T007 [US2] Testes de integração e de importação (`cadastros.routes.integration.test.ts` e o teste do `processar`): gravar e devolver o intervalo; limpar com `null`; cada erro com a mensagem certa; importação com e sem as colunas; modelo com as colunas
-- [ ] T008 Rodar os testes do servidor e commitar a fatia
+- [x] T001 [US2] `prisma/schema.prisma` e migration `<data>_intervalo_funcionario`: `Funcionario.iniIntervalo` e `fimIntervalo` (`Float?`, mapeadas para `ini_intervalo` e `fim_intervalo`, sem valor padrão); aplicar a migration no banco local e regenerar o cliente
+- [x] T002 [P] [US2] `cadastros/intervalo.ts` (nova, pura): `validarIntervalo({ entrada, saida, ini, fim })` com as regras — os dois juntos ou nenhum; fim depois do início; entrada ≤ início e fim ≤ saída; sem entrada e saída não há intervalo — devolvendo a mensagem em português de cada erro (as do contrato) ou nulo
+- [x] T003 [P] [US2] `cadastros/intervalo.test.ts`: válido (12:00–13:00 em 08:00–17:00); só o início; só o fim; fim igual ou antes do início; início antes da entrada; fim depois da saída; sem entrada e saída; ambos vazios = válido
+- [x] T004 [US2] `cadastros.schemas.ts`, `cadastros.service.ts`, `cadastros.repository.ts`: `iniIntervalo` e `fimIntervalo` ("HH:MM", opcionais, `null` para limpar) em criar, editar e listar; validação pelo `validarIntervalo` com a entrada e a saída que ficarão no registro; conversão HH:MM ↔ horas decimais como a de entrada e saída
+- [x] T005 [US2] `planilhas/campos.ts`: colunas opcionais `inicio_intervalo` e `fim_intervalo` em `CAMPOS_FUNCIONARIO` (com sinônimos como "início do intervalo", "saída para almoço", "volta do almoço"); `cadastros/processar.ts`: ler e validar por linha (só a linha com erro é recusada), planilha sem as colunas continua válida
+- [x] T006 [US2] `planilhas/modelo.ts`: o modelo de funcionários traz as colunas de intervalo, com exemplo e uma linha de instrução
+- [x] T007 [US2] Testes de integração e de importação (`cadastros.routes.integration.test.ts` e o teste do `processar`): gravar e devolver o intervalo; limpar com `null`; cada erro com a mensagem certa; importação com e sem as colunas; modelo com as colunas
+- [x] T008 Rodar os testes do servidor e commitar a fatia
 
 ## Fatia 2 — Diagnóstico só do Cadastro (servidor) (História 1, P1)
 - [ ] T009 [US1] `escala.repository.ts`: `turnosDoCadastro` devolve `iniIntervalo` e `fimIntervalo` (hoje `null`); sem mudar quem entra (função no cálculo, com entrada, saída e dias)

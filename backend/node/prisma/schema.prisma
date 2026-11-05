@@ -104,6 +104,9 @@ model Funcionario {
   // Horário atual digitado (horas decimais, 8.5 = 08:30) e dias da semana (0 = segunda … 6 = domingo).
   entrada       Float?
   saida         Float?
+  // Intervalo (almoço) dentro do turno, em horas decimais: os dois ou nenhum. A cobertura por hora desconta quem está nele.
+  iniIntervalo  Float?    @map("ini_intervalo")
+  fimIntervalo  Float?    @map("fim_intervalo")
   dias          Int[]     @default([])
   regime        String?
   // Horário fixo: a redistribuição da escala não remaneja esta pessoa.

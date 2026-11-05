@@ -87,6 +87,9 @@ export const funcionarioSchema = z
     // Horário atual: o mesmo turno nos dias trabalhados. Entrada e saída vêm juntas (a conferência é no serviço).
     entrada: horaHHMM.nullable().optional(),
     saida: horaHHMM.nullable().optional(),
+    // Intervalo dentro do turno: início e fim juntos (a conferência é no serviço).
+    iniIntervalo: horaHHMM.nullable().optional(),
+    fimIntervalo: horaHHMM.nullable().optional(),
     dias: z.array(z.number().int().min(0).max(6)).max(7).optional(),
     regime: z.string().trim().max(30).optional(),
     // Horário fixo: a redistribuição da escala não remaneja esta pessoa.

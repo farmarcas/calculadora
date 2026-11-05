@@ -44,6 +44,9 @@ export const gerarModelo = async (): Promise<Buffer> => {
     [
       'Horários no formato HH:MM.',
     ],
+    [
+      'Intervalo (opcional): informe o início e o fim juntos, dentro do horário de trabalho (por exemplo, 12:00 e 13:00). A cobertura por hora desconta quem está no intervalo.',
+    ],
     [''],
     ['Aba Lojas: configuração para o cálculo da Escala'],
     ['"Convenção permite 8h24": Sim ou Não. Define se a regra de 42h cabe em 5 dias.'],

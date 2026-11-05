@@ -12,6 +12,7 @@ import { normalizarCnpj, validarCnpj } from '../ge/cnpj.js';
 import { semanalDeMensal } from './carga.js';
 import { soDigitos } from './documentos.js';
 import { validarAjustes } from '../regras/encargos.js';
+import { validarIntervalo } from './intervalo.js';
 import { processarLinhas, type FuncionarioInput, type LojaInput } from './processar.js';
 
 export type LojaRegistro = LojaBody & {
@@ -99,6 +100,21 @@ const prepararFuncionario = async <T extends Partial<FuncionarioBody>>(
       throw new ValidationError('Informe a entrada e a saída (ou deixe as duas em branco)');
     if (entrada && entrada === saida)
       throw new ValidationError('A saída deve ser diferente da entrada');
+  }
+  // Intervalo: vale o que veio na requisição, e o que já estava gravado para o que não veio.
+  if (
+    body.entrada !== undefined ||
+    body.saida !== undefined ||
+    body.iniIntervalo !== undefined ||
+    body.fimIntervalo !== undefined
+  ) {
+    const erro = validarIntervalo({
+      entrada: body.entrada === undefined ? atual?.entrada : body.entrada,
+      saida: body.saida === undefined ? atual?.saida : body.saida,
+      ini: body.iniIntervalo === undefined ? atual?.iniIntervalo : body.iniIntervalo,
+      fim: body.fimIntervalo === undefined ? atual?.fimIntervalo : body.fimIntervalo,
+    });
+    if (erro) throw new ValidationError(erro);
   }
   if (body.cpf) {
     const lojaId = body.lojaId ?? atual?.lojaId;

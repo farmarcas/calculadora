@@ -426,6 +426,22 @@ export const CAMPOS_FUNCIONARIO: CampoDef[] = [
     conteudo: (v) => /^\d{1,2}(:\d{2})?(:\d{2})?$/.test(v),
   },
   {
+    chave: 'inicio_intervalo',
+    rotulo: 'Início do intervalo',
+    obrigatorio: false,
+    exemplo: '12:00',
+    sinonimos: ['inicio intervalo', 'inicio do intervalo', 'ini intervalo', 'saida almoco', 'saida para almoco', 'intervalo inicio'],
+    conteudo: (v) => /^\d{1,2}(:\d{2})?(:\d{2})?$/.test(v),
+  },
+  {
+    chave: 'fim_intervalo',
+    rotulo: 'Fim do intervalo',
+    obrigatorio: false,
+    exemplo: '13:00',
+    sinonimos: ['fim intervalo', 'fim do intervalo', 'volta almoco', 'volta do almoco', 'retorno almoco', 'intervalo fim'],
+    conteudo: (v) => /^\d{1,2}(:\d{2})?(:\d{2})?$/.test(v),
+  },
+  {
     chave: 'dias',
     rotulo: 'Dias trabalhados',
     obrigatorio: false,

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  brl, comparacaoComCenario1, diasAlterados, diferencaPorDia, estadoDaFolha, estadoDaVenda, estadoDoSaldo,
+  alertasParaExibir, brl, comparacaoComCenario1, linhaDeResultado, diasAlterados, diferencaPorDia, estadoDaFolha, estadoDaVenda, estadoDoSaldo,
   faixaTxt, horasOciosasDe, linhasDeContratacao, linhasDoHorario, sentidoDoHorario, statusDoCartao, textoDaDiferenca,
   tomDaDiferenca, totaisDaSemana, totalContratado,
 } from "./cartao-regras.js";
@@ -145,5 +145,36 @@ describe("horário por dia e totais", () => {
   it("faixa com meia hora e dia fechado", () => {
     expect(faixaTxt(dia(0, "08:30", "20:00"))).toBe("08h30–20h");
     expect(faixaTxt(dia(6))).toBe("Fechado");
+  });
+});
+
+describe("textos que não se repetem", () => {
+  it("a linha de resultado some quando só repete os cortes de horário ou as contratações", () => {
+    expect(linhaDeResultado({ resultado: "Contrata 2 pessoas: farmacêutico e atendimento", ajustes: [], diasFechar: [] })).toBe("");
+    expect(linhaDeResultado({ resultado: "Domingo fecha 7 h mais cedo (de 08h–20h para 08h–13h)", ajustes: [{ dia: 6 }], diasFechar: [] })).toBe("");
+    expect(linhaDeResultado({ resultado: "Sábado fecha", ajustes: [], diasFechar: [5] })).toBe("");
+    expect(linhaDeResultado({ resultado: "Sábado fecha 3 h mais tarde; contrata 2 pessoas: farmacêutico", ajustes: [{ dia: 5 }], diasFechar: [] })).toBe("");
+  });
+  it("a linha de resultado fica quando explica algo que o cartão não mostra", () => {
+    expect(linhaDeResultado({ resultado: "Nenhum horário pode mudar", ajustes: [], diasFechar: [] })).toBe("Nenhum horário pode mudar");
+    expect(linhaDeResultado({ resultado: "Igual ao Cenário 1", ajustes: [] })).toBe("Igual ao Cenário 1");
+    expect(linhaDeResultado({ resultado: "Faltam as vendas por dia da semana para calcular os cortes", ajustes: [] })).toBe("Faltam as vendas por dia da semana para calcular os cortes");
+    expect(linhaDeResultado({ resultado: "Não é possível sem contratar", ajustes: [] })).toBe("Não é possível sem contratar");
+  });
+  it("sem resultado, nada", () => {
+    expect(linhaDeResultado({})).toBe("");
+    expect(linhaDeResultado({ resultado: "  " })).toBe("");
+  });
+  it("alertas: some o contrato parcial e a nota da venda estimada fica mais curta", () => {
+    const r = alertasParaExibir([
+      "Usa contrato parcial para cobrir o que sobra.",
+      "Venda das horas novas é estimada: onde não há venda registrada nessa hora, vale metade da venda da hora vizinha.",
+      "Só mexer no fim de semana não resolve: ainda faltam 3 h de cobertura. Veja o Cenário 3.",
+    ]);
+    expect(r).toEqual([
+      "Venda das horas novas estimada: onde não há venda registrada, vale metade da hora vizinha.",
+      "Só mexer no fim de semana não resolve: ainda faltam 3 h de cobertura. Veja o Cenário 3.",
+    ]);
+    expect(alertasParaExibir(undefined)).toEqual([]);
   });
 });

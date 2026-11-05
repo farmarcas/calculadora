@@ -34,10 +34,9 @@ export default function Comparativo({ comparativo, cenarios, lojaId, podeEscreve
   const sugeridoId = comparativo.sugerido !== undefined ? comparativo.sugerido : destaque;
   const dono = colunas[0].custoFolhaMensal !== undefined;
   const antes = cenarios?.manter?.horarioSemana ?? [];
-  const horasManter = colunas.find((x) => x.id === "manter").horasSemana;
   const novosDe = (c) => cenarios?.[c.id]?.horarioSemana ?? antes;
 
-  const avisos = colunas.map((c) => avisosDoCartao(c, { dono, horasAMenos: Math.max(0, horasManter - c.horasSemana) }));
+  const avisos = colunas.map((c) => avisosDoCartao(c, { dono }));
   const algumAviso = avisos.some(temAvisos);
   const faixas = FAIXAS + (algumAviso ? 1 : 0);
 

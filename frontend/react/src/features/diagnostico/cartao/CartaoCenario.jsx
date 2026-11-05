@@ -1,5 +1,5 @@
 import { Botao } from "../../../components/ui/index.jsx";
-import { brl, comparacaoComCenario1, linhasDoHorario, statusDoCartao, totaisDaSemana } from "./cartao-regras.js";
+import { alertasParaExibir, brl, comparacaoComCenario1, linhaDeResultado, linhasDoHorario, statusDoCartao, totaisDaSemana } from "./cartao-regras.js";
 import { consequencias, faltaCurta } from "../comparativo-regras.js";
 import { BlocoContratacoes, LinhaOciosas } from "./BlocoContratacoes.jsx";
 import BlocoHorario from "./BlocoHorario.jsx";
@@ -14,13 +14,14 @@ const IconeStatus = ({ tom }) =>
     <span aria-hidden="true" className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-[var(--func-attention-100)] text-[var(--neutral-dark-900)] text-xs font-bold">!</span>
   );
 
-// Avisos de um cenário (faixa amarela de consequência, o que falta cobrir e os alertas), usados também para saber se a linha existe.
-export const avisosDoCartao = (c, { dono, horasAMenos }) => ({
-  consequencia: c.status === "inviavel" ? [] : consequencias(c, { dono, brl, horasAMenos }),
-  falta: c.faltaH > 0 ? c.faltaH : 0,
-  alertas: c.alertas ?? [],
+// Avisos de um cenário: a faixa amarela só traz o que o resto do cartão não diz (falta de função e risco sem farmacêutico;
+// o "reduz N h e perde R$ X" já está no bloco Horário e na coluna de venda) e os alertas, sem repetições. O "ainda falta
+// cobrir N h" fica por conta do alerta "não resolve sozinho", que diz a mesma coisa e aponta o Cenário 3.
+export const avisosDoCartao = (c, { dono }) => ({
+  consequencia: c.status === "inviavel" ? [] : consequencias(c, { dono, brl, horasAMenos: 0 }),
+  alertas: alertasParaExibir(c.alertas),
 });
-export const temAvisos = (a) => a.consequencia.length > 0 || a.falta > 0 || a.alertas.length > 0;
+export const temAvisos = (a) => a.consequencia.length > 0 || a.alertas.length > 0;
 
 // O cartão de um cenário, de cima para baixo: título, resultado, status, descrição, [avisos], contratações, horas ociosas,
 // horário e botão. Cada bloco é uma linha da grade compartilhada, então os três cartões ficam alinhados.
@@ -54,7 +55,7 @@ export default function CartaoCenario({ posicao, c, antes, novos, sugerido, dono
 
       <div className="flex flex-col gap-1">
         <p className="m-0 text-sm leading-5 text-[var(--text-secondary)]">{c.premissa}</p>
-        <p className="m-0 text-sm leading-5 font-bold text-[var(--text-strong)]">{c.resultado}</p>
+        {linhaDeResultado(c) && <p className="m-0 text-sm leading-5 font-bold text-[var(--text-strong)]">{linhaDeResultado(c)}</p>}
       </div>
 
       {mostrarAvisos && (
@@ -64,7 +65,6 @@ export default function CartaoCenario({ posicao, c, antes, novos, sugerido, dono
               {avisos.consequencia.map((l, i) => <p key={i} className={`m-0 ${i === 0 ? "font-bold" : ""}`}>{l}</p>)}
             </div>
           )}
-          {avisos.falta > 0 && <div className="font-bold text-[var(--text-strong)]">Ainda falta cobrir {String(avisos.falta).replace(".", ",")}h de cobertura por semana.</div>}
           {avisos.alertas.map((a, i) => <div key={i}>{a}</div>)}
         </div>
       )}

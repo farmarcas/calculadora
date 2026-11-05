@@ -142,3 +142,22 @@ export const totaisDaSemana = (novos = [], antes = []) => {
 export const diasAlterados = (linhas) => linhas.filter((l) => l.alterado).length;
 // "reduzindo", "ampliando" ou (mudou mas as horas somam igual) "ajustando".
 export const sentidoDoHorario = (totais) => (totais.diferenca < -ZERO ? "reduzindo" : totais.diferenca > ZERO ? "ampliando" : "ajustando");
+
+// ---- Textos que não se repetem ---------------------------------------------------------------------------------------
+
+// A linha em negrito de resultado só aparece quando explica algo que o resto do cartão não mostra. Quando ela descreve os
+// cortes de horário ou as contratações, o bloco Horário e o bloco Contratações já dizem isso.
+export const linhaDeResultado = (c) => {
+  const r = (c.resultado ?? "").trim();
+  if (!r) return "";
+  if (c.ajustes?.length > 0 || c.diasFechar?.length > 0) return "";
+  if (/\bcontrata\b/i.test(r)) return "";
+  return r;
+};
+
+const REPETIDOS = new Set(["Usa contrato parcial para cobrir o que sobra."]);
+const ESTIMATIVA_LONGA = "Venda das horas novas é estimada: onde não há venda registrada nessa hora, vale metade da venda da hora vizinha.";
+const ESTIMATIVA_CURTA = "Venda das horas novas estimada: onde não há venda registrada, vale metade da hora vizinha.";
+
+// Alertas do cenário sem o que o cartão já mostra ("parcial" está em cada linha de contratação) e com a nota da venda estimada mais curta.
+export const alertasParaExibir = (alertas = []) => alertas.filter((a) => !REPETIDOS.has(a)).map((a) => (a === ESTIMATIVA_LONGA ? ESTIMATIVA_CURTA : a));

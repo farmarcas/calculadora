@@ -1,13 +1,22 @@
+import { useId } from "react";
+import DicaDeCampo from "../../../components/ui/DicaDeCampo.jsx";
 import { estadoDaFolha, estadoDaVenda, estadoDoSaldo } from "./cartao-regras.js";
 import { COR_DO_TOM } from "./tom.js";
 
-const Coluna = ({ e }) => (
+// O ⓘ (quando a coluna tem `dica`) explica de onde vem o número, ao lado do rótulo.
+const Coluna = ({ e }) => {
+  const id = useId();
+  return (
   <div className="min-w-0">
-    <div className="flex min-h-8 items-start text-xs leading-4 font-bold text-[var(--neutral-mid-300)]">{e.rotulo}</div>
+    <div className="relative flex min-h-8 items-start gap-1.5 text-xs leading-4 font-bold text-[var(--neutral-mid-300)]">
+      {e.rotulo}
+      {e.dica && <DicaDeCampo id={id} rotulo={e.rotulo.toLowerCase()} texto={e.dica} aDireita />}
+    </div>
     <div className="text-2xl leading-8 font-bold" style={{ color: COR_DO_TOM[e.tom] }}>{e.valor}</div>
     <div className="text-xs leading-4 text-[var(--text-secondary)]">{e.apoio}</div>
   </div>
-);
+  );
+};
 
 // Faixa de resultado (altura fixa): o saldo em destaque e, abaixo, folha e venda do MESMO tamanho. Valores em reais só para o dono.
 export default function FaixaDeResultado({ c, dono }) {

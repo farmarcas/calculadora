@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  alertasParaExibir, brl, comparacaoComCenario1, linhaDeResultado, diasAlterados, diferencaPorDia, estadoDaFolha, estadoDaVenda, estadoDoSaldo,
+  NOTA_VENDA_ESTIMADA, alertasParaExibir, brl, comparacaoComCenario1, linhaDeResultado, diasAlterados, diferencaPorDia, estadoDaFolha, estadoDaVenda, estadoDoSaldo,
   faixaTxt, horasOciosasDe, linhasDeContratacao, linhasDoHorario, sentidoDoHorario, statusDoCartao, textoDaDiferenca,
   tomDaDiferenca, totaisDaSemana, totalContratado,
 } from "./cartao-regras.js";
@@ -165,16 +165,19 @@ describe("textos que não se repetem", () => {
     expect(linhaDeResultado({})).toBe("");
     expect(linhaDeResultado({ resultado: "  " })).toBe("");
   });
-  it("alertas: some o contrato parcial e a nota da venda estimada fica mais curta", () => {
+  it("alertas: some o contrato parcial e a nota da venda estimada (ela vai no ⓘ)", () => {
     const r = alertasParaExibir([
       "Usa contrato parcial para cobrir o que sobra.",
       "Venda das horas novas é estimada: onde não há venda registrada nessa hora, vale metade da venda da hora vizinha.",
       "Só mexer no fim de semana não resolve: ainda faltam 3 h de cobertura. Veja o Cenário 3.",
     ]);
-    expect(r).toEqual([
-      "Venda das horas novas estimada: onde não há venda registrada, vale metade da hora vizinha.",
-      "Só mexer no fim de semana não resolve: ainda faltam 3 h de cobertura. Veja o Cenário 3.",
-    ]);
+    expect(r).toEqual(["Só mexer no fim de semana não resolve: ainda faltam 3 h de cobertura. Veja o Cenário 3."]);
     expect(alertasParaExibir(undefined)).toEqual([]);
+  });
+  it("a coluna VENDA ESTIMADA traz a nota para o ⓘ; as outras não", () => {
+    expect(estadoDaVenda({ vendaAdicionalMensal: 5378, vendaAdicionalPct: 1.9 }).dica).toBe(NOTA_VENDA_ESTIMADA);
+    expect(NOTA_VENDA_ESTIMADA).toBe("Venda das horas novas estimada: onde não há venda registrada, vale metade da hora vizinha.");
+    expect(estadoDaVenda({ faturamentoPerdidoMensal: 100 }).dica).toBeUndefined();
+    expect(estadoDaVenda({}).dica).toBeUndefined();
   });
 });

@@ -24,8 +24,8 @@ Formato: `- [ ] ID [P] [História] descrição com o arquivo`. Servidor em `back
 - [x] T015 Rodar os testes da tela (`npx vitest run`) e commitar a fatia
 
 ## Fatia 4 — Fechamento
-- [ ] T016 Percorrer o `quickstart.md` no ambiente local (Cadastro de Cosmópolis sem campo de margem, margem 30 preservada no banco, planilha antiga importa, diagnóstico com `saldoMensal`); conferir que nenhuma tela de Cadastro, Diagnóstico ou Simulação traz "margem" (busca no código da tela)
-- [ ] T017 Reiniciar a API local (`docker compose restart api`), rodar tudo (servidor, integração e tela), lint e o type-check; commitar e subir a branch `feat/margem-fora-abrir-dia-por-venda`
+- [x] T016 Percorrer o `quickstart.md` no ambiente local (Cadastro de Cosmópolis sem campo de margem, margem 30 preservada no banco, planilha antiga importa, diagnóstico com `saldoMensal`); conferir que nenhuma tela de Cadastro, Diagnóstico ou Simulação traz "margem" (busca no código da tela)
+- [x] T017 Reiniciar a API local (`docker compose restart api`), rodar tudo (servidor, integração e tela), lint e o type-check; commitar e subir a branch `feat/margem-fora-abrir-dia-por-venda`
 
 ## Dependências e ordem
 - Fatia 1 → 2 → 3 → 4. A Fatia 1 vem primeiro para que, quando a tela deixar de enviar a margem (Fatia 3), o servidor já a preserve.

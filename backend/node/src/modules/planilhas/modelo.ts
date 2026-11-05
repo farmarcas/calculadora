@@ -56,7 +56,7 @@ export const gerarModelo = async (): Promise<Buffer> => {
     [
       'Encargos: o percentual total vem do regime tributário da loja (Simples Nacional, Lucro Presumido ou Lucro Real), não é digitado. Só o dono ajusta, por loja, "RAT (%)" (1 a 3), "FAP" (0,5 a 2,0) e "Provisão de rescisão (Sim/Não)"; em branco vale o padrão do regime. A coluna antiga "Encargos (%)" é ignorada.',
     ],
-    ['"Faturamento" e "Margem": também só o dono grava.'],
+    ['"Faturamento": também só o dono grava.'],
     [''],
     ['Aba Funcionários'],
     [

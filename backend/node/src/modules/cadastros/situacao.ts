@@ -2,7 +2,7 @@ import type { Faturamento } from './faturamento.js';
 import { faixasDaSemana, type HorariosSemana } from './horarios.js';
 
 // Pendências do cadastro de uma loja: tudo o que falta para a Escala simular e para o diagnóstico (inclui o salário médio
-// das funções que contam; a margem bruta é opcional). É a ÚNICA regra disso: a situação "Completo" é "nenhuma pendência" e "Revisar" é a
+// das funções que contam; a margem bruta, que não tem mais tela, nunca é cobrada). É a ÚNICA regra disso: a situação "Completo" é "nenhuma pendência" e "Revisar" é a
 // primeira delas em texto; a lista, o filtro, o detalhe e o painel "O que falta preencher" saem daqui (suposição provisória do
 // pedido, marcada "a confirmar"). Nada aqui traz valores em reais, só o que falta.
 export type AbaPendencia = 'dados' | 'equipe' | 'regras';
@@ -11,7 +11,7 @@ export type Pendencia = {
   // dados, funcionamento, faturamentoDia, faturamentoMes, farmaceutico ou salario:<Função>.
   id: string;
   aba: AbaPendencia;
-  // O nome do item no painel ("Dados da loja", "Margem bruta média").
+  // O nome do item no painel ("Dados da loja", "Faturamento por dia").
   titulo: string;
   // O texto da situação "Revisar" (o de sempre, com o nome do dia ou da função).
   resumo: string;
@@ -149,7 +149,7 @@ export const pendenciasDoCadastro = (
       alerta: true,
     });
 
-  // A margem bruta é só um detalhe opcional do Cadastro (o impacto dos cenários é em venda e folha): não é pendência.
+  // A margem bruta não tem mais tela nem entra em conta: nunca é pendência.
   // Sem os salários o diagnóstico não calcula a folha nem a economia dos cenários.
   const precisam = ['Farmacêutico', ...cadastro.funcoesNaEquipe.filter((f) => f !== 'Farmacêutico')];
   const semSalario = precisam.filter((f) => !cadastro.salariosInformados.includes(f));

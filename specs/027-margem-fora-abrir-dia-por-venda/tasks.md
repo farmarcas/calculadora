@@ -18,10 +18,10 @@ Formato: `- [ ] ID [P] [História] descrição com o arquivo`. Servidor em `back
 - [x] T011 Rodar os testes do servidor e commitar a fatia
 
 ## Fatia 3 — Tela do Cadastro sem o campo de margem (História 2, P1)
-- [ ] T012 [US2] `cadastro-loja/ResumoMensal.jsx`: sai o campo "Margem bruta média" e a dica; o resumo mensal ajusta a grade; comentário do cabeçalho sem "margem"
-- [ ] T013 [US2] `cadastro-loja/AbaDados.jsx` e `calculos.js`: o estado e o corpo enviado ao servidor não têm mais `margemPct`; a regra "faturamento vazio" não olha mais a margem; sai a validação "A margem bruta deve ficar entre 0 e 100"
-- [ ] T014 [US2] `cadastro-loja/pendencias.js`: sai o comentário sobre margem; `pendencias.test.js` e `calculos.test.js` ajustados (sem margem; salvar o faturamento não envia `margemPct`)
-- [ ] T015 Rodar os testes da tela (`npx vitest run`) e commitar a fatia
+- [x] T012 [US2] `cadastro-loja/ResumoMensal.jsx`: sai o campo "Margem bruta média" e a dica; o resumo mensal ajusta a grade; comentário do cabeçalho sem "margem"
+- [x] T013 [US2] `cadastro-loja/AbaDados.jsx` e `calculos.js`: o estado e o corpo enviado ao servidor não têm mais `margemPct`; a regra "faturamento vazio" não olha mais a margem; sai a validação "A margem bruta deve ficar entre 0 e 100"
+- [x] T014 [US2] `cadastro-loja/pendencias.js`: sai o comentário sobre margem; `pendencias.test.js` e `calculos.test.js` ajustados (sem margem; salvar o faturamento não envia `margemPct`)
+- [x] T015 Rodar os testes da tela (`npx vitest run`) e commitar a fatia
 
 ## Fatia 4 — Fechamento
 - [ ] T016 Percorrer o `quickstart.md` no ambiente local (Cadastro de Cosmópolis sem campo de margem, margem 30 preservada no banco, planilha antiga importa, diagnóstico com `saldoMensal`); conferir que nenhuma tela de Cadastro, Diagnóstico ou Simulação traz "margem" (busca no código da tela)

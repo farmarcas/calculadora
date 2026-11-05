@@ -89,15 +89,15 @@ describe("copiar horário da segunda e validação", () => {
     expect(r).not.toHaveProperty("faturamento");
   });
   it("faturamento de dia fechado é descartado ao gravar; tudo vazio vira null", () => {
-    const f = { dias: [100, "", "", "", "", "", 999], mensal: "", margemPct: "" };
-    expect(faturamentoParaApi(f, semana)).toEqual({ dias: [100, null, null, null, null, null, null], mensal: null, margemPct: null });
-    expect(faturamentoParaApi({ dias: ["", "", "", "", "", "", ""], mensal: "", margemPct: "" }, semana)).toBeNull();
+    const f = { dias: [100, "", "", "", "", "", 999], mensal: "" };
+    expect(faturamentoParaApi(f, semana)).toEqual({ dias: [100, null, null, null, null, null, null], mensal: null });
+    expect(faturamentoParaApi({ dias: ["", "", "", "", "", "", ""], mensal: "" }, semana)).toBeNull();
   });
-  it("erros: nome curto, fechamento antes da abertura, faturamento negativo, margem fora de 0–100", () => {
-    const l = { nome: "A", horarios: { versao: 2, dias: [aberto("20:00", "08:00"), ...semana.dias.slice(1)] }, faturamento: { dias: [-1, 0, 0, 0, 0, 0, null], mensal: "", margemPct: 120 } };
+  it("erros: nome curto, fechamento antes da abertura, faturamento negativo", () => {
+    const l = { nome: "A", horarios: { versao: 2, dias: [aberto("20:00", "08:00"), ...semana.dias.slice(1)] }, faturamento: { dias: [-1, 0, 0, 0, 0, 0, null], mensal: "" } };
     const campos = errosDaLoja(l, { dono: true }).map((e) => e.campo);
-    expect(campos).toEqual(expect.arrayContaining(["nome", "dia-0", "fat-0", "margem"]));
-    expect(errosDaLoja(l, { dono: false }).map((e) => e.campo)).not.toContain("margem");
+    expect(campos).toEqual(expect.arrayContaining(["nome", "dia-0", "fat-0"]));
+    expect(errosDaLoja(l, { dono: false }).map((e) => e.campo)).not.toContain("fat-0");
     expect(errosDaLoja({ nome: "Centro", horarios: semana }, { dono: true })).toEqual([]);
   });
 });

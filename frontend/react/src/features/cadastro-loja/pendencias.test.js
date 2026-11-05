@@ -4,7 +4,7 @@ import { estadoDosCampos, pendenciasDoRascunho, podePreencher, tituloDoPainel } 
 // Os mesmos casos de backend/.../situacao.test.ts, sobre o rascunho (textos que a tela edita).
 const dia = (aberta = true) => (aberta ? { aberta: true, h24: false, abre: "08:00", fecha: "21:00" } : { aberta: false, h24: false, abre: "", fecha: "" });
 const semana = (abertos = [0, 1, 2, 3, 4, 5]) => ({ versao: 2, dias: Array.from({ length: 7 }, (_, i) => dia(abertos.includes(i))) });
-const fat = (dias = ["20000", "15000", "17000", "18000", "20000", "11000", ""], extra = {}) => ({ dias, mensal: "", margemPct: "30", ...extra });
+const fat = (dias = ["20000", "15000", "17000", "18000", "20000", "11000", ""], extra = {}) => ({ dias, mensal: "", ...extra });
 const ok = { nome: "Centro", cidade: "Sumaré", uf: "SP", regimeTributario: "real", horarios: semana(), faturamento: fat() };
 const equipe = { farmaceuticos: 1, funcoesNaEquipe: ["Farmacêutico", "Atendimento"] };
 const custos = { salarioMedio: { Farmacêutico: "9000", Atendimento: "2500", Caixa: "" } };
@@ -73,12 +73,6 @@ describe("pendências sobre o rascunho (dono)", () => {
     expect(com.total).toBe(sem.total);
     expect(com.feitos).toBe(sem.feitos + 1);
     expect(ids(dono({ custos: { salarioMedio: { Farmacêutico: "", Atendimento: "2500" } } }))).toEqual(["salario:Farmacêutico"]);
-  });
-
-  it("a margem bruta é opcional: sem ela não há pendência", () => {
-    const r = dono({ loja: { ...ok, faturamento: fat(undefined, { margemPct: "" }) } });
-    expect(ids(r)).toEqual([]);
-    expect(r.itens.some((i) => i.id === "margem")).toBe(false);
   });
 
   it("nenhum texto traz valores em reais", () => {

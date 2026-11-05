@@ -138,12 +138,6 @@ export const montarDiagnostico = (a: {
 
   const fontes = {
     horario: dias.length > 0,
-    escala: escala && {
-      arquivo: escala.arquivo,
-      recebidaEm: escala.recebidaEm,
-      aceitas: escala.linhasAceitas,
-      rejeitadas: escala.linhasRejeitadas,
-    },
     base: base && {
       arquivo: base.arquivo,
       recebidaEm: base.recebidaEm,
@@ -175,7 +169,7 @@ export const montarDiagnostico = (a: {
       status: 'pendente' as const,
       mensagem: !fontes.horario
         ? 'Cadastre o horário de funcionamento da loja para calcular o diagnóstico.'
-        : 'Importe a escala atual para ver o diagnóstico.',
+        : 'Cadastre o horário dos funcionários em Cadastros › Equipe para ver o diagnóstico.',
       fontes,
       config,
     };
@@ -361,11 +355,6 @@ export const montarDiagnostico = (a: {
       tom: 'atencao',
       texto: `${fora.length} colaborador(es) sem função de escala, fora do cálculo: ${fora.map((t) => t.nome).join(', ')}.`,
     });
-  if (escala.linhasRejeitadas)
-    atencao.push({
-      tom: 'atencao',
-      texto: `${escala.linhasRejeitadas} linha(s) da escala foram rejeitadas na importação.`,
-    });
 
   const lacunas = cob.funcoes.some((f) => f.porHora.some((c) => c.ok === false));
   const status = !atual.passa
@@ -399,7 +388,8 @@ export const montarDiagnostico = (a: {
         ).length
       : null,
     foraDoCalculo: turnos.filter((t) => !t.funcao).length,
-    linhasRejeitadas: escala.linhasRejeitadas,
+    // A planilha de escala foi aposentada (spec 026): não há mais linhas rejeitadas; o campo fica por compatibilidade.
+    linhasRejeitadas: 0,
   };
 
   // Origem da venda por dia: base comercial, faturamento do cadastro por dia, ou estimativa (só o mensal informado).

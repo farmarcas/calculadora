@@ -54,7 +54,7 @@ describe('escala (rotas)', () => {
     expect(r.body.status).toBe('pendente');
   });
 
-  it('importa a escala (várias lojas), rejeita linhas ruins e calcula o diagnóstico', async () => {
+  it('a equipe vem dos funcionários do Cadastro (função, horário, intervalo) e o diagnóstico é calculado', async () => {
     const arq = await xlsx(escalaCab, [
       ['001', 'F1', 'Ana', 'Farmacêutica', 'Seg a Sáb', '08:00', '12:00', '13:00', '17:00', '44'],
       ['001', 'F2', 'Bia', 'Farmacêutica', 'Seg a Sex', '12:00', '', '', '20:00', '44'],
@@ -62,17 +62,7 @@ describe('escala (rotas)', () => {
       ['001', 'F4', 'Duda', 'Caixa', 'Seg a Sex', '18:00', '', '', '08:00', ''],
       ['999', 'X1', 'Zé', 'Caixa', 'Seg a Sex', '08:00', '', '', '17:00', ''],
     ]);
-    const imp = await reqGe()
-      .post('/api/v1/cargas/escala')
-      .set(admin)
-      .attach('arquivo', arq, 'escala.xlsx');
-    expect(imp.status).toBe(201);
-    const l001 = imp.body.lojas.find((l: { codigo: string }) => l.codigo === '001');
-    expect(l001).toMatchObject({ aceitas: 3, rejeitadas: 1, situacao: 'Importada' });
-    expect(imp.body.lojas.find((l: { codigo: string }) => l.codigo === '999').situacao).toContain(
-      'não cadastrada',
-    );
-
+    await reqGe().post('/api/v1/cargas/escala').set(admin).attach('arquivo', arq, 'escala.xlsx');
     const d = (await reqGe().get(`/api/v1/lojas/${lojaId}/diagnostico`)).body;
     expect(d.status).not.toBe('pendente');
     expect(d.colaboradores).toHaveLength(3);
@@ -81,18 +71,6 @@ describe('escala (rotas)', () => {
     expect(
       d.pontosAtencao.some((p: { texto: string }) => p.texto.includes('sem função de escala')),
     ).toBe(true);
-  });
-
-  it('reenviar a escala substitui a anterior e guarda o histórico', async () => {
-    const arq = await xlsx(escalaCab, [
-      ['001', 'F1', 'Ana', 'Farmacêutica', 'Seg a Sáb', '08:00', '', '', '17:00', '44'],
-    ]);
-    await reqGe().post('/api/v1/cargas/escala').set(admin).attach('arquivo', arq, 'a.xlsx');
-    await reqGe().post('/api/v1/cargas/escala').set(admin).attach('arquivo', arq, 'b.xlsx');
-    const h = (await reqGe().get(`/api/v1/lojas/${lojaId}/cargas`)).body.data;
-    expect(h).toHaveLength(2);
-    expect(h.filter((c: { ativa: boolean }) => c.ativa)).toHaveLength(1);
-    expect(h.find((c: { ativa: boolean }) => c.ativa).arquivo).toBe('b.xlsx');
   });
 
   it('importa a base comercial com colunas fora do padrão e mostra os horários de maior venda', async () => {
@@ -123,15 +101,6 @@ describe('escala (rotas)', () => {
     const d = (await reqGe().get(`/api/v1/lojas/${lojaId}/diagnostico`).set(admin)).body;
     expect(d.vendas.top[0]).toMatchObject({ hora: 18, vendaMedia: 1000 });
     expect(d.vendas.periodo.dias).toBe(2);
-  });
-
-  it('recusa planilha sem as colunas obrigatórias', async () => {
-    const r = await reqGe()
-      .post('/api/v1/cargas/escala')
-      .set(admin)
-      .attach('arquivo', await xlsx(['A', 'B'], [['1', '2']]), 'x.xlsx');
-    expect(r.status).toBe(400);
-    expect(r.body.error.message).toContain('colunas obrigatórias');
   });
 
   it('configuração muda o resultado e só quem escreve pode mudar', async () => {
@@ -764,7 +733,7 @@ describe('escala (rotas)', () => {
     expect(base.vendas).not.toBeNull();
   });
 
-  it('o horário digitado no cadastro vira a escala atual quando nada foi importado, e a importada vence', async () => {
+  it('o horário digitado no cadastro é a escala atual (a que vira o dia fica só informativa)', async () => {
     const url = `/api/v1/lojas/${lojaId}/diagnostico`;
     const cadastrar = (matricula: string, nome: string, extra: object) =>
       reqGe()
@@ -784,26 +753,8 @@ describe('escala (rotas)', () => {
     const sem = (await reqGe().get(url).set(admin)).body;
     expect(sem.status).not.toBe('pendente');
     expect(sem.colaboradores.map((c: { nome: string }) => c.nome)).toEqual(['Ana']);
-    expect(sem.fontes.escala.arquivo).toBe('Cadastro de funcionários');
-
-    // escala importada para outra pessoa: a do cadastro completa o quadro
-    await reqGe()
-      .post('/api/v1/cargas/escala')
-      .set(admin)
-      .attach(
-        'arquivo',
-        await xlsx(escalaCab, [
-          ['001', 'F2', 'Cris', 'Farmacêutica', 'Seg a Sex', '08:00', '', '', '16:00', '40'],
-          ['001', 'C1', 'Ana', 'Farmacêutica', 'Seg a Sex', '09:00', '', '', '18:00', '44'],
-        ]),
-        'e.xlsx',
-      );
-    const com = (await reqGe().get(url).set(admin)).body;
-    expect(com.fontes.escala.arquivo).toBe('e.xlsx');
-    const ana = com.colaboradores.filter((c: { nome: string }) => c.nome === 'Ana');
-    expect(ana).toHaveLength(1);
-    expect(ana[0].turno).toContain('09');
-    expect(JSON.stringify(com.pontosAtencao)).toContain('difere da escala importada');
+    expect(sem.fontes.escala).toBeUndefined();
+    expect(sem.numeros.linhasRejeitadas).toBe(0);
   });
 
   it('todo Diagnóstico traz o aviso de estimativa, para qualquer perfil, com ou sem escala', async () => {

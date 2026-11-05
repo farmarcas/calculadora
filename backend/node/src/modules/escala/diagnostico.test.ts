@@ -86,7 +86,7 @@ describe('montarDiagnostico', () => {
   it('entrega os números grandes: resumo por regra e pontos de atenção', () => {
     const r = montarDiagnostico({
       loja,
-      escala: { ...meta, linhasRejeitadas: 2 },
+      escala: meta,
       turnos: [
         farm('F1', 8, 14, [0, 1, 2, 3, 4, 5], 44),
         farm('F2', 14, 20, [0, 1, 2, 3, 4], 44),
@@ -102,7 +102,7 @@ describe('montarDiagnostico', () => {
       faixasAbaixoDoMinimo: 0,
       maiorVendaDescoberta: null, // sem base comercial
       foraDoCalculo: 1,
-      linhasRejeitadas: 2,
+      linhasRejeitadas: 0, // a planilha de escala foi aposentada (spec 026): campo fixo em zero
     });
     const r40 = r.regras.find((x) => x.id === 'r40')!;
     expect(r40.resumo).toMatchObject({

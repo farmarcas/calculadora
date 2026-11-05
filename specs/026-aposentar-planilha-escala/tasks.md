@@ -13,11 +13,11 @@ Formato: `- [ ] ID [P] [História] descrição com o arquivo`. Servidor em `back
 - [x] T008 Rodar os testes do servidor e commitar a fatia
 
 ## Fatia 2 — Diagnóstico só do Cadastro (servidor) (História 1, P1)
-- [ ] T009 [US1] `escala.repository.ts`: `turnosDoCadastro` devolve `iniIntervalo` e `fimIntervalo` (hoje `null`); sem mudar quem entra (função no cálculo, com entrada, saída e dias)
-- [ ] T010 [US1] `escala.service.ts` (`diagnostico`): usar só `turnosDoCadastro`; sair a busca da escala importada, a mescla das duas fontes e o cálculo de funcionários com horário divergente; a `meta` passa a ser sempre "Cadastro de funcionários" quando há horários
-- [ ] T011 [US1] `diagnostico.ts`: o estado "sem horário" (texto "Importe a escala atual para ver o diagnóstico.") passa a "Cadastre o horário dos funcionários em Cadastros › Equipe para ver o diagnóstico."; sair a pendência de linhas rejeitadas (o campo `linhasRejeitadas` segue na resposta como 0) e a fonte `escala`; funcionário sem horário aparece na pendência com o motivo "falta o horário"
-- [ ] T012 [US1] Testes (`diagnostico.test.ts`, `escala.routes.integration.test.ts`, `cobertura` com intervalo): mesmos números com horários do Cadastro; o intervalo do Cadastro desconta o almoço na cobertura por hora; sem horário nenhum, o texto novo; sem pendência de linhas rejeitadas; ajustar os testes que dependiam da escala importada
-- [ ] T013 Rodar os testes do servidor (unidade e integração da escala) e commitar a fatia
+- [x] T009 [US1] `escala.repository.ts`: `turnosDoCadastro` devolve `iniIntervalo` e `fimIntervalo` (hoje `null`); sem mudar quem entra (função no cálculo, com entrada, saída e dias)
+- [x] T010 [US1] `escala.service.ts` (`diagnostico`): usar só `turnosDoCadastro`; sair a busca da escala importada, a mescla das duas fontes e o cálculo de funcionários com horário divergente; a `meta` passa a ser sempre "Cadastro de funcionários" quando há horários
+- [x] T011 [US1] `diagnostico.ts`: o estado "sem horário" (texto "Importe a escala atual para ver o diagnóstico.") passa a "Cadastre o horário dos funcionários em Cadastros › Equipe para ver o diagnóstico."; sair a pendência de linhas rejeitadas (o campo `linhasRejeitadas` segue na resposta como 0) e a fonte `escala`; funcionário sem horário aparece na pendência com o motivo "falta o horário"
+- [x] T012 [US1] Testes (`diagnostico.test.ts`, `escala.routes.integration.test.ts`, `cobertura` com intervalo): mesmos números com horários do Cadastro; o intervalo do Cadastro desconta o almoço na cobertura por hora; sem horário nenhum, o texto novo; sem pendência de linhas rejeitadas; ajustar os testes que dependiam da escala importada
+- [x] T013 Rodar os testes do servidor (unidade e integração da escala) e commitar a fatia
 
 ## Fatia 3 — Simulação a partir do Cadastro e aviso corrigido (História 1 e 4, P1/P2)
 - [ ] T014 [US1] `simulacoes.service.ts`: `doEscalaAtual` vira "equipe do Cadastro": quadro dos funcionários com função no cálculo e carga, turnos dos horários e intervalos deles; sem nenhum funcionário com horário, erro 400 com `code: SEM_HORARIO_NO_CADASTRO` e a mensagem "Cadastre o horário dos funcionários da loja antes de criar a simulação a partir da equipe."; a outra mensagem que cita "escala atual" ("As contratações sugeridas só valem a partir da escala atual.") passa a falar da equipe do Cadastro

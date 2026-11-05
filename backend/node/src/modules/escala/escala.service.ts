@@ -178,40 +178,25 @@ export const makeEscalaService = (repo: EscalaRepository, auditar: Auditor) => {
     async diagnostico(lojaId: string, perfil?: string, simulacao?: PremissasEntrada) {
       const loja = await repo.lojaParaDiagnostico(lojaId);
       if (!loja) throw new NotFoundError('Loja não encontrada', 'LOJA_NAO_ENCONTRADA');
-      const [escalaImportada, base, doCadastro, parametros, fixos] = await Promise.all([
-        repo.escalaAtiva(lojaId),
+      // A equipe vem só do Cadastro (função, carga, dias, entrada, saída e intervalo de cada funcionário).
+      const [base, turnosFinais, parametros, fixos] = await Promise.all([
         repo.baseAtiva(lojaId),
         repo.turnosDoCadastro(lojaId),
         repo.parametrosVigentes(),
         repo.matriculasHorarioFixo(lojaId),
       ]);
-      // A escala importada manda; o horário digitado no cadastro completa quem não está nela
-      // (ou serve de escala atual quando nada foi importado).
-      const importados = new Set((escalaImportada?.turnos ?? []).map((t) => t.matricula));
-      const extras = doCadastro.filter((t) => !importados.has(t.matricula));
       const escala =
-        escalaImportada ??
-        (extras.length > 0
+        turnosFinais.length > 0
           ? {
-              meta: {
-                arquivo: 'Cadastro de funcionários',
-                recebidaEm: new Date(),
-                linhasAceitas: extras.length,
-                linhasRejeitadas: 0,
-              },
-              turnos: [] as typeof extras,
+              arquivo: 'Cadastro de funcionários',
+              recebidaEm: new Date(),
+              linhasAceitas: turnosFinais.length,
+              linhasRejeitadas: 0,
             }
-          : null);
-      const turnosFinais = [...(escala?.turnos ?? []), ...extras];
-      const divergentes = doCadastro.filter((c) => {
-        const i = escalaImportada?.turnos.find((t) => t.matricula === c.matricula);
-        return (
-          !!i && (Math.abs(i.entrada - c.entrada) > 0.01 || Math.abs(i.saida - c.saida) > 0.01)
-        );
-      });
+          : null;
       const diag = montarDiagnostico({
         loja,
-        escala: escala?.meta ?? null,
+        escala,
         turnos: turnosFinais,
         horarioFixo: fixos,
         base: base?.meta ?? null,
@@ -224,11 +209,6 @@ export const makeEscalaService = (repo: EscalaRepository, auditar: Auditor) => {
           turnosFinais.map((t) => t.matricula),
         ),
       });
-      if (divergentes.length > 0 && diag.pontosAtencao)
-        diag.pontosAtencao.push({
-          tom: 'atencao',
-          texto: `O horário digitado no cadastro difere da escala importada para: ${divergentes.map((d) => d.nome).join(', ')}. A escala importada é a que vale.`,
-        });
       // Folha mensal atual: custo, então só o dono do grupo recebe (o campo nem existe para os outros).
       if (perfil !== 'TENANT_ADMIN' || diag.status === 'pendente') return diag;
       const quadro = turnosFinais

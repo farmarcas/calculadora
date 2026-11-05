@@ -1,7 +1,7 @@
 import type { Auditor } from '../../shared/auditoria/auditoria.js';
 import { NotFoundError } from '../../shared/errors/not-found-error.js';
 import { ValidationError } from '../../shared/errors/validation-error.js';
-import { CAMPOS_BASE, CAMPOS_ESCALA, type CampoDef } from '../planilhas/campos.js';
+import { CAMPOS_BASE, type CampoDef } from '../planilhas/campos.js';
 import { inferirUmaAba } from '../planilhas/inferencia.js';
 import { lerPlanilha } from '../planilhas/leitor.js';
 import { calcularCusto } from '../custos/custo.js';
@@ -13,7 +13,7 @@ import {
   type TurnosLoja,
 } from '../regras/turnos.js';
 import { diasAbertos, montarDiagnostico } from './diagnostico.js';
-import { interpretarBase, interpretarEscala, somarPorHora, type ErroLinha } from './interpretar.js';
+import { interpretarBase, somarPorHora, type ErroLinha } from './interpretar.js';
 import type { EscalaRepository } from './escala.repository.js';
 import { premissasDe, type PremissasEntrada } from './premissas.js';
 
@@ -58,67 +58,6 @@ export const makeEscalaService = (repo: EscalaRepository, auditar: Auditor) => {
   };
 
   return {
-    async importarEscala(arquivo: string, buffer: Buffer, perfil: string) {
-      const inf = await abrir(arquivo, buffer, CAMPOS_ESCALA, 'modelo de escala atual');
-      const matriculas = inf.aba.linhas
-        .map((l) => (l[inf.colunas.matricula!] ?? '').trim())
-        .filter(Boolean);
-      const cadastro = await repo.cadastroPorMatriculas(matriculas);
-      const { turnos, erros } = interpretarEscala(inf.aba, inf.colunas, cadastro);
-
-      const lojas = await repo.lojasPorCodigos([
-        ...new Set([
-          ...turnos.map((t) => t.loja),
-          ...erros.map((e) => e.loja).filter((x): x is string => !!x),
-        ]),
-      ]);
-      const id = new Map(lojas.map((l) => [l.codigo, l]));
-      const rej = errosPorLoja(erros);
-      const cadastradas = await repo.matriculasCadastradas(matriculas);
-
-      const resultado: {
-        codigo: string;
-        nome: string | null;
-        aceitas: number;
-        rejeitadas: number;
-        situacao: string;
-      }[] = [];
-      for (const [codigo, ts] of porLoja(turnos)) {
-        const loja = id.get(codigo);
-        if (!loja) {
-          resultado.push({
-            codigo,
-            nome: null,
-            aceitas: 0,
-            rejeitadas: ts.length + (rej.get(codigo) ?? 0),
-            situacao: 'Loja não cadastrada: cadastre antes de importar',
-          });
-          continue;
-        }
-        await repo.substituirEscala(loja.id, arquivo, ts, rej.get(codigo) ?? 0, cadastradas);
-        resultado.push({
-          codigo,
-          nome: loja.nome,
-          aceitas: ts.length,
-          rejeitadas: rej.get(codigo) ?? 0,
-          situacao: 'Importada',
-        });
-      }
-      await auditar({
-        acao: 'escala.importada',
-        perfil,
-        alvoTipo: 'carga',
-        detalhe: { arquivo, lojas: resultado.length, linhas: turnos.length, erros: erros.length },
-      });
-      return {
-        arquivo,
-        entendi: entendi(CAMPOS_ESCALA, inf.aba, inf.colunas, inf.sugestoes),
-        lojas: resultado,
-        erros: erros.slice(0, 100),
-        totalErros: erros.length,
-      };
-    },
-
     async importarBase(arquivo: string, buffer: Buffer, perfil: string) {
       const inf = await abrir(arquivo, buffer, CAMPOS_BASE, 'modelo de base comercial');
       const { vendas, erros } = interpretarBase(inf.aba, inf.colunas);

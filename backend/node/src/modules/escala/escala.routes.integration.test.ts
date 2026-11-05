@@ -130,8 +130,8 @@ describe('escala (rotas)', () => {
     expect(r.body.regras[1].descricao).toContain('8h24');
   });
 
-  it('baixa os modelos de escala e de base', async () => {
-    expect((await reqGe().get('/api/v1/planilha-modelo-escala')).status).toBe(200);
+  it('só o modelo da base comercial existe; o da escala foi aposentado (a equipe vai na planilha de funcionários)', async () => {
+    expect((await reqGe().get('/api/v1/planilha-modelo-escala')).status).toBe(404);
     expect((await reqGe().get('/api/v1/planilha-modelo-base')).status).toBe(200);
   });
 

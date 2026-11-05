@@ -1,7 +1,6 @@
 import ExcelJS from 'exceljs';
 import {
   CAMPOS_BASE,
-  CAMPOS_ESCALA,
   CAMPOS_FUNCIONARIO,
   CAMPOS_LOJA,
   FUNCOES_ESCALA,
@@ -84,13 +83,6 @@ const modeloSimples = async (nome: string, campos: CampoDef[], dica: string): Pr
   wb.getWorksheet('Como preencher')!.getColumn(1).width = 110;
   return Buffer.from(await wb.xlsx.writeBuffer());
 };
-
-export const gerarModeloEscala = () =>
-  modeloSimples(
-    'Escala atual',
-    CAMPOS_ESCALA,
-    'Uma linha por colaborador, com o turno que ele cumpre em cada dia trabalhado. Dias: "Seg a Sáb" ou "Seg,Ter,Qua". Várias lojas podem vir no mesmo arquivo.',
-  );
 
 export const gerarModeloBase = () =>
   modeloSimples(

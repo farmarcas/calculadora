@@ -403,7 +403,7 @@ export const makeSimulacoesService = (
       const s = await simulacao(id);
       if (s.status !== 'gravada')
         throw new ConflictError('Só simulação gravada pode ser aprovada.', 'SIMULACAO_NAO_GRAVADA');
-      const l = await loja(s.lojaId);
+      await loja(s.lojaId); // garante que a loja ainda existe
       const inicio = vigenciaInicio
         ? new Date(`${vigenciaInicio}T00:00:00.000Z`)
         : new Date(new Date().toISOString().slice(0, 10) + 'T00:00:00.000Z');

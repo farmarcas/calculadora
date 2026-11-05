@@ -9,7 +9,6 @@ import { parametrosRepository } from '../parametros/parametros.repository.js';
 import { funcaoNoCalculo } from '../cadastros/funcoes.js';
 import { normalizarHorarios } from '../cadastros/horarios.js';
 import type { CargaMeta, LojaDiag, TurnoDiag } from './diagnostico.js';
-import type { CadastroPessoa, TurnoLinha } from './interpretar.js';
 import type { VendaLinha } from './vendas.js';
 
 const dia = (s: string) => new Date(`${s}T00:00:00.000Z`);
@@ -28,75 +27,6 @@ export const escalaRepository = (geId: string) => {
       return prisma.loja.findMany({
         where: { codigo: { in: codigos }, geId, ...ativo },
         select: { id: true, codigo: true, nome: true },
-      });
-    },
-
-    async cadastroPorMatriculas(matriculas: string[]): Promise<Map<string, CadastroPessoa>> {
-      const rows = await prisma.funcionario.findMany({
-        where: { matricula: { in: matriculas }, loja: { geId }, ...ativo },
-        select: { matricula: true, nome: true, funcaoEscala: true, cargaSemanalH: true },
-      });
-      return new Map(
-        rows.map((r) => [
-          r.matricula,
-          {
-            nome: r.nome,
-            funcaoEscala: funcaoNoCalculo(r.funcaoEscala),
-            cargaSemanalH: r.cargaSemanalH,
-          },
-        ]),
-      );
-    },
-
-    async matriculasCadastradas(matriculas: string[]) {
-      const rows = await prisma.funcionario.findMany({
-        where: { matricula: { in: matriculas }, loja: { geId }, ...ativo },
-        select: { matricula: true },
-      });
-      return new Set(rows.map((r) => r.matricula));
-    },
-
-    // A carga nova vira a ativa; a anterior fica no histórico.
-    async substituirEscala(
-      lojaId: string,
-      arquivo: string,
-      turnos: TurnoLinha[],
-      rejeitadas: number,
-      cadastradas: Set<string>,
-    ) {
-      return prisma.$transaction(async (tx) => {
-        await garantirLoja(tx, lojaId);
-        await tx.carga.updateMany({
-          where: { lojaId, tipo: 'ESCALA', ativa: true },
-          data: { ativa: false },
-        });
-        return tx.carga.create({
-          data: {
-            lojaId,
-            tipo: 'ESCALA',
-            arquivo,
-            linhasAceitas: turnos.length,
-            linhasRejeitadas: rejeitadas,
-            turnos: {
-              create: turnos.map((t) => ({
-                matricula: t.matricula,
-                nome: t.nome,
-                funcao: t.funcao,
-                tipoEscala: t.tipoEscala,
-                dias: t.dias,
-                entrada: t.entrada,
-                iniIntervalo: t.iniIntervalo,
-                fimIntervalo: t.fimIntervalo,
-                saida: t.saida,
-                cargaH: t.cargaH,
-                status: t.status,
-                motivo: t.motivo,
-                cadastrado: cadastradas.has(t.matricula),
-              })),
-            },
-          },
-          select: { id: true },
-        });
       });
     },
 
@@ -164,35 +94,6 @@ export const escalaRepository = (geId: string) => {
         encargos: efetivos?.encargos ?? null,
         regimeTributario: l.regimeTributario,
         faturamento: l.faturamento as unknown as LojaDiag['faturamento'],
-      };
-    },
-
-    async escalaAtiva(lojaId: string): Promise<{ meta: CargaMeta; turnos: TurnoDiag[] } | null> {
-      const c = await prisma.carga.findFirst({
-        where: { lojaId, loja: { geId }, tipo: 'ESCALA', ativa: true },
-        include: { turnos: { orderBy: { nome: 'asc' } } },
-      });
-      if (!c) return null;
-      return {
-        meta: {
-          arquivo: c.arquivo,
-          recebidaEm: c.recebidaEm,
-          linhasAceitas: c.linhasAceitas,
-          linhasRejeitadas: c.linhasRejeitadas,
-        },
-        turnos: c.turnos.map((t) => ({
-          funcao: t.funcao,
-          matricula: t.matricula,
-          nome: t.nome,
-          dias: t.dias,
-          entrada: t.entrada,
-          saida: t.saida,
-          iniIntervalo: t.iniIntervalo,
-          fimIntervalo: t.fimIntervalo,
-          cargaH: t.cargaH,
-          status: t.status,
-          motivo: t.motivo,
-        })),
       };
     },
 

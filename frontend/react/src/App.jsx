@@ -110,10 +110,10 @@ export default function App() {
             perfil={perfil}
             lojaId={lojaId}
             semLojas={lojas !== null && lojas.length === 0}
-            secao={folha.secao}
+            secao={secao ?? folha.secao}
             versaoDados={versaoDados}
             onImportar={() => setImportando(true)}
-            onSecao={(s) => irPara(folhas(perfil).find((f) => f.tela === "escala" && f.secao === s))}
+            onSecao={(s) => { setTela("escala"); setSecao(s); }}
             onIrCadastros={() => irPara(folhas(perfil).find((f) => f.tela === "cadastros"))}
           />
         )}

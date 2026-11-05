@@ -44,7 +44,7 @@ describe('processarLinhas', () => {
     expect(r.funcionarios).toHaveLength(1);
     expect(r.funcionarios[0]?.funcaoEscala).toBe('Farmacêutico');
     expect(r.erros.map((e) => e.motivo)).toEqual([
-      'Código da loja vazio',
+      'CNPJ da loja vazio',
       'Código 001 repetido na planilha',
       'Carga semanal inválida',
       'Nome vazio',
@@ -293,5 +293,106 @@ describe('importação em massa: configuração da loja e horário fixo', () => 
       ['F3', undefined],
     ]);
     expect(r.erros).toEqual([{ aba: 'F', linha: 5, motivo: 'Horário fixo: use Sim ou Não' }]);
+  });
+});
+
+// CNPJs válidos para os testes (o segundo difere do primeiro só nos dígitos finais).
+const CNPJ_A = '11222333000181';
+const CNPJ_B = '45997418000153';
+
+describe('processarLinhas: loja identificada pelo CNPJ', () => {
+  const mapaCnpj = {
+    lojas: { aba: 'L', colunas: { cnpj: 0, nome: 1, fat_seg: 2 } },
+    funcionarios: {
+      aba: 'F',
+      colunas: { matricula: 0, nome: 1, cnpj_loja: 2, funcao_escala: 3 },
+    },
+  };
+  const abas = (lojas: string[][], funcs: string[][] = []) => [
+    { nome: 'L', cabecalhos: [], linhas: lojas },
+    { nome: 'F', cabecalhos: [], linhas: funcs },
+  ];
+
+  it('aceita o CNPJ com ou sem pontuação e sem o código da loja', () => {
+    const r = processarLinhas(
+      abas([
+        ['11.222.333/0001-81', 'Centro', '1000'],
+        [CNPJ_B, '', ''],
+      ]),
+      mapaCnpj,
+    );
+    expect(r.erros).toEqual([]);
+    expect(r.lojas.map((l) => l.cnpj)).toEqual([CNPJ_A, CNPJ_B]);
+    expect(r.lojas[0]).toMatchObject({ nome: 'Centro', codigo: undefined });
+    expect(r.lojas[1]?.nome).toBeUndefined(); // nome em branco mantém o cadastrado
+  });
+
+  it('completa com zeros o CNPJ que o Excel guardou como número (perdeu o zero da frente)', () => {
+    // 04.252.011/0001-10 → o Excel guarda 4252011000110 (13 dígitos)
+    const r = processarLinhas(abas([['4252011000110', 'Zero', '']]), mapaCnpj);
+    expect(r.erros).toEqual([]);
+    expect(r.lojas[0]?.cnpj).toBe('04252011000110');
+  });
+
+  it('recusa só a linha com CNPJ vazio, inválido ou repetido', () => {
+    const r = processarLinhas(
+      abas([
+        [CNPJ_A, 'Ok', ''],
+        ['', 'Sem CNPJ', ''],
+        ['11222333000180', 'Verificador errado', ''],
+        ['123', 'Curto', ''],
+        ['11.222.333/0001-81', 'Repetida', ''],
+      ]),
+      mapaCnpj,
+    );
+    expect(r.lojas).toHaveLength(1);
+    expect(r.erros.map((e) => [e.linha, e.motivo])).toEqual([
+      [3, 'CNPJ da loja vazio'],
+      [4, 'CNPJ inválido'],
+      [5, 'CNPJ inválido'],
+      [6, 'CNPJ 11.222.333/0001-81 repetido na planilha'],
+    ]);
+  });
+
+  it('funcionário pelo CNPJ da loja; o cargo vem da lista ou é deduzido do texto', () => {
+    const r = processarLinhas(
+      abas(
+        [],
+        [
+          ['F1', 'Ana', '11.222.333/0001-81', 'Farmacêutico'],
+          ['F2', 'Bia', CNPJ_B, 'Balconista'],
+          ['F3', 'Caio', CNPJ_A, 'Vendedor'],
+          ['F4', 'Dani', CNPJ_A, 'Gerente'],
+          ['F5', 'Edu', '', 'Caixa'],
+          ['F6', 'Fabi', '11222333000180', 'Caixa'],
+        ],
+      ),
+      mapaCnpj,
+    );
+    expect(r.funcionarios.map((f) => [f.matricula, f.lojaCnpj, f.funcaoEscala])).toEqual([
+      ['F1', CNPJ_A, 'Farmacêutico'],
+      ['F2', CNPJ_B, 'Atendimento'],
+      ['F3', CNPJ_A, 'Atendimento'],
+      ['F4', CNPJ_A, null], // "Outros cargos": fica fora do cálculo
+    ]);
+    expect(r.erros.map((e) => e.motivo)).toEqual(['CNPJ da loja vazio', 'CNPJ inválido']);
+  });
+
+  it('planilha antiga com código: a loja é reconhecida pelo código, como antes', () => {
+    const r = processarLinhas(
+      abas([['', '', '']], []).map((a) => a),
+      mapa,
+    );
+    expect(r.lojas).toEqual([]);
+    const antiga = processarLinhas(
+      [
+        { nome: 'L', cabecalhos: [], linhas: [['001', 'Centro', '8:00', '22:00']] },
+        { nome: 'F', cabecalhos: [], linhas: [['F1', 'Ana', '001', 'Caixa', '44']] },
+      ],
+      mapa,
+    );
+    expect(antiga.erros).toEqual([]);
+    expect(antiga.lojas[0]).toMatchObject({ codigo: '001', nome: 'Centro', cnpj: undefined });
+    expect(antiga.funcionarios[0]).toMatchObject({ lojaCodigo: '001', lojaCnpj: undefined });
   });
 });

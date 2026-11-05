@@ -23,6 +23,14 @@ export const escalaRepository = (geId: string) => {
       throw new NotFoundError('Loja não encontrada', 'LOJA_NAO_ENCONTRADA');
   };
   return {
+    // Envio ativo de base comercial de cada loja (só a data), para avisar o que uma nova planilha substitui.
+    async basesAtivasDasLojas(lojaIds: string[]) {
+      return prisma.carga.findMany({
+        where: { lojaId: { in: lojaIds }, loja: { geId }, tipo: 'BASE', ativa: true },
+        select: { lojaId: true, recebidaEm: true },
+      });
+    },
+
     async lojasPorCodigos(codigos: string[]) {
       return prisma.loja.findMany({
         where: { codigo: { in: codigos }, geId, ...ativo },

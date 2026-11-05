@@ -5,9 +5,8 @@ import { ConflictError } from '../../shared/errors/conflict-error.js';
 import { NotFoundError } from '../../shared/errors/not-found-error.js';
 import { ValidationError } from '../../shared/errors/validation-error.js';
 import { prisma } from '../../shared/database/prisma.js';
-import { regimeValido, validarAjustes } from '../regras/encargos.js';
 import { avisosDeTurnos, normalizarTurnos, validarTurnos, type TurnosLoja } from '../regras/turnos.js';
-import type { CustosGravados } from '../custos/custos.schemas.js';
+import { manterAjustesAntigos, type CustosGravados } from '../custos/custos.schemas.js';
 import type { configuracaoBody } from '../escala/escala.schemas.js';
 import type { z } from 'zod';
 import type { CadastrosRepository, LojaRegistro } from './cadastros.service.js';
@@ -92,7 +91,6 @@ export const makePainelService = (geId: string, cadastros: CadastrosRepository, 
       }
     }
     const horariosFinais = normalizarHorarios(l?.horarios !== undefined ? l.horarios : bruto.horarios);
-    const regimeFinal = l?.regimeTributario !== undefined ? l.regimeTributario : bruto.regimeTributario;
 
     // 3 · Configuração: convenção, mínimo único, turnos e modo do mínimo.
     const c = body.configuracao;
@@ -114,16 +112,11 @@ export const makePainelService = (geId: string, cadastros: CadastrosRepository, 
         dados.turnos = turnosFinais === null ? Prisma.JsonNull : (turnosFinais as never);
     }
 
-    // 4 · Custos: RAT e FAP na faixa (no Simples o RAT padrão é zero, então 0 vale lá).
+    // 4 · Custos: os ajustes antigos de RAT/FAP/rescisão já guardados continuam como estão (não valem mais).
     if (body.custos) {
-      const erros = validarAjustes(
-        body.custos.encargos ?? {},
-        regimeValido(regimeFinal) && regimeFinal === 'simples',
-      );
-      if (erros.length) throw new ValidationError(erros.join(' '));
-      const { encargosPct: _antigo, ...guardar } = body.custos;
+      const { encargosPct: _antigo, ...novo } = body.custos;
       void _antigo;
-      dados.custos = guardar as unknown as Prisma.InputJsonValue;
+      dados.custos = manterAjustesAntigos(novo, bruto.custos) as unknown as Prisma.InputJsonValue;
     }
 
     // 5 · Uma única gravação.

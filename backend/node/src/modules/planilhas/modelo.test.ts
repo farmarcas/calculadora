@@ -21,9 +21,8 @@ describe('planilha modelo', () => {
   it('cada campo da edição de loja existe como coluna da aba Lojas', async () => {
     const { lojas } = await cabecalhos();
     const esperadas = [
-      'Código da loja',
-      'Nome da loja',
       'CNPJ',
+      'Nome da loja / Apelido',
       'Cidade',
       'UF',
       'Marca',
@@ -45,11 +44,10 @@ describe('planilha modelo', () => {
         `Meta de ${f} (pessoas por hora)`,
         `Salário médio de ${f}`,
       ]),
-      'RAT (%)',
-      'FAP',
-      'Provisão de rescisão (Sim/Não)',
     ];
     for (const col of esperadas) expect(lojas, col).toContain(col);
+    // RAT, FAP e rescisão por loja não existem mais: os encargos vêm só do regime tributário.
+    for (const col of ['RAT (%)', 'FAP', 'Provisão de rescisão (Sim/Não)']) expect(lojas, col).not.toContain(col);
   });
 
   it('cada campo da equipe existe como coluna da aba Funcionários, inclusive o horário fixo', async () => {
@@ -57,10 +55,9 @@ describe('planilha modelo', () => {
     for (const col of [
       'Matrícula',
       'Nome',
-      'Código da loja de lotação',
-      'CPF (fictício)',
+      'CNPJ da loja',
+      'CPF',
       'Cargo',
-      'Função de escala',
       'Carga semanal (horas)',
       'Carga mensal (horas)',
       'Horário de entrada atual',
@@ -82,10 +79,54 @@ describe('planilha modelo', () => {
     for (const trecho of [
       'Convenção permite 8h24',
       'Meta de <função>',
-      'Encargos (%)',
+      'regime tributário',
       'Horário fixo',
       'vazio nunca apaga',
     ])
       expect(texto, trecho).toContain(trecho);
+    // RAT, FAP e rescisão por loja saíram: a ajuda não os cita.
+    for (const fora of ['RAT', 'FAP', 'rescisão']) expect(texto, fora).not.toContain(fora);
+  });
+
+  it('o modelo novo não traz o código da loja, o código de lotação nem o antigo cargo, e marca o CNPJ como obrigatório', async () => {
+    const { wb, lojas, funcionarios } = await cabecalhos();
+    for (const col of ['Código da loja', 'Nome da loja']) expect(lojas, col).not.toContain(col);
+    expect(lojas[0]).toBe('CNPJ');
+    for (const col of ['Código da loja de lotação', 'Cargo (texto livre)', 'Função de escala'])
+      expect(funcionarios, col).not.toContain(col);
+    expect(funcionarios.filter((c) => c === 'Cargo')).toHaveLength(1);
+    const bruto = (nome: string) =>
+      (wb.getWorksheet(nome)!.getRow(1).values as string[]).slice(1);
+    expect(bruto('Lojas')[0]).toBe('CNPJ *');
+    expect(bruto('Funcionários')).toContain('CNPJ da loja *');
+  });
+
+  it('a coluna Cargo oferece a lista Farmacêutico, Atendimento e Caixa, que impede outro valor', async () => {
+    const { wb, funcionarios } = await cabecalhos();
+    const col = funcionarios.indexOf('Cargo') + 1;
+    const ws = wb.getWorksheet('Funcionários')!;
+    for (const linha of [2, 3, 500, 2000]) {
+      const v = ws.getCell(linha, col).dataValidation;
+      expect(v.type).toBe('list');
+      expect(v.formulae).toEqual(['"Farmacêutico,Atendimento,Caixa"']);
+      expect(v.allowBlank).toBe(true);
+      expect(v.showErrorMessage).toBe(true);
+      expect(v.errorStyle).toBe('stop');
+    }
+    // as outras colunas não têm lista
+    expect(ws.getCell(2, 1).dataValidation).toBeFalsy();
+  });
+
+  it('a ajuda explica o CNPJ, o Cargo em lista e a base comercial, sem citar o código da loja', async () => {
+    const { wb } = await cabecalhos();
+    const texto = wb
+      .getWorksheet('Como preencher')!
+      .getSheetValues()
+      .flat()
+      .filter((v): v is string => typeof v === 'string')
+      .join('\n');
+    for (const trecho of ['identificada pelo CNPJ', 'escolha na lista', 'base comercial'])
+      expect(texto.toLowerCase(), trecho).toContain(trecho.toLowerCase());
+    expect(texto).not.toContain('Código da loja de lotação');
   });
 });

@@ -29,6 +29,12 @@ export const escalaRouter = (repoDoGe: (geId: string) => EscalaRepository = esca
     });
   modelo('base', gerarModeloBase);
 
+  // Revisão antes de enviar: lê o arquivo e devolve o resumo, sem gravar nada.
+  r.post('/cargas/base/revisar', escrita, uploadPlanilha, async (req: Request, res: Response) => {
+    if (!req.file) throw new ValidationError('Envie o arquivo no campo "arquivo".');
+    res.json(await s(res).revisarBase(req.file.originalname, req.file.buffer));
+  });
+
   r.post('/cargas/base', escrita, uploadPlanilha, async (req: Request, res: Response) => {
     if (!req.file) throw new ValidationError('Envie o arquivo no campo "arquivo".');
     res

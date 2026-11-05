@@ -3,7 +3,7 @@ import { api, getGe, getPerfil, GE_INICIAL, setGe, setPerfil } from "./api/clien
 import { ehOperador, cuidaDoGrupo } from "./api/perfis.js";
 import CadastrosPage from "./features/cadastros/CadastrosPage.jsx";
 import EscalaPage from "./features/diagnostico/EscalaPage.jsx";
-import EnviarPlanilhas from "./features/diagnostico/EnviarPlanilhas.jsx";
+import ModalEnviarBase from "./features/diagnostico/ModalEnviarBase.jsx";
 import { confirmarSaida } from "./features/cadastro-loja/guardaSaida.js";
 import { lerUrl } from "./features/cadastro-loja/urlDaLoja.js";
 import GruposPage from "./features/ge/GruposPage.jsx";
@@ -118,7 +118,7 @@ export default function App() {
           />
         )}
       </AppShell>
-      {importando && <EnviarPlanilhas onClose={() => setImportando(false)} onConcluido={() => setVersaoDados((v) => v + 1)} />}
+      {importando && <ModalEnviarBase onClose={() => setImportando(false)} onConcluido={() => setVersaoDados((v) => v + 1)} />}
     </>
   );
 }

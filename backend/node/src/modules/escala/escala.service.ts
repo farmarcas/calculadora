@@ -44,20 +44,48 @@ const errosPorLoja = (erros: ErroLinha[]) => {
 };
 
 export const makeEscalaService = (repo: EscalaRepository, auditar: Auditor) => {
-  const abrir = async (arquivo: string, buffer: Buffer, campos: CampoDef[], nomeModelo: string) => {
+  const abrir = async (arquivo: string, buffer: Buffer, campos: CampoDef[], _nomeModelo: string) => {
     const abas = await lerPlanilha(buffer, arquivo);
+    if (abas.filter((a) => !/como preencher/i.test(a.nome)).every((a) => a.linhas.length === 0))
+      throw new ValidationError(
+        'A planilha está vazia. Preencha a partir da linha 2 do modelo e envie de novo.',
+      );
     const inf = inferirUmaAba(
       abas.filter((a) => !/como preencher/i.test(a.nome)),
       campos,
     );
     if (!inf || inf.faltam.length)
       throw new ValidationError(
-        `Não encontrei as colunas obrigatórias: ${(inf?.faltam ?? campos.filter((c) => c.obrigatorio).map((c) => c.rotulo)).join(', ')}. Confira os títulos ou use o ${nomeModelo}.`,
+        `Não encontramos a coluna ${(inf?.faltam ?? campos.filter((c) => c.obrigatorio).map((c) => c.rotulo)).join(', ')}. Baixe o modelo e confira os nomes das colunas.`,
       );
     return inf;
   };
 
   return {
+    // Revisão da base comercial: lê, resume e diz o que seria substituído, sem gravar nada.
+    async revisarBase(arquivo: string, buffer: Buffer) {
+      const inf = await abrir(arquivo, buffer, CAMPOS_BASE, 'modelo de base comercial');
+      const { vendas, erros } = interpretarBase(inf.aba, inf.colunas);
+      const codigos = [...new Set(vendas.map((v) => v.loja))];
+      const lojas = await repo.lojasPorCodigos(codigos);
+      const porCodigo = new Map(lojas.map((l) => [l.codigo, l]));
+      const anteriores = lojas.length ? await repo.basesAtivasDasLojas(lojas.map((l) => l.id)) : [];
+      const desde = new Map(anteriores.map((c) => [c.lojaId, c.recebidaEm]));
+      const datas = vendas.filter((v) => porCodigo.has(v.loja)).map((v) => v.data).sort();
+      return {
+        arquivo,
+        linhas: vendas.length,
+        lojas: lojas.length,
+        lojasNaoCadastradas: codigos.filter((c) => !porCodigo.has(c)),
+        periodo: datas.length ? { inicio: datas[0]!, fim: datas[datas.length - 1]! } : null,
+        substitui: lojas
+          .filter((l) => desde.has(l.id))
+          .map((l) => ({ codigo: l.codigo, desde: desde.get(l.id)!.toISOString().slice(0, 10) })),
+        erros: erros.slice(0, 100),
+        totalErros: erros.length,
+      };
+    },
+
     async importarBase(arquivo: string, buffer: Buffer, perfil: string) {
       const inf = await abrir(arquivo, buffer, CAMPOS_BASE, 'modelo de base comercial');
       const { vendas, erros } = interpretarBase(inf.aba, inf.colunas);

@@ -7,9 +7,12 @@ import {
   type CampoDef,
 } from './campos.js';
 
+// Quantas linhas da coluna Cargo oferecem a lista de opções.
+const LINHAS_COM_LISTA = 2000;
+
 const montarAba = (wb: ExcelJS.Workbook, nome: string, campos: CampoDef[]) => {
   const ws = wb.addWorksheet(nome);
-  ws.addRow(campos.map((c) => c.rotulo + (c.obrigatorio ? ' *' : '')));
+  ws.addRow(campos.map((c) => c.rotulo + (c.obrigatorio || c.obrigatorioNoModelo ? ' *' : '')));
   ws.addRow(campos.map((c) => c.exemplo));
   ws.getRow(1).font = { bold: true };
   ws.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE5E8EB' } };
@@ -29,17 +32,34 @@ export const gerarModelo = async (): Promise<Buffer> => {
     'Lojas',
     CAMPOS_LOJA.filter((c) => !c.legado),
   );
-  montarAba(wb, 'Funcionários', CAMPOS_FUNCIONARIO);
+  const camposFuncionario = CAMPOS_FUNCIONARIO.filter((c) => !c.legado);
+  const wsFuncionarios = montarAba(wb, 'Funcionários', camposFuncionario);
+  // "Cargo": lista fechada, para ninguém digitar vendedor, balconista ou outro nome de cargo. A importação não depende dela.
+  const colunaCargo = camposFuncionario.findIndex((c) => c.chave === 'funcao_escala') + 1;
+  for (let linha = 2; linha <= LINHAS_COM_LISTA; linha++)
+    wsFuncionarios.getCell(linha, colunaCargo).dataValidation = {
+      type: 'list',
+      allowBlank: true,
+      formulae: [`"${FUNCOES_ESCALA.join(',')}"`],
+      showErrorMessage: true,
+      errorStyle: 'stop',
+      errorTitle: 'Cargo',
+      error: `Escolha na lista: ${FUNCOES_ESCALA.join(', ')}.`,
+      showInputMessage: true,
+      promptTitle: 'Cargo',
+      prompt: 'Escolha na lista.',
+    };
   const ajuda = wb.addWorksheet('Como preencher');
   ajuda.addRows([
     ['Preencha as abas "Lojas" e "Funcionários". A linha 2 é só um exemplo: apague ou substitua.'],
     ['Campos com * são obrigatórios.'],
     [
-      'Na aba Funcionários, "Código da loja de lotação" deve existir na aba Lojas (ou já estar cadastrado).',
+      'A loja é identificada pelo CNPJ (com ou sem pontos e traço). Na aba Lojas, o CNPJ precisa ser de uma loja já cadastrada no grupo; na aba Funcionários, "CNPJ da loja" liga a pessoa à loja.',
     ],
     [
-      `Função de escala aceita: ${FUNCOES_ESCALA.join(', ')}. Deixando em branco, o sistema tenta deduzir pelo cargo.`,
+      `Cargo: escolha na lista (${FUNCOES_ESCALA.join(', ')}). Não digite outros nomes de cargo: só esses três entram no cálculo da escala.`,
     ],
+    ['Para ver os horários de maior venda, envie também a base comercial (venda por hora) em "Importar".'],
     [
       'Horários no formato HH:MM.',
     ],
@@ -53,9 +73,7 @@ export const gerarModelo = async (): Promise<Buffer> => {
       '"Meta de <função>": quantas pessoas por hora a loja quer ter. Em branco vale o nível de hoje; Farmacêutico é sempre ao menos 1.',
     ],
     ['"Salário médio": só o dono do grupo grava; para os outros perfis a coluna é ignorada.'],
-    [
-      'Encargos: o percentual total vem do regime tributário da loja (Simples Nacional, Lucro Presumido ou Lucro Real), não é digitado. Só o dono ajusta, por loja, "RAT (%)" (1 a 3), "FAP" (0,5 a 2,0) e "Provisão de rescisão (Sim/Não)"; em branco vale o padrão do regime. A coluna antiga "Encargos (%)" é ignorada.',
-    ],
+    ['Encargos: o percentual vem do regime tributário da loja (Simples Nacional, Lucro Presumido ou Lucro Real); não é digitado na planilha.'],
     ['"Faturamento": também só o dono grava.'],
     [''],
     ['Aba Funcionários'],
@@ -65,7 +83,7 @@ export const gerarModelo = async (): Promise<Buffer> => {
     [''],
     ['Quem importa o quê'],
     [
-      'O operador cria e atualiza lojas. O dono atualiza as lojas que já existem (horário, faturamento e configuração), mas não cria loja nem muda código ou CNPJ. O gestor importa só a equipe.',
+      'O operador atualiza lojas pelo CNPJ (e cria lojas novas pelo cadastro). O dono atualiza as lojas que já existem (horário, faturamento e configuração), mas não cria loja nem muda o CNPJ. O gestor importa só a equipe.',
     ],
     ['Coluna em branco mantém o que já está cadastrado: vazio nunca apaga.'],
   ]);

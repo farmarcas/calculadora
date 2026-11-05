@@ -1,4 +1,6 @@
+import { useId } from "react";
 import { Aviso, Botao, Ficha } from "../../components/ui/index.jsx";
+import DicaDeCampo from "../../components/ui/DicaDeCampo.jsx";
 import { reais, saldoComSinal } from "./formato.js";
 
 const Valor = ({ calculando, children, cor = "var(--text-strong)" }) =>
@@ -14,6 +16,11 @@ const Linha = ({ rotulo, sub, valor, calculando, cor }) => (
   </div>
 );
 
+// A conta do saldo, num ⓘ ao lado do título (as linhas abaixo mostram cada parte).
+const FORMULA_DO_SALDO = "Venda estimada − venda que deixa de entrar − folha extra − hora extra, contra a folha atual.";
+// Percentual com o sinal de menos tipográfico: "−1,2%".
+const pctComSinal = (n) => `${n < 0 ? "−" : ""}${String(Math.abs(n)).replace(".", ",")}%`;
+
 const tipoDeSolucao = (r) => {
   const contrata = r.funcoes.some((f) => f.contratacoes.length > 0);
   if (contrata && r.horario.mudou) return "Contratar e mudar horário";
@@ -23,6 +30,7 @@ const tipoDeSolucao = (r) => {
 };
 
 export default function PainelResultado({ sim, calculando, dono, podeEscrever, salvando, onSalvar, onClonar }) {
+  const idDica = useId();
   const r = sim.resultado;
   const nContratacoes = r.funcoes.reduce((s, f) => s + f.contratacoes.length, 0);
   const editavel = sim.editavel && podeEscrever;
@@ -37,14 +45,17 @@ export default function PainelResultado({ sim, calculando, dono, podeEscrever, s
       </div>
 
       <div className="mt-4 rounded-card bg-[var(--surface-subtle)] p-4">
-        <div className="text-xs font-bold uppercase text-[var(--text-secondary)]">Saldo por mês</div>
+        <div className="relative flex items-center gap-1.5 text-xs font-bold uppercase text-[var(--text-secondary)]">
+          Saldo por mês
+          {dono && <DicaDeCampo id={idDica} rotulo="Saldo por mês" texto={FORMULA_DO_SALDO} abaixo />}
+        </div>
         <div aria-live="polite" className="mt-1 min-h-10 text-[40px] font-bold leading-10" style={{ color: corSaldo }}>
           {calculando ? <span aria-hidden="true" className="inline-block h-9 w-44 animate-pulse rounded bg-[var(--surface-muted)]" /> : dono ? (r.saldoMensal == null ? "—" : saldoComSinal(r.saldoMensal)) : "—"}
         </div>
         <p className="m-0 mt-1 text-xs text-[var(--text-secondary)]">
           {dono
             ? r.saldoMensal != null
-              ? <><strong style={{ color: corSaldo }}>{r.saldoMensal > 0.005 ? "Esta simulação rende mais do que custa" : r.saldoMensal < -0.005 ? "Esta simulação custa mais do que economiza" : "Esta simulação empata com a folha atual"}.</strong>{" "}Venda estimada − venda que deixa de entrar − folha extra − hora extra, contra a folha atual.{r.saldoAnual != null ? ` ${saldoComSinal(r.saldoAnual)} por ano` : ""}{r.pesoNoFaturamentoPct != null ? ` · ${String(r.pesoNoFaturamentoPct).replace(".", ",")}% do faturamento mensal` : ""}.</>
+              ? <><strong style={{ color: corSaldo }}>{r.saldoMensal > 0.005 ? "Esta simulação rende mais do que custa" : r.saldoMensal < -0.005 ? "Esta simulação custa mais do que economiza" : "Esta simulação empata com a folha atual"}.</strong><br />Por ano: {saldoComSinal(r.saldoAnual)}{r.pesoNoFaturamentoPct != null ? ` · ${pctComSinal(r.pesoNoFaturamentoPct)} do faturamento mensal` : ""}</>
               : !r.temBase ? "Sem venda hora a hora (base comercial), não é possível estimar a venda que deixa de entrar e o saldo." : "Informe o salário médio das funções em Cadastros para ver o valor."
             : "Valores em reais: só o dono do grupo vê."}
         </p>

@@ -4,6 +4,7 @@ import { ehOperador, cuidaDoGrupo } from "./api/perfis.js";
 import CadastrosPage from "./features/cadastros/CadastrosPage.jsx";
 import EscalaPage from "./features/diagnostico/EscalaPage.jsx";
 import ModalEnviarBase from "./features/diagnostico/ModalEnviarBase.jsx";
+import ModalImportarCadastro from "./features/cadastros/ModalImportarCadastro.jsx";
 import { confirmarSaida } from "./features/cadastro-loja/guardaSaida.js";
 import { lerUrl } from "./features/cadastro-loja/urlDaLoja.js";
 import GruposPage from "./features/ge/GruposPage.jsx";
@@ -24,7 +25,8 @@ export default function App() {
   // Lojas do grupo e a loja escolhida: o filtro da faixa é o único lugar de trocar de loja.
   const [lojas, setLojas] = useState(null);
   const [lojaId, setLojaId] = useState("");
-  const [importando, setImportando] = useState(false);
+  // Qual importação está aberta: "cadastro" (lojas e funcionários) ou "base" (vendas hora a hora).
+  const [importando, setImportando] = useState(null);
   const [versaoDados, setVersaoDados] = useState(0);
 
   // O papel pode não ver a tela atual (ex.: sair de operador estando em Grupos): vai para a primeira permitida.
@@ -87,8 +89,8 @@ export default function App() {
       lojaId={lojaId}
       onLoja={setLojaId}
       horas={horasDeFuncionamento(lojaAtual?.horarios)}
-      podeImportar={podeEscrever}
-      onImportar={() => setImportando(true)}
+      perfil={perfil}
+      onImportar={setImportando}
     />
   ) : null;
 
@@ -103,7 +105,7 @@ export default function App() {
       >
         {folha.tela === "grupos" && ehOperador(perfil) && <GruposPage geAtual={ge} onAbrir={(id) => { escolherGe(id); irPara(folhas(perfil).find((f) => f.tela === "cadastros")); }} onMudou={carregarGes} />}
         {/* Trocar de grupo recarrega a tela inteira: nada do grupo anterior fica. */}
-        {folha.tela === "cadastros" && <CadastrosPage key={ge} perfil={perfil} secao={folha.secao} />}
+        {folha.tela === "cadastros" && <CadastrosPage key={ge} perfil={perfil} secao={folha.secao} versaoDados={versaoDados} onImportar={setImportando} />}
         {folha.tela === "escala" && (
           <EscalaPage
             key={ge}
@@ -112,13 +114,14 @@ export default function App() {
             semLojas={lojas !== null && lojas.length === 0}
             secao={secao ?? folha.secao}
             versaoDados={versaoDados}
-            onImportar={() => setImportando(true)}
+            onImportar={() => setImportando("base")}
             onSecao={(s) => { setTela("escala"); setSecao(s); }}
             onIrCadastros={() => irPara(folhas(perfil).find((f) => f.tela === "cadastros"))}
           />
         )}
       </AppShell>
-      {importando && <ModalEnviarBase onClose={() => setImportando(false)} onConcluido={() => setVersaoDados((v) => v + 1)} />}
+      {importando === "base" && <ModalEnviarBase onClose={() => setImportando(null)} onConcluido={() => setVersaoDados((v) => v + 1)} />}
+      {importando === "cadastro" && <ModalImportarCadastro podeLojas={ehOperador(perfil) || perfil === "TENANT_ADMIN"} onClose={() => setImportando(null)} onConcluido={() => setVersaoDados((v) => v + 1)} />}
     </>
   );
 }

@@ -1,7 +1,7 @@
 import { IconeMenu } from "./icones.jsx";
 
 // Barra fixa de 80 px: botão do menu, logo do Radar e (à direita) a conta.
-export default function BarraSuperior({ menuAberto, onAlternar, idMenu, onInicio, conta }) {
+export default function BarraSuperior({ menuAberto, onAlternar, idMenu, onInicio }) {
   return (
     <header className="sticky top-0 z-30 flex h-20 shrink-0 items-center gap-4 bg-[var(--surface-card)] px-4 shadow-[var(--shadow-0)] sm:px-6">
       <button
@@ -23,7 +23,6 @@ export default function BarraSuperior({ menuAberto, onAlternar, idMenu, onInicio
         <img src="/radar-logo.png" alt="Radar" width="152" height="28" className="block h-7 w-auto" />
       </a>
       <span className="flex-1" />
-      {conta}
     </header>
   );
 }

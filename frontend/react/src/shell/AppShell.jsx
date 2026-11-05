@@ -44,7 +44,7 @@ export default function AppShell({ perfil, folha, onNavegar, onInicio, conta, fa
 
   return (
     <div className="flex min-h-screen flex-col bg-[var(--surface-page)]">
-      <BarraSuperior menuAberto={aberto} onAlternar={alternar} idMenu={ID_MENU} onInicio={onInicio} conta={conta} />
+      <BarraSuperior menuAberto={aberto} onAlternar={alternar} idMenu={ID_MENU} onInicio={onInicio} />
       <div className="relative flex min-h-0 flex-1">
         {estreito && gaveta && <div aria-hidden="true" onClick={() => setGaveta(false)} className="fixed inset-0 z-30 bg-black/30" />}
         <aside
@@ -60,6 +60,8 @@ export default function AppShell({ perfil, folha, onNavegar, onInicio, conta, fa
           <main id="conteudo" className="flex flex-col gap-6 p-4 sm:p-6">{children}</main>
         </div>
       </div>
+      {/* A conta fica por último no HTML (a ordem do Tab segue o desenho: menu, faixa, conteúdo, conta) e aparece no canto da barra. */}
+      <div className="fixed top-0 right-4 z-40 flex h-20 items-center sm:right-6">{conta}</div>
     </div>
   );
 }

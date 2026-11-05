@@ -153,7 +153,11 @@ export type CenarioEquilibrio = {
   vendaCortadaPorDia: VendaPerdidaDiaCenario[];
   semVendaHoraria: boolean;
   // Horas que o cenário abre a mais no fim de semana, com a origem da estimativa de venda de cada dia.
-  horasEstendidas: { dia: number; horasNovas: number; origem: 'registrada' | 'vizinha' | 'mista' }[];
+  horasEstendidas: {
+    dia: number;
+    horasNovas: number;
+    origem: 'registrada' | 'vizinha' | 'mista';
+  }[];
   // A venda das horas novas é estimada (nenhuma tem base registrada completa); a tela avisa.
   estimativaDeVenda: boolean;
   // Só para o dono: venda mensal estimada das horas novas e o impacto com metade dela (decide o "Cenário sugerido").
@@ -325,7 +329,9 @@ const listaContratacoes = (cs: Contratacao[]) =>
 
 // "atendimento", "farmacêutico e apoio", "farmacêutico, atendimento e apoio".
 const listaDeFuncoes = (nomes: string[]) =>
-  nomes.length < 2 ? nomes.join('') : `${nomes.slice(0, -1).join(', ')} e ${nomes[nomes.length - 1]}`;
+  nomes.length < 2
+    ? nomes.join('')
+    : `${nomes.slice(0, -1).join(', ')} e ${nomes[nomes.length - 1]}`;
 
 const montarManter = (e: EntradaCenarios, linhas: LinhaFuncao[], folha: number | null) => {
   const nomeRegra = regraPara(e.regraId, e.convencao8h24, e.parametros).nome;
@@ -413,7 +419,11 @@ const coberturaDoCenario = (e: EntradaCenarios, regra: Regra, dias: DiaAberto[])
 };
 
 // Dia alterado com a venda perdida já com a recaptura descontada; sem o valor para quem não é dono.
-const porDiaDoCenario = (p: VendaPerdidaDia, fica: number, dono: boolean): VendaPerdidaDiaCenario => ({
+const porDiaDoCenario = (
+  p: VendaPerdidaDia,
+  fica: number,
+  dono: boolean,
+): VendaPerdidaDiaCenario => ({
   dia: p.dia,
   horasFechadas: p.horasFechadas,
   ate: p.ate,
@@ -526,9 +536,10 @@ const montarEconomia = (
       : null;
   const evitadas = linhas.reduce((s, l) => s + l.contratar, 0);
   const acoes = passos.length ? passos.map(fraseDoPasso).join('; ') : 'nenhuma mudança possível';
-  const perdaTxt = e.dono && vendaMes !== null
-    ? ` Deixam de entrar cerca de ${brl(vendaMes)} em vendas por mês (${String(seq.perdaPct).replace('.', ',')}% do faturamento${recaptura > 0 ? `, já descontados ${Math.round(recaptura * 100)}% que migram para os outros dias` : ''}).`
-    : '';
+  const perdaTxt =
+    e.dono && vendaMes !== null
+      ? ` Deixam de entrar cerca de ${brl(vendaMes)} em vendas por mês (${String(seq.perdaPct).replace('.', ',')}% do faturamento${recaptura > 0 ? `, já descontados ${Math.round(recaptura * 100)}% que migram para os outros dias` : ''}).`
+      : '';
   const horasMsg = seq.faltaH
     ? ` ainda faltam ${horasTxt(seq.faltaH)} de cobertura`
     : ' a equipe ainda não cobre o horário';
@@ -705,9 +716,7 @@ const montarEquilibrio = (
     horariosAjustados,
     diasFechar: fechados.map((dia) => ({
       dia,
-      ...(e.dono
-        ? { vendaMes: vendaPorDia.find((p) => p.dia === dia)?.vendaMes ?? 0 }
-        : {}),
+      ...(e.dono ? { vendaMes: vendaPorDia.find((p) => p.dia === dia)?.vendaMes ?? 0 } : {}),
     })),
     contratacoes: cs,
     pessoasContratar: melhor.avaliacao.pessoas,
@@ -742,8 +751,8 @@ const montarEquilibrio = (
     : estende
       ? `${acoes}${cs.length ? `, contratando ${lista}` : ', sem contratar ninguém'}. A venda das horas novas é uma estimativa${e.dono ? `: cerca de ${brl(ganhoHoras.vendaMes)} de venda por mês` : ''}.`
       : igualEconomia
-      ? `O equilíbrio para esta loja é: ${acoes}. A equipe atual cobre o resto e você não contrata ninguém.`
-      : `${acoes}, ${cs.length ? `contratando ${lista}` : 'sem contratar ninguém'}${economiaNaFolha ? `,${economiaNaFolha}` : ''}.`;
+        ? `O equilíbrio para esta loja é: ${acoes}. A equipe atual cobre o resto e você não contrata ninguém.`
+        : `${acoes}, ${cs.length ? `contratando ${lista}` : 'sem contratar ninguém'}${economiaNaFolha ? `,${economiaNaFolha}` : ''}.`;
   resultado.resultado = resultado.coincideComManter
     ? 'Igual ao Cenário 1'
     : igualEconomia

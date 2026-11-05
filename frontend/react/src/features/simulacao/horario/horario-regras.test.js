@@ -1,23 +1,26 @@
 import { describe, expect, it } from "vitest";
 import { confirmarCampo, estadoDoDia, horarioPadraoAoAbrir, horasDoDia, lerHorario, passoDaAbertura, passoDoFechamento, totaisDaSemana } from "./horario-regras.js";
 
-describe("passo de 30 minutos", () => {
-  it("abertura sobe e desce de 30 em 30", () => {
-    expect(passoDaAbertura("08:00", "21:00", 1)).toBe("08:30");
-    expect(passoDaAbertura("08:00", "21:00", -1)).toBe("07:30");
-    expect(passoDaAbertura("08:30", "21:00", -1)).toBe("08:00");
+describe("passo de 1 hora", () => {
+  it("abertura sobe e desce de 1 em 1 hora", () => {
+    expect(passoDaAbertura("08:00", "21:00", 1)).toBe("09:00");
+    expect(passoDaAbertura("08:00", "21:00", -1)).toBe("07:00");
   });
-  it("fechamento sobe e desce de 30 em 30 e chega a 24:00", () => {
-    expect(passoDoFechamento("08:00", "22:00", 1)).toBe("22:30");
-    expect(passoDoFechamento("08:00", "23:30", 1)).toBe("24:00");
+  it("fechamento sobe e desce de 1 em 1 hora e chega a 24:00", () => {
+    expect(passoDoFechamento("08:00", "22:00", 1)).toBe("23:00");
+    expect(passoDoFechamento("08:00", "23:00", 1)).toBe("24:00");
     expect(passoDoFechamento("08:00", "24:00", 1)).toBe("24:00");
-    expect(passoDoFechamento("08:00", "21:00", -1)).toBe("20:30");
+    expect(passoDoFechamento("08:00", "21:00", -1)).toBe("20:00");
   });
-  it("limites: abertura não vai abaixo de 00:00 nem passa do fechamento; fechamento não passa de 24:00 nem fica antes da abertura", () => {
+  it("limites: abertura não vai abaixo de 00:00 nem passa do fechamento menos 1 h; fechamento não passa de 24:00 nem fica a menos de 1 h da abertura", () => {
     expect(passoDaAbertura("00:00", "21:00", -1)).toBe("00:00");
-    expect(passoDaAbertura("20:30", "21:00", 1)).toBe("20:30");
-    expect(passoDoFechamento("08:00", "08:30", -1)).toBe("08:30");
+    expect(passoDaAbertura("20:00", "21:00", 1)).toBe("20:00");
+    expect(passoDoFechamento("08:00", "09:00", -1)).toBe("09:00");
     expect(passoDoFechamento("08:00", "24:00", 1)).toBe("24:00");
+  });
+  it("horário quebrado que já veio do Cadastro anda de hora em hora a partir dele", () => {
+    expect(passoDaAbertura("08:30", "21:00", 1)).toBe("09:30");
+    expect(passoDoFechamento("08:00", "23:30", 1)).toBe("24:00");
   });
   it("valor ilegível não muda nada", () => {
     expect(passoDaAbertura("", "21:00", 1)).toBe("");
@@ -49,10 +52,19 @@ describe("confirmar o campo (valor inválido volta ao último válido)", () => {
   it("ilegível volta ao último válido", () => {
     expect(confirmarCampo("25:99", { ehFechamento: true, ultimoValido: "21:00", outroLado: "08:00" })).toBe("21:00");
   });
+  it("só vale hora cheia: 08:30 digitado volta ao último válido", () => {
+    expect(confirmarCampo("08:30", { ehFechamento: false, ultimoValido: "08:00", outroLado: "21:00" })).toBe("08:00");
+    expect(confirmarCampo("21:15", { ehFechamento: true, ultimoValido: "21:00", outroLado: "08:00" })).toBe("21:00");
+    expect(confirmarCampo("8:00", { ehFechamento: false, ultimoValido: "07:00", outroLado: "21:00" })).toBe("08:00");
+  });
+  it("o horário quebrado que já estava no campo continua válido", () => {
+    expect(confirmarCampo("08:30", { ehFechamento: false, ultimoValido: "08:30", outroLado: "21:00" })).toBe("08:30");
+  });
   it("fechamento antes da abertura e abertura depois do fechamento voltam", () => {
     expect(confirmarCampo("07:00", { ehFechamento: true, ultimoValido: "21:00", outroLado: "08:00" })).toBe("21:00");
     expect(confirmarCampo("22:00", { ehFechamento: false, ultimoValido: "08:00", outroLado: "21:00" })).toBe("08:00");
     expect(confirmarCampo("21:00", { ehFechamento: false, ultimoValido: "08:00", outroLado: "21:00" })).toBe("08:00");
+    expect(confirmarCampo("20:00", { ehFechamento: false, ultimoValido: "08:00", outroLado: "21:00" })).toBe("20:00");
   });
 });
 

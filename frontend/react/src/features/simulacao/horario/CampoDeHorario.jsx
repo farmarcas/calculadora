@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { confirmarCampo } from "./horario-regras.js";
 
 // Campo de horário (104 × 40): "HH:mm" centralizado e, à direita, uma coluna de 32 px com + em cima e − embaixo (20 px cada).
-// O texto só vale ao sair do campo, no Enter ou nos botões; valor inválido volta ao último válido. ↑ e ↓ mudam 30 minutos.
+// O texto só vale ao sair do campo, no Enter ou nos botões; valor inválido volta ao último válido. ↑ e ↓ mudam 1 hora.
 export default function CampoDeHorario({ rotulo, valor, alterado, desabilitado, ehFechamento, outroLado, onConfirmar, onPasso }) {
   const [texto, setTexto] = useState(valor);
   const ref = useRef(null);

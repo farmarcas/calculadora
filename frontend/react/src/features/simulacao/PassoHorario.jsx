@@ -7,7 +7,7 @@ import { NOMES_DIA } from "./formato.js";
 const CAIXA = "overflow-hidden rounded-card border border-[var(--border-subtle)]";
 const COLUNAS = "grid grid-cols-[44px_104px_104px_1fr] items-center gap-3";
 
-// Passo 1: lista de horários (400 px, + e − de 30 em 30 minutos) ao lado do gráfico de venda por hora.
+// Passo 1: lista de horários (400 px, + e − de 1 em 1 hora) ao lado do gráfico de venda por hora.
 export default function PassoHorario({ sim, editavel, onSalvarHorarios }) {
   const r = sim.resultado;
   const [dia, setDia] = useState(() => Math.max(0, r.horario.cadastro.findIndex((c) => c.aberta)));
@@ -45,7 +45,7 @@ export default function PassoHorario({ sim, editavel, onSalvarHorarios }) {
         </div>
         <GraficoVendas resultado={r} dia={dia} onDia={setDia} />
       </div>
-      {editavel && <p className="m-0 mt-4 text-xs text-[var(--text-secondary)]">+ e − mudam de 30 em 30 minutos. Também dá para digitar o horário.</p>}
+      {editavel && <p className="m-0 mt-4 text-xs text-[var(--text-secondary)]">+ e − mudam de 1 em 1 hora. Também dá para digitar a hora cheia, como 08:00.</p>}
     </Passo>
   );
 }

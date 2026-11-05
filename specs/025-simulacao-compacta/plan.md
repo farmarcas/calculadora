@@ -4,7 +4,7 @@
 
 ## Summary
 
-O passo "Horário e vendas" e o painel "Resultado da simulação" são refeitos: campos de abertura e fechamento com + e − (30 minutos), lista de 400 px ao lado de um gráfico que preenche o resto, e o Resultado fixo à direita com a linha nova "Venda estimada". O servidor passa a calcular, para qualquer dia, a venda estimada das horas novas (as que o Cadastro não abre e a simulação abre) e a entregar quais horas são novas; o saldo vira uma função única contra a folha atual, a mesma regra dos cartões dos cenários. O que a Simulação já faz com contratações, hora extra e folha extra não muda.
+O passo "Horário e vendas" e o painel "Resultado da simulação" são refeitos: campos de abertura e fechamento com + e − (1 hora), lista de 400 px ao lado de um gráfico que preenche o resto, e o Resultado fixo à direita com a linha nova "Venda estimada". O servidor passa a calcular, para qualquer dia, a venda estimada das horas novas (as que o Cadastro não abre e a simulação abre) e a entregar quais horas são novas; o saldo vira uma função única contra a folha atual, a mesma regra dos cartões dos cenários. O que a Simulação já faz com contratações, hora extra e folha extra não muda.
 
 ## For the reader
 
@@ -17,7 +17,7 @@ Why: os dados do gráfico e do resultado já vêm do servidor; calcular a venda 
 **Language/Version**: TypeScript (Node 20) no servidor; React 18 + Vite + Tailwind na tela
 **Primary Dependencies**: as já usadas; sem biblioteca nova
 **Storage**: N/A (sem migration; o horário simulado já é gravado como hoje)
-**Testing**: Vitest no servidor (venda estimada das horas novas, saldo, dono × não dono) e na tela (passo de 30 minutos, limites, digitação, estados das barras, resumos do dia); interação, rolagem do Resultado e alinhamento conferidos no navegador com as simulações reais
+**Testing**: Vitest no servidor (venda estimada das horas novas, saldo, dono × não dono) e na tela (passo de 1 hora, limites, digitação, estados das barras, resumos do dia); interação, rolagem do Resultado e alinhamento conferidos no navegador com as simulações reais
 **Target Platform**: Docker Compose local
 **Project Type**: web (backend + frontend)
 **Performance Goals**: o Resultado recalcula em menos de 1 s depois de cada clique (como hoje, com a espera já existente antes de enviar ao servidor)
@@ -64,7 +64,7 @@ frontend/react/src/features/simulacao/
 ├── horario/
 │   ├── CampoDeHorario.jsx    # campo com + em cima e − embaixo; setas ↑ ↓; digitação com volta ao último válido
 │   ├── LinhaDoDia.jsx        # sigla e horas, dois campos, selo Alterado e Fechar dia / Abrir dia
-│   └── horario-regras.js (+ .test.js)  # passo de 30 min, limites, validação, horas do dia, estado do dia
+│   └── horario-regras.js (+ .test.js)  # passo de 1 hora, limites, validação, horas do dia, estado do dia
 ├── GraficoVendas.jsx     # estados da barra (aberta, pico, fechada, hora nova), legenda e resumos novos
 ├── grafico-regras.js (+ .test.js)      # horas mostradas, estado de cada barra, rótulos, resumos do dia
 ├── PainelResultado.jsx   # linha "Venda estimada", nomes novos e saldo novo
@@ -75,7 +75,7 @@ frontend/react/src/features/simulacao/
 
 **Servidor.** `venda-estimada.ts` calcula, para cada dia, as horas da simulação que o Cadastro não abre e a venda de cada uma: o valor registrado se for maior que zero, senão 50% da venda da hora vizinha (a última hora aberta no Cadastro, do lado em que a hora nova fica); dia fechado no Cadastro sem venda registrada vale 0. A soma por mês usa a mesma conta dos cenários (média de um dia × 52 ÷ 12). `saldo-simulacao.ts` tem `saldoDaSimulacao({ folhaExtra, horaExtra, vendaEstimada, vendaQueSai })` = −folha extra − hora extra + venda estimada − venda que deixa de entrar (nulo se faltar parte). O Resultado devolve, só ao dono, `vendaEstimada` e `vendaPorHora.estimada` (7 × 24), e a todos `vendaPorHora.novas` (7 × 24, booleanos). `economiaFolha` segue como linha informativa.
 
-**Lista de horários.** A linha do dia vira: sigla e horas do dia, campo de abertura, campo de fechamento, e "Alterado" sobre "Fechar dia". O campo guarda o texto enquanto a pessoa digita e só confirma ao sair, no Enter ou ao clicar em + e −; valor inválido volta ao último válido. O passo de 30 minutos, os limites (00:00 a 24:00, abertura antes do fechamento) e as horas do dia ficam em funções puras testadas. As alterações vão ao servidor como hoje (`horarios` completo), com a mesma espera.
+**Lista de horários.** A linha do dia vira: sigla e horas do dia, campo de abertura, campo de fechamento, e "Alterado" sobre "Fechar dia". O campo guarda o texto enquanto a pessoa digita e só confirma ao sair, no Enter ou ao clicar em + e −; valor inválido volta ao último válido. O passo de 1 hora, os limites (00:00 a 24:00, abertura antes do fechamento) e as horas do dia ficam em funções puras testadas. As alterações vão ao servidor como hoje (`horarios` completo), com a mesma espera.
 
 **Dia fechado (estado que o quadro não desenha).** *Proposta, para você ver antes de implementar:* o dia fechado pela simulação mostra a sigla, "Fechado nesta simulação" no lugar dos dois campos (cinza, na largura deles) e, na última coluna, o selo "Alterado" sobre o link **Reabrir**, que volta ao horário do Cadastro. O dia fechado no Cadastro mostra "Fechado" no lugar dos campos e o link **Abrir dia**, que abre num horário padrão de 08:00 a 18:00 (o da maioria das lojas; a pessoa ajusta com + e −). Em ambos, o gráfico do dia fica sem barras abertas.
 

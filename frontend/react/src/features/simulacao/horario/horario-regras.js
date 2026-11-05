@@ -1,8 +1,9 @@
-// Regras do horário da Simulação (spec 025), puras e sem React: o passo de 30 minutos, os limites, a validação do que se
-// digita e o estado de cada dia. Horários são textos "HH:mm"; 24:00 só vale como fechamento.
+// Regras do horário da Simulação (spec 025), puras e sem React: o passo de 1 hora, os limites, a validação do que se digita
+// e o estado de cada dia. Horários são textos "HH:mm"; 24:00 só vale como fechamento. O cálculo (cobertura, folha e venda)
+// trabalha em horas inteiras, por isso o passo é de 1 hora e só se aceita digitar hora cheia (HH:00).
 
-export const PASSO_MIN = 30;
-export const MIN_ABERTO = 30; // a loja abre ao menos 30 minutos por dia
+export const PASSO_MIN = 60;
+export const MIN_ABERTO = 60; // a loja abre ao menos 1 hora por dia
 const FIM_DO_DIA = 24 * 60;
 const dois = (n) => String(n).padStart(2, "0");
 
@@ -21,7 +22,7 @@ export const lerHorario = (texto, ehFechamento = false) => {
   return `${dois(h)}:${dois(min)}`;
 };
 
-// Passo de abertura: entre 00:00 e (fechamento − 30 min). Fora do limite fica onde está.
+// Passo de abertura: entre 00:00 e (fechamento − 1 hora). Fora do limite fica onde está.
 export const passoDaAbertura = (abre, fecha, delta) => {
   const a = paraMinutos(abre);
   const f = paraMinutos(fecha);
@@ -29,7 +30,7 @@ export const passoDaAbertura = (abre, fecha, delta) => {
   return deMinutos(Math.min(f - MIN_ABERTO, Math.max(0, a + delta * PASSO_MIN)));
 };
 
-// Passo de fechamento: entre (abertura + 30 min) e 24:00.
+// Passo de fechamento: entre (abertura + 1 hora) e 24:00.
 export const passoDoFechamento = (abre, fecha, delta) => {
   const a = paraMinutos(abre);
   const f = paraMinutos(fecha);
@@ -41,6 +42,8 @@ export const passoDoFechamento = (abre, fecha, delta) => {
 export const confirmarCampo = (texto, { ehFechamento, ultimoValido, outroLado }) => {
   const novo = lerHorario(texto, ehFechamento);
   if (novo === null) return ultimoValido;
+  // O cálculo trabalha em horas inteiras: só vale hora cheia (o horário que já estava no campo, mesmo quebrado, continua válido).
+  if (!novo.endsWith(":00") && novo !== ultimoValido) return ultimoValido;
   const n = paraMinutos(novo);
   const o = paraMinutos(outroLado);
   if (o !== null) {

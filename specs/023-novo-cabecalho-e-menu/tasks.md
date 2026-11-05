@@ -3,13 +3,13 @@
 Formato: `- [ ] ID [P] [História] descrição com o arquivo`. Pasta base da tela: `frontend/react/src`. Cada fatia termina com os testes passando e um commit.
 
 ## Fatia 1 — Base da casca (sem mudar nada que a pessoa vê ainda)
-- [ ] T001 [P] Copiar o logo do desenho para `frontend/react/public/radar-logo.png` (1295×238, fundo transparente) e conferir que o Vite o serve em `/radar-logo.png`
-- [ ] T002 [P] `shell/icones.jsx`: SVG embutidos (loja, calendário, prancheta, play, envio, menu de três linhas, seta) com `aria-hidden`, cor herdada (`currentColor`/token do ícone) e tamanho por prop
-- [ ] T003 [P] `shell/menu.js`: uma lista que descreve o menu inteiro (Minhas Lojas › Lojas e Parâmetros legais [só operador]; Escala › Diagnóstico e Simulações; Grupos [só operador]); funções puras `itensDoMenu(perfil)`, `itemAtual(tela, secao)` e `destino(id)`
-- [ ] T004 [P] `shell/estadoDoMenu.js`: `lerRecolhido()` e `gravarRecolhido()` com leitura e escrita protegidas (erro cai no padrão), e `padraoPorLargura(largura)` (aberto a partir de 768 px)
-- [ ] T005 [P] `shell/horas.js`: `horasDeFuncionamento(horarios)` = soma de (fechamento − abertura) dos dias abertos do formato `{ versao: 2, dias[7] }`; sem horário válido devolve `null`
-- [ ] T006 Testes (`shell/menu.test.js`, `estadoDoMenu.test.js`, `horas.test.js`): operador vê Grupos e Parâmetros legais e os outros perfis não; item atual por tela e seção; preferência persiste e cai no padrão se o armazenamento falhar; Sumaré - Centro (08–21 de seg a sex e 08–20 no sábado) = 77 h; loja sem horário = `null`
-- [ ] T007 Rodar os testes da tela e commitar a fatia
+- [x] T001 [P] Copiar o logo do desenho para `frontend/react/public/radar-logo.png` (1295×238, fundo transparente) e conferir que o Vite o serve em `/radar-logo.png`
+- [x] T002 [P] `shell/icones.jsx`: SVG embutidos (loja, calendário, prancheta, play, envio, menu de três linhas, seta) com `aria-hidden`, cor herdada (`currentColor`/token do ícone) e tamanho por prop
+- [x] T003 [P] `shell/menu.js`: uma lista que descreve o menu inteiro (Minhas Lojas › Lojas e Parâmetros legais [só operador]; Escala › Diagnóstico e Simulações; Grupos [só operador]); funções puras `itensDoMenu(perfil)`, `itemAtual(tela, secao)` e `destino(id)`
+- [x] T004 [P] `shell/estadoDoMenu.js`: `lerRecolhido()` e `gravarRecolhido()` com leitura e escrita protegidas (erro cai no padrão), e `padraoPorLargura(largura)` (aberto a partir de 768 px)
+- [x] T005 [P] `shell/horas.js`: `horasDeFuncionamento(horarios)` = soma de (fechamento − abertura) dos dias abertos do formato `{ versao: 2, dias[7] }`; sem horário válido devolve `null`
+- [x] T006 Testes (`shell/menu.test.js`, `estadoDoMenu.test.js`, `horas.test.js`): operador vê Grupos e Parâmetros legais e os outros perfis não; item atual por tela e seção; preferência persiste e cai no padrão se o armazenamento falhar; Sumaré - Centro (08–21 de seg a sex e 08–20 no sábado) = 77 h; loja sem horário = `null`
+- [x] T007 Rodar os testes da tela e commitar a fatia
 
 ## Fatia 2 — Menu lateral e barra superior (História 1, P1)
 - [ ] T008 [US1] `shell/BarraSuperior.jsx`: `header` de 80 px com fundo de card e sombra leve do Alquimia; botão de três linhas (40×40) com nome "Recolher menu"/"Expandir menu", `aria-expanded` e `aria-controls`; logo como link para o início com `alt="Radar"`; espaço flexível; lugar do avatar (preenchido na fatia 4)

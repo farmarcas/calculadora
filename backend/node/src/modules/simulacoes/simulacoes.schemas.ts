@@ -91,18 +91,6 @@ export const editarReq = req(
   id,
 );
 
-export const aprovarReq = req(
-  z
-    .object({
-      vigenciaInicio: z
-        .string()
-        .regex(/^\d{4}-\d{2}-\d{2}$/)
-        .optional(),
-    })
-    .strict()
-    .default({}),
-  id,
-);
 export const compararReq = req(
   vazio.default({}),
   id,

@@ -5,19 +5,18 @@ import type { Custos } from '../custos/custos.schemas.js';
 import type { Minimos } from '../regras/requisitos.js';
 import type { PessoaSim, TurnoSim } from './avaliar.js';
 
-export type SimulacaoStatus = 'rascunho' | 'gravada' | 'em_uso' | 'substituida' | 'descartada';
+export type SimulacaoStatus = 'rascunho' | 'gravada' | 'descartada';
 const paraBanco = {
   rascunho: 'RASCUNHO',
   gravada: 'GRAVADA',
-  em_uso: 'EM_USO',
-  substituida: 'SUBSTITUIDA',
   descartada: 'DESCARTADA',
 } as const;
 const doBanco = {
   RASCUNHO: 'rascunho',
   GRAVADA: 'gravada',
-  EM_USO: 'em_uso',
-  SUBSTITUIDA: 'substituida',
+  // Estados antigos (aprovar/em uso): a migration os converteu em gravada; se algum aparecer, vale como gravada.
+  EM_USO: 'gravada',
+  SUBSTITUIDA: 'gravada',
   DESCARTADA: 'descartada',
 } as const;
 
@@ -46,9 +45,6 @@ export type SimulacaoRegistro = {
   numeroCenario: number | null;
   criadaEm: Date;
   gravadaEm: Date | null;
-  aprovadaPor: string | null;
-  aprovadaEm: Date | null;
-  vigenciaInicio: Date | null;
   turnos: TurnoSim[];
 };
 
@@ -69,9 +65,6 @@ const mapear = (s: Linha): SimulacaoRegistro => ({
   numeroCenario: s.numeroCenario,
   criadaEm: s.criadaEm,
   gravadaEm: s.gravadaEm,
-  aprovadaPor: s.aprovadaPor,
-  aprovadaEm: s.aprovadaEm,
-  vigenciaInicio: s.vigenciaInicio,
   turnos: s.turnos.map((t) => ({
     matricula: t.matricula,
     dia: t.dia,
@@ -147,9 +140,6 @@ export const simulacoesRepository = (geId: string) => ({
         autor: true,
         criadaEm: true,
         gravadaEm: true,
-        aprovadaPor: true,
-        aprovadaEm: true,
-        vigenciaInicio: true,
         resultado: true,
         numeroCenario: true,
       },
@@ -218,27 +208,5 @@ export const simulacoesRepository = (geId: string) => ({
 
   async mudarStatus(id: string, status: SimulacaoStatus) {
     await prisma.simulacao.update({ where: { id }, data: { status: paraBanco[status] } });
-  },
-
-  // Aprovar: a anterior em uso vira substituída e esta passa a valer (uma em uso por loja).
-  async aprovar(id: string, lojaId: string, perfil: string, vigenciaInicio: Date) {
-    await prisma.$transaction(async (tx) => {
-      await tx.simulacao.updateMany({
-        where: { lojaId, loja: { geId }, status: 'EM_USO' },
-        data: { status: 'SUBSTITUIDA', substituidaEm: new Date() },
-      });
-      await tx.simulacao.update({
-        where: { id },
-        data: { status: 'EM_USO', aprovadaPor: perfil, aprovadaEm: new Date(), vigenciaInicio },
-      });
-    });
-  },
-
-  async emUso(lojaId: string) {
-    const s = await prisma.simulacao.findFirst({
-      where: { lojaId, loja: { geId }, status: 'EM_USO' },
-      include: { turnos: true },
-    });
-    return s ? mapear(s) : null;
   },
 });

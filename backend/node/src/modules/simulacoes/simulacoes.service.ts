@@ -90,43 +90,9 @@ export const makeSimulacoesService = (
     };
   };
 
-  // Simulação em uso fica "desatualizada" quando o cadastro da loja mudou depois da aprovação (RN-E10).
-  // Nada é alterado automaticamente: só avisa.
-  const desatualizacao = async (s: SimulacaoRegistro, l: LojaDiag): Promise<string[]> => {
-    if (s.status !== 'em_uso' || !s.premissas) return [];
-    const motivos: string[] = [];
-    const [atuais, situacao] = await Promise.all([
-      cadastro.funcionariosDaLoja(s.lojaId),
-      cadastro.situacaoPessoas(s.quadro.map((p) => p.matricula)),
-    ]);
-    const noQuadro = new Set(s.quadro.map((p) => p.matricula));
-    const novos = atuais.filter((p) => !noQuadro.has(p.matricula));
-    if (novos.length)
-      motivos.push(`Entrou no quadro da loja: ${novos.map((p) => p.nome).join(', ')}.`);
-    const sairam = s.quadro.filter((p) => {
-      const x = situacao.get(p.matricula);
-      return x && (!x.ativo || x.lojaId !== s.lojaId);
-    });
-    if (sairam.length)
-      motivos.push(`Saiu do quadro da loja: ${sairam.map((p) => p.nome).join(', ')}.`);
-    // Compara os dois já convertidos: só mudar o formato do cadastro não é mudança de horário.
-    if (
-      JSON.stringify(normalizarHorarios(l.horarios)) !==
-      JSON.stringify(normalizarHorarios(s.premissas.horarios))
-    )
-      motivos.push('O horário de funcionamento da loja mudou.');
-    const min = exigenciasDaLoja({ ...FUNCOES_PADRAO_MINIMO, ...soNoCalculo(l.minimos) }, l.turnos);
-    if (!minimosIguais(min, s.premissas.minimos))
-      motivos.push('O mínimo de pessoas por função mudou.');
-    if (l.convencao8h24 !== s.premissas.convencao8h24)
-      motivos.push('A convenção coletiva (8h24 por dia) mudou.');
-    return motivos;
-  };
-
   const detalhe = async (s: SimulacaoRegistro, perfil?: string) => {
     const l = await loja(s.lojaId);
     const { c, avaliacao } = avaliar(s, l);
-    const motivosDesatualizada = await desatualizacao(s, l);
     const dono = perfil === 'TENANT_ADMIN';
     const base = await lojas.baseAtiva(s.lojaId);
     const resultado = calcularResultado({
@@ -171,11 +137,6 @@ export const makeSimulacoesService = (
       autor: s.autor,
       criadaEm: s.criadaEm,
       gravadaEm: s.gravadaEm,
-      aprovadaPor: s.aprovadaPor,
-      aprovadaEm: s.aprovadaEm,
-      vigenciaInicio: s.vigenciaInicio,
-      desatualizada: motivosDesatualizada.length > 0,
-      motivosDesatualizada,
       editavel: s.status === 'rascunho',
       diasAbertos: c.dias,
       quadro: s.quadro,
@@ -240,16 +201,8 @@ export const makeSimulacoesService = (
 
   return {
     async listar(lojaId: string, descartadas: boolean) {
-      const l = await loja(lojaId);
-      const data = await repo.listar(lojaId, descartadas);
-      const emUso = await repo.emUso(lojaId);
-      const motivos = emUso ? await desatualizacao(emUso, l) : [];
-      return {
-        data: data.map((x) => ({
-          ...x,
-          desatualizada: x.status === 'em_uso' && motivos.length > 0,
-        })),
-      };
+      await loja(lojaId); // garante que a loja existe
+      return { data: await repo.listar(lojaId, descartadas) };
     },
 
     async obter(id: string, perfil: string) {
@@ -399,30 +352,7 @@ export const makeSimulacoesService = (
       return detalhe(await simulacao(id), perfil);
     },
 
-    async aprovar(id: string, vigenciaInicio: string | undefined, perfil: string) {
-      const s = await simulacao(id);
-      if (s.status !== 'gravada')
-        throw new ConflictError('Só simulação gravada pode ser aprovada.', 'SIMULACAO_NAO_GRAVADA');
-      await loja(s.lojaId); // garante que a loja ainda existe
-      const inicio = vigenciaInicio
-        ? new Date(`${vigenciaInicio}T00:00:00.000Z`)
-        : new Date(new Date().toISOString().slice(0, 10) + 'T00:00:00.000Z');
-      const anterior = await repo.emUso(s.lojaId);
-      await repo.aprovar(id, s.lojaId, perfil, inicio);
-      await auditar({
-        acao: 'simulacao.aprovada',
-        perfil,
-        alvoTipo: 'simulacao',
-        alvoId: id,
-        detalhe: {
-          vigenciaInicio: inicio.toISOString().slice(0, 10),
-          substituiu: anterior?.id ?? null,
-        },
-      });
-      return detalhe(await simulacao(id), perfil);
-    },
-
-    // Compara 2 a 3 simulações da mesma loja; a em uso entra sempre como referência.
+    // Compara 2 a 3 simulações da mesma loja, cada uma pelos seus próprios números.
     async comparar(lojaId: string, ids: string[], perfil: string) {
       const l = await loja(lojaId);
       const lista = await Promise.all(ids.map((i) => simulacao(i)));
@@ -430,10 +360,8 @@ export const makeSimulacoesService = (
         throw new ValidationError('Só dá para comparar simulações da mesma loja');
       if (lista.some((x) => x.status === 'descartada'))
         throw new ValidationError('Simulação descartada não entra na comparação');
-      const emUso = await repo.emUso(lojaId);
-      const todas = emUso && !lista.some((x) => x.id === emUso.id) ? [emUso, ...lista] : lista;
 
-      const calculadas = todas.map((x) => {
+      const calculadas = lista.map((x) => {
         const { avaliacao } = avaliar(x, l);
         return {
           sim: x,
@@ -446,7 +374,6 @@ export const makeSimulacoesService = (
           }),
         };
       });
-      const ref = calculadas.find((c) => c.sim.id === emUso?.id) ?? null;
       const dono = perfil === 'TENANT_ADMIN';
       const custoDe = (x: SimulacaoRegistro) =>
         calcularCusto({
@@ -455,37 +382,21 @@ export const makeSimulacoesService = (
           custos: custosDaSimulacao(contexto(x, l).premissas.custos, l),
           parametros: tabela,
         });
-      const custoRef = dono && ref ? custoDe(ref.sim) : null;
-      const mensalRef = custoRef && custoRef.informado ? custoRef.mensal : null;
 
       return {
-        referenciaId: ref?.sim.id ?? null,
         simulacoes: calculadas.map(({ sim, ind }) => {
           const c = dono ? custoDe(sim) : null;
-          const mensal = c && c.informado ? c.mensal : null;
-          const diff =
-            mensal !== null && mensalRef !== null && sim.id !== ref?.sim.id
-              ? Math.round((mensal - mensalRef) * 100) / 100
-              : null;
           const vagas = sim.quadro.filter((p) => p.vaga && !p.desligado).length;
           return {
             id: sim.id,
             nome: sim.nome,
             status: sim.status,
             regra: regraPara(sim.regra as RegraId, false, tabela).nome,
-            referencia: sim.id === ref?.sim.id,
-            podeAprovar: sim.status === 'gravada' && ind.erros === 0,
             indicadores: ind,
             vagas,
-            sintese: sintese(
-              sim.nome,
-              ind,
-              ref && ref.sim.id !== sim.id ? ref.ind : null,
-              ref?.sim.nome ?? null,
-              { custoDiff: diff, vagas },
-            ),
+            sintese: sintese(sim.nome, ind, { vagas }),
             // Só o dono recebe este bloco.
-            ...(c ? { custo: { ...c, diferencaMensalFrenteEmUso: diff } } : {}),
+            ...(c ? { custo: c } : {}),
           };
         }),
       };
@@ -501,7 +412,6 @@ export const makeSimulacoesService = (
           nome: s.nome,
           status: s.status,
           regraNome: c.regra.nome,
-          vigenciaInicio: s.vigenciaInicio,
         },
         quadro: s.quadro,
         turnos: s.turnos,
@@ -525,8 +435,6 @@ export const makeSimulacoesService = (
 
     async descartar(id: string, perfil: string) {
       const s = await simulacao(id);
-      if (s.status === 'em_uso')
-        throw new ConflictError('A simulação em uso não pode ser descartada.', 'SIMULACAO_EM_USO');
       if (s.status === 'descartada') return detalhe(s, perfil);
       await repo.mudarStatus(id, 'descartada');
       await auditar({ acao: 'simulacao.descartada', perfil, alvoTipo: 'simulacao', alvoId: id });

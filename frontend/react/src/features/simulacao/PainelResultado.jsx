@@ -84,7 +84,7 @@ export default function PainelResultado({ sim, calculando, dono, podeEscrever, s
           <Botao tipo="secundario" className="w-full" onClick={onClonar}>Clonar para ajustar</Botao>
         ) : null}
         <p className="m-0 mt-3 text-center text-xs text-[var(--text-secondary)]">
-          {editavel ? "Guarde este cenário e continue ajustando para comparar." : `Simulação ${sim.status === "em_uso" ? "em uso" : "gravada"}: não se edita. Clone para ajustar.`}
+          {editavel ? "Guarde este cenário e continue ajustando para comparar." : "Simulação gravada: não se edita. Clone para ajustar."}
         </p>
       </div>
     </aside>

@@ -11,14 +11,14 @@ Formato: `- [ ] ID [P] [História] descrição com o arquivo`. Servidor em `back
 - [x] T006 Rodar os testes do servidor (unidade e integração) e commitar a fatia
 
 ## Fatia 2 — Tela sem "em uso" (Histórias 1, 2 e 3)
-- [ ] T007 [US1] `simulacao/SimulacaoPage.jsx`: sai o botão "Marcar como em uso", o estado `aprovando`, a janela `Aprovar` e o aviso "Simulação em uso desatualizada"; apagar `grade/Aprovar.jsx`; `simulacao/PainelResultado.jsx`: sem a frase "Simulação em uso" (para simulação gravada, texto neutro)
-- [ ] T008 [US1] `grade/GradeTab.jsx`: o mapa de estados fica com Rascunho, Gravada e Descartada; sai a linha de vigência da lista e o que dependia de `em_uso`
-- [ ] T009 [US2] `grade/Comparar.jsx`: sai a referência (sem coluna ou marca de "referência"), a linha "Diferença mensal frente à em uso" e os textos sobre "em uso"; o subtítulo explica só que compara as simulações escolhidas; o mapa de estados sem os extintos
-- [ ] T010 Testes da tela (lógica pura de estados e textos, se houver) e uma busca no código da tela que confirma que não restam "Marcar como em uso", "Aprovar", "Em uso", "Substituída" nem "desatualizada" ligados à Simulação; rodar os testes da tela e commitar a fatia
+- [x] T007 [US1] `simulacao/SimulacaoPage.jsx`: sai o botão "Marcar como em uso", o estado `aprovando`, a janela `Aprovar` e o aviso "Simulação em uso desatualizada"; apagar `grade/Aprovar.jsx`; `simulacao/PainelResultado.jsx`: sem a frase "Simulação em uso" (para simulação gravada, texto neutro)
+- [x] T008 [US1] `grade/GradeTab.jsx`: o mapa de estados fica com Rascunho, Gravada e Descartada; sai a linha de vigência da lista e o que dependia de `em_uso`
+- [x] T009 [US2] `grade/Comparar.jsx`: sai a referência (sem coluna ou marca de "referência"), a linha "Diferença mensal frente à em uso" e os textos sobre "em uso"; o subtítulo explica só que compara as simulações escolhidas; o mapa de estados sem os extintos
+- [x] T010 Testes da tela (lógica pura de estados e textos, se houver) e uma busca no código da tela que confirma que não restam "Marcar como em uso", "Aprovar", "Em uso", "Substituída" nem "desatualizada" ligados à Simulação; rodar os testes da tela e commitar a fatia
 
 ## Fatia 3 — Validação e entrega
-- [ ] T011 Percorrer o `quickstart.md` no ambiente local (contagem de simulações e estados antes e depois, tela da simulação, lista, comparação de duas simulações, rota de aprovar em 404, Diagnóstico e Cadastro com os mesmos números)
-- [ ] T012 Reiniciar a API (aplica a migration), rodar tudo (servidor, integração e tela), type-check; commitar e subir a branch `feat/retirar-simulacao-em-uso`
+- [x] T011 Percorrer o `quickstart.md` no ambiente local (contagem de simulações e estados antes e depois, tela da simulação, lista, comparação de duas simulações, rota de aprovar em 404, Diagnóstico e Cadastro com os mesmos números)
+- [x] T012 Reiniciar a API (aplica a migration), rodar tudo (servidor, integração e tela), type-check; commitar e subir a branch `feat/retirar-simulacao-em-uso`
 
 ## Dependências e ordem
 - A Fatia 1 vem antes da 2: a tela deixa de chamar a rota de aprovar só depois de ela sair, e a API já devolve os estados novos.

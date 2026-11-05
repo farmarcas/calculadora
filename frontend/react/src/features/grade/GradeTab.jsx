@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../../api/client.js";
-import { Aviso, Botao, Campo, Cartao, Ficha, Modal, entrada, TH } from "../../components/ui/index.jsx";
+import { Aviso, Botao, Campo, Modal, entrada } from "../../components/ui/index.jsx";
+import BarraDeComparar from "./BarraDeComparar.jsx";
+import ListaDeSimulacoes from "./ListaDeSimulacoes.jsx";
+import { MENSAGEM_LIMITE, alternarSelecao, marcadasValidas, mostrarBarra } from "./selecao.js";
 import Comparar from "./Comparar.jsx";
 import SimulacaoPage from "../simulacao/SimulacaoPage.jsx";
-
-const STATUS = { rascunho: ["atencao", "Rascunho"], gravada: ["ok", "Gravada"], descartada: ["neutro", "Descartada"] };
-const REGRAS = { atual: "44h", r42: "42h", r40: "40h" };
 
 function Nova({ lojaId, lista, onClose, onCriada }) {
   const [nome, setNome] = useState("");
@@ -60,10 +60,13 @@ export default function GradeTab({ lojaId, perfil, podeEscrever, abrirId, avisoI
   const [marcadas, setMarcadas] = useState([]);
   const [comparando, setComparando] = useState(false);
   const [aviso, setAviso] = useState(null);
+  const [limite, setLimite] = useState(false);
 
   const carregar = useCallback(async () => {
     try {
-      setLista((await api(`/lojas/${lojaId}/simulacoes?descartadas=${descartadas ? 1 : 0}`)).data);
+      const dados = (await api(`/lojas/${lojaId}/simulacoes?descartadas=${descartadas ? 1 : 0}`)).data;
+      setLista(dados);
+      setMarcadas((m) => marcadasValidas(m, dados));
     } catch (e) {
       setErro(e.message);
     }
@@ -75,7 +78,11 @@ export default function GradeTab({ lojaId, perfil, podeEscrever, abrirId, avisoI
     setComparando(false);
   }, [lojaId]);
 
-  const alternar = (id) => setMarcadas((m) => (m.includes(id) ? m.filter((x) => x !== id) : m.length < 3 ? [...m, id] : m));
+  const alternar = (id) => {
+    const r = alternarSelecao(marcadas, id);
+    setMarcadas(r.marcadas);
+    setLimite(r.barrada);
+  };
   useEffect(() => {
     carregar();
   }, [carregar]);
@@ -107,47 +114,20 @@ export default function GradeTab({ lojaId, perfil, podeEscrever, abrirId, avisoI
   return (
     <div className="flex flex-col gap-6">
       {erro && <Aviso>{erro}</Aviso>}
-      <Cartao
-        titulo="Simulações da loja"
-        subtitulo="Cada simulação é uma pergunta e uma resposta gravadas. Rascunhos se ajustam; gravadas só se clonam."
-        acoes={
-          <>
-            <label className="flex items-center gap-2 text-xs text-ink-500"><input type="checkbox" checked={descartadas} onChange={(e) => setDescartadas(e.target.checked)} /> Mostrar descartadas</label>
-            <Botao tipo="secundario" disabled={marcadas.length < 2} onClick={() => setComparando(true)} title="Marque de 2 a 3 simulações">Comparar ({marcadas.length})</Botao>
-            {podeEscrever && <Botao onClick={() => setNova(true)}>Nova simulação</Botao>}
-          </>
-        }
-      >
-        {lista.length === 0 ? (
-          <p className="m-0 px-6 py-8 text-sm text-ink-500 text-center">Nenhuma simulação ainda. Crie a primeira a partir da equipe do Cadastro.</p>
-        ) : (
-          <table className="w-full border-collapse text-sm">
-            <thead>
-              <tr>{["", "Nome", "Regra", "Situação", "Criada por", "Criada em", ""].map((h) => <th key={h} className={`${TH} px-6 py-3`}>{h}</th>)}</tr>
-            </thead>
-            <tbody>
-              {lista.map((s) => {
-                const [tom, r] = STATUS[s.status];
-                return (
-                  <tr key={s.id} className="border-t border-line">
-                    <td className="pl-6 py-3">
-                      {s.status !== "descartada" && (
-                        <input type="checkbox" aria-label={`Comparar ${s.nome}`} checked={marcadas.includes(s.id)} onChange={() => alternar(s.id)} />
-                      )}
-                    </td>
-                    <td className="px-6 py-3 font-medium">{s.nome}</td>
-                    <td className="px-6 py-3">{REGRAS[s.regra]}</td>
-                    <td className="px-6 py-3"><Ficha tom={tom}>{r}</Ficha></td>
-                    <td className="px-6 py-3">{s.autor}</td>
-                    <td className="px-6 py-3">{new Date(s.criadaEm).toLocaleDateString("pt-BR")}</td>
-                    <td className="px-6 py-3 text-right"><Botao tipo="texto" onClick={() => setAberta(s.id)}>Abrir</Botao></td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        )}
-      </Cartao>
+      <div>
+        <ListaDeSimulacoes
+          lista={lista}
+          marcadas={marcadas}
+          onAlternar={alternar}
+          onAbrir={setAberta}
+          podeEscrever={podeEscrever}
+          onNova={() => setNova(true)}
+          descartadas={descartadas}
+          onDescartadas={setDescartadas}
+        />
+        {mostrarBarra(marcadas) && <BarraDeComparar quantidade={marcadas.length} onLimpar={() => { setMarcadas([]); setLimite(false); }} onComparar={() => setComparando(true)} />}
+        <p role="status" className="m-0 mt-2 text-sm text-[var(--text-secondary)]">{limite ? MENSAGEM_LIMITE : ""}</p>
+      </div>
       {nova && <Nova lojaId={lojaId} lista={lista} onClose={() => setNova(false)} onCriada={(s) => { setNova(false); setAberta(s.id); carregar(); }} />}
     </div>
   );

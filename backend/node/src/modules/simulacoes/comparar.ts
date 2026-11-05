@@ -59,37 +59,16 @@ export const calcularIndicadores = (a: {
   };
 };
 
-// Parágrafo curto: o que muda frente à simulação em uso (ou, sem ela, o estado da própria simulação).
+// Parágrafo curto: o que a simulação faz, só com os próprios números (cobertura, horas, vagas e o que falta).
 export const sintese = (
   nome: string,
   i: Indicadores,
-  ref: Indicadores | null,
-  refNome: string | null,
-  extra: { custoDiff?: number | null; vagas?: number } = {},
+  extra: { vagas?: number } = {},
 ): string => {
   const partes: string[] = [];
-  if (i.erros > 0) partes.push(`tem ${i.erros} erro(s) nas regras e ainda não pode ser aprovada`);
+  if (i.erros > 0) partes.push(`tem ${i.erros} erro(s) nas regras`);
   if (i.semFarmaceutico) partes.push('deixa horário sem farmacêutico');
-  if (ref && refNome) {
-    const dc = arred(i.coberturaPct - ref.coberturaPct);
-    const dh = arred(i.horasPlanejadas - ref.horasPlanejadas);
-    partes.push(
-      dc === 0
-        ? `mantém a cobertura de ${i.coberturaPct}% da simulação em uso (${refNome})`
-        : `${dc > 0 ? 'melhora' : 'piora'} a cobertura em ${Math.abs(dc)} ponto(s) frente à em uso (${refNome}): ${i.coberturaPct}% contra ${ref.coberturaPct}%`,
-    );
-    if (dh !== 0) partes.push(`${dh > 0 ? 'planeja' : 'corta'} ${Math.abs(dh)}h por semana`);
-  } else {
-    partes.push(`cobre ${i.coberturaPct}% das horas exigidas`);
-  }
-  if (extra.custoDiff) {
-    const v = Math.abs(extra.custoDiff).toLocaleString('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-      maximumFractionDigits: 0,
-    });
-    partes.push(`custa ${v} ${extra.custoDiff > 0 ? 'a mais' : 'a menos'} por mês frente à em uso`);
-  }
+  partes.push(`cobre ${i.coberturaPct}% das horas exigidas`);
   if (extra.vagas) partes.push(`exige contratar ${extra.vagas} vaga(s)`);
   if (i.horasFalta > 0) partes.push(`faltam ${i.horasFalta}h-pessoa por semana`);
   return `${nome} ${partes.join('; ')}.`;

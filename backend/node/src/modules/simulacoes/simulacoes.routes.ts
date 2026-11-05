@@ -70,16 +70,6 @@ export const simulacoesRouter = () => {
     res.json(await s(res).gravar(params.id, perfilDe(res), body.comoCenario === true));
   },
   );
-  // Quem aprova: só o dono do grupo (M-D4: gestor de escala não aprova por padrão).
-  r.post(
-    '/simulacoes/:id/aprovar',
-    exigirPerfil('TENANT_ADMIN'),
-    validate(S.aprovarReq),
-    async (_req, res) => {
-      const { params, body } = v<typeof S.aprovarReq>(res);
-      res.json(await s(res).aprovar(params.id, body.vigenciaInicio, perfilDe(res)));
-    },
-  );
   r.get('/lojas/:id/simulacoes/comparar', validate(S.compararReq), async (_req, res) => {
     const { params, query } = v<typeof S.compararReq>(res);
     res.json(await s(res).comparar(params.id, query.ids, perfilDe(res)));

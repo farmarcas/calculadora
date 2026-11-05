@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../../api/client.js";
 import { Aviso, Botao, Campo, Cartao, Ficha, Modal, entrada, TH } from "../../components/ui/index.jsx";
-import Aprovar from "./Aprovar.jsx";
 import Comparar from "./Comparar.jsx";
 import SimulacaoPage from "../simulacao/SimulacaoPage.jsx";
 
-const STATUS = { rascunho: ["atencao", "Rascunho"], gravada: ["ok", "Gravada"], em_uso: ["ok", "Em uso"], substituida: ["neutro", "Substituída"], descartada: ["neutro", "Descartada"] };
+const STATUS = { rascunho: ["atencao", "Rascunho"], gravada: ["ok", "Gravada"], descartada: ["neutro", "Descartada"] };
 const REGRAS = { atual: "44h", r42: "42h", r40: "40h" };
 
 function Nova({ lojaId, lista, onClose, onCriada }) {
@@ -60,7 +59,6 @@ export default function GradeTab({ lojaId, perfil, podeEscrever, abrirId, avisoI
   const [erro, setErro] = useState(null);
   const [marcadas, setMarcadas] = useState([]);
   const [comparando, setComparando] = useState(false);
-  const [aprovando, setAprovando] = useState(null);
   const [aviso, setAviso] = useState(null);
 
   const carregar = useCallback(async () => {
@@ -90,10 +88,7 @@ export default function GradeTab({ lojaId, perfil, podeEscrever, abrirId, avisoI
 
   if (comparando)
     return (
-      <>
-        <Comparar lojaId={lojaId} ids={marcadas} podeAprovar={perfil === "TENANT_ADMIN"} onVoltar={() => { setComparando(false); carregar(); }} onAprovar={setAprovando} />
-        {aprovando && <Aprovar id={aprovando} onClose={() => setAprovando(null)} onAprovada={() => { setAprovando(null); setComparando(false); setMarcadas([]); carregar(); }} />}
-      </>
+      <Comparar lojaId={lojaId} ids={marcadas} onVoltar={() => { setComparando(false); carregar(); }} />
     );
 
   if (aberta)
@@ -136,13 +131,13 @@ export default function GradeTab({ lojaId, perfil, podeEscrever, abrirId, avisoI
                 return (
                   <tr key={s.id} className="border-t border-line">
                     <td className="pl-6 py-3">
-                      {s.status !== "descartada" && s.status !== "substituida" && (
+                      {s.status !== "descartada" && (
                         <input type="checkbox" aria-label={`Comparar ${s.nome}`} checked={marcadas.includes(s.id)} onChange={() => alternar(s.id)} />
                       )}
                     </td>
-                    <td className="px-6 py-3 font-medium">{s.nome}{s.status === "em_uso" && s.vigenciaInicio && <div className="text-xs font-normal text-ink-500">Em uso desde {s.vigenciaInicio.split("T")[0].split("-").reverse().join("/")}</div>}</td>
+                    <td className="px-6 py-3 font-medium">{s.nome}</td>
                     <td className="px-6 py-3">{REGRAS[s.regra]}</td>
-                    <td className="px-6 py-3"><Ficha tom={tom}>{r}</Ficha>{s.desatualizada && <> <Ficha tom="atencao">Desatualizada</Ficha></>}</td>
+                    <td className="px-6 py-3"><Ficha tom={tom}>{r}</Ficha></td>
                     <td className="px-6 py-3">{s.autor}</td>
                     <td className="px-6 py-3">{new Date(s.criadaEm).toLocaleDateString("pt-BR")}</td>
                     <td className="px-6 py-3 text-right"><Botao tipo="texto" onClick={() => setAberta(s.id)}>Abrir</Botao></td>

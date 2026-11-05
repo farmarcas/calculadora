@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import ExcelJS from 'exceljs';
 import { GE_INICIAL_ID } from '../../shared/ge.js';
@@ -179,7 +180,7 @@ describe('simulações (rotas)', () => {
     );
   });
 
-  describe('aprovar, comparar e exportar', () => {
+  describe('comparar, descartar e exportar', () => {
     const gravada = async (nome: string) => {
       const sim = (await criar({ nome, regra: 'r40' })).body;
       const g = await reqGe().post(`/api/v1/simulacoes/${sim.id}/gravar`).set(admin);
@@ -187,76 +188,84 @@ describe('simulações (rotas)', () => {
       return g.body;
     };
 
-    it('só o dono aprova, só gravada, e a anterior vira substituída (uma em uso por loja)', async () => {
+    it('a rota de aprovar não existe mais e qualquer simulação gravada pode ser descartada', async () => {
       const a = await gravada('Plano A');
-      const b = await gravada('Plano B');
-      const gestor = { 'X-Perfil': 'SCHEDULE_MANAGER', 'X-GE': GE_INICIAL_ID };
-      expect(
-        (await reqGe().post(`/api/v1/simulacoes/${a.id}/aprovar`).set(gestor).send({})).status,
-      ).toBe(403);
-
-      const rascunho = (await criar({ nome: 'Rascunho', regra: 'r40' })).body;
-      expect(
-        (await reqGe().post(`/api/v1/simulacoes/${rascunho.id}/aprovar`).set(admin).send({}))
-          .status,
-      ).toBe(409);
-
-      const ok = await reqGe()
-        .post(`/api/v1/simulacoes/${a.id}/aprovar`)
-        .set(admin)
-        .send({ vigenciaInicio: '2026-12-15' });
-      expect(ok.status).toBe(200);
-      expect(ok.body).toMatchObject({
-        status: 'em_uso',
-        aprovadaPor: 'TENANT_ADMIN',
-        desatualizada: false,
-      });
-      expect(ok.body.vigenciaInicio).toContain('2026-12-15');
-
-      await reqGe().post(`/api/v1/simulacoes/${b.id}/aprovar`).set(admin).send({});
+      expect((await reqGe().post(`/api/v1/simulacoes/${a.id}/aprovar`).set(admin).send({})).status).toBe(404);
       const lista = (await reqGe().get(`/api/v1/lojas/${lojaId}/simulacoes`)).body.data;
-      expect(lista.find((x: { id: string }) => x.id === a.id).status).toBe('substituida');
-      expect(lista.find((x: { id: string }) => x.id === b.id).status).toBe('em_uso');
-      expect(lista.find((x: { id: string }) => x.id === b.id).vigenciaInicio).toContain('20');
-      expect((await reqGe().post(`/api/v1/simulacoes/${b.id}/descartar`).set(admin)).status).toBe(
-        409,
-      );
-      expect(await prisma.auditoria.count({ where: { acao: 'simulacao.aprovada' } })).toBe(2);
+      expect(lista.find((x: { id: string }) => x.id === a.id).status).toBe('gravada');
+      const d = await reqGe().post(`/api/v1/simulacoes/${a.id}/descartar`).set(admin);
+      expect(d.status).toBe(200);
+      expect(d.body.status).toBe('descartada');
     });
 
-    it('compara 2 a 3 simulações e inclui a em uso como referência', async () => {
+    it('a migration troca em uso e substituída por gravada sem apagar nem mudar o resto', async () => {
+      const a = await gravada('Plano A');
+      const b = await gravada('Plano B');
+      const c = await gravada('Plano C');
+      await prisma.simulacao.update({ where: { id: a.id }, data: { status: 'EM_USO', aprovadaPor: 'TENANT_ADMIN', vigenciaInicio: new Date('2026-12-15') } });
+      await prisma.simulacao.update({ where: { id: b.id }, data: { status: 'SUBSTITUIDA', substituidaEm: new Date() } });
+      const antes = await prisma.simulacao.findMany({ orderBy: { nome: 'asc' } });
+      const sql = readFileSync(
+        new URL('../../../prisma/migrations/20261105180000_simulacoes_sem_em_uso/migration.sql', import.meta.url),
+        'utf8',
+      );
+      await prisma.$executeRawUnsafe(sql);
+      const depois = await prisma.simulacao.findMany({ orderBy: { nome: 'asc' } });
+      expect(depois).toHaveLength(antes.length);
+      expect(depois.map((x) => x.status)).toEqual(['GRAVADA', 'GRAVADA', 'GRAVADA']);
+      // nada mais mudou: nome, quadro, premissas, resultado e os registros de aprovação continuam
+      expect(depois.map(({ status: _s, atualizadaEm: _a, ...resto }) => resto)).toEqual(
+        antes.map(({ status: _s, atualizadaEm: _a, ...resto }) => resto),
+      );
+      expect(depois.find((x) => x.id === a.id)?.aprovadaPor).toBe('TENANT_ADMIN');
+      expect(depois.find((x) => x.id === c.id)?.status).toBe('GRAVADA');
+    });
+
+    it('simulações que estavam em uso ou substituídas aparecem como gravadas e podem ser descartadas', async () => {
+      const a = await gravada('Plano A');
+      const b = await gravada('Plano B');
+      // como ficou o banco antes da migration que converteu os estados antigos
+      await prisma.simulacao.update({ where: { id: a.id }, data: { status: 'EM_USO', aprovadaPor: 'TENANT_ADMIN' } });
+      await prisma.simulacao.update({ where: { id: b.id }, data: { status: 'SUBSTITUIDA' } });
+      const lista = (await reqGe().get(`/api/v1/lojas/${lojaId}/simulacoes`)).body.data;
+      expect(lista.map((x: { status: string }) => x.status)).toEqual(['gravada', 'gravada']);
+      expect(JSON.stringify(lista)).not.toMatch(/desatualizada|vigencia|aprovad/);
+      expect((await reqGe().post(`/api/v1/simulacoes/${a.id}/descartar`).set(admin)).status).toBe(200);
+    });
+
+    it('compara 2 a 3 simulações, cada uma pelos próprios números, sem referência', async () => {
       const a = await gravada('Plano A');
       const b = await gravada('Plano B');
       const c = (await criar({ nome: 'Plano C', regra: 'r40' })).body;
-      await reqGe().post(`/api/v1/simulacoes/${a.id}/aprovar`).set(admin).send({});
 
       const r = await reqGe().get(
-        `/api/v1/lojas/${lojaId}/simulacoes/comparar?ids=${b.id},${c.id}`,
+        `/api/v1/lojas/${lojaId}/simulacoes/comparar?ids=${a.id},${b.id}`,
       );
       expect(r.status).toBe(200);
-      expect(r.body.simulacoes).toHaveLength(3);
-      expect(r.body.simulacoes[0]).toMatchObject({ id: a.id, referencia: true });
-      expect(r.body.simulacoes[1].sintese).toContain('simulação em uso (Plano A)');
+      expect(r.body.simulacoes.map((x: { id: string }) => x.id)).toEqual([a.id, b.id]);
+      expect(r.body).not.toHaveProperty('referenciaId');
+      expect(r.body.simulacoes[0]).not.toHaveProperty('referencia');
+      expect(r.body.simulacoes[0]).not.toHaveProperty('podeAprovar');
+      expect(r.body.simulacoes[1].sintese).toContain('Plano B cobre');
+      expect(r.body.simulacoes[1].sintese).not.toMatch(/em uso|aprovad/);
       expect(r.body.simulacoes[1].indicadores).toMatchObject({ erros: 0, coberturaPct: 100 });
-
+      // rascunho também entra, e a comparação continua exigindo ao menos duas
+      expect((await reqGe().get(`/api/v1/lojas/${lojaId}/simulacoes/comparar?ids=${b.id},${c.id}`)).body.simulacoes).toHaveLength(2);
       expect(
         (await reqGe().get(`/api/v1/lojas/${lojaId}/simulacoes/comparar?ids=${b.id}`)).status,
       ).toBe(400);
     });
 
-    it('avisa que a em uso ficou desatualizada quando o quadro muda no cadastro', async () => {
+    it('mudar o quadro no cadastro não marca nada como desatualizado (não há mais simulação em uso)', async () => {
       const a = await gravada('Plano A');
-      await reqGe().post(`/api/v1/simulacoes/${a.id}/aprovar`).set(admin).send({});
       await reqGe()
         .post('/api/v1/funcionarios')
         .set(admin)
         .send({ matricula: 'N1', nome: 'Novo', lojaId, funcaoEscala: 'Caixa', cargaSemanalH: 40 });
       const d = (await reqGe().get(`/api/v1/simulacoes/${a.id}`)).body;
-      expect(d.desatualizada).toBe(true);
-      expect(d.motivosDesatualizada[0]).toContain('Novo');
-      expect(d.status).toBe('em_uso'); // nada muda sozinho
-      const lista = (await reqGe().get(`/api/v1/lojas/${lojaId}/simulacoes`)).body.data;
-      expect(lista[0].desatualizada).toBe(true);
+      expect(d).not.toHaveProperty('desatualizada');
+      expect(d).not.toHaveProperty('motivosDesatualizada');
+      expect(d.status).toBe('gravada');
     });
 
     it('exporta o Excel da escala e registra na auditoria', async () => {
@@ -405,13 +414,12 @@ describe('simulações (rotas)', () => {
         .get(`/api/v1/lojas/${lojaId}/simulacoes/comparar?ids=${ids.join(',')}`)
         .set(h);
 
-    it('o dono vê custo mensal, anual e a diferença frente à em uso; a síntese cita custo e vaga', async () => {
+    it('o dono vê custo mensal e anual de cada simulação; a síntese cita a vaga', async () => {
       await salvarCustos();
       const a = await gravada('Plano A');
       const b = await gravada('Plano B com vaga', {
         vagas: [{ funcao: 'Farmacêutico', cargaH: 24 }],
       });
-      await reqGe().post(`/api/v1/simulacoes/${a.id}/aprovar`).set(admin).send({});
 
       const r = await comparar([a.id, b.id]);
       expect(r.status).toBe(200);
@@ -421,15 +429,14 @@ describe('simulações (rotas)', () => {
         informado: true,
         mensal: 25952,
         anual: 311424,
-        diferencaMensalFrenteEmUso: null,
       });
+      expect(ra.custo).not.toHaveProperty('diferencaMensalFrenteEmUso');
       // B: + vaga de 24h = 8.000 × 24 × 5 ÷ 200 × 1,622 = 7.785,60
       expect(rb.custo).toMatchObject({
         mensal: 33737.6,
         anual: 404851.2,
-        diferencaMensalFrenteEmUso: 7785.6,
       });
-      expect(rb.sintese).toContain('a mais por mês');
+      expect(rb.sintese).not.toContain('por mês');
       expect(rb.sintese).toContain('exige contratar 1 vaga(s)');
       expect(rb.custo.memoria.some((m: string) => m.includes('Vaga 1'))).toBe(true);
     });
@@ -461,10 +468,7 @@ describe('simulações (rotas)', () => {
       const a = await gravada('Plano A');
       const b = await gravada('Plano B');
       const r = await comparar([a.id, b.id]);
-      expect(r.body.simulacoes[0].custo).toEqual({
-        informado: false,
-        diferencaMensalFrenteEmUso: null,
-      });
+      expect(r.body.simulacoes[0].custo).toEqual({ informado: false });
     });
 
     it('função sem salário informado: avisa qual falta e não soma parcial', async () => {
@@ -540,30 +544,6 @@ describe('simulações (rotas)', () => {
       expect(depois.avaliacao.erros).toEqual([]);
     });
 
-    it('"desatualizada": só mudar o formato não dispara; mudar o horário da loja dispara', async () => {
-      const g = (await criar()).body;
-      await reqGe().post(`/api/v1/simulacoes/${g.id}/gravar`).set(admin);
-      await reqGe().post(`/api/v1/simulacoes/${g.id}/aprovar`).set(admin).send({});
-      // simulação aprovada antes da mudança: horário congelado no formato antigo
-      const sim = await prisma.simulacao.findUniqueOrThrow({ where: { id: g.id } });
-      const premissas = sim.premissas as { horarios: unknown };
-      await prisma.simulacao.update({
-        where: { id: g.id },
-        data: {
-          premissas: { ...premissas, horarios: { semana: { abre: '08:00', fecha: '20:00' } } },
-        },
-      });
-      const mesmaCoisa = (await reqGe().get(`/api/v1/simulacoes/${g.id}`).set(admin)).body;
-      expect(mesmaCoisa.motivosDesatualizada.join(' ')).not.toContain('horário');
-
-      await patchHorarios(dias({ aberta: true, abre: '09:00', fecha: '13:00' }));
-      const mudou = (await reqGe().get(`/api/v1/simulacoes/${g.id}`).set(admin)).body;
-      expect(mudou.desatualizada).toBe(true);
-      expect(mudou.motivosDesatualizada.join(' ')).toContain(
-        'O horário de funcionamento da loja mudou.',
-      );
-      expect(mudou.status).toBe('em_uso'); // nada muda sozinho
-    });
   });
   describe('horário simulado (spec 016)', () => {
     const semana = (fecha: string) => ({
@@ -669,14 +649,12 @@ describe('simulações (rotas)', () => {
       expect(r.body.data).toEqual([]);
     });
 
-    it('só o dono marca como em uso; gestor salva o cenário', async () => {
+    it('o gestor salva o cenário (grava e recebe o número)', async () => {
       const gestor = { 'X-Perfil': 'SCHEDULE_MANAGER', 'X-GE': GE_INICIAL_ID };
       const a = (await criar({ nome: 'Base A', regra: 'r40' })).body;
       const g = await gravarComo(a.id, gestor);
       expect(g.status).toBe(200);
-      expect((await reqGe().post(`/api/v1/simulacoes/${a.id}/aprovar`).set(gestor).send({})).status).toBe(403);
-      const ok = await reqGe().post(`/api/v1/simulacoes/${a.id}/aprovar`).set(admin).send({});
-      expect(ok.body).toMatchObject({ status: 'em_uso', numeroCenario: 1 });
+      expect(g.body).toMatchObject({ status: 'gravada', numeroCenario: 1 });
     });
 
     it('a lista traz o número do cenário', async () => {

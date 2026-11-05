@@ -49,7 +49,7 @@ export default function AppShell({ perfil, folha, onNavegar, onInicio, conta, fa
         {estreito && gaveta && <div aria-hidden="true" onClick={() => setGaveta(false)} className="fixed inset-0 z-30 bg-black/30" />}
         <aside
           style={{ width: estreito || recolhido ? 72 : 280 }}
-          className="relative z-40 shrink-0 bg-[var(--surface-card)] shadow-[var(--shadow-0)] transition-[width] duration-150 motion-reduce:transition-none"
+          className="sticky top-20 z-40 h-[calc(100vh-5rem)] shrink-0 self-start bg-[var(--surface-card)] shadow-[var(--shadow-0)] transition-[width] duration-150 motion-reduce:transition-none"
         >
           <div className={estreito && gaveta ? "absolute inset-y-0 left-0 w-[280px] bg-[var(--surface-card)] shadow-[var(--shadow-3)]" : ""}>
             <MenuLateral id={ID_MENU} perfil={perfil} folha={folha} aberto={aberto} onNavegar={navegar} />

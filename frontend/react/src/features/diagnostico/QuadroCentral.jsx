@@ -1,5 +1,6 @@
 import { useRef } from "react";
 import { AlertaRegime, DicaComposicao, NOME_REGIME, pct } from "./Encargos.jsx";
+import { corDaFuncao } from "../simulacao/formato.js";
 import { calculoDaRegra, estadoDoCard, hojeSP, horas, isoDeVigencia, saldoTxt } from "./cardDiagnostico.js";
 
 const brl = (v) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
@@ -152,7 +153,17 @@ export default function QuadroCentral({ diag, regraId, onRegra, podeEscrever, on
           </div>
 
           <div className="diag-numeros gap-px bg-[var(--border-subtle)] border border-line rounded-card overflow-hidden">
-            <Celula rotulo="Contratações sugeridas" valor={c ? (c.contratacoes > 0 ? plural(c.contratacoes, "pessoa", "pessoas") : "Nenhuma") : "—"} sub={c ? null : "Sem cálculo para esta regra"} />
+            <Celula rotulo="Contratações sugeridas" valor={c ? (c.contratacoes > 0 ? plural(c.contratacoes, "pessoa", "pessoas") : "Nenhuma") : "—"} sub={c ? null : "Sem cálculo para esta regra"}>
+              {c?.contratarPorFuncao?.length > 0 && (
+                <ul aria-label="Funções a contratar" className="m-0 mt-1 flex list-none flex-wrap gap-1.5 p-0">
+                  {c.contratarPorFuncao.map((f) => (
+                    <li key={f.funcao} className="rounded-full px-3 py-1 text-xs leading-4 font-bold text-[var(--neutral-dark-900)]" style={{ background: corDaFuncao(f.funcao) }}>
+                      {f.funcao}{f.pessoas > 1 ? ` × ${f.pessoas}` : ""}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Celula>
             <Celula rotulo="Turnos de farmacêutico" valor={c ? `${c.turnosAcobrir} a cobrir` : "—"} sub={c ? `Por semana, na regra de ${sel.jornada}h` : "Sem cálculo para esta regra"} />
             {folha?.informado ? (
               <Celula

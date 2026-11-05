@@ -39,6 +39,8 @@ export const calculoDaRegra = (regra) => {
     turnosAcobrir: Math.max(0, -farm.saldoT),
     saldoHoras: regra.resumo.saldoHoras,
     contratacoes: regra.resumo.contratar,
+    // Quem contratar, por função (só as que têm contratação), para os chips do card.
+    contratarPorFuncao: (regra.funcoes ?? []).filter((f) => f.contratar > 0).map((f) => ({ funcao: f.funcao, pessoas: f.contratar })),
   };
 };
 

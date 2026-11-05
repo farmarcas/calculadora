@@ -33,6 +33,7 @@ const foto = async () => ({
 
 describe('revisão da importação do Cadastro (spec 029)', () => {
   beforeEach(async () => {
+    await prisma.auditoria.deleteMany();
     await prisma.batida.deleteMany();
     await prisma.importacaoPonto.deleteMany();
     await prisma.simulacao.deleteMany();

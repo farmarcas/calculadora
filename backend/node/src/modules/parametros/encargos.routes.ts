@@ -44,7 +44,7 @@ const listarReq = z.object({
 });
 const v = (res: Response) => readValidated<z.infer<typeof criarReq>>(res);
 
-// Encargos da folha por regime (spec 015). Todos os perfis veem os percentuais; a alteração é só do dono do grupo.
+// Encargos da folha por regime (spec 015). Todos os perfis leem os percentuais (a aba Regras e custos mostra o padrão de cada regime); a alteração é só do operador da plataforma.
 export const encargosRouter = (repo: EncargosRepository = encargosRepository) => {
   const r = Router();
 
@@ -72,7 +72,7 @@ export const encargosRouter = (repo: EncargosRepository = encargosRepository) =>
 
   r.post(
     '/parametros-encargos',
-    exigirPerfil('TENANT_ADMIN'),
+    exigirPerfil('PLATFORM_OPERATOR'),
     validate(criarReq),
     async (_req, res) => {
       const { body } = v(res);

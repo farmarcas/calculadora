@@ -18,7 +18,7 @@ const CAMPOS = [
 const paraForm = (v) => ({ ...Object.fromEntries(CAMPOS.map(([k]) => [k, String(v[k])])), vigenciaInicio: "" });
 
 // Encargos da folha por regime tributário: os componentes de cada regime (o total é sempre calculado).
-// Todos veem; só o dono altera, e alterar cria uma versão nova com data de início.
+// Só o operador da plataforma altera, e alterar cria uma versão nova com data de início.
 export default function EncargosPorRegime({ dono }) {
   const [dados, setDados] = useState(null);
   const [erro, setErro] = useState(null);

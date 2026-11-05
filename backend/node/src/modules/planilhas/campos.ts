@@ -380,7 +380,7 @@ export const CAMPOS_FUNCIONARIO: CampoDef[] = [
   },
   {
     chave: 'cpf',
-    rotulo: 'CPF (fictício)',
+    rotulo: 'CPF',
     obrigatorio: false,
     exemplo: '000.000.000-00',
     sinonimos: ['cpf', 'documento'],

@@ -56,7 +56,7 @@ describe('planilha modelo', () => {
       'Matrícula',
       'Nome',
       'CNPJ da loja',
-      'CPF (fictício)',
+      'CPF',
       'Cargo',
       'Carga semanal (horas)',
       'Carga mensal (horas)',

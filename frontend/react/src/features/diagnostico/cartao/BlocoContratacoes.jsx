@@ -3,11 +3,12 @@ import { brl, horasOciosasDe, horasTxt, linhasDeContratacao, totalContratado } f
 const ROTULO = "text-sm leading-5 text-[var(--text-secondary)]";
 const FUNDO_DA_LETRA = { F: "var(--color-primary-soft)", A: "var(--func-success-100)", C: "var(--func-attention-100)", Ap: "var(--border-default)" };
 
-// Contratações (uma linha cada, bloco com altura para quatro linhas) e a linha de horas ociosas da equipe.
+// Contratações (uma linha cada) e a linha de horas ociosas da equipe. A altura do bloco é a do cartão que tem mais linhas: a grade
+// compartilhada dos cartões já alinha os três, sem reservar espaço.
 export function BlocoContratacoes({ contratacoes }) {
   const linhas = linhasDeContratacao(contratacoes);
   return (
-    <div className="min-h-[148px]">
+    <div>
       <div className="flex items-baseline justify-between gap-2">
         <span className={ROTULO}>Contratações</span>
         {linhas.length > 0 && <span className="text-sm leading-5 font-bold text-[var(--text-strong)]">{horasTxt(totalContratado(linhas))} por semana</span>}

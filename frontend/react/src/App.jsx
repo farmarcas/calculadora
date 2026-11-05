@@ -36,7 +36,6 @@ export default function App() {
     setSecao(f.secao ?? null);
     if (f.tela !== "cadastros") window.history.replaceState(null, "", `${window.location.pathname}?tela=${f.tela}`);
   };
-  const irParaInicio = () => irPara(folhas(perfil)[0]);
 
   // Sem login (o SSO virá depois): o papel e o grupo são escolhidos no menu da conta, só para demonstração.
   const escolherGe = useCallback((id) => {
@@ -99,7 +98,6 @@ export default function App() {
         perfil={perfil}
         folha={folha}
         onNavegar={irPara}
-        onInicio={irParaInicio}
         faixa={faixa}
         conta={<MenuDaConta perfil={perfil} ge={ge} ges={ges} geAtual={geAtual} onPerfil={trocarPerfil} onGe={escolherGe} onSair={sair} />}
       >

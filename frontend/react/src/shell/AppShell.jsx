@@ -7,7 +7,7 @@ const ID_MENU = "menu-principal";
 
 // A casca: barra superior, menu lateral, faixa de contexto (quando a tela tem) e a área de conteúdo.
 // Em tela estreita o menu fica recolhido e o botão da barra o abre como gaveta por cima do conteúdo.
-export default function AppShell({ perfil, folha, onNavegar, onInicio, conta, faixa, children }) {
+export default function AppShell({ perfil, folha, onNavegar, conta, faixa, children }) {
   const [recolhido, setRecolhido] = useState(() => lerRecolhido(window.innerWidth));
   const [estreito, setEstreito] = useState(() => window.innerWidth < LARGURA_MINIMA_ABERTO);
   const [gaveta, setGaveta] = useState(false);
@@ -44,7 +44,7 @@ export default function AppShell({ perfil, folha, onNavegar, onInicio, conta, fa
 
   return (
     <div className="flex min-h-screen flex-col bg-[var(--surface-page)]">
-      <BarraSuperior menuAberto={aberto} onAlternar={alternar} idMenu={ID_MENU} onInicio={onInicio} />
+      <BarraSuperior menuAberto={aberto} onAlternar={alternar} idMenu={ID_MENU} />
       <div className="relative flex min-h-0 flex-1">
         {estreito && gaveta && <div aria-hidden="true" onClick={() => setGaveta(false)} className="fixed inset-0 z-30 bg-black/30" />}
         <aside

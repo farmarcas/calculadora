@@ -4,7 +4,7 @@ export const MENOS = "−"; // sinal de menos tipográfico (U+2212)
 const NOMES_DIA = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
 export const HORAS_BARRA = 42; // a barra de horas das contratações vale 42h = 100%
 
-const virgula = (n) => String(Math.round(n * 100) / 100).replace(".", ",");
+const virgula = (n) => String(Math.round(n * 10) / 10).replace(".", ",");
 export const brl = (n) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
 export const horasTxt = (n) => `${virgula(n)}h`;
 const pctTxt = (n) => `${virgula(n)}%`;
@@ -90,6 +90,7 @@ export const linhasDeContratacao = (contratacoes = []) =>
       nome: NOME[c.funcao] ?? c.funcao,
       horas,
       tipo,
+      opcional: c.motivo === "meta",
       largura: Math.min(100, Math.round((horas / HORAS_BARRA) * 100)),
     });
     return [...Array.from({ length: c.inteiras }, () => linha(cheia, "integral")), ...(parcialH > 0 ? [linha(parcialH, "parcial")] : [])];

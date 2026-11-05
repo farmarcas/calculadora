@@ -29,11 +29,19 @@ describe('inferirMapeamento', () => {
       'salario_caixa',
       'salario_apoio',
       'salario_perfumaria',
-      'rat_pct',
-      'fap',
-      'rescisao',
     ])
       expect(lojas[chave], chave).not.toBeNull();
+    // Colunas antigas (RAT, FAP, rescisão) ainda são reconhecidas em planilhas antigas: não caem em outro campo.
+    const antiga = inferirMapeamento([
+      {
+        nome: 'Lojas',
+        cabecalhos: ['Código da loja', 'Nome da loja', 'RAT (%)', 'FAP', 'Provisão de rescisão (Sim/Não)'],
+        linhas: [['001', 'Centro', '2', '1', 'Não']],
+      },
+    ]).mapeamento.lojas!.colunas;
+    expect(antiga.rat_pct).toBe(2);
+    expect(antiga.fap).toBe(3);
+    expect(antiga.rescisao).toBe(4);
     expect(mapeamento.funcionarios!.colunas.horario_fixo).not.toBeNull();
     expect(mapeamento.funcionarios!.colunas.horario_fixo).not.toBeUndefined();
   });

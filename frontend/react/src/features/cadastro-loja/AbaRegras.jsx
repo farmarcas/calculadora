@@ -1,16 +1,14 @@
-import { useCallback, useEffect, useId, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api } from "../../api/client.js";
 import { Aviso, Chave } from "../../components/ui/index.jsx";
 import { AlertaRegime, ComposicaoEncargos, NOME_REGIME, pct } from "../diagnostico/Encargos.jsx";
-import DicaDeCampo from "../../components/ui/DicaDeCampo.jsx";
-import { DICAS_DE_ENCARGOS, linhaComSeusValores } from "./dicasDeEncargos.js";
+import { DICAS_DE_ENCARGOS } from "./dicasDeEncargos.js";
 import { MotivoCampo, SeloCampo, classeDoCampo, descricaoDoCampo, usarCampos } from "./campoPendente.jsx";
 import MinimoPessoas from "./MinimoPessoas.jsx";
 import { FUNCOES, errosDosTurnos } from "./turnos.js";
 
 const CAMPO = "h-10 w-full rounded-[6px] border border-[var(--border-default)] bg-[var(--surface-card)] px-3 text-sm text-[var(--text-strong)] focus:border-2 focus:border-[var(--system-500)] focus:outline-none aria-[invalid=true]:border-[var(--border-danger)] disabled:bg-[var(--surface-muted)]";
 // Campo bloqueado pelo regime (Simples Nacional): cinza e sem edição.
-const CAMPO_DESABILITADO = "bg-[var(--surface-muted)] text-[var(--text-secondary)] cursor-not-allowed";
 
 // Convenção, mínimos e turnos como a tela edita (modo "turnos" ou "unico"; o que não está em uso fica guardado).
 export const baseDaConfiguracao = (config) => ({
@@ -19,12 +17,8 @@ export const baseDaConfiguracao = (config) => ({
   turnos: config.turnos ?? null,
   modoMinimo: config.modoMinimo === "unico" || !config.turnos?.length ? (config.modoMinimo === "turnos" && !config.turnos?.length ? "unico" : config.modoMinimo ?? "unico") : "turnos",
 });
-export const baseDosCustos = (r, padrao) => ({
+export const baseDosCustos = (r) => ({
   salarioMedio: Object.fromEntries(FUNCOES.map((f) => [f, r.custos?.salarioMedio?.[f] == null ? "" : String(r.custos.salarioMedio[f])])),
-  ratPct: String(r.encargos.ratPct),
-  fap: String(r.encargos.fap),
-  rescisaoLigada: !!r.encargos.rescisaoLigada,
-  _padrao: padrao,
 });
 
 // Blocos da tela → corpo da API (só as chaves que mudaram, exceto custos, que a rota grava inteiro).
@@ -36,16 +30,10 @@ export const configuracaoParaApi = (parte) => {
   if ("modoMinimo" in parte) out.modoMinimo = parte.modoMinimo;
   return out;
 };
-export const custosParaApi = (_parte, c) => {
-  const ajustes = {};
-  if (c.ratPct !== "" && Number(c.ratPct) !== c._padrao.ratPct) ajustes.ratPct = Number(c.ratPct);
-  if (c.fap !== "" && Number(c.fap) !== c._padrao.fap) ajustes.fap = Number(c.fap);
-  if (c.rescisaoLigada) ajustes.rescisaoLigada = true;
-  return {
-    salarioMedio: Object.fromEntries(Object.entries(c.salarioMedio).filter(([, v]) => v !== "").map(([k, v]) => [k, Number(v)])),
-    ...(Object.keys(ajustes).length ? { encargos: ajustes } : {}),
-  };
-};
+// Só o salário médio vai ao servidor: os encargos vêm do regime tributário da loja.
+export const custosParaApi = (_parte, c) => ({
+  salarioMedio: Object.fromEntries(Object.entries(c.salarioMedio).filter(([, v]) => v !== "").map(([k, v]) => [k, Number(v)])),
+});
 
 // Erros da aba Regras e custos (texto + campo para focar).
 export const errosDaRegras = (rascunho, { dono }) => {
@@ -58,8 +46,6 @@ export const errosDaRegras = (rascunho, { dono }) => {
       const v = k.salarioMedio[f];
       if (v !== "" && !(Number(v) > 0 && Number(v) <= 1_000_000)) e.push({ campo: `salario-${f}`, texto: `Salário médio de ${f}: informe um valor maior que zero.` });
     }
-    if (k.ratPct !== "" && !(Number(k.ratPct) >= 0 && Number(k.ratPct) <= 3)) e.push({ campo: "rat", texto: "RAT: use um percentual de 1 a 3." });
-    if (k.fap !== "" && !(Number(k.fap) >= 0.5 && Number(k.fap) <= 2)) e.push({ campo: "fap", texto: "FAP: use um valor de 0,5 a 2,0." });
   }
   return e;
 };
@@ -71,19 +57,15 @@ export default function AbaRegras({ painel, rascunho, dono, podeEditar, mostrarE
   const mapaCampos = usarCampos();
   const [dadosCustos, setDadosCustos] = useState(null);
   const [aberto, setAberto] = useState(false);
-  const idDicaRat = useId();
-  const idDicaFap = useId();
-  const idDicaRescisao = useId();
 
   const carregar = useCallback(async () => {
     try {
       const diag = await api(`/lojas/${loja.id}/diagnostico`);
       registrar("configuracao", baseDaConfiguracao(diag.config));
       if (dono) {
-        const [custos, par] = await Promise.all([api(`/lojas/${loja.id}/custos`), api("/parametros-encargos")]);
-        const vigente = par.regimes.find((x) => x.regime === custos.encargos.regime).vigente;
+        const custos = await api(`/lojas/${loja.id}/custos`);
         setDadosCustos(custos);
-        registrar("custos", baseDosCustos(custos, { ratPct: vigente.ratPct, fap: vigente.fap }));
+        registrar("custos", baseDosCustos(custos));
       }
     } catch (e) {
       setErroCarga(e.message);
@@ -101,8 +83,6 @@ export default function AbaRegras({ painel, rascunho, dono, podeEditar, mostrarE
   const mudarK = (parte) => alterar("custos", parte);
   const horarios = r.loja?.horarios ?? loja.horarios;
   const enc = dadosCustos?.encargos;
-  // No Simples Nacional o RAT já está no imposto (DAS): RAT e FAP ficam desabilitados e a dica explica por quê.
-  const simples = enc?.regime === "simples";
 
   return (
     <div className="flex flex-col gap-8">
@@ -132,27 +112,14 @@ export default function AbaRegras({ painel, rascunho, dono, podeEditar, mostrarE
                 <span aria-hidden="true" className={`text-xs text-[var(--text-secondary)] transition-transform ${aberto ? "rotate-90" : ""}`}>▸</span>
                 <span className="min-w-0">
                   <strong className="block text-base text-[var(--text-strong)]">Encargos: {pct(enc.totalPct)} ({NOME_REGIME[enc.regime]})</strong>
-                  <span className="text-xs text-[var(--text-secondary)]">RAT {String(k.ratPct).replace(".", ",")}% · FAP {String(k.fap).replace(".", ",")} · {k.rescisaoLigada ? "com" : "sem"} provisão de rescisão</span>
+                  <span className="text-xs text-[var(--text-secondary)]">O percentual vem do regime tributário em Dados da loja.</span>
                 </span>
               </button>
-              <button type="button" className="shrink-0 border-0 bg-transparent p-0 text-sm font-bold text-[var(--text-link)] cursor-pointer" onClick={() => setAberto(!aberto)}>{aberto ? "Recolher" : "Editar encargos"}</button>
+              <button type="button" className="shrink-0 border-0 bg-transparent p-0 text-sm font-bold text-[var(--text-link)] cursor-pointer" onClick={() => setAberto(!aberto)}>{aberto ? "Recolher" : "Ver composição"}</button>
             </div>
             {aberto && (
               <div id="encargos-detalhe" className="mt-3 flex flex-col gap-4">
-                <p className="m-0 text-xs text-[var(--text-secondary)]">O percentual vem do regime tributário em Dados da loja. Aqui você ajusta só RAT, FAP e a provisão de rescisão.</p>
-                <div className="cl-grid3">
-                  <label className="relative flex flex-col gap-1 text-sm text-[var(--text-strong)]"><span>RAT (%)<DicaDeCampo id={idDicaRat} rotulo="RAT (%)" texto={simples ? DICAS_DE_ENCARGOS.simples : DICAS_DE_ENCARGOS.rat} /></span> <span className="text-xs text-[var(--text-secondary)]">padrão {pct(k._padrao.ratPct)} · faixa 1 a 3</span>
-                    <input data-campo="rat" type="number" min={0} max={3} step="0.1" className={`${CAMPO} ${simples ? CAMPO_DESABILITADO : ""}`} disabled={!podeEditar || simples} value={k.ratPct} aria-invalid={!!erroDe("rat")} aria-describedby={idDicaRat} onChange={(e) => mudarK({ ratPct: e.target.value })} />
-                    {erroDe("rat") && <span role="alert" className="text-xs text-[var(--text-danger)]">{erroDe("rat")}</span>}</label>
-                  <label className="relative flex flex-col gap-1 text-sm text-[var(--text-strong)]"><span>FAP<DicaDeCampo id={idDicaFap} rotulo="FAP" texto={simples ? DICAS_DE_ENCARGOS.simples : DICAS_DE_ENCARGOS.fap} extra={simples ? null : linhaComSeusValores(k.ratPct, k.fap)} /></span> <span className="text-xs text-[var(--text-secondary)]">padrão {String(k._padrao.fap).replace(".", ",")} · faixa 0,5 a 2,0</span>
-                    <input data-campo="fap" type="number" min={0.5} max={2} step="0.1" className={`${CAMPO} ${simples ? CAMPO_DESABILITADO : ""}`} disabled={!podeEditar || simples} value={k.fap} aria-invalid={!!erroDe("fap")} aria-describedby={idDicaFap} onChange={(e) => mudarK({ fap: e.target.value })} />
-                    {erroDe("fap") && <span role="alert" className="text-xs text-[var(--text-danger)]">{erroDe("fap")}</span>}</label>
-                  <label className="relative flex items-center gap-2 text-sm text-[var(--text-strong)] sm:mt-6"><input type="checkbox" className="h-4 w-4" disabled={!podeEditar} checked={k.rescisaoLigada} aria-describedby={idDicaRescisao} onChange={(e) => mudarK({ rescisaoLigada: e.target.checked })} /><span>Incluir provisão de rescisão<DicaDeCampo id={idDicaRescisao} rotulo="Incluir provisão de rescisão" texto={DICAS_DE_ENCARGOS.rescisao} /></span></label>
-                </div>
                 <ComposicaoEncargos encargos={enc} apoio={DICAS_DE_ENCARGOS.composicao} />
-                {(k.ratPct !== String(k._padrao.ratPct) || k.fap !== String(k._padrao.fap) || k.rescisaoLigada) && podeEditar && (
-                  <button type="button" className="self-start border-0 bg-transparent p-0 text-sm font-bold text-[var(--text-link)] cursor-pointer" onClick={() => mudarK({ ratPct: String(k._padrao.ratPct), fap: String(k._padrao.fap), rescisaoLigada: false })}>Restaurar padrão</button>
-                )}
               </div>
             )}
           </div>

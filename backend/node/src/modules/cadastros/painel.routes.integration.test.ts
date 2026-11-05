@@ -80,7 +80,7 @@ describe('salvar tudo: PUT /lojas/:id/painel (spec 017)', () => {
 
     const ruim = await salvar({
       loja: { nome: 'Outro nome' },
-      custos: { salarioMedio: { Farmacêutico: 5000 }, encargos: { ratPct: 9 } }, // RAT fora de 1 a 3
+      custos: { salarioMedio: { Farmacêutico: 0 } }, // salário inválido
     });
     expect(ruim.status).toBe(400);
     expect((await doBanco()).nome).toBe(antes.nome);

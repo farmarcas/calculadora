@@ -183,14 +183,14 @@ describe('escala (rotas)', () => {
     expect(real.encargos.componentes.map((c: { chave: string }) => c.chave)).toContain(
       'sobre_provisoes',
     );
-    // ajuste de RAT/FAP desta loja: 3% × 1,5 → 65,19% (8000 × 1,6519 = 13215,2)
+    // ajuste de RAT/FAP por loja não vale mais: o encargo continua o do regime (62,2%)
     await reqGe()
       .put(`/api/v1/lojas/${lojaId}/custos`)
       .set(admin)
       .send({ salarioMedio: { Farmacêutico: 8000 }, encargos: { ratPct: 3, fap: 1.5 } });
     expect((await reqGe().get(url).set(admin)).body.folhaMensal).toMatchObject({
-      mensal: 13215.2,
-      encargosPct: 65.19,
+      mensal: 12976,
+      encargosPct: 62.2,
     });
 
     for (const h of [

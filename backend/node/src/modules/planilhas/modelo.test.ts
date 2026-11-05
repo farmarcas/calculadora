@@ -45,11 +45,10 @@ describe('planilha modelo', () => {
         `Meta de ${f} (pessoas por hora)`,
         `Salário médio de ${f}`,
       ]),
-      'RAT (%)',
-      'FAP',
-      'Provisão de rescisão (Sim/Não)',
     ];
     for (const col of esperadas) expect(lojas, col).toContain(col);
+    // RAT, FAP e rescisão por loja não existem mais: os encargos vêm só do regime tributário.
+    for (const col of ['RAT (%)', 'FAP', 'Provisão de rescisão (Sim/Não)']) expect(lojas, col).not.toContain(col);
   });
 
   it('cada campo da equipe existe como coluna da aba Funcionários, inclusive o horário fixo', async () => {

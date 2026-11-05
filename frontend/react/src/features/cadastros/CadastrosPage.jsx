@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Aviso, Botao, IconeUpload } from "../../components/ui/index.jsx";
 import CadastroLojaPage from "../cadastro-loja/CadastroLojaPage.jsx";
-import ImportarPlanilha from "./ImportarPlanilha.jsx";
+import ModalImportarCadastro from "./ModalImportarCadastro.jsx";
 import ParametrosLegais from "../parametros/ParametrosLegais.jsx";
 import { cuidaDoGrupo, ehOperador } from "../../api/perfis.js";
 
@@ -30,7 +30,7 @@ export default function CadastrosPage({ perfil, secao = "lojas" }) {
       {secao === "parametros" && operador && <ParametrosLegais perfil={perfil} />}
       {secao === "lojas" && <CadastroLojaPage key={versao} perfil={perfil} />}
 
-      {importando && <ImportarPlanilha podeLojas={operador || perfil === "TENANT_ADMIN"} operador={operador} onClose={() => setImportando(false)} onConcluido={() => setVersao((v) => v + 1)} />}
+      {importando && <ModalImportarCadastro podeLojas={operador || perfil === "TENANT_ADMIN"} onClose={() => setImportando(false)} onConcluido={() => setVersao((v) => v + 1)} />}
     </>
   );
 }

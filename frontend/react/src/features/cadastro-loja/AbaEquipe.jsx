@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../../api/client.js";
 import { Aviso, Botao, Ficha, Modal, Toast } from "../../components/ui/index.jsx";
-import ImportarPlanilha from "../cadastros/ImportarPlanilha.jsx";
+import ModalImportarCadastro from "../cadastros/ModalImportarCadastro.jsx";
 import { cargoDoFuncionario, formularioDe, formularioVazio, funcionarioParaApi, mascararCpf, resumoDeDias } from "./equipe.js";
 import FormFuncionario from "./FormFuncionario.jsx";
 
@@ -144,7 +144,7 @@ export default function AbaEquipe({ lojaId, podeEscrever, aoMudar }) {
           </div>
         </Modal>
       )}
-      {importando && <ImportarPlanilha podeLojas={false} operador={false} onClose={() => setImportando(false)} onConcluido={aposMudar} />}
+      {importando && <ModalImportarCadastro podeLojas={false} onClose={() => setImportando(false)} onConcluido={aposMudar} />}
       {toast && <Toast mensagem={toast.mensagem} acao={toast.acao} onFechar={() => setToast(null)} />}
     </section>
   );

@@ -23,8 +23,8 @@ export const avisosDoCartao = (c, { dono }) => ({
 });
 export const temAvisos = (a) => a.consequencia.length > 0 || a.alertas.length > 0;
 
-// O cartão de um cenário, de cima para baixo: título, resultado, status, descrição, [avisos], contratações, horas ociosas,
-// horário e botão. Cada bloco é uma linha da grade compartilhada, então os três cartões ficam alinhados.
+// O cartão de um cenário, de cima para baixo: título (com a frase fixa do cenário), resultado, status, [avisos], contratações,
+// horas ociosas, horário e botão. Cada bloco é uma linha da grade compartilhada, então os três cartões ficam alinhados.
 export default function CartaoCenario({ posicao, c, antes, novos, sugerido, dono, ehReferencia, faixas, avisos, mostrarAvisos, podeEscrever, ocupado, onPersonalizar, onAbrirPainel }) {
   const idTitulo = `cenario-${posicao}-nome`;
   const status = statusDoCartao(c);
@@ -44,6 +44,7 @@ export default function CartaoCenario({ posicao, c, antes, novos, sugerido, dono
           <span aria-hidden="true" className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-btn text-sm leading-6 font-bold text-white ${sugerido ? "bg-[var(--color-primary)]" : "bg-[var(--neutral-dark-900)]"}`}>{posicao}</span>
           <span className="min-w-0 break-words">{c.nome}</span>
         </h3>
+        <p className="m-0 mt-2 text-sm leading-5 text-[var(--text-secondary)]">{c.premissa}</p>
       </div>
 
       <FaixaDeResultado c={c} dono={dono} />
@@ -51,11 +52,7 @@ export default function CartaoCenario({ posicao, c, antes, novos, sugerido, dono
       <div className="min-h-12">
         <div className="flex items-center gap-2 text-sm leading-5 font-bold text-[var(--text-strong)]"><IconeStatus tom={status.tom} />{status.texto}</div>
         {comparacao && <div className="mt-1 text-xs leading-4 text-[var(--text-secondary)]">{comparacao}</div>}
-      </div>
-
-      <div className="flex flex-col gap-1">
-        <p className="m-0 text-sm leading-5 text-[var(--text-secondary)]">{c.premissa}</p>
-        {linhaDeResultado(c) && <p className="m-0 text-sm leading-5 font-bold text-[var(--text-strong)]">{linhaDeResultado(c)}</p>}
+        {linhaDeResultado(c) && <p className="m-0 mt-2 text-sm leading-5 font-bold text-[var(--text-strong)]">{linhaDeResultado(c)}</p>}
       </div>
 
       {mostrarAvisos && (

@@ -46,7 +46,9 @@ describe('calcularResultado', () => {
     expect(r.horasAbertas).toBe(90);
     expect(r.horasAbertasAntes).toBe(90);
     expect(r.vendaQueSai).toBe(0);
-    expect(r.saldoMensal).toBe(r.economiaFolha);
+    expect(r.vendaEstimada).toBe(0);
+    // Saldo contra a folha atual: sem mudar o horário vale −(folha extra + hora extra).
+    expect(r.saldoMensal).toBeCloseTo(-(r.folhaExtra! + r.horaExtra!), 1);
   });
 
   it('fechar a segunda às 20h: a venda das horas 20 e 21 sai, por mês (× 52 ÷ 12)', () => {
@@ -83,14 +85,14 @@ describe('calcularResultado', () => {
     expect('margemPerdida' in sem).toBe(false);
   });
 
-  it('saldo = economia de folha − venda que sai; anual = mensal × 12; peso sobre o faturamento da base', () => {
+  it('saldo = −folha extra − hora extra + venda estimada − venda que deixa de entrar; anual = mensal × 12; peso sobre o faturamento', () => {
     // Duas farmacêuticas de 40h para 90h abertas: o "manter horário" contrata o que falta; a simulação fecha a segunda às 20h
     // (venda de 2 horas = 2000 × 52 ÷ 12 = 8666,67) e não contrata ninguém: a economia é o custo do manter horário.
     const r = base({ dias: segundaAte20, vendas: [venda(10, 1000), venda(20, 1000), venda(21, 1000)] });
     expect(r.custoAdicional).toBe(r.folhaExtra! + r.horaExtra!);
-    // (a hora extra que sobra do horário menor pode custar mais que as contratações do "manter horário": a economia fica negativa)
+    // A economia de folha (contra manter o horário e contratar) é só informativa; o saldo é contra a folha atual.
     expect(typeof r.economiaFolha).toBe('number');
-    expect(r.saldoMensal).toBeCloseTo(r.economiaFolha! - r.vendaQueSai!, 1);
+    expect(r.saldoMensal).toBeCloseTo(-r.folhaExtra! - r.horaExtra! + r.vendaEstimada! - r.vendaQueSai!, 1);
     expect(r.saldoAnual).toBeCloseTo(r.saldoMensal! * 12, 0);
     const faturamento = 3000 * (52 / 12);
     expect(r.pesoNoFaturamentoPct).toBeCloseTo((r.saldoMensal! / faturamento) * 100, 0);
@@ -151,5 +153,36 @@ describe('calcularResultado', () => {
     const f = r.funcoes.find((x) => x.funcao === 'Atendimento')!;
     expect(f.faltaHoje).toBe(8);
     expect(f.resultado).toEqual({ coberto: true, horas: 0 });
+  });
+
+  describe('venda estimada das horas novas', () => {
+    // Segunda: o Cadastro abre 07–22; a simulação abre às 05h (2 horas novas) e fecha às 23h (1 hora nova).
+    const maisCedoETarde: DiaAberto[] = [{ dia: 0, abre: 5, fecha: 23 }, ...cadastro.slice(1)];
+
+    it('hora nova sem venda registrada vale 50% da hora de borda; o saldo soma a venda estimada', () => {
+      // Borda de abertura = 7h (sem venda na base) e de fechamento = 21h (venda 1000): só a hora de 22h rende 500.
+      const r = base({ dias: maisCedoETarde });
+      expect(r.vendaEstimada).toBeCloseTo((500 * 52) / 12, 1);
+      expect(r.vendaQueSai).toBe(0);
+      expect(r.saldoMensal).toBeCloseTo(-r.folhaExtra! - r.horaExtra! + r.vendaEstimada!, 1);
+      expect(r.vendaPorHora.novas[0]![5]).toBe(true);
+      expect(r.vendaPorHora.novas[0]![22]).toBe(true);
+      expect(r.vendaPorHora.novas[0]![10]).toBe(false);
+      expect(r.vendaPorHora.estimada![0]![22]).toBe(500);
+    });
+
+    it('reduzir não cria venda estimada; sem base comercial a venda estimada e o saldo são nulos', () => {
+      expect(base({ dias: segundaAte20 }).vendaEstimada).toBe(0);
+      const sem = base({ dias: maisCedoETarde, vendas: [] });
+      expect(sem.vendaEstimada).toBeNull();
+      expect(sem.saldoMensal).toBeNull();
+    });
+
+    it('quem não é dono vê quais horas são novas, mas não a venda estimada', () => {
+      const r = base({ dias: maisCedoETarde, dono: false });
+      expect(r.vendaPorHora.novas[0]![5]).toBe(true);
+      expect(r.vendaPorHora.estimada).toBeNull();
+      expect(r).not.toHaveProperty('vendaEstimada');
+    });
   });
 });

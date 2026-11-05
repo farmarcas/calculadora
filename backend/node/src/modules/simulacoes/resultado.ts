@@ -9,6 +9,8 @@ import { SEMANAS_NO_MES } from '../escala/cenarios-dias.js';
 import { diaDaSemana, vendasPorDiaEHora, type VendaLinha } from '../escala/vendas.js';
 import { contratacoesDe, custoDasVagas } from '../escala/cenarios.js';
 import type { PessoaSim } from './avaliar.js';
+import { saldoDaSimulacao } from './saldo-simulacao.js';
+import { horasNovas, vendaEstimadaDasHorasNovas } from './venda-estimada.js';
 
 const arred = (n: number) => Math.round(n * 100) / 100;
 const hhmm = (h: number) =>
@@ -53,6 +55,8 @@ export type ResultadoSimulacao = {
   custoAdicional?: number | null;
   economiaFolha?: number | null;
   vendaQueSai?: number | null;
+  // Venda estimada das horas novas, por mês (só dono): 0 quando nenhum horário aumenta; nulo sem base comercial.
+  vendaEstimada?: number | null;
   saldoMensal?: number | null;
   saldoAnual?: number | null;
   // Saldo ÷ faturamento mensal médio (vendas da base × 52 ÷ 12); nulo sem base.
@@ -75,6 +79,9 @@ export type ResultadoSimulacao = {
     clientes: number[][] | null;
     // Hora aberta no Cadastro e fechada na simulação.
     fechadas: boolean[][];
+    // Hora fechada no Cadastro e aberta na simulação (qualquer perfil vê), e a venda média estimada de cada uma (só dono).
+    novas: boolean[][];
+    estimada: number[][] | null;
     ticketMedio: number | null;
   };
 };
@@ -144,6 +151,7 @@ export const calcularResultado = (a: {
   if (vb)
     for (let d = 0; d < 7; d++)
       for (let h = 0; h < 24; h++) if (fechadas[d]![h]) venda += vb.venda[d]![h]!;
+  const estimativa = vendaEstimadaDasHorasNovas(a.diasCadastro, a.dias, vb);
   const clientes = clientesPorDiaEHora(a.vendas);
   const totalVenda = vb ? vb.venda.flat().reduce((s, v) => s + v, 0) : 0;
   const totalClientes = clientes ? clientes.flat().reduce((s, v) => s + v, 0) : 0;
@@ -244,6 +252,8 @@ export const calcularResultado = (a: {
       venda: a.dono ? (vb?.venda ?? null) : null,
       clientes,
       fechadas,
+      novas: horasNovas(a.diasCadastro, a.dias),
+      estimada: a.dono ? (estimativa?.porHora ?? null) : null,
       ticketMedio: a.dono && totalClientes > 0 ? arred(totalVenda / totalClientes) : null,
     },
   };
@@ -278,7 +288,9 @@ export const calcularResultado = (a: {
     a.parametros,
   );
   const economiaFolha = custoManter == null || custoAdicional == null ? null : arred(custoManter - custoAdicional);
-  const saldo = economiaFolha == null || vendaQueSai == null ? null : arred(economiaFolha - vendaQueSai);
+  const vendaEstimada = estimativa ? estimativa.vendaMes : null;
+  // Saldo contra a folha atual (a regra dos cartões): −folha extra − hora extra + venda estimada − venda que deixa de entrar.
+  const saldo = saldoDaSimulacao({ folhaExtra, horaExtra, vendaEstimada, vendaQueSai });
   const faturamento = totalVenda * SEMANAS_NO_MES;
   return {
     ...base,
@@ -287,6 +299,7 @@ export const calcularResultado = (a: {
     custoAdicional,
     economiaFolha,
     vendaQueSai,
+    vendaEstimada,
     saldoMensal: saldo,
     saldoAnual: saldo == null ? null : arred(saldo * 12),
     pesoNoFaturamentoPct:

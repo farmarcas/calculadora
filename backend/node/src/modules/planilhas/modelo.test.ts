@@ -81,10 +81,12 @@ describe('planilha modelo', () => {
     for (const trecho of [
       'Convenção permite 8h24',
       'Meta de <função>',
-      'Encargos (%)',
+      'regime tributário',
       'Horário fixo',
       'vazio nunca apaga',
     ])
       expect(texto, trecho).toContain(trecho);
+    // RAT, FAP e rescisão por loja saíram: a ajuda não os cita.
+    for (const fora of ['RAT', 'FAP', 'rescisão']) expect(texto, fora).not.toContain(fora);
   });
 });

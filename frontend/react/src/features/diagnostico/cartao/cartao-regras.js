@@ -42,11 +42,11 @@ export const estadoDaVenda = (c) => {
   if (ganha > ZERO && perdida > ZERO) {
     const liquida = ganha - perdida;
     return liquida >= 0
-      ? { rotulo: "VENDA ESTIMADA", valor: brl(liquida), apoio: "por mês, já descontada a perda", tom: "sucesso" }
+      ? { rotulo: "VENDA ESTIMADA", valor: brl(liquida), apoio: "por mês, já descontada a perda", tom: "sucesso", dica: NOTA_VENDA_ESTIMADA }
       : { rotulo: "VENDA QUE DEIXA DE ENTRAR", valor: brl(-liquida), apoio: "por mês, já com a venda estimada", tom: "perigo" };
   }
   if (ganha > ZERO)
-    return { rotulo: "VENDA ESTIMADA", valor: brl(ganha), apoio: c.vendaAdicionalPct != null ? `+${pctTxt(c.vendaAdicionalPct)} por mês` : "a mais por mês", tom: "sucesso" };
+    return { rotulo: "VENDA ESTIMADA", valor: brl(ganha), apoio: c.vendaAdicionalPct != null ? `+${pctTxt(c.vendaAdicionalPct)} por mês` : "a mais por mês", tom: "sucesso", dica: NOTA_VENDA_ESTIMADA };
   if (perdida > ZERO)
     return { rotulo: "VENDA QUE DEIXA DE ENTRAR", valor: brl(perdida), apoio: c.faturamentoPerdidoPct != null ? `${pctTxt(c.faturamentoPerdidoPct)} por mês` : "por mês", tom: "perigo" };
   return { rotulo: "VENDA QUE DEIXA DE ENTRAR", valor: "Nenhuma", apoio: "sem perda de venda", tom: "neutro" };
@@ -155,9 +155,9 @@ export const linhaDeResultado = (c) => {
   return r;
 };
 
-const REPETIDOS = new Set(["Usa contrato parcial para cobrir o que sobra."]);
-const ESTIMATIVA_LONGA = "Venda das horas novas é estimada: onde não há venda registrada nessa hora, vale metade da venda da hora vizinha.";
-const ESTIMATIVA_CURTA = "Venda das horas novas estimada: onde não há venda registrada, vale metade da hora vizinha.";
+// A nota da venda estimada vai no ⓘ ao lado de "VENDA ESTIMADA" (não repete na lista de avisos).
+export const NOTA_VENDA_ESTIMADA = "Venda das horas novas estimada: onde não há venda registrada, vale metade da hora vizinha.";
+const REPETIDOS = new Set(["Usa contrato parcial para cobrir o que sobra.", "Venda das horas novas é estimada: onde não há venda registrada nessa hora, vale metade da venda da hora vizinha."]);
 
-// Alertas do cenário sem o que o cartão já mostra ("parcial" está em cada linha de contratação) e com a nota da venda estimada mais curta.
-export const alertasParaExibir = (alertas = []) => alertas.filter((a) => !REPETIDOS.has(a)).map((a) => (a === ESTIMATIVA_LONGA ? ESTIMATIVA_CURTA : a));
+// Alertas do cenário sem o que o cartão já mostra: "parcial" está em cada linha de contratação e a nota da venda estimada fica no ⓘ.
+export const alertasParaExibir = (alertas = []) => alertas.filter((a) => !REPETIDOS.has(a));

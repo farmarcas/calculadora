@@ -6,8 +6,8 @@ import { useEffect, useRef, useState } from "react";
 //
 // Uso: o rótulo do campo (o elemento que tem `relative`) recebe <DicaDeCampo id={id} rotulo="RAT (%)" texto="…" />, e o campo
 // recebe aria-describedby={id}. O balão sempre existe no HTML (escondido quando fechado) para o leitor de tela ler a explicação
-// pelo campo. `abaixo` abre o balão sempre embaixo do rótulo (para rótulos no alto de um card). `extra` é uma linha a mais abaixo do texto (ex.: "Com os seus valores: 3,0% do salário").
-export default function DicaDeCampo({ id, rotulo, texto, extra = null, abaixo = false }) {
+// pelo campo. `aDireita` alinha o balão pela borda direita do rótulo (para rótulos no lado direito de um card). `abaixo` abre o balão sempre embaixo do rótulo (para rótulos no alto de um card). `extra` é uma linha a mais abaixo do texto (ex.: "Com os seus valores: 3,0% do salário").
+export default function DicaDeCampo({ id, rotulo, texto, extra = null, abaixo = false, aDireita = false }) {
   const [passou, setPassou] = useState(false);
   const [focou, setFocou] = useState(false);
   const [fixou, setFixou] = useState(false);
@@ -49,7 +49,7 @@ export default function DicaDeCampo({ id, rotulo, texto, extra = null, abaixo = 
         id={id}
         role="tooltip"
         hidden={!aberto}
-        className={`absolute left-0 top-full z-30 mt-1 w-[min(280px,calc(100vw-3rem))] rounded-card border border-[var(--border-default)] bg-[var(--surface-card)] p-3 text-sm font-normal normal-case leading-5 text-[var(--text-strong)] shadow-card ${abaixo ? "" : "sm:bottom-full sm:top-auto sm:mb-1 sm:mt-0"}`}
+        className={`absolute ${aDireita ? "right-0" : "left-0"} top-full z-30 mt-1 w-[min(280px,calc(100vw-3rem))] rounded-card border border-[var(--border-default)] bg-[var(--surface-card)] p-3 text-sm font-normal normal-case leading-5 text-[var(--text-strong)] shadow-card ${abaixo ? "" : "sm:bottom-full sm:top-auto sm:mb-1 sm:mt-0"}`}
       >
         {texto}
         {extra && <span className="mt-2 block font-bold">{extra}</span>}

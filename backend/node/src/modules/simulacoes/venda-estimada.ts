@@ -6,7 +6,8 @@ import type { DiaAberto } from '../regras/capacidade.js';
 // Venda estimada das horas novas da Simulação (spec 025): horas que o horário simulado abre e o do Cadastro não abre, em
 // qualquer dia da semana. É a mesma regra dos cenários (`ganhoDasHorasNovas`, que só cobre o fim de semana): hora com venda
 // registrada vale o registrado; sem registro vale `fator` (50%) da hora de borda do Cadastro, a mais próxima no mesmo dia.
-// Dia fechado no Cadastro não tem hora de borda: só vale a venda registrada, se houver.
+// Dia fechado no Cadastro não tem hora de borda: sem venda registrada, vale `fator` (50%) da média, nessa mesma hora, dos
+// dias que o Cadastro abre (como o "abrir um dia" dos cenários: 50% da média dos dias abertos).
 
 const arred = (n: number) => Math.round(n * 100) / 100;
 
@@ -26,6 +27,13 @@ const horaDeBorda = (cad: DiaAberto | undefined, h: number): number | null => {
   if (!cad) return null;
   if (h < cad.abre) return Math.ceil(cad.abre - 1e-9);
   return Math.floor(cad.fecha + 1e-9) - 1;
+};
+
+// Média da venda de uma hora entre os dias que o Cadastro abre naquela hora (zero se nenhum abre).
+const mediaDosDiasAbertos = (diasCadastro: DiaAberto[], tabela: VendaDiaHora, h: number) => {
+  const abertos = diasCadastro.filter((x) => abertaNaHora(diasCadastro, x.dia, h));
+  if (abertos.length === 0) return 0;
+  return abertos.reduce((s, x) => s + (tabela.venda[x.dia]?.[h] ?? 0), 0) / abertos.length;
 };
 
 export type VendaEstimada = {
@@ -54,7 +62,10 @@ export const vendaEstimadaDasHorasNovas = (
       let valor = registrada;
       if (registrada <= 0) {
         const borda = horaDeBorda(cad, h);
-        valor = borda === null ? 0 : fator * (tabela.venda[d]?.[borda] ?? 0);
+        valor =
+          borda === null
+            ? fator * mediaDosDiasAbertos(diasCadastro, tabela, h)
+            : fator * (tabela.venda[d]?.[borda] ?? 0);
       }
       porHora[d]![h] = arred(valor);
       total += valor;

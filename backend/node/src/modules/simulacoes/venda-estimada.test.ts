@@ -43,11 +43,20 @@ describe('venda estimada das horas novas', () => {
     const r = vendaEstimadaDasHorasNovas(CAD, [dia(0, 8, 21)], t)!;
     expect(r.porHora[0]![20]).toBe(80);
   });
-  it('dia fechado no Cadastro e aberto na simulação: só vale a venda registrada', () => {
+  it('dia fechado no Cadastro e aberto na simulação: a venda registrada vale; o resto é 50% da média dos dias abertos', () => {
     const r = vendaEstimadaDasHorasNovas(CAD, [dia(0, 8, 20), dia(6, 9, 12)], tabela())!;
-    expect(r.porHora[6]![10]).toBe(40);
-    expect(r.porHora[6]![9]).toBe(0);
-    expect(r.porHora[6]![11]).toBe(0);
+    expect(r.porHora[6]![10]).toBe(40); // registrada
+    expect(r.porHora[6]![9]).toBe(50); // 50% de 100 (única segunda aberta nessa hora)
+    expect(r.porHora[6]![11]).toBe(50);
+  });
+  it('dia fechado: a média considera só os dias abertos naquela hora', () => {
+    const t = tabela();
+    for (let h = 8; h < 20; h++) t.venda[1]![h] = 300;
+    // segunda (100) e terça (300) abertas às 9h → média 200 → 50% = 100; às 7h nenhuma abre → 0
+    const cad = [dia(0, 8, 20), dia(1, 8, 20)];
+    const r = vendaEstimadaDasHorasNovas(cad, [...cad, dia(5, 7, 10)], t)!;
+    expect(r.porHora[5]![9]).toBe(100);
+    expect(r.porHora[5]![7]).toBe(0);
   });
   it('nenhum horário aumenta = 0 por mês', () => {
     expect(vendaEstimadaDasHorasNovas(CAD, [dia(0, 9, 18)], tabela())!.vendaMes).toBe(0);

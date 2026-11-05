@@ -124,7 +124,7 @@ No envio de planilhas, "Escala atual" deixa de existir; sobra só a **Base comer
 
 ## Assumptions
 
-- **Decisão (migração)**: automática, uma vez, só nos campos vazios, por matrícula e loja; pessoas sem correspondente vão para o relatório e não são criadas. *Por quê*: preserva os números das lojas que hoje dependem da planilha, sem inventar cadastro nem sobrescrever o que a pessoa digitou. O levantamento local achou 2 lojas com escala ativa e Cadastro sem horários, que seriam as afetadas.
+- **Decisão (migração)**: automática, uma vez, só nos campos vazios, por matrícula e loja; pessoas sem correspondente vão para o relatório e, por padrão, não são criadas (a opção `--criar-ausentes`, que a pessoa responsável pede de propósito, cria quem está na escala e não tem funcionário). *Por quê*: preserva os números das lojas que hoje dependem da planilha, sem inventar cadastro nem sobrescrever o que a pessoa digitou. O levantamento local achou 2 lojas com escala ativa e Cadastro sem horários, que seriam as afetadas.
 - **Decisão (intervalo)**: duas colunas opcionais na planilha de funcionários e dois campos na tela de Equipe. *Por quê*: era a única informação da escala que afetava o cálculo (cobertura por hora) e que o Cadastro não tinha.
 - **Decisão (tipo de escala e folga)**: não migram nem são colunas novas. *Por quê*: eram lidos, mas não entravam em nenhum cálculo; a folga já é o inverso dos dias.
 - **Decisão (dados antigos)**: as tabelas das escalas importadas ficam como histórico, sem uso e sem apagar. *Por quê*: a constituição exige cuidado com dados; apagar pode vir depois, com confirmação.

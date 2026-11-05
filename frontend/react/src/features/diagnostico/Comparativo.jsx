@@ -5,9 +5,9 @@ import CartaoCenario, { avisosDoCartao, temAvisos } from "./cartao/CartaoCenario
 import PainelDias from "./cartao/PainelDias.jsx";
 import { linhasDoHorario, totaisDaSemana } from "./cartao/cartao-regras.js";
 
-// Quantas linhas o cartão tem na grade compartilhada: título, resultado, status, descrição, contratações, horas ociosas,
-// horário e botão; e, só quando algum cartão tem avisos, a linha de avisos.
-const FAIXAS = 8;
+// Quantas linhas o cartão tem na grade compartilhada: título (com a frase do cenário), resultado, status, contratações,
+// horas ociosas, horário e botão; e, só quando algum cartão tem avisos, a linha de avisos.
+const FAIXAS = 7;
 
 // As vagas do cenário para o simulador: inteiras na jornada cheia e o parcial com as horas dele (a vaga pede 4 a 44 h inteiras).
 const vagasDeCenario = (c) =>

@@ -13,6 +13,8 @@ import { minimosIguais } from '../regras/requisitos.js';
 import { exigenciasDaLoja } from '../regras/turnos.js';
 import { PARAMETROS_PADRAO, type TabelaParametros } from '../regras/parametros.js';
 import { calcularIndicadores, sintese } from './comparar.js';
+import { motivosDeDesatualizacao } from './desatualizada.js';
+import { nomeDeQuemCriou, tipoDoCenario } from './resumo.js';
 import { gerarExcelEscala } from './exportar.js';
 import { avaliarSimulacao, type PessoaSim, type TurnoSim } from './avaliar.js';
 import { aplicarVagasEDesligados, vagasSugeridas, type VagaEntrada } from './vagas.js';
@@ -90,12 +92,15 @@ export const makeSimulacoesService = (
     };
   };
 
-  const detalhe = async (s: SimulacaoRegistro, perfil?: string) => {
-    const l = await loja(s.lojaId);
-    const { c, avaliacao } = avaliar(s, l);
-    const dono = perfil === 'TENANT_ADMIN';
-    const base = await lojas.baseAtiva(s.lojaId);
-    const resultado = calcularResultado({
+  // O resultado de uma simulação (saldo, folha extra, horas abertas…): a mesma conta no painel, na lista e na comparação.
+  const resultadoDe = (
+    s: SimulacaoRegistro,
+    l: LojaDiag,
+    vendas: Parameters<typeof calcularResultado>[0]['vendas'],
+    dono: boolean,
+  ) => {
+    const c = contexto(s, l);
+    return calcularResultado({
       regraId: s.regra as RegraId,
       regra: c.regra,
       regraAtual: regraPara('atual', c.premissas.convencao8h24, tabela),
@@ -103,11 +108,53 @@ export const makeSimulacoesService = (
       diasCadastro: diasAbertos(l.horarios),
       minimos: c.premissas.minimos,
       quadro: s.quadro,
-      vendas: base?.vendas ?? [],
+      vendas,
       custos: custosDaSimulacao(c.premissas.custos, l),
       parametros: tabela,
       dono,
     });
+  };
+
+  // O que a lista e a comparação mostram de cada simulação. Valores em reais só para o dono (o campo nem existe para os outros).
+  const resumoDoResultado = (resultado: ReturnType<typeof calcularResultado>, dono: boolean) => ({
+    tipo: tipoDoCenario(resultado.horasAbertas, resultado.horasAbertasAntes),
+    horasAbertas: resultado.horasAbertas,
+    ...(dono
+      ? {
+          saldoMensal: resultado.saldoMensal ?? null,
+          folhaExtra: resultado.folhaExtra ?? null,
+          vendaEstimada: resultado.vendaEstimada ?? null,
+          vendaQueSai: resultado.vendaQueSai ?? null,
+        }
+      : {}),
+  });
+
+  // O que a loja tem hoje, para a regra de "desatualizada": lido uma vez e reaproveitado em todas as simulações.
+  const hojeDaLoja = async (l: LojaDiag, lojaId: string, registros: SimulacaoRegistro[]) => {
+    const quadroDeHoje = await cadastro.funcionariosDaLoja(lojaId);
+    const matriculas = [
+      ...new Set(
+        registros.filter((x) => x.status === 'gravada').flatMap((x) => x.quadro.map((p) => p.matricula)),
+      ),
+    ];
+    const situacao = matriculas.length ? await cadastro.situacaoPessoas(matriculas) : new Map();
+    return {
+      hoje: {
+        horarios: l.horarios,
+        minimos: exigenciasDaLoja({ ...FUNCOES_PADRAO_MINIMO, ...soNoCalculo(l.minimos) }, l.turnos),
+        convencao8h24: l.convencao8h24,
+      },
+      quadroDeHoje,
+      situacao,
+    };
+  };
+
+  const detalhe = async (s: SimulacaoRegistro, perfil?: string) => {
+    const l = await loja(s.lojaId);
+    const { c, avaliacao } = avaliar(s, l);
+    const dono = perfil === 'TENANT_ADMIN';
+    const base = await lojas.baseAtiva(s.lojaId);
+    const resultado = resultadoDe(s, l, base?.vendas ?? [], dono);
     return {
       id: s.id,
       lojaId: s.lojaId,
@@ -200,9 +247,40 @@ export const makeSimulacoesService = (
   };
 
   return {
-    async listar(lojaId: string, descartadas: boolean) {
-      await loja(lojaId); // garante que a loja existe
-      return { data: await repo.listar(lojaId, descartadas) };
+    // Lista com o resumo de cada simulação (a loja, a base comercial e o quadro são lidos uma vez só).
+    async listar(lojaId: string, descartadas: boolean, perfil?: string) {
+      const l = await loja(lojaId);
+      const dono = perfil === 'TENANT_ADMIN';
+      const registros = await repo.listar(lojaId, descartadas);
+      const base = registros.length ? await lojas.baseAtiva(lojaId) : null;
+      const vendas = base?.vendas ?? [];
+      const dia = registros.some((x) => x.status === 'gravada')
+        ? await hojeDaLoja(l, lojaId, registros)
+        : null;
+      return {
+        data: registros.map((x) => ({
+          id: x.id,
+          nome: x.nome,
+          status: x.status,
+          regra: x.regra,
+          origemId: x.origemId,
+          autor: x.autor,
+          criadaPor: nomeDeQuemCriou(x.autor),
+          criadaEm: x.criadaEm,
+          gravadaEm: x.gravadaEm,
+          numeroCenario: x.numeroCenario,
+          desatualizada:
+            !!dia &&
+            motivosDeDesatualizacao({
+              status: x.status,
+              lojaId,
+              quadro: x.quadro,
+              premissas: x.premissas,
+              ...dia,
+            }).length > 0,
+          ...resumoDoResultado(resultadoDe(x, l, vendas, dono), dono),
+        })),
+      };
     },
 
     async obter(id: string, perfil: string) {
@@ -361,10 +439,16 @@ export const makeSimulacoesService = (
       if (lista.some((x) => x.status === 'descartada'))
         throw new ValidationError('Simulação descartada não entra na comparação');
 
+      const dono = perfil === 'TENANT_ADMIN';
+      const base = await lojas.baseAtiva(lojaId);
+      const vendas = base?.vendas ?? [];
+      const dia = await hojeDaLoja(l, lojaId, lista);
+
       const calculadas = lista.map((x) => {
         const { avaliacao } = avaliar(x, l);
         return {
           sim: x,
+          resumo: resumoDoResultado(resultadoDe(x, l, vendas, dono), dono),
           ind: calcularIndicadores({
             quadro: x.quadro,
             turnos: x.turnos,
@@ -374,7 +458,6 @@ export const makeSimulacoesService = (
           }),
         };
       });
-      const dono = perfil === 'TENANT_ADMIN';
       const custoDe = (x: SimulacaoRegistro) =>
         calcularCusto({
           regra: x.regra as RegraId,
@@ -384,7 +467,7 @@ export const makeSimulacoesService = (
         });
 
       return {
-        simulacoes: calculadas.map(({ sim, ind }) => {
+        simulacoes: calculadas.map(({ sim, ind, resumo }) => {
           const c = dono ? custoDe(sim) : null;
           const vagas = sim.quadro.filter((p) => p.vaga && !p.desligado).length;
           return {
@@ -393,6 +476,15 @@ export const makeSimulacoesService = (
             status: sim.status,
             regra: regraPara(sim.regra as RegraId, false, tabela).nome,
             indicadores: ind,
+            ...resumo,
+            desatualizada:
+              motivosDeDesatualizacao({
+                status: sim.status,
+                lojaId,
+                quadro: sim.quadro,
+                premissas: sim.premissas,
+                ...dia,
+              }).length > 0,
             vagas,
             sintese: sintese(sim.nome, ind, { vagas }),
             // Só o dono recebe este bloco.

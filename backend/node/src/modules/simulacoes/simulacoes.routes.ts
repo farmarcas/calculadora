@@ -52,7 +52,7 @@ export const simulacoesRouter = () => {
 
   r.get('/lojas/:id/simulacoes', validate(S.listarReq), async (_req, res) => {
     const { params, query } = v<typeof S.listarReq>(res);
-    res.json(await s(res).listar(params.id, query.descartadas === '1'));
+    res.json(await s(res).listar(params.id, query.descartadas === '1', perfilDe(res)));
   });
   r.post('/lojas/:id/simulacoes', escrita, validate(S.criarReq), async (_req, res) => {
     const { params, body } = v<typeof S.criarReq>(res);

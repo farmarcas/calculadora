@@ -102,8 +102,8 @@ export const compararReq = req(
         .pipe(
           z
             .array(z.string().uuid())
-            .min(2, 'Escolha de 2 a 3 simulações')
-            .max(3, 'Escolha de 2 a 3 simulações'),
+            .min(2, 'Escolha de 2 a 4 simulações')
+            .max(4, 'Escolha de 2 a 4 simulações'),
         ),
     })
     .strict(),

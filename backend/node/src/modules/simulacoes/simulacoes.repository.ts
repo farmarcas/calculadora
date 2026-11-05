@@ -123,7 +123,8 @@ export const simulacoesRepository = (geId: string) => ({
     return s ? mapear(s) : null;
   },
 
-  async listar(lojaId: string, incluirDescartadas: boolean) {
+  // Registros completos (quadro, turnos, premissas e horários): a lista calcula o resumo de cada simulação.
+  async listar(lojaId: string, incluirDescartadas: boolean): Promise<SimulacaoRegistro[]> {
     const rows = await prisma.simulacao.findMany({
       where: {
         lojaId,
@@ -131,20 +132,9 @@ export const simulacoesRepository = (geId: string) => ({
         ...(incluirDescartadas ? {} : { status: { not: 'DESCARTADA' } }),
       },
       orderBy: { criadaEm: 'desc' },
-      select: {
-        id: true,
-        nome: true,
-        status: true,
-        regra: true,
-        origemId: true,
-        autor: true,
-        criadaEm: true,
-        gravadaEm: true,
-        resultado: true,
-        numeroCenario: true,
-      },
+      include: { turnos: true },
     });
-    return rows.map((r) => ({ ...r, status: doBanco[r.status] }));
+    return rows.map(mapear);
   },
 
   async atualizarRascunho(

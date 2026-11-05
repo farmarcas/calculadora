@@ -58,16 +58,13 @@ const hh = (h: number) =>
   `${String(Math.floor(h)).padStart(2, '0')}:${String(Math.round((h % 1) * 60)).padStart(2, '0')}`;
 
 // Dias abertos com a faixa de cada um (24 horas = 0 a 24). Aceita o formato novo e o antigo.
-// Valores de venda e margem que, vindos do faturamento do cadastro, só o dono pode ver.
+// Valores de venda que, vindos do faturamento do cadastro, só o dono pode ver.
 const CHAVES_DE_VENDA = new Set([
   'venda',
-  'margem',
   'vendaMes',
-  'margemMes',
   'vendaRefMes',
-  'margemRefMes',
+  'saldoMensal',
   'vendaCortadaMes',
-  'margemCortadaMes',
 ]);
 const semValoresDeVenda = (v: unknown): unknown =>
   Array.isArray(v)
@@ -127,7 +124,7 @@ export const montarDiagnostico = (a: {
   foraDaConta?: { nome: string; motivo: string }[];
   // Parâmetros legais vigentes (jornada, dias, divisor); sem eles valem os de hoje.
   parametros?: TabelaParametros;
-  // Premissas só para simular (recaptura, fator de dia novo, dias protegidos, limite do parcial) e a margem simulada do dono.
+  // Premissas só para simular (recaptura, fator de dia novo, dias protegidos, limite do parcial).
   premissas?: Premissas;
 }) => {
   const { loja, escala, turnos, base, vendas } = a;
@@ -290,7 +287,6 @@ export const montarDiagnostico = (a: {
   const doCadastro = vendas.length === 0 ? vendasDoCadastro(loja.faturamento, dias) : null;
   const origemVendas =
     vendas.length > 0 ? ('base' as const) : doCadastro ? ('cadastro' as const) : null;
-  // A margem bruta da loja é só um detalhe do Cadastro: os cenários trabalham com a venda (e a folha).
   const vendasUsadas = doCadastro?.linhas ?? vendas;
   // Sem curva por hora (origem cadastro) não existe "horário de maior venda".
   const resumoVendas = origemVendas === 'base' ? resumirVendas(vendas) : null;
@@ -338,9 +334,8 @@ export const montarDiagnostico = (a: {
   } else if (origemVendas === 'cadastro') {
     atencao.push({
       tom: 'atencao',
-      texto: doCadastro?.comMargem
-        ? 'Venda estimada pelo faturamento do cadastro, dividido igualmente entre as horas abertas. Envie a base comercial para ver as horas de maior venda.'
-        : 'Venda estimada pelo faturamento do cadastro, dividido igualmente entre as horas abertas. Informe a margem bruta média da loja no Cadastro para estimar o ganho dos cenários.',
+      texto:
+        'Venda estimada pelo faturamento do cadastro, dividido igualmente entre as horas abertas. Envie a base comercial para ver as horas de maior venda.',
     });
   } else {
     atencao.push({
@@ -440,7 +435,7 @@ export const montarDiagnostico = (a: {
     'r42' | 'r40',
     ReturnType<typeof montarCenarios> & ExtrasRegra & { comparativo: Comparativo }
   >;
-  // Venda e margem são valores em reais: só o dono vê, venha a venda da base comercial ou do cadastro.
+  // A venda é valor em reais: só o dono vê, venha a venda da base comercial ou do cadastro.
   const cenariosSaida = (
     a.dono ? cenariosPorRegra : semValoresDeVenda(cenariosPorRegra)
   ) as typeof cenariosPorRegra;

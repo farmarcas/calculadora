@@ -84,8 +84,8 @@ export const lojaEh24h = (horarios) => !!horarios?.dias?.length && horarios.dias
 export const faturamentoParaApi = (f, horarios) => {
   if (!f) return null;
   const dias = f.dias.map((v, i) => (horarios.dias[i]?.aberta && v !== "" && v != null ? Number(v) : null));
-  const vazio = dias.every((v) => v === null) && (f.mensal === "" || f.mensal == null) && (f.margemPct === "" || f.margemPct == null);
-  return vazio ? null : { dias, mensal: f.mensal === "" || f.mensal == null ? null : Number(f.mensal), margemPct: f.margemPct === "" || f.margemPct == null ? null : Number(f.margemPct) };
+  const vazio = dias.every((v) => v === null) && (f.mensal === "" || f.mensal == null);
+  return vazio ? null : { dias, mensal: f.mensal === "" || f.mensal == null ? null : Number(f.mensal) };
 };
 
 // Erros dos dados da aba, com o campo, para focar o primeiro. `dono` liga as validações de faturamento.
@@ -100,8 +100,6 @@ export const errosDaLoja = (l, { dono }) => {
     l.faturamento.dias.forEach((v, i) => {
       if (v !== "" && v != null && !(Number(v) >= 0)) erros.push({ campo: `fat-${i}`, texto: `${NOMES_DIA[i]}: o faturamento precisa ser zero ou maior.` });
     });
-    const m = l.faturamento.margemPct;
-    if (m !== "" && m != null && !(Number(m) >= 0 && Number(m) <= 100)) erros.push({ campo: "margem", texto: "A margem bruta deve ficar entre 0 e 100%." });
     if (l.faturamento.mensal !== "" && l.faturamento.mensal != null && !(Number(l.faturamento.mensal) >= 0)) erros.push({ campo: "mensal", texto: "O faturamento mensal precisa ser zero ou maior." });
   }
   return erros;

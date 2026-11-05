@@ -24,7 +24,7 @@ const modelo = {
   salario: (f) => ({ id: `salario:${f}`, aba: "regras", titulo: `Salário médio · ${f}`, texto: "Informe o salário médio sem premiação.", porque: "Sem o salário, não dá para calcular o custo de contratar.", campos: [`salario-${f}`], soDono: true }),
 };
 
-// Quem pode preencher cada item: o dono, tudo; operador e gestor, o que não depende de faturamento, margem ou salário; consulta, nada.
+// Quem pode preencher cada item: o dono, tudo; operador e gestor, o que não depende de faturamento ou salário; consulta, nada.
 export const podePreencher = (item, perfil) => {
   if (item.soDono) return perfil === "TENANT_ADMIN";
   return item.aba === "equipe" ? cuidaDoGrupo(perfil) : editaLoja(perfil);
@@ -45,7 +45,7 @@ export const pendenciasDoRascunho = ({ servidor = [], loja, custos, equipe = { f
   // farmacêutico
   itens.push({ id: "farmaceutico", pendente: equipe.farmaceuticos < 1 ? modelo.farmaceutico() : null, aplica: true });
 
-  // faturamento por dia, do mês e margem: só o dono tem o dado na tela
+  // faturamento por dia e do mês: só o dono tem o dado na tela
   const fat = dono && loja?.faturamento && abertos ? loja.faturamento : null;
   const semFat = fat ? abertos.filter((i) => !preenchido(fat.dias[i])) : null;
   itens.push({
@@ -60,7 +60,6 @@ export const pendenciasDoRascunho = ({ servidor = [], loja, custos, equipe = { f
     mes = !semFat.length && preenchido(fat.mensal) && informado > 0 && calculado > 0 && Math.abs(informado - calculado) / calculado > TOLERANCIA_MENSAL ? modelo.faturamentoMes() : null;
   }
   itens.push({ id: "faturamentoMes", pendente: mes, aplica: !!(mes || doServidor("faturamentoMes")) });
-  // A margem bruta é opcional (o impacto é em venda e folha): não é pendência.
 
   // salário médio: o Farmacêutico sempre; as demais funções só com gente na equipe
   const precisam = ["Farmacêutico", ...equipe.funcoesNaEquipe.filter((f) => f !== "Farmacêutico")];

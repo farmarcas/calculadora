@@ -39,7 +39,6 @@ describe('planilha modelo', () => {
         (d) => `Faturamento médio (${d})`,
       ),
       'Faturamento médio mensal',
-      'Margem bruta média (%)',
       // configuração
       'Convenção permite 8h24 (Sim/Não)',
       ...['Farmacêutico', 'Atendimento', 'Caixa'].flatMap((f) => [

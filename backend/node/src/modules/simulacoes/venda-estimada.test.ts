@@ -12,7 +12,7 @@ const tabela = (): VendaDiaHora => {
   for (let h = 8; h < 20; h++) venda[0]![h] = 100;
   venda[0]![19] = 300;
   venda[6]![10] = 40; // domingo (fechado no Cadastro) com uma hora de venda registrada
-  return { venda, margem: venda.map((l) => l.map(() => 0)), dias: 10 };
+  return { venda, dias: 10 };
 };
 const CAD = [dia(0, 8, 20)];
 

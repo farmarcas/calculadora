@@ -286,13 +286,6 @@ export const sequenciaFimDeSemana = (a: EntradaSequencia): ResultadoSequencia =>
   return resultado(final, false, trava ?? 'fim_de_semana');
 };
 
-// Fração de cada dia que deixa de abrir (0 = igual a hoje, 1 = fechado), para ponderar um valor mensal por dia.
-const perdaPonderada = (hoje: DiaAberto[], atual: DiaAberto[], valorMes: (dia: number) => number) =>
-  hoje.reduce((s, d) => {
-    const agora = atual.find((x) => x.dia === d.dia);
-    return s + valorMes(d.dia) * Math.max(0, 1 - (agora ? horasDoDia(agora) : 0) / horasDoDia(d));
-  }, 0);
-
 // Todos os horários que o Cenário 3 pode testar: segunda a sexta ficam como hoje; cada dia de fim de semana aberto pode
 // ficar como hoje, fechar mais cedo de 1 em 1 h (sobrando ao menos 4 h) ou, se não for dia protegido, fechar. Já vêm
 // filtrados pelas travas (perda máxima de faturamento e piso de horas). O primeiro é sempre o horário de hoje.
@@ -341,10 +334,9 @@ export type GanhoDia = {
   // 'registrada': a venda vem da base, de horas fora do horário; 'vizinha': fração da hora de borda; 'mista': as duas.
   origem: 'registrada' | 'vizinha' | 'mista';
   vendaMes: number;
-  margemMes: number;
 };
 
-// Venda e margem por mês das horas que o horário `final` abre a mais que o de hoje (só sábado e domingo). Hora com venda
+// Venda por mês das horas que o horário `final` abre a mais que o de hoje (só sábado e domingo). Hora com venda
 // registrada vale o registrado; sem registro vale `fatorHoraNova` da hora de borda do mesmo dia (a última hora aberta ou a
 // primeira, conforme o lado). `tabela` é a média por dia da semana e hora; sem ela, não há como estimar e o ganho é zero.
 export const ganhoDasHorasNovas = (
@@ -352,7 +344,7 @@ export const ganhoDasHorasNovas = (
   final: DiaAberto[],
   tabela: VendaDiaHora | null,
   fator: number = LIMITES_EXTENSAO.fatorHoraNova,
-): { vendaMes: number; margemMes: number; porDia: GanhoDia[] } => {
+): { vendaMes: number; porDia: GanhoDia[] } => {
   const porDia: GanhoDia[] = [];
   if (tabela) {
     for (const d of hoje.filter((x) => FIM_DE_SEMANA.includes(x.dia))) {
@@ -363,17 +355,14 @@ export const ganhoDasHorasNovas = (
       for (let h = d.fecha; h < f.fecha; h++) horasNovas.push({ hora: h, borda: d.fecha - 1 });
       if (horasNovas.length === 0) continue;
       let venda = 0;
-      let margem = 0;
       let registradas = 0;
       for (const { hora, borda } of horasNovas) {
         const reg = tabela.venda[d.dia]?.[hora] ?? 0;
         if (reg > 0) {
           registradas++;
           venda += reg;
-          margem += tabela.margem[d.dia]?.[hora] ?? 0;
         } else {
           venda += fator * (tabela.venda[d.dia]?.[borda] ?? 0);
-          margem += fator * (tabela.margem[d.dia]?.[borda] ?? 0);
         }
       }
       porDia.push({
@@ -382,13 +371,11 @@ export const ganhoDasHorasNovas = (
         origem:
           registradas === horasNovas.length ? 'registrada' : registradas === 0 ? 'vizinha' : 'mista',
         vendaMes: arred2(venda * SEMANAS_NO_MES),
-        margemMes: arred2(margem * SEMANAS_NO_MES),
       });
     }
   }
   return {
     vendaMes: arred2(porDia.reduce((s, g) => s + g.vendaMes, 0)),
-    margemMes: arred2(porDia.reduce((s, g) => s + g.margemMes, 0)),
     porDia,
   };
 };
@@ -415,14 +402,12 @@ export type EstadoEscolhido<T> = {
 const MESMO_VALOR = 0.005; // meio centavo: abaixo disso, empate
 
 // O estado permitido de menor impacto (custo adicional de folha + perda − ganho das horas novas). Com `tabela` (venda média
-// por dia da semana e hora) a perda e o ganho são de venda; sem ela, a perda é a margem do dia pela fração de horas cortadas
-// (`margemMes`). Empate:
+// por dia da semana e hora) a perda e o ganho são de venda; sem ela, não há como estimar e a perda é zero. Empate:
 // menos contratações, depois menos dias fechados, depois menos horas cortadas, depois menos horas estendidas, depois o
 // primeiro na ordem de teste (o mais próximo de hoje).
 export const melhorEstado = <T extends { custo: number; pessoas: number }>(a: {
   dias: DiaAberto[];
   porDia: EntradaSequencia['porDia'];
-  margemMes?: (dia: number) => number;
   tabela?: VendaDiaHora | null;
   // Parte da venda de um dia fechado que fica (1 − recaptura); só vale com `tabela`.
   fica?: number;
@@ -436,7 +421,7 @@ export const melhorEstado = <T extends { custo: number; pessoas: number }>(a: {
     const avaliacao = a.avaliar(dias);
     const perdida = a.tabela
       ? vendaPerdidaHoraria(hoje, dias, a.tabela).vendaMes * (a.fica ?? 1)
-      : perdaPonderada(hoje, dias, a.margemMes ?? (() => 0));
+      : 0;
     const ganho = a.ganhoMes ? a.ganhoMes(dias) : 0;
     const atual: EstadoEscolhido<T> = {
       dias,

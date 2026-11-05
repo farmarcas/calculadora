@@ -14,28 +14,24 @@ export type VendaDia = {
   dia: number; // 0 = segunda
   aberto: boolean;
   protegido: boolean;
-  // Valores em reais: só para o dono. venda/margem = média de um dia; vendaMes/margemMes = por mês (× 52 ÷ 12).
+  // Valores em reais: só para o dono. venda = média de um dia; vendaMes = por mês (× 52 ÷ 12).
   venda?: number;
-  margem?: number;
   vendaMes?: number;
-  margemMes?: number;
 };
 
-// Média de venda e de margem de um dia da semana: soma de todas as horas ÷ número de datas daquele dia da semana.
+// Média de venda de um dia da semana: soma de todas as horas ÷ número de datas daquele dia da semana.
 // Soma direto das linhas (sem passar por células arredondadas), para o dia valer exatamente o que o cadastro informou.
 export const totaisPorDia = (linhas: VendaLinha[]) => {
   const venda = new Array<number>(7).fill(0);
-  const margem = new Array<number>(7).fill(0);
   const datas = Array.from({ length: 7 }, () => new Set<string>());
   for (const l of linhas) {
     const d = diaDaSemana(l.data);
     datas[d]!.add(l.data);
     venda[d]! += l.venda;
-    margem[d]! += l.margem;
   }
   return venda.map((v, d) => {
     const n = datas[d]!.size;
-    return { venda: n ? v / n : 0, margem: n ? margem[d]! / n : 0 };
+    return { venda: n ? v / n : 0 };
   });
 };
 
@@ -54,7 +50,7 @@ export const diasProtegidos = (
     .map((v) => v.dia);
 };
 
-// Venda e margem de cada dia da semana (a partir da venda por hora que o motor já recebe) e quais dias são protegidos.
+// Venda de cada dia da semana (a partir da venda por hora que o motor já recebe) e quais dias são protegidos.
 export const vendasPorDia = (
   linhas: VendaLinha[],
   dias: DiaAberto[],
@@ -72,9 +68,7 @@ export const vendasPorDia = (
     aberto: abertos.includes(dia),
     protegido: protegidos.includes(dia),
     venda: arred(t.venda),
-    margem: arred(t.margem),
     vendaMes: arred(t.venda * SEMANAS_NO_MES),
-    margemMes: arred(t.margem * SEMANAS_NO_MES),
   }));
 };
 
@@ -99,63 +93,4 @@ export const listaDeDias = (dias: number[]) => {
   return nomes.length <= 1
     ? (nomes[0] ?? '')
     : `${nomes.slice(0, -1).join(', ')} e ${nomes[nomes.length - 1]}`;
-};
-
-export type Avaliacao = { custo: number; pessoas: number };
-export type Combinacao<T extends Avaliacao> = {
-  fechados: number[];
-  abertos: DiaAberto[];
-  avaliacao: T;
-  perdida: number; // margem mensal que deixa de entrar com os dias fechados
-  impacto: number; // custo adicional de folha + perda (margem do dia, no cenário de dias fechados)
-};
-
-const MESMO_VALOR = 0.005; // meio centavo: abaixo disso, empate
-
-// Todas as combinações de dias a fechar entre os que não são protegidos (no máximo 2^7), sem nunca fechar o último dia aberto,
-// e a de menor impacto: custo adicional de folha + perda dos dias fechados.
-// Empate: menos contratações, depois menos dias fechados, depois fecha os dias mais tardios da semana.
-export const melhorCombinacao = <T extends Avaliacao>(a: {
-  dias: DiaAberto[];
-  protegidos: number[];
-  margemMes: (dia: number) => number;
-  avaliar: (abertos: DiaAberto[]) => T;
-}): Combinacao<T> => {
-  const livres = a.dias
-    .map((d) => d.dia)
-    .filter((d) => !a.protegidos.includes(d))
-    .sort((x, y) => x - y);
-  const maisTardio = (x: number[], y: number[]) => {
-    const dx = [...x].sort((p, q) => q - p);
-    const dy = [...y].sort((p, q) => q - p);
-    for (let i = 0; i < Math.min(dx.length, dy.length); i++)
-      if (dx[i] !== dy[i]) return dy[i]! - dx[i]!;
-    return 0;
-  };
-  let melhor: Combinacao<T> | null = null;
-  for (let mascara = 0; mascara < 1 << livres.length; mascara++) {
-    const fechados = livres.filter((_, i) => mascara & (1 << i));
-    const abertos = a.dias.filter((d) => !fechados.includes(d.dia));
-    if (abertos.length === 0) continue;
-    const avaliacao = a.avaliar(abertos);
-    const perdida = fechados.reduce((s, d) => s + a.margemMes(d), 0);
-    const atual: Combinacao<T> = {
-      fechados,
-      abertos,
-      avaliacao,
-      perdida,
-      impacto: avaliacao.custo + perdida,
-    };
-    const ganha =
-      melhor === null ||
-      (Math.abs(atual.impacto - melhor.impacto) >= MESMO_VALOR
-        ? atual.impacto < melhor.impacto
-        : atual.avaliacao.pessoas !== melhor.avaliacao.pessoas
-          ? atual.avaliacao.pessoas < melhor.avaliacao.pessoas
-          : atual.fechados.length !== melhor.fechados.length
-            ? atual.fechados.length < melhor.fechados.length
-            : maisTardio(atual.fechados, melhor.fechados) < 0);
-    if (ganha) melhor = atual;
-  }
-  return melhor!;
 };

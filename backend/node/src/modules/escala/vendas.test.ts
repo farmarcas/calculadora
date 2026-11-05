@@ -26,7 +26,6 @@ describe('vendasPorDiaEHora', () => {
   it('divide pelo número de datas de cada dia da semana', () => {
     const r = vendasPorDiaEHora(linhas)!;
     expect(r.venda[0]![9]).toBe(200);
-    expect(r.margem[0]![9]).toBe(40);
     expect(r.venda[1]![10]).toBe(80);
     expect(r.dias).toBe(3);
   });

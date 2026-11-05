@@ -11,7 +11,7 @@ import type { CustosGravados } from '../custos/custos.schemas.js';
 import type { configuracaoBody } from '../escala/escala.schemas.js';
 import type { z } from 'zod';
 import type { CadastrosRepository, LojaRegistro } from './cadastros.service.js';
-import { ocultarFaturamento } from './faturamento.js';
+import { manterMargem, ocultarFaturamento, type Faturamento } from './faturamento.js';
 import { faixasDaSemana, normalizarHorarios } from './horarios.js';
 import type { LojaBody } from './cadastros.schemas.js';
 import { pendenciasDoCadastro, situacaoDoCadastro } from './situacao.js';
@@ -46,7 +46,14 @@ export const makePainelService = (geId: string, cadastros: CadastrosRepository, 
     if (!atual) throw new NotFoundError('Loja não encontrada', 'LOJA_NAO_ENCONTRADA');
     const bruto = await prisma.loja.findFirstOrThrow({
       where: { id: lojaId, geId, ...ativo },
-      select: { turnos: true, minimos: true, custos: true, horarios: true, regimeTributario: true },
+      select: {
+        turnos: true,
+        minimos: true,
+        custos: true,
+        horarios: true,
+        regimeTributario: true,
+        faturamento: true,
+      },
     });
 
     const dados: Prisma.LojaUpdateInput = {};
@@ -79,8 +86,10 @@ export const makePainelService = (geId: string, cadastros: CadastrosRepository, 
       for (const k of ['codigo', 'nome', 'cnpj', 'cidade', 'uf', 'marca', 'regimeTributario'] as const)
         if (l[k] !== undefined) (dados as Record<string, unknown>)[k] = l[k];
       if (l.horarios !== undefined) dados.horarios = l.horarios as unknown as Prisma.InputJsonValue;
-      if (l.faturamento !== undefined)
-        dados.faturamento = l.faturamento === null ? Prisma.JsonNull : (l.faturamento as never);
+      if (l.faturamento !== undefined) {
+        const fat = manterMargem(l.faturamento as Faturamento | null, bruto.faturamento);
+        dados.faturamento = fat === null ? Prisma.JsonNull : (fat as never);
+      }
     }
     const horariosFinais = normalizarHorarios(l?.horarios !== undefined ? l.horarios : bruto.horarios);
     const regimeFinal = l?.regimeTributario !== undefined ? l.regimeTributario : bruto.regimeTributario;

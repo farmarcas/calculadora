@@ -357,17 +357,17 @@ describe('horário estendido (Cenário 3)', () => {
     // 20h com 80 de venda registrada; 21h sem registro → 50% da última hora aberta (19h: 100)
     const g = ganhoDasHorasNovas(dias, final, tabela({ '5:20': 80 }));
     expect(g.porDia).toEqual([
-      { dia: 5, horasNovas: 2, origem: 'mista', vendaMes: 563.33, margemMes: 169 },
+      { dia: 5, horasNovas: 2, origem: 'mista', vendaMes: 563.33 },
     ]);
-    // (80 + 50) × 52/12 = 563,33; margem (24 + 15) × 52/12 = 169
-    expect(g.margemMes).toBe(169);
+    // (80 + 50) × 52/12 = 563,33
+    expect(g.vendaMes).toBe(563.33);
     expect(ganhoDasHorasNovas(dias, final, tabela()).porDia[0]!.origem).toBe('vizinha');
     expect(ganhoDasHorasNovas(dias, final, tabela({ '5:20': 80, '5:21': 60 })).porDia[0]!.origem).toBe('registrada');
   });
 
   it('sem tabela de vendas por hora, o ganho é zero', () => {
     const final = dias.map((d) => (d.dia === 5 ? { ...d, fecha: 22 } : d));
-    expect(ganhoDasHorasNovas(dias, final, null)).toEqual({ vendaMes: 0, margemMes: 0, porDia: [] });
+    expect(ganhoDasHorasNovas(dias, final, null)).toEqual({ vendaMes: 0, porDia: [] });
   });
 
   it('dia reduzido ou igual a hoje não gera ganho', () => {
@@ -380,24 +380,23 @@ describe('horário estendido (Cenário 3)', () => {
     expect(perdaMensal(dias, final, porDia)).toBe(0);
   });
 
-  it('melhorEstado escolhe estender quando a margem das horas novas passa do custo, e não quando não passa', () => {
+  it('melhorEstado escolhe estender quando a venda das horas novas passa do custo, e não quando não passa', () => {
     const avaliar = (d: DiaAberto[]) => ({
       // cada hora aberta além de hoje (20h) custa 10 de folha
       custo: d.reduce((s, x) => s + Math.max(0, x.fecha - 20) * 10, 0),
       pessoas: 0,
     });
-    const margemMes = () => 0;
     const comGanho = (porHora: number) => (d: DiaAberto[]) =>
       d.reduce((s, x) => s + Math.max(0, x.fecha - 20) * porHora, 0);
-    const bom = melhorEstado({ dias, porDia, margemMes, avaliar, ganhoMes: comGanho(50) });
+    const bom = melhorEstado({ dias, porDia, avaliar, ganhoMes: comGanho(50) });
     expect(bom.horasNovas).toBeGreaterThan(0);
     expect(bom.impacto).toBeLessThan(0);
     expect(bom.ganho).toBeGreaterThan(0);
-    const ruim = melhorEstado({ dias, porDia, margemMes, avaliar, ganhoMes: comGanho(5) });
+    const ruim = melhorEstado({ dias, porDia, avaliar, ganhoMes: comGanho(5) });
     expect(ruim.dias).toEqual(dias);
     expect(ruim.horasNovas).toBe(0);
     // sem `ganhoMes` nunca estende
-    expect(melhorEstado({ dias, porDia, margemMes, avaliar }).horasNovas).toBe(0);
+    expect(melhorEstado({ dias, porDia, avaliar }).horasNovas).toBe(0);
   });
 });
 

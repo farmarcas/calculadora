@@ -343,7 +343,7 @@ export const makeCadastrosService = (repo: CadastrosRepository, auditar: Auditor
       const n = linha ?? 0;
       const erro = (motivo: string) => resumo.erros.push({ aba: abaLojas, linha: n, motivo });
       const l = { ...dados } as LojaInput;
-      // Faturamento, margem, salário e encargos são valores em reais: só o dono grava.
+      // Faturamento, salário e encargos são valores em reais: só o dono grava.
       if (dono && faturamento) l.faturamento = faturamento;
       if (!dono && (faturamento || configuracao?.custos)) semPermissaoDeValores.add(l.codigo);
 
@@ -417,7 +417,7 @@ export const makeCadastrosService = (repo: CadastrosRepository, auditar: Auditor
     }
     if (semPermissaoDeValores.size)
       avisos.push(
-        `Faturamento, margem, salário médio e encargos foram ignorados em ${semPermissaoDeValores.size} loja(s): só o dono do grupo grava esses valores.`,
+        `Faturamento, salário médio e encargos foram ignorados em ${semPermissaoDeValores.size} loja(s): só o dono do grupo grava esses valores.`,
       );
 
     for (const f of proc.funcionarios as FuncionarioInput[]) {

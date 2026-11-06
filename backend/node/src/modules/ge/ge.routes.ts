@@ -19,14 +19,16 @@ export const geRouter = (repo: GeRepository = geRepository) => {
 
   r.get('/ge', async (_req, res) => {
     // No modo 'radar' o associado só enxerga os GEs das próprias lojas (o operador vê todos).
-    if (modoRadar && !res.locals.sessao?.operador) {
+    if (modoRadar && !res.locals.sessaoRadar?.operador) {
       const ges = (res.locals.gesPermitidos ?? []) as GePermitido[];
       res.json({
         data: ges.map((g) => ({ id: g.calcId, nome: g.nome, identificacao: g.radarId })),
       });
       return;
     }
-    res.json({ data: await repo.listarAtivos() });
+    const sessao = res.locals.sessao;
+    const ids = sessao && !sessao.operador ? sessao.grupos.map((g) => g.geId) : undefined;
+    res.json({ data: await repo.listarAtivos(ids) });
   });
   r.get('/ge/resumo', soOperador, async (_req, res) => res.json({ data: await repo.resumo() }));
 

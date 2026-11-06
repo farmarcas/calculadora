@@ -49,7 +49,7 @@ export const autenticarRadar = async (req: Request, res: Response, next: NextFun
     if (!sessao.operador && ges.length === 0)
       throw new AppError('Seu usuário não está vinculado a um grupo econômico', 403, 'SEM_GE');
 
-    res.locals.sessao = sessao;
+    res.locals.sessaoRadar = sessao;
     res.locals.perfil = base;
     res.locals.gesPermitidos = ges;
     next();

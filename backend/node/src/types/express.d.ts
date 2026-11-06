@@ -1,4 +1,5 @@
 import type { Perfil } from '../shared/middlewares/perfil.js';
+import type { SessaoAtiva } from '../shared/middlewares/sessao.js';
 import type { GePermitido } from '../shared/middlewares/auth.js';
 import type { SessaoRadar } from '../shared/auth/radar-session.js';
 
@@ -8,8 +9,10 @@ declare global {
       validated?: unknown;
       perfil?: Perfil;
       geId?: string;
+      sessao?: SessaoAtiva;
+      lojasPermitidas?: string[];
       // Preenchidos só no modo 'radar' (login do Radar).
-      sessao?: SessaoRadar;
+      sessaoRadar?: SessaoRadar;
       gesPermitidos?: GePermitido[];
     }
   }

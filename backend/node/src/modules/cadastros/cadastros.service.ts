@@ -25,7 +25,13 @@ export type FuncionarioRegistro = Omit<FuncionarioBody, 'funcaoEscala'> & {
   funcaoEscala: string | null;
 };
 export type Pagina<T> = { data: T[]; meta: { page: number; pageSize: number; total: number } };
-export type Filtro = { page: number; pageSize: number; busca?: string; lojaId?: string };
+export type Filtro = {
+  page: number;
+  pageSize: number;
+  busca?: string;
+  lojaId?: string;
+  lojaIds?: string[];
+};
 export type FiltroLojas = Filtro & { uf?: string; situacao?: 'completo' | 'revisar' };
 export type ImportacaoRegistro = { id: string; arquivo: string; status: string; abas: Aba[] };
 
@@ -353,6 +359,7 @@ export const makeCadastrosService = (repo: CadastrosRepository, auditar: Auditor
     const termo = f.busca?.trim().toLowerCase() ?? '';
     const digitos = termo.replace(/\D/g, '');
     const filtradas = todas.filter((l) => {
+      if (f.lojaIds && !f.lojaIds.includes(l.id)) return false;
       if (f.uf && l.uf !== f.uf) return false;
       if (f.situacao && l.situacao.status !== f.situacao) return false;
       if (!termo) return true;

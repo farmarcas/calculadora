@@ -7,9 +7,11 @@ import type { GePermitido } from './auth.js';
 import { modoRadar } from './auth.js';
 import type { SessaoRadar } from '../auth/radar-session.js';
 
-// GE de quem chama (cabeçalho X-GE). No modo 'header' é escolhido em tela e só conferido no banco.
+// GE de quem chama (cabeçalho X-GE). No modo 'header' é escolhido em tela e só conferido no banco;
+// com sessão, tem de estar no acesso dela.
 // No modo 'radar' tem de ser um dos GEs do usuário (resolvidos pelo /SessionInfo), e o perfil é
 // refinado aqui: dono da loja daquele GE vira gestor; os demais, consulta.
+// Os repositórios recebem este id e filtram todas as consultas por ele.
 const uuid = z.uuid();
 
 const exigirGeHeader = async (req: Request, res: Response, next: NextFunction) => {
@@ -21,13 +23,16 @@ const exigirGeHeader = async (req: Request, res: Response, next: NextFunction) =
         select: { id: true, ativo: true },
       })
     : null;
-  if (!ge?.ativo) throw new AppError('Grupo econômico indisponível', 403, 'GE_INDISPONIVEL');
+  const sessao = res.locals.sessao;
+  const noAcesso = !sessao || sessao.operador || sessao.grupos.some((g) => g.geId === ge?.id);
+  if (!ge?.ativo || !noAcesso)
+    throw new AppError('Grupo econômico indisponível', 403, 'GE_INDISPONIVEL');
   res.locals.geId = ge.id;
   next();
 };
 
 const exigirGeRadar = async (req: Request, res: Response, next: NextFunction) => {
-  const sessao = res.locals.sessao as SessaoRadar;
+  const sessao = res.locals.sessaoRadar as SessaoRadar;
   const permitidos = (res.locals.gesPermitidos ?? []) as GePermitido[];
 
   // Operador pode agir em qualquer GE existente (precisa indicar qual no X-GE).

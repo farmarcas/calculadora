@@ -15,6 +15,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
+ARG VITE_RADAR_URL=https://radar.farmarcas.com.br
 RUN npm run build -- --base="$APP_BASE"
 
 # NGINX_RUNTIME: 'docker' (padrão, Coolify) ou 'k8s' (cluster do Radar, serve sob /escala).

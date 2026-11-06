@@ -5,7 +5,8 @@ export const ITENS_DE_IMPORTACAO = {
   base: { id: "base", rotulo: "Vendas hora a hora" },
 };
 
-export const itensDoMenuImportar = (perfil) => {
+export const itensDoMenuImportar = (perfil, acessoTotal = true) => {
+  if (!acessoTotal) return [];
   if (perfil === "PLATFORM_OPERATOR") return [ITENS_DE_IMPORTACAO.cadastro];
   if (perfil === "TENANT_ADMIN" || perfil === "SCHEDULE_MANAGER") return [ITENS_DE_IMPORTACAO.cadastro, ITENS_DE_IMPORTACAO.base];
   return [];

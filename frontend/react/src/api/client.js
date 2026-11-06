@@ -31,7 +31,23 @@ export const setGe = (id) => {
   localStorage.setItem("ge", id);
 };
 
+let comSessao = false;
+let aoPerderSessao = null;
+
+export const usarSessao = (aviso) => {
+  comSessao = true;
+  aoPerderSessao = aviso;
+};
+
+export const esquecerConta = () => {
+  localStorage.removeItem("ge");
+  localStorage.removeItem("perfil");
+  ge = GE_INICIAL;
+  perfil = "TENANT_ADMIN";
+};
+
 const cabecalhos = () => {
+  if (comSessao) return { "X-GE": ge };
   const h = { "X-Perfil": perfil, "X-GE": ge };
   const t = lerToken();
   if (t) h["Authorization"] = `Bearer ${t}`;
@@ -62,7 +78,7 @@ export async function api(path, { method = "GET", body, form } = {}) {
   }
   const res = await fetch(`${API}${path}`, { method, headers, body: payload });
   // Sessão do Radar ausente/expirada: volta para o login.
-  if (res.status === 401) {
+  if (res.status === 401 && !comSessao && !path.startsWith("/auth/")) {
     irParaLogin();
     throw new ApiError("Faça login no Radar", "NAO_AUTENTICADO");
   }
@@ -70,6 +86,7 @@ export async function api(path, { method = "GET", body, form } = {}) {
   const data = await res.json().catch(() => null);
   if (!res.ok) {
     const e = data?.error;
+    if (comSessao && e?.code === "NAO_AUTENTICADO") aoPerderSessao?.();
     throw new ApiError(e?.message || "Algo deu errado. Tente de novo.", e?.code, e?.details);
   }
   return data;
@@ -78,6 +95,10 @@ export async function api(path, { method = "GET", body, form } = {}) {
 export async function baixarArquivo(caminho, nome) {
   const res = await fetch(`${API}${caminho}`, { headers: cabecalhos() });
   if (res.status === 401) {
+    if (comSessao) {
+      aoPerderSessao?.();
+      return;
+    }
     irParaLogin();
     throw new ApiError("Faça login no Radar", "NAO_AUTENTICADO");
   }

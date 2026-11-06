@@ -1,11 +1,17 @@
+import cookieParser from 'cookie-parser';
 import express from 'express';
 import { pinoHttp } from 'pino-http';
+import { env, ssoDe, type ConfigSso } from './config/env.js';
 import { prisma } from './shared/database/prisma.js';
 import { logger } from './shared/logger.js';
 import { errorHandler } from './shared/middlewares/error-handler.js';
 import { requestId } from './shared/middlewares/request-id.js';
 import { exigirGe } from './shared/middlewares/ge.js';
-import { lerPerfil } from './shared/middlewares/perfil.js';
+import { guardaDeLojas } from './shared/middlewares/guarda-de-lojas.js';
+import { exigirPerfil, lerPerfil } from './shared/middlewares/perfil.js';
+import { exigirSessao } from './shared/middlewares/sessao.js';
+import { authRouter } from './modules/auth/auth.routes.js';
+import type { RadarClient } from './modules/auth/radar.client.js';
 import { autenticarRadar, modoRadar, type GePermitido } from './shared/middlewares/auth.js';
 import { perfilNoGe } from './shared/auth/mapa-perfil.js';
 import { cadastrosRouter } from './modules/cadastros/cadastros.routes.js';
@@ -22,12 +28,16 @@ import type { UsersRepository } from './modules/users/users.service.js';
 
 type AppDeps = {
   usersRepository?: UsersRepository;
+  sso?: ConfigSso | null;
+  radar?: RadarClient;
 };
 
 export const createApp = (deps: AppDeps = {}) => {
+  const sso = deps.sso === undefined ? ssoDe(env) : deps.sso;
   const app = express();
   app.disable('x-powered-by');
   app.use(express.json());
+  app.use(cookieParser());
   app.use(requestId);
   app.use(
     pinoHttp({
@@ -52,6 +62,11 @@ export const createApp = (deps: AppDeps = {}) => {
     }
   });
 
+  app.use('/api/v1/auth', authRouter(sso, deps.radar));
+  if (sso) {
+    app.use('/api/v1', exigirSessao(sso.jwtSegredo));
+    app.use('/api/v1/users', lerPerfil, exigirPerfil('PLATFORM_OPERATOR'));
+  }
   app.use('/api/v1/users', usersRouter(deps.usersRepository));
 
   // Autenticação: no modo 'radar' exige o login do Radar; no 'header' (local/testes) só lê o X-Perfil.
@@ -63,7 +78,7 @@ export const createApp = (deps: AppDeps = {}) => {
       res.json({ modo: 'header' });
       return;
     }
-    const sessao = res.locals.sessao!;
+    const sessao = res.locals.sessaoRadar!;
     const ges = (res.locals.gesPermitidos ?? []) as GePermitido[];
     res.json({
       modo: 'radar',
@@ -90,6 +105,7 @@ export const createApp = (deps: AppDeps = {}) => {
     cargasLojasRouter(),
     // Daqui para baixo tudo é de um GE: o cabeçalho X-GE é obrigatório e conferido.
     exigirGe,
+    guardaDeLojas,
     cadastrosRouter(),
     painelRouter(),
     escalaRouter(),

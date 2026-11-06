@@ -159,6 +159,8 @@ model Auditoria {
   alvoTipo  String   @map("alvo_tipo")
   alvoId    String?  @map("alvo_id")
   detalhe   Json?
+  usuarioId   String? @map("usuario_id")
+  usuarioNome String? @map("usuario_nome")
   criadoEm  DateTime @default(now()) @map("criado_em") @db.Timestamptz(3)
 
   ge GrupoEconomico? @relation(fields: [geId], references: [id], onDelete: Restrict)
@@ -166,6 +168,21 @@ model Auditoria {
   @@index([alvoTipo, alvoId])
   @@index([geId])
   @@map("auditoria")
+}
+
+model Sessao {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  radarUsuarioId String    @map("radar_usuario_id")
+  nome           String
+  email          String
+  operador       Boolean   @default(false)
+  grupos         Json
+  expiraEm       DateTime  @map("expira_em") @db.Timestamptz(3)
+  encerradaEm    DateTime? @map("encerrada_em") @db.Timestamptz(3)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([expiraEm])
+  @@map("sessoes")
 }
 
 enum CargaTipo {

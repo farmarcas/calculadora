@@ -4,7 +4,17 @@ import { estadoDoDia, horarioPadraoAoAbrir, horasDoDia, passoDaAbertura, passoDo
 const NOMES_LONGOS = ["segunda", "terça", "quarta", "quinta", "sexta", "sábado", "domingo"];
 const SELO = <span className="rounded-full bg-[var(--color-primary-soft)] px-2 text-[11px] leading-4 font-bold text-[var(--system-800)]">Alterado</span>;
 const LINK = "cursor-pointer border-0 bg-transparent p-0 text-xs leading-4 font-bold text-[var(--text-link)] hover:underline focus-visible:outline-2 focus-visible:outline-[var(--border-focus)] disabled:cursor-not-allowed disabled:no-underline disabled:opacity-50";
-const COLUNAS = "grid grid-cols-[44px_104px_104px_1fr] items-center gap-3";
+// No celular a linha vira um bloco: dia e ação em cima, abertura e fechamento embaixo, cada um com a largura toda.
+const COLUNAS = "grid grid-cols-2 items-center gap-x-3 gap-y-2 md:grid-cols-[44px_104px_104px_1fr]";
+
+function CampoNoDia({ nome, children }) {
+  return (
+    <div className="order-1 col-span-2 flex flex-col gap-1 md:order-none md:col-span-1 md:block">
+      <span className="text-xs font-bold text-[var(--text-secondary)] md:hidden">{nome}</span>
+      {children}
+    </div>
+  );
+}
 
 // Uma linha por dia (60 px): sigla e horas do dia, abertura, fechamento e, centralizados na última coluna, o selo "Alterado"
 // sobre "Fechar dia" (ou "Reabrir" / "Abrir dia" quando o dia está fechado).
@@ -22,12 +32,12 @@ export default function LinhaDoDia({ dia, nome, simulado, cadastro, editavel, ul
 
   if (!simulado.aberta)
     return (
-      <li className={`${COLUNAS} h-[60px] border-t border-[var(--border-subtle)] px-4`}>
+      <li className={`${COLUNAS} border-t border-[var(--border-subtle)] px-4 py-3 md:h-[60px] md:py-0`}>
         {cabeca}
-        <span className="col-span-2 flex h-10 items-center justify-center rounded-[6px] border border-[var(--border-subtle)] bg-[var(--surface-muted)] px-2 text-center text-xs text-[var(--text-secondary)]">
+        <span className="order-1 col-span-2 flex h-10 items-center md:order-none justify-center rounded-[6px] border border-[var(--border-subtle)] bg-[var(--surface-muted)] px-2 text-center text-xs text-[var(--text-secondary)]">
           {estado.fechadoNaSimulacao ? "Fechado nesta simulação" : "Fechado"}
         </span>
-        <span className="flex flex-col items-center gap-0.5">
+        <span className="flex flex-col items-end gap-0.5 md:items-center">
           {estado.fechadoNaSimulacao && SELO}
           {estado.fechadoNaSimulacao
             ? acao("Reabrir", () => onMudar({ aberta: true, abre: cadastro.abre, fecha: cadastro.fecha }), { "aria-label": `Reabrir ${longo} no horário do Cadastro` })
@@ -37,8 +47,9 @@ export default function LinhaDoDia({ dia, nome, simulado, cadastro, editavel, ul
     );
 
   return (
-    <li className={`${COLUNAS} h-[60px] border-t border-[var(--border-subtle)] px-4`}>
+    <li className={`${COLUNAS} border-t border-[var(--border-subtle)] px-4 py-3 md:h-[60px] md:py-0`}>
       {cabeca}
+      <CampoNoDia nome="Abre">
       <CampoDeHorario
         rotulo={`abertura de ${longo}`}
         valor={simulado.abre}
@@ -48,6 +59,8 @@ export default function LinhaDoDia({ dia, nome, simulado, cadastro, editavel, ul
         onConfirmar={(v) => onMudar({ ...simulado, abre: v })}
         onPasso={(d) => onMudar({ ...simulado, abre: passoDaAbertura(simulado.abre, simulado.fecha, d) })}
       />
+      </CampoNoDia>
+      <CampoNoDia nome="Fecha">
       <CampoDeHorario
         rotulo={`fechamento de ${longo}`}
         valor={simulado.fecha}
@@ -58,7 +71,8 @@ export default function LinhaDoDia({ dia, nome, simulado, cadastro, editavel, ul
         onConfirmar={(v) => onMudar({ ...simulado, fecha: v })}
         onPasso={(d) => onMudar({ ...simulado, fecha: passoDoFechamento(simulado.abre, simulado.fecha, d) })}
       />
-      <span className="flex flex-col items-center gap-0.5">
+      </CampoNoDia>
+      <span className="flex flex-col items-end gap-0.5 md:items-center">
         {estado.alterado && SELO}
         {acao("Fechar dia", () => onMudar({ aberta: false }), { disabled: ultimoAberto, title: ultimoAberto ? "A loja precisa ficar aberta em ao menos um dia" : undefined, "aria-label": `Fechar ${longo}` })}
       </span>

@@ -45,7 +45,53 @@ export default function ListaDeSimulacoes({ lista, marcadas, onAlternar, onAbrir
           {podeEscrever && <Botao onClick={onNova}>Nova simulação</Botao>}
         </div>
       ) : (
-        <div className="overflow-x-auto">
+        <>
+        <ul className="m-0 list-none p-0 md:hidden">
+          {lista.map((s) => {
+            const [tom, rotulo] = SITUACOES[s.status] ?? ["neutro", s.status];
+            const marcada = marcadas.includes(s.id);
+            return (
+              <li key={s.id} className={`flex items-start gap-3 border-t border-[var(--border-subtle)] px-4 py-4 ${marcada ? "bg-[var(--color-primary-soft)]" : ""}`}>
+                {podeMarcar(s) ? (
+                  <label className="-m-2 flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center">
+                    <input type="checkbox" className="h-6 w-6" aria-label={`Selecionar ${s.nome}`} checked={marcada} onChange={() => onAlternar(s.id)} />
+                  </label>
+                ) : <span className="w-7 shrink-0" />}
+                <div className="flex min-w-0 flex-1 flex-col gap-2">
+                  <div>
+                    <div className="font-bold text-[var(--text-strong)]">{s.nome}</div>
+                    <div className="text-xs text-[var(--text-secondary)]">{tipoTexto(s.tipo)}</div>
+                  </div>
+                  <span className="inline-flex flex-wrap items-center gap-1.5">
+                    <Ficha tom={tom}>{rotulo}</Ficha>
+                    {s.desatualizada && <SeloDesatualizada />}
+                  </span>
+                  {comReais && (
+                    <div className="flex items-baseline justify-between gap-3">
+                      <span className="text-xs text-[var(--text-secondary)]">Saldo por mês</span>
+                      <Saldo valor={s.saldoMensal} />
+                    </div>
+                  )}
+                  <div className="flex items-baseline justify-between gap-3 text-sm">
+                    <span className="text-xs text-[var(--text-secondary)]">Horas abertas</span>
+                    <span className="text-[var(--text-strong)]">{horasPorSemana(s.horasAbertas)}</span>
+                  </div>
+                  {comReais && (
+                    <div className="flex items-baseline justify-between gap-3 text-sm">
+                      <span className="text-xs text-[var(--text-secondary)]">Folha extra</span>
+                      <span className="text-[var(--text-strong)]">{s.folhaExtra == null ? VAZIO : reais(s.folhaExtra)}</span>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-xs text-[var(--text-secondary)]">{dataBR(String(s.criadaEm).slice(0, 10))} · por {s.criadaPor}</span>
+                    <button type="button" onClick={() => onAbrir(s.id)} aria-label={`Abrir ${s.nome}`} className="min-h-11 cursor-pointer rounded-[4px] border-0 bg-transparent px-3 text-sm font-bold text-[var(--text-link)] hover:underline">Abrir</button>
+                  </div>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+        <div className="hidden overflow-x-auto md:block">
           <table className="w-full min-w-[820px] border-collapse text-sm">
             <thead>
               <tr>
@@ -92,6 +138,7 @@ export default function ListaDeSimulacoes({ lista, marcadas, onAlternar, onAbrir
             </tbody>
           </table>
         </div>
+        </>
       )}
     </section>
   );

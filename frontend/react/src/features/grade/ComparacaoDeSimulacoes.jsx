@@ -109,15 +109,16 @@ export default function ComparacaoDeSimulacoes({ lojaId, ids, lista, onVoltar })
           </div>
         </header>
 
+        <p className="m-0 border-t border-[var(--border-subtle)] px-4 py-2 text-xs text-[var(--text-secondary)] md:hidden">Deslize a tabela para o lado para ver as outras simulações.</p>
         <div className="max-h-[70vh] overflow-auto border-t border-[var(--border-subtle)]">
-          <table className="w-full min-w-[720px] border-collapse text-sm">
+          <table className="w-full min-w-[560px] border-collapse text-sm md:min-w-[720px]">
             <thead>
               <tr>
-                <th scope="col" className={`${CABECALHO_FIXO} left-0 w-[280px] min-w-[200px] px-6 py-3 text-left`}><span className="sr-only">Métrica</span></th>
+                <th scope="col" className={`${CABECALHO_FIXO} left-0 w-[110px] min-w-[110px] px-3 py-3 text-left md:w-[280px] md:min-w-[200px] md:px-6`}><span className="sr-only">Métrica</span></th>
                 {simulacoes.map((s, i) => {
                   const [tom, rotulo] = SITUACOES[s.status] ?? ["neutro", s.status];
                   return (
-                    <th key={s.id} scope="col" className={`${CABECALHO_FIXO} min-w-[200px] px-4 py-3 text-left`}>
+                    <th key={s.id} scope="col" className={`${CABECALHO_FIXO} min-w-[170px] px-3 py-3 text-left md:min-w-[200px] md:px-4`}>
                       <div className="font-bold text-[var(--text-strong)]">{s.nome}</div>
                       <div className="mt-1.5 flex flex-wrap gap-1.5 font-normal">
                         {i === 0 && <span className="inline-flex h-7 items-center rounded-full bg-[var(--color-primary-soft)] px-3.5 text-xs font-bold text-[var(--system-800)]">Base</span>}
@@ -127,15 +128,15 @@ export default function ComparacaoDeSimulacoes({ lojaId, ids, lista, onVoltar })
                       </div>
                       {i > 0 && (
                         <div className="mt-2 flex flex-wrap gap-3 font-normal">
-                          <button type="button" onClick={() => setOrdem((o) => trocarBase(o, s.id))} className="border-0 bg-transparent p-0 text-xs font-bold text-[var(--text-link,#006ff7)] cursor-pointer hover:underline">Usar como base</button>
-                          <button type="button" onClick={() => tirar(s.id)} className="border-0 bg-transparent p-0 text-xs text-[var(--text-secondary)] cursor-pointer hover:underline">Remover da comparação</button>
+                          <button type="button" onClick={() => setOrdem((o) => trocarBase(o, s.id))} className="min-h-11 border-0 bg-transparent p-0 text-xs font-bold text-[var(--text-link,#006ff7)] cursor-pointer hover:underline">Usar como base</button>
+                          <button type="button" onClick={() => tirar(s.id)} className="min-h-11 border-0 bg-transparent p-0 text-xs text-[var(--text-secondary)] cursor-pointer hover:underline">Remover da comparação</button>
                         </div>
                       )}
                     </th>
                   );
                 })}
                 {naoBase.map((s) => (
-                  <th key={`d-${s.id}`} scope="col" className={`${CABECALHO_FIXO} w-[170px] min-w-[150px] px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wide text-[var(--text-secondary)]`}>
+                  <th key={`d-${s.id}`} scope="col" className={`${CABECALHO_FIXO} w-[170px] min-w-[130px] px-3 py-3 text-left text-[11px] md:min-w-[150px] md:px-4 font-bold uppercase tracking-wide text-[var(--text-secondary)]`}>
                     Diferença{naoBase.length > 1 ? <span className="block normal-case tracking-normal font-normal">{s.nome}</span> : null}
                   </th>
                 ))}
@@ -167,7 +168,7 @@ function GrupoLinhas({ grupo, simulacoes, base, naoBase, colunasTotal }) {
         const mudouAqui = mudou(m, simulacoes);
         return (
           <tr key={m.chave} className="border-t border-[var(--border-subtle)]" style={mudouAqui ? DESTAQUE_LINHA : undefined}>
-            <th scope="row" className={`sticky left-0 z-10 px-6 py-3 text-left ${mudouAqui ? "font-bold" : "font-normal"} text-[var(--text-strong)] ${m.destaque ? "text-base" : ""}`} style={{ background: mudouAqui ? "color-mix(in srgb, var(--color-primary-soft) 100%, var(--surface-card))" : "var(--surface-card)" }}>{m.rotulo}</th>
+            <th scope="row" className={`sticky left-0 z-10 px-3 py-3 text-left md:px-6 ${mudouAqui ? "font-bold" : "font-normal"} text-[var(--text-strong)] ${m.destaque ? "text-base" : ""}`} style={{ background: mudouAqui ? "color-mix(in srgb, var(--color-primary-soft) 100%, var(--surface-card))" : "var(--surface-card)" }}>{m.rotulo}</th>
             {simulacoes.map((s) => (
               <td key={s.id} className="px-4 py-3 text-[var(--text-strong)]">
                 {m.chave === "saldo" ? <ValorSaldo valor={valorDe(s, m)} metrica={m} /> : textoDoValor(m, valorDe(s, m))}

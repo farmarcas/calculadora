@@ -112,6 +112,7 @@ O teste de ponta a ponta precisa da fatia 1 publicada em dev.
 - **Prisma sem `Sso__Prisma__*` no `deploy.yaml`**: o `deploy.yaml` só lista o Gestão 360, e a última alteração é anterior ao slug do Prisma. A calculadora terá suas entradas, mas é preciso confirmar como os segredos chegam ao pod.
 - **API de autenticação de dev só na rede interna**: o teste real depende de VPN. A de produção é pública.
 - **Sem o `state`**: como no Prisma, um código válido enviado por outra pessoa em até 60 segundos abriria a sessão da conta dela. O código é de uso único, e o risco foi aceito para seguir o mesmo fluxo.
+- **Dois logins no código**: a `main` trouxe o `AUTH_MODE=radar` (token do Radar no `localStorage`, publicado em `/escala`), e esta branch traz o `SSO_HABILITADO` (cookie próprio). Os dois convivem, um por vez: a API recusa subir com os dois ligados, e em produção exige um deles. O link do menu do Radar só funciona com `SSO_HABILITADO=true`. Com `AUTH_MODE=radar` não há acesso parcial por loja nem autor na auditoria.
 - **Teste de ponta a ponta real**: depende de publicação em dev; aqui só o Radar de mentira.
 
 ## Complexity Tracking

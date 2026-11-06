@@ -23,6 +23,24 @@ describe('variáveis do login', () => {
     expect(() => lerEnv({ ...base, NODE_ENV: 'production' })).toThrow('SSO_HABILITADO');
   });
 
+  it('aceita produção com o login por token do Radar', () => {
+    const lido = lerEnv({
+      ...base,
+      NODE_ENV: 'production',
+      AUTH_MODE: 'radar',
+      RADAR_AUTH_URL: 'https://auth.exemplo',
+    });
+    expect(ssoDe(lido)).toBeNull();
+  });
+
+  it('recusa os dois logins ao mesmo tempo', () => {
+    expect(() => lerEnv({ ...base, ...sso, AUTH_MODE: 'radar' })).toThrow('Use um login só');
+  });
+
+  it('recusa AUTH_MODE=radar sem o endereço da API de autenticação', () => {
+    expect(() => lerEnv({ ...base, AUTH_MODE: 'radar' })).toThrow('RADAR_AUTH_URL');
+  });
+
   it.each(['RADAR_AUTH_URL', 'SSO_CLIENT_ID', 'SSO_CLIENT_SECRET', 'JWT_SEGREDO'])(
     'diz qual variável falta: %s',
     (nome) => {

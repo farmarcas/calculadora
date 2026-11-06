@@ -12,7 +12,6 @@ const CAMPOS = [
   ["fgtsPct", "FGTS (%)"],
   ["decimoTerceiroPct", "13º salário (%)"],
   ["feriasPct", "Férias + 1/3 (%)"],
-  ["rescisaoPct", "Provisão de rescisão (%)"],
 ];
 
 const paraForm = (v) => ({ ...Object.fromEntries(CAMPOS.map(([k]) => [k, String(v[k])])), vigenciaInicio: "" });
@@ -38,9 +37,11 @@ export default function EncargosPorRegime({ dono }) {
     setErro(null);
     setOk(null);
     try {
+      // A provisão de rescisão não é mais editada nem usada no cálculo; o valor guardado do regime segue como está.
+      const rescisaoPct = dados.regimes.find((x) => x.regime === edicao.regime).vigente.rescisaoPct;
       await api("/parametros-encargos", {
         method: "POST",
-        body: { regime: edicao.regime, ...Object.fromEntries(CAMPOS.map(([k]) => [k, Number(edicao.v[k])])), vigenciaInicio: edicao.v.vigenciaInicio },
+        body: { regime: edicao.regime, ...Object.fromEntries(CAMPOS.map(([k]) => [k, Number(edicao.v[k])])), rescisaoPct, vigenciaInicio: edicao.v.vigenciaInicio },
       });
       setEdicao(null);
       setOk("Nova versão salva. A folha e os cenários já usam os valores vigentes.");
@@ -57,14 +58,14 @@ export default function EncargosPorRegime({ dono }) {
       <div>
         <h2 className="m-0 text-xl font-bold">Encargos por regime</h2>
         <p className="mt-1 mb-0 text-sm text-ink-500">
-          Os encargos da folha vêm do regime tributário da loja. Cada regime guarda os componentes; o total é calculado: diretos (INSS + RAT × FAP + terceiros + FGTS), mais as provisões de 13º e férias + 1/3, mais os encargos sobre as provisões e, se ligada, a rescisão.
+          Os encargos da folha vêm do regime tributário da loja. Cada regime guarda os componentes; o total é calculado: diretos (INSS + RAT × FAP + terceiros + FGTS), mais as provisões de 13º e férias + 1/3, mais os encargos sobre as provisões.
           Alterar um valor cria uma nova versão com data de início. Percentuais de referência: confirme com seu contador.
         </p>
       </div>
       {erro && <Aviso>{erro}</Aviso>}
       {ok && <Aviso tom="ok">{ok}</Aviso>}
       {dados.regimes.map((r) => (
-        <Cartao key={r.regime} titulo={r.nome} subtitulo={`Total ${num(r.totalPct)}% · com rescisão ${num(r.totalComRescisaoPct)}% · hoje ${dataBR(dados.hoje)}`}>
+        <Cartao key={r.regime} titulo={r.nome} subtitulo={`Total ${num(r.totalPct)}% · hoje ${dataBR(dados.hoje)}`}>
           <div className="flex flex-col gap-3 px-6 py-4">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
               {CAMPOS.map(([k, rotulo]) => (

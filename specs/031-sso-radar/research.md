@@ -16,6 +16,11 @@
 - **Decision**: não há `state`. O FR-005 foi retirado.
 - **Rationale**: o login nasce no Radar, e a calculadora não tem o que comparar. O Prisma faz igual. Restam o código de uso único, com validade de `CodeTtlSeconds`, e a troca com as credenciais da calculadora.
 
+## 3a. Convivência com o `AUTH_MODE=radar` da `main`
+
+- **Decision**: manter os dois logins, um por vez. A sessão do `AUTH_MODE=radar` fica em `res.locals.sessaoRadar`, separada da `res.locals.sessao`. Sob `/escala`, o retorno usa `BASE_URL`, e o nginx do cluster reescreve o caminho do cookie com `proxy_cookie_path`.
+- **Rationale**: a junção não apaga o trabalho de ninguém nem derruba a publicação em `/escala`. Qual login fica é uma decisão separada.
+
 ## 4. Sessão: JWT num cookie + tabela de sessões
 
 - **Decision**: JWT HS256 (`jose`) com `sub`, `sid` e `exp`, num cookie httpOnly, `SameSite=Lax`, `Secure` em produção, `Path=/api`. Papel e acesso ficam na tabela `sessoes`, lida a cada pedido pela chave primária.

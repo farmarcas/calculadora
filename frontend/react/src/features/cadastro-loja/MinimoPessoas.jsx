@@ -94,8 +94,8 @@ export default function MinimoPessoas({ config, horarios, editavel, erros, onMud
         <div className="mt-4 overflow-hidden rounded-card border border-[var(--border-subtle)]">
           {FUNCOES.map((f) => (
             <div key={f} className="flex items-center justify-between gap-4 border-t border-[var(--border-subtle)] px-4 py-3 first:border-t-0">
-              <div className="min-w-0"><strong className="block text-sm text-[var(--text-strong)]">{f}</strong><span className="text-xs text-[var(--text-secondary)]">{f === "Farmacêutico" ? "A lei exige farmacêutico em todo o horário de funcionamento (mínimo 1, fixo)." : "Meta opcional. Deixe 0 para manter o nível de hoje."}</span></div>
-              <input type="number" aria-label={f === "Farmacêutico" ? "Mínimo de Farmacêutico" : `Meta de ${f}`} min={f === "Farmacêutico" ? 1 : 0} max={10} disabled={!editavel || f === "Farmacêutico"} value={config.minimos[f] ?? (f === "Farmacêutico" ? 1 : 0)} onChange={(e) => onMudar({ minimos: { ...config.minimos, [f]: Math.max(0, Math.min(10, Number(e.target.value) || 0)) } })} className={`${CAMPO} w-20`} />
+              <div className="min-w-0"><strong className="block text-sm text-[var(--text-strong)]">{f}</strong><span className="text-xs text-[var(--text-secondary)]">{f === "Farmacêutico" ? "A lei exige farmacêutico em todo o horário de funcionamento (no mínimo 1; você pode pedir mais)." : "Meta opcional. Deixe 0 para manter o nível de hoje."}</span></div>
+              <input type="number" aria-label={f === "Farmacêutico" ? "Mínimo de Farmacêutico" : `Meta de ${f}`} min={f === "Farmacêutico" ? 1 : 0} max={10} disabled={!editavel} value={config.minimos[f] ?? (f === "Farmacêutico" ? 1 : 0)} onChange={(e) => onMudar({ minimos: { ...config.minimos, [f]: Math.max(f === "Farmacêutico" ? 1 : 0, Math.min(10, Number(e.target.value) || 0)) } })} className={`${CAMPO} w-20`} />
             </div>
           ))}
         </div>

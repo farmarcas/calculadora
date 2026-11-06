@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { api, getGe, getPerfil, GE_INICIAL, setGe, setPerfil } from "./api/client.js";
+import { api, getGe, getPerfil, GE_INICIAL, setGe, setPerfil, irParaLogin } from "./api/client.js";
 import { acessoTotalNoGrupo, perfilNoGrupo } from "./auth/sessao.js";
 import { ehOperador, cuidaDoGrupo } from "./api/perfis.js";
 import CadastrosPage from "./features/cadastros/CadastrosPage.jsx";
@@ -32,6 +32,8 @@ export default function App({ sessao, onSair }) {
   // Qual importação está aberta: "cadastro" (lojas e funcionários) ou "base" (vendas hora a hora).
   const [importando, setImportando] = useState(null);
   const [versaoDados, setVersaoDados] = useState(0);
+  // Login do Radar ativo? Quando sim, perfil e GEs vêm do /session, não do menu de demonstração.
+  const [radar, setRadar] = useState(false);
 
   // O papel pode não ver a tela atual (ex.: sair de operador estando em Grupos): vai para a primeira permitida.
   const folha = folhaAtual(perfil, tela, secao);
@@ -47,6 +49,7 @@ export default function App({ sessao, onSair }) {
     setGe(id);
     setG(id);
   }, []);
+  // Modo local/demonstração: o grupo é escolhido no menu da conta e lido de /ge.
   const carregarGes = useCallback(async () => {
     try {
       const lista = (await api("/ge")).data;
@@ -57,7 +60,40 @@ export default function App({ sessao, onSair }) {
       setGes([]);
     }
   }, [escolherGe]);
-  useEffect(() => { carregarGes(); }, [carregarGes]);
+
+  // Na carga: tenta a sessão do Radar. Se houver login, perfil e GEs vêm dela; senão, modo local.
+  useEffect(() => {
+    let vivo = true;
+    (async () => {
+      try {
+        const s = await api("/session");
+        if (!vivo) return;
+        if (s?.modo === "radar") {
+          setRadar(true);
+          setGes(s.ges);
+          const inicial = s.ges.find((g) => g.id === getGe()) ?? s.ges[0];
+          if (inicial) escolherGe(inicial.id);
+          return;
+        }
+      } catch {
+        // 401 já redireciona para o login; outros erros caem no modo local.
+      }
+      if (vivo) carregarGes();
+    })();
+    return () => {
+      vivo = false;
+    };
+  }, [carregarGes, escolherGe]);
+
+  // No Radar o perfil acompanha o GE selecionado (dono = gestor; demais = consulta).
+  useEffect(() => {
+    if (!radar) return;
+    const p = ges.find((g) => g.id === ge)?.perfil;
+    if (p && p !== perfil) {
+      setPerfil(p);
+      setP(p);
+    }
+  }, [radar, ge, ges, perfil]);
 
   // Lojas do grupo (recarrega ao trocar de grupo e depois de uma importação).
   useEffect(() => {
@@ -82,6 +118,16 @@ export default function App({ sessao, onSair }) {
   const sair = () => {
     if (sso) {
       onSair();
+      return;
+    }
+    if (radar) {
+      // Encerra a sessão do Radar: descarta o token e volta para o login.
+      try {
+        localStorage.removeItem("core/auth/token");
+      } catch {
+        /* localStorage indisponível: segue para o login mesmo assim */
+      }
+      irParaLogin();
       return;
     }
     // Sem login não há sessão para encerrar: volta ao padrão de demonstração.
@@ -117,7 +163,7 @@ export default function App({ sessao, onSair }) {
         folha={folha}
         onNavegar={irPara}
         faixa={faixa}
-        conta={<MenuDaConta perfil={perfil} ge={ge} ges={ges} geAtual={geAtual} onPerfil={trocarPerfil} onGe={escolherGe} onSair={sair} usuario={sessao?.usuario} demonstracao={sso ? false : undefined} />}
+        conta={<MenuDaConta perfil={perfil} ge={ge} ges={ges} geAtual={geAtual} onPerfil={trocarPerfil} onGe={escolherGe} onSair={sair} usuario={sessao?.usuario} radar={radar} demonstracao={sso ? false : undefined} />}
       >
         {folha.tela === "grupos" && ehOperador(perfil) && <GruposPage geAtual={ge} onAbrir={(id) => { escolherGe(id); irPara(folhas(perfil).find((f) => f.tela === "cadastros")); }} onMudou={carregarGes} />}
         {/* Trocar de grupo recarrega a tela inteira: nada do grupo anterior fica. */}

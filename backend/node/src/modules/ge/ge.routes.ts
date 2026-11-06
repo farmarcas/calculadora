@@ -5,6 +5,7 @@ import { ConflictError } from '../../shared/errors/conflict-error.js';
 import { NotFoundError } from '../../shared/errors/not-found-error.js';
 import { exigirPerfil, type Perfil } from '../../shared/middlewares/perfil.js';
 import { readValidated, validate } from '../../shared/middlewares/validate.js';
+import { modoRadar, type GePermitido } from '../../shared/middlewares/auth.js';
 import { geRepository, type GeRepository } from './ge.repository.js';
 import * as S from './ge.schemas.js';
 
@@ -17,6 +18,14 @@ export const geRouter = (repo: GeRepository = geRepository) => {
   const r = Router();
 
   r.get('/ge', async (_req, res) => {
+    // No modo 'radar' o associado só enxerga os GEs das próprias lojas (o operador vê todos).
+    if (modoRadar && !res.locals.sessaoRadar?.operador) {
+      const ges = (res.locals.gesPermitidos ?? []) as GePermitido[];
+      res.json({
+        data: ges.map((g) => ({ id: g.calcId, nome: g.nome, identificacao: g.radarId })),
+      });
+      return;
+    }
     const sessao = res.locals.sessao;
     const ids = sessao && !sessao.operador ? sessao.grupos.map((g) => g.geId) : undefined;
     res.json({ data: await repo.listarAtivos(ids) });

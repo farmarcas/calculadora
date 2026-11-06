@@ -5,7 +5,7 @@ import LinhaDoDia from "./horario/LinhaDoDia.jsx";
 import { NOMES_DIA } from "./formato.js";
 
 const CAIXA = "overflow-hidden rounded-card border border-[var(--border-subtle)]";
-const COLUNAS = "grid grid-cols-[44px_104px_104px_1fr] items-center gap-3";
+const COLUNAS = "md:grid md:grid-cols-[44px_104px_104px_1fr] md:items-center md:gap-3";
 
 // Passo 1: lista de horários (400 px, + e − de 1 em 1 hora) ao lado do gráfico de venda por hora.
 export default function PassoHorario({ sim, editavel, onSalvarHorarios }) {
@@ -29,7 +29,7 @@ export default function PassoHorario({ sim, editavel, onSalvarHorarios }) {
       <div className="sim-passo1">
         <div className="flex flex-col">
           <div className={CAIXA}>
-            <div className={`${COLUNAS} bg-[var(--surface-subtle)] px-4 py-3 text-xs font-bold text-[var(--neutral-mid-300)]`}>
+            <div className={`${COLUNAS} hidden bg-[var(--surface-subtle)] px-4 py-3 text-xs font-bold text-[var(--neutral-mid-300)] md:grid`}>
               <span>DIA</span><span>ABRE</span><span>FECHA</span><span aria-hidden="true" />
             </div>
             <ul className="m-0 list-none p-0">

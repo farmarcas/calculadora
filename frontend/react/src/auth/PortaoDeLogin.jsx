@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api, esquecerConta, getGe, setGe, usarSessao } from "../api/client.js";
 import { Botao } from "../components/ui/index.jsx";
 import { confirmarSaida } from "../features/cadastro-loja/guardaSaida.js";
-import { CAMINHO_DE_RETORNO, faseDaFalha, grupoInicial } from "./sessao.js";
+import { CAMINHO_DE_RETORNO, CAMINHO_INICIAL, faseDaFalha, grupoInicial } from "./sessao.js";
 
 const RADAR_URL = import.meta.env.VITE_RADAR_URL;
 const VOLTAR_PELO_RADAR = "Volte ao Radar e abra a calculadora pelo menu Aplicações.";
@@ -77,7 +77,7 @@ export default function PortaoDeLogin({ children }) {
 
   const voltarDoRadar = useCallback(async () => {
     const code = new URLSearchParams(window.location.search).get("code");
-    window.history.replaceState(null, "", "/");
+    window.history.replaceState(null, "", CAMINHO_INICIAL);
     if (!code) {
       setFase("login-invalido");
       return;

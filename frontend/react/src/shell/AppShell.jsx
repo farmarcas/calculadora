@@ -48,10 +48,10 @@ export default function AppShell({ perfil, folha, onNavegar, conta, faixa, child
       <div className="relative flex min-h-0 flex-1">
         {estreito && gaveta && <div aria-hidden="true" onClick={() => setGaveta(false)} className="fixed inset-0 z-30 bg-black/30" />}
         <aside
-          style={{ width: estreito || recolhido ? 72 : 280 }}
-          className="sticky top-20 z-40 h-[calc(100vh-5rem)] shrink-0 self-start bg-[var(--surface-card)] shadow-[var(--shadow-0)] transition-[width] duration-150 motion-reduce:transition-none"
+          style={estreito ? undefined : { width: recolhido ? 72 : 280 }}
+          className={`${estreito ? "w-[72px] max-[479px]:w-0 " : ""}sticky top-20 z-40 h-[calc(100vh-5rem)] shrink-0 self-start bg-[var(--surface-card)] shadow-[var(--shadow-0)] transition-[width] duration-150 motion-reduce:transition-none`}
         >
-          <div className={estreito && gaveta ? "absolute inset-y-0 left-0 w-[280px] bg-[var(--surface-card)] shadow-[var(--shadow-3)]" : ""}>
+          <div className={estreito && gaveta ? "absolute inset-y-0 left-0 w-[280px] bg-[var(--surface-card)] shadow-[var(--shadow-3)]" : estreito ? "max-[479px]:hidden" : ""}>
             <MenuLateral id={ID_MENU} perfil={perfil} folha={folha} aberto={aberto} onNavegar={navegar} />
           </div>
         </aside>

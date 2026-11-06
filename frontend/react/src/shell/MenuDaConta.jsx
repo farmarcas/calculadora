@@ -8,7 +8,7 @@ export const MODO_DEMONSTRACAO = import.meta.env.VITE_MODO_DEMONSTRACAO !== "fal
 const iniciais = (txt) => txt.split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0].toUpperCase()).join("");
 
 // Avatar com seta no canto da barra; abre um popover de 320 px com papel, grupo e "Sair".
-export default function MenuDaConta({ perfil, ge, ges, geAtual, onPerfil, onGe, onSair, usuario, demonstracao = MODO_DEMONSTRACAO }) {
+export default function MenuDaConta({ perfil, ge, ges, geAtual, onPerfil, onGe, onSair, usuario, radar = false, demonstracao = MODO_DEMONSTRACAO }) {
   const [aberto, setAberto] = useState(false);
   const raiz = useRef(null);
   const botao = useRef(null);
@@ -58,21 +58,26 @@ export default function MenuDaConta({ perfil, ge, ges, geAtual, onPerfil, onGe, 
               {geAtual && <div className="truncate text-xs text-[var(--text-secondary)]">{geAtual.nome}</div>}
             </div>
           </div>
-          {demonstracao && (
+          {/* No Radar o papel é fixo (vem do login); só a troca de grupo aparece, e apenas com mais de um. */}
+          {((radar && ges.length > 1) || (!radar && demonstracao)) && (
             <div className="flex flex-col gap-3 py-3">
-              <span className="w-fit rounded-full bg-[var(--surface-muted)] px-2 py-0.5 text-xs font-bold text-[var(--text-strong)]">Demonstração</span>
+              {!radar && demonstracao && (
+                <span className="w-fit rounded-full bg-[var(--surface-muted)] px-2 py-0.5 text-xs font-bold text-[var(--text-strong)]">Demonstração</span>
+              )}
               <label className="flex items-center gap-3 text-xs text-[var(--text-secondary)]">
                 <span className="w-12 shrink-0">Grupo</span>
                 <select aria-label="Grupo" value={ge} onChange={(e) => { onGe(e.target.value); fechar(); }} className={campo}>
-                  {ges.map((g) => <option key={g.id} value={g.id}>{g.nome} ({g.identificacao})</option>)}
+                  {ges.map((g) => <option key={g.id} value={g.id}>{g.nome}{g.identificacao ? ` (${g.identificacao})` : ""}</option>)}
                 </select>
               </label>
-              <label className="flex items-center gap-3 text-xs text-[var(--text-secondary)]">
-                <span className="w-12 shrink-0">Papel</span>
-                <select aria-label="Papel de demonstração" value={perfil} onChange={(e) => { onPerfil(e.target.value); fechar(); }} className={campo}>
-                  {Object.entries(PERFIS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-                </select>
-              </label>
+              {!radar && demonstracao && (
+                <label className="flex items-center gap-3 text-xs text-[var(--text-secondary)]">
+                  <span className="w-12 shrink-0">Papel</span>
+                  <select aria-label="Papel de demonstração" value={perfil} onChange={(e) => { onPerfil(e.target.value); fechar(); }} className={campo}>
+                    {Object.entries(PERFIS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                  </select>
+                </label>
+              )}
             </div>
           )}
           <div className="border-t border-[var(--border-subtle)] pt-2">

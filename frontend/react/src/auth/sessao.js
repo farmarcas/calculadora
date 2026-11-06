@@ -1,4 +1,5 @@
-export const CAMINHO_DE_RETORNO = "/sso/callback";
+export const CAMINHO_INICIAL = import.meta.env.BASE_URL;
+export const CAMINHO_DE_RETORNO = `${CAMINHO_INICIAL}sso/callback`;
 
 export const faseDaFalha = (code) => {
   if (code === "SEM_ACESSO") return "sem-acesso";

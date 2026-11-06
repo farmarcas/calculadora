@@ -1,0 +1,66 @@
+# Servidor da tela no Kubernetes (cluster do Radar), publicada sob /escala.
+# Diferente do template do Docker/Coolify: sem o resolver do Docker (aqui o upstream é um
+# Service de ClusterIP estável) e tudo servido/roteado sob o prefixo /escala, que o
+# CloudFront repassa sem remover. ${API_UPSTREAM} é trocado no start (ex.: http://escala-api:4000).
+server {
+  listen 80;
+  server_name _;
+  root /usr/share/nginx/html;
+
+  # Atras do CloudFront/ALB o nginx recebe http e Host da origin; sem isto os redirects
+  # (return 301/302) saem absolutos para http://escala.dev.radar... Relativo deixa o browser
+  # resolver contra a URL publica (https://dev.radar.farmarcas.com.br).
+  absolute_redirect off;
+
+  # Planilhas (cadastro, ponto) podem ser grandes.
+  client_max_body_size 20m;
+
+  # Liveness do nginx: não depende da API (usada pela probe do pod).
+  location = /healthz {
+    access_log off;
+    add_header Content-Type text/plain;
+    return 200 'ok';
+  }
+
+  # Health da API, atrás do /escala.
+  location = /escala/health { proxy_pass ${API_UPSTREAM}/health; }
+  location = /escala/health/ready { proxy_pass ${API_UPSTREAM}/health/ready; }
+
+  # API: /escala/api/... -> ${API_UPSTREAM}/api/... (o prefixo /escala é removido pelo proxy_pass).
+  location /escala/api/ {
+    proxy_pass ${API_UPSTREAM}/api/;
+    proxy_cookie_path /api /escala/api;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+    proxy_read_timeout 120s;
+  }
+
+  # Arquivos com hash no nome: cache longo.
+  location /escala/assets/ {
+    alias /usr/share/nginx/html/assets/;
+    expires 1y;
+    add_header Cache-Control "public, immutable";
+    try_files $uri =404;
+  }
+
+  # /escala (sem barra) -> /escala/ (senao cai no 404 default do nginx).
+  location = /escala { return 301 /escala/; }
+
+  location = /escala/sso/callback {
+    access_log off;
+    add_header Cache-Control "no-store";
+    add_header Referrer-Policy "no-referrer";
+    try_files /index.html =404;
+  }
+
+  # Tela (SPA): qualquer caminho sob /escala volta para o index (rotas do React).
+  location /escala/ {
+    alias /usr/share/nginx/html/;
+    add_header Cache-Control "no-cache";
+    try_files $uri /escala/index.html;
+  }
+
+  # Raiz e qualquer outro caminho caem para /escala/.
+  location = / { return 302 /escala/; }
+}

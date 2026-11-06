@@ -1,6 +1,27 @@
-// Perfil de demonstração, usado só com o login desligado.
+// Base das chamadas: respeita o subpath do build (/ em local, /escala/ no Radar).
+const API = `${import.meta.env.BASE_URL}api/v1`;
+
+// Token do login do Radar. Como /escala é o MESMO domínio do Radar, o localStorage é
+// compartilhado: o token que o Radar grava em "core/auth/token" já fica visível aqui.
+const lerToken = () => {
+  try {
+    return localStorage.getItem("core/auth/token") || "";
+  } catch {
+    return "";
+  }
+};
+export const temToken = () => lerToken() !== "";
+
+// Para onde mandar quem não está logado (página de login do Radar, no mesmo host).
+const LOGIN_URL = import.meta.env.VITE_RADAR_LOGIN_URL || "/authentication";
+export const irParaLogin = () => {
+  window.location.href = LOGIN_URL;
+};
+
+// Perfil de demonstração (usado só no modo local/header; no Radar o perfil vem do /session).
 let perfil = localStorage.getItem("perfil") || "TENANT_ADMIN";
 
+// GE escolhido. No Radar, só pode ser um dos GEs do usuário (o servidor confere).
 export const GE_INICIAL = "00000000-0000-7000-8000-000000000001";
 let ge = localStorage.getItem("ge") || GE_INICIAL;
 
@@ -25,7 +46,13 @@ export const esquecerConta = () => {
   perfil = "TENANT_ADMIN";
 };
 
-const cabecalhos = () => (comSessao ? { "X-GE": ge } : { "X-Perfil": perfil, "X-GE": ge });
+const cabecalhos = () => {
+  if (comSessao) return { "X-GE": ge };
+  const h = { "X-Perfil": perfil, "X-GE": ge };
+  const t = lerToken();
+  if (t) h["Authorization"] = `Bearer ${t}`;
+  return h;
+};
 
 export const getPerfil = () => perfil;
 export const setPerfil = (p) => {
@@ -49,7 +76,12 @@ export async function api(path, { method = "GET", body, form } = {}) {
     headers["Content-Type"] = "application/json";
     payload = JSON.stringify(body);
   }
-  const res = await fetch(`/api/v1${path}`, { method, headers, body: payload });
+  const res = await fetch(`${API}${path}`, { method, headers, body: payload });
+  // Sessão do Radar ausente/expirada: volta para o login.
+  if (res.status === 401 && !comSessao && !path.startsWith("/auth/")) {
+    irParaLogin();
+    throw new ApiError("Faça login no Radar", "NAO_AUTENTICADO");
+  }
   if (res.status === 204) return null;
   const data = await res.json().catch(() => null);
   if (!res.ok) {
@@ -61,10 +93,14 @@ export async function api(path, { method = "GET", body, form } = {}) {
 }
 
 export async function baixarArquivo(caminho, nome) {
-  const res = await fetch(`/api/v1${caminho}`, { headers: cabecalhos() });
-  if (comSessao && res.status === 401) {
-    aoPerderSessao?.();
-    return;
+  const res = await fetch(`${API}${caminho}`, { headers: cabecalhos() });
+  if (res.status === 401) {
+    if (comSessao) {
+      aoPerderSessao?.();
+      return;
+    }
+    irParaLogin();
+    throw new ApiError("Faça login no Radar", "NAO_AUTENTICADO");
   }
   const blob = await res.blob();
   const a = document.createElement("a");

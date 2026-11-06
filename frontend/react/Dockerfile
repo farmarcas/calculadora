@@ -13,6 +13,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
+ARG VITE_RADAR_URL=https://radar.farmarcas.com.br
 RUN npm run build
 
 FROM nginx:1.27-alpine AS runtime

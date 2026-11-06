@@ -1,7 +1,6 @@
-// Perfil de demonstração (sem login real nesta fase). Enviado em todo pedido.
+// Perfil de demonstração, usado só com o login desligado.
 let perfil = localStorage.getItem("perfil") || "TENANT_ADMIN";
 
-// GE de demonstração (sem login real nesta fase). Enquanto a tela de escolha do GE não existe, usa o GE inicial.
 export const GE_INICIAL = "00000000-0000-7000-8000-000000000001";
 let ge = localStorage.getItem("ge") || GE_INICIAL;
 
@@ -10,7 +9,23 @@ export const setGe = (id) => {
   ge = id;
   localStorage.setItem("ge", id);
 };
-const cabecalhos = () => ({ "X-Perfil": perfil, "X-GE": ge });
+
+let comSessao = false;
+let aoPerderSessao = null;
+
+export const usarSessao = (aviso) => {
+  comSessao = true;
+  aoPerderSessao = aviso;
+};
+
+export const esquecerConta = () => {
+  localStorage.removeItem("ge");
+  localStorage.removeItem("perfil");
+  ge = GE_INICIAL;
+  perfil = "TENANT_ADMIN";
+};
+
+const cabecalhos = () => (comSessao ? { "X-GE": ge } : { "X-Perfil": perfil, "X-GE": ge });
 
 export const getPerfil = () => perfil;
 export const setPerfil = (p) => {
@@ -39,6 +54,7 @@ export async function api(path, { method = "GET", body, form } = {}) {
   const data = await res.json().catch(() => null);
   if (!res.ok) {
     const e = data?.error;
+    if (comSessao && e?.code === "NAO_AUTENTICADO") aoPerderSessao?.();
     throw new ApiError(e?.message || "Algo deu errado. Tente de novo.", e?.code, e?.details);
   }
   return data;
@@ -46,6 +62,10 @@ export async function api(path, { method = "GET", body, form } = {}) {
 
 export async function baixarArquivo(caminho, nome) {
   const res = await fetch(`/api/v1${caminho}`, { headers: cabecalhos() });
+  if (comSessao && res.status === 401) {
+    aoPerderSessao?.();
+    return;
+  }
   const blob = await res.blob();
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);

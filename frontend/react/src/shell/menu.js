@@ -37,3 +37,5 @@ export const destinoDoItem = (item) => (item.filhos?.length ? item.filhos[0] : i
 
 // Telas em que a faixa de contexto (loja e Importar) faz sentido: as da Escala.
 export const telaTemFaixa = (tela) => tela === "escala";
+
+export const telaTemFiltroDeGrupo = (folha, sso) => sso && (folha.tela === "escala" || folha.secao === "lojas");

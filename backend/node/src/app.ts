@@ -1,11 +1,17 @@
+import cookieParser from 'cookie-parser';
 import express from 'express';
 import { pinoHttp } from 'pino-http';
+import { env, ssoDe, type ConfigSso } from './config/env.js';
 import { prisma } from './shared/database/prisma.js';
 import { logger } from './shared/logger.js';
 import { errorHandler } from './shared/middlewares/error-handler.js';
 import { requestId } from './shared/middlewares/request-id.js';
 import { exigirGe } from './shared/middlewares/ge.js';
-import { lerPerfil } from './shared/middlewares/perfil.js';
+import { guardaDeLojas } from './shared/middlewares/guarda-de-lojas.js';
+import { exigirPerfil, lerPerfil } from './shared/middlewares/perfil.js';
+import { exigirSessao } from './shared/middlewares/sessao.js';
+import { authRouter } from './modules/auth/auth.routes.js';
+import type { RadarClient } from './modules/auth/radar.client.js';
 import { cadastrosRouter } from './modules/cadastros/cadastros.routes.js';
 import { painelRouter } from './modules/cadastros/painel.routes.js';
 import { escalaRouter } from './modules/escala/escala.routes.js';
@@ -20,12 +26,16 @@ import type { UsersRepository } from './modules/users/users.service.js';
 
 type AppDeps = {
   usersRepository?: UsersRepository;
+  sso?: ConfigSso | null;
+  radar?: RadarClient;
 };
 
 export const createApp = (deps: AppDeps = {}) => {
+  const sso = deps.sso === undefined ? ssoDe(env) : deps.sso;
   const app = express();
   app.disable('x-powered-by');
   app.use(express.json());
+  app.use(cookieParser());
   app.use(requestId);
   app.use(
     pinoHttp({
@@ -50,6 +60,11 @@ export const createApp = (deps: AppDeps = {}) => {
     }
   });
 
+  app.use('/api/v1/auth', authRouter(sso, deps.radar));
+  if (sso) {
+    app.use('/api/v1', exigirSessao(sso.jwtSegredo));
+    app.use('/api/v1/users', lerPerfil, exigirPerfil('PLATFORM_OPERATOR'));
+  }
   app.use('/api/v1/users', usersRouter(deps.usersRepository));
   app.use(
     '/api/v1',
@@ -61,6 +76,7 @@ export const createApp = (deps: AppDeps = {}) => {
     cargasLojasRouter(),
     // Daqui para baixo tudo é de um GE: o cabeçalho X-GE é obrigatório e conferido.
     exigirGe,
+    guardaDeLojas,
     cadastrosRouter(),
     painelRouter(),
     escalaRouter(),

@@ -244,10 +244,11 @@ export const cadastrosRepository = (geId: string): CadastrosRepository => ({
   contarFuncionariosDaLoja: (lojaId) =>
     prisma.funcionario.count({ where: { lojaId, loja: { geId }, ...ativo } }),
 
-  async listarFuncionarios({ page, pageSize, busca, lojaId }) {
+  async listarFuncionarios({ page, pageSize, busca, lojaId, lojaIds }) {
     const where = {
       ...ativo,
       loja: { geId },
+      ...(lojaIds ? { lojaId: { in: lojaIds } } : {}),
       ...(lojaId ? { lojaId } : {}),
       ...(busca
         ? {

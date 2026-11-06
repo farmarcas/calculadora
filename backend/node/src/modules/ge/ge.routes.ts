@@ -16,7 +16,11 @@ const v = <T extends z.ZodType>(res: Response) => readValidated<z.infer<T>>(res)
 export const geRouter = (repo: GeRepository = geRepository) => {
   const r = Router();
 
-  r.get('/ge', async (_req, res) => res.json({ data: await repo.listarAtivos() }));
+  r.get('/ge', async (_req, res) => {
+    const sessao = res.locals.sessao;
+    const ids = sessao && !sessao.operador ? sessao.grupos.map((g) => g.geId) : undefined;
+    res.json({ data: await repo.listarAtivos(ids) });
+  });
   r.get('/ge/resumo', soOperador, async (_req, res) => res.json({ data: await repo.resumo() }));
 
   r.post('/ge', soOperador, validate(S.criarGeReq), async (_req, res) => {

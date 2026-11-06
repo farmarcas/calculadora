@@ -1,4 +1,3 @@
-// Papéis de demonstração (sem login real: o SSO virá depois).
 export const PERFIS = {
   PLATFORM_OPERATOR: "Operador da plataforma",
   TENANT_ADMIN: "Dono do grupo",

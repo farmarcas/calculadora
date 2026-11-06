@@ -2,18 +2,19 @@ import { useEffect, useId, useRef, useState } from "react";
 import { PERFIS } from "../api/perfis.js";
 import { IconeSeta } from "./icones.jsx";
 
-// Ainda não há login: o bloco "Demonstração" (Grupo e Papel) fica ligado até a variável dizer o contrário.
+// Com o login desligado, o bloco "Demonstração" (Grupo e Papel) fica ligado até a variável dizer o contrário.
 export const MODO_DEMONSTRACAO = import.meta.env.VITE_MODO_DEMONSTRACAO !== "false";
 
 const iniciais = (txt) => txt.split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0].toUpperCase()).join("");
 
 // Avatar com seta no canto da barra; abre um popover de 320 px com papel, grupo e "Sair".
-export default function MenuDaConta({ perfil, ge, ges, geAtual, onPerfil, onGe, onSair, demonstracao = MODO_DEMONSTRACAO }) {
+export default function MenuDaConta({ perfil, ge, ges, geAtual, onPerfil, onGe, onSair, usuario, demonstracao = MODO_DEMONSTRACAO }) {
   const [aberto, setAberto] = useState(false);
   const raiz = useRef(null);
   const botao = useRef(null);
   const idPopover = useId();
   const papel = PERFIS[perfil] ?? perfil;
+  const nome = usuario?.nome ?? papel;
 
   const fechar = () => { setAberto(false); botao.current?.focus(); };
 
@@ -39,19 +40,21 @@ export default function MenuDaConta({ perfil, ge, ges, geAtual, onPerfil, onGe, 
         aria-haspopup="dialog"
         aria-expanded={aberto}
         aria-controls={aberto ? idPopover : undefined}
-        aria-label={`Conta: ${papel}`}
+        aria-label={`Conta: ${nome}`}
         onClick={() => setAberto((a) => !a)}
         className="inline-flex h-11 cursor-pointer items-center gap-1 rounded-btn border-0 bg-transparent px-1 focus-visible:outline-2 focus-visible:outline-[var(--border-focus)] sm:h-10"
       >
-        <span aria-hidden="true" className="grid h-[34px] w-[34px] place-items-center rounded-full bg-[var(--surface-subtle)] text-xs font-bold text-[var(--text-secondary)]">{iniciais(papel)}</span>
+        <span aria-hidden="true" className="grid h-[34px] w-[34px] place-items-center rounded-full bg-[var(--surface-subtle)] text-xs font-bold text-[var(--text-secondary)]">{iniciais(nome)}</span>
         <span className="text-[var(--icon-default)] opacity-60"><IconeSeta tamanho={18} aberta={aberto} /></span>
       </button>
       {aberto && (
         <div id={idPopover} role="dialog" aria-label="Menu da conta" className="absolute top-full right-0 z-50 mt-2 w-[min(320px,calc(100vw-2rem))] rounded-card border border-[var(--border-subtle)] bg-[var(--surface-card)] p-4 shadow-[var(--shadow-2)]">
           <div className="flex items-center gap-3 border-b border-dashed border-[var(--border-default)] pb-3">
-            <span aria-hidden="true" className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[var(--surface-subtle)] text-xs font-bold text-[var(--text-secondary)]">{iniciais(papel)}</span>
+            <span aria-hidden="true" className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[var(--surface-subtle)] text-xs font-bold text-[var(--text-secondary)]">{iniciais(nome)}</span>
             <div className="min-w-0">
-              <div className="truncate text-sm font-bold text-[var(--text-strong)]">{papel}</div>
+              <div className="truncate text-sm font-bold text-[var(--text-strong)]">{nome}</div>
+              {usuario && <div className="truncate text-xs text-[var(--text-secondary)]">{usuario.email}</div>}
+              {usuario && <div className="truncate text-xs text-[var(--text-secondary)]">{papel}</div>}
               {geAtual && <div className="truncate text-xs text-[var(--text-secondary)]">{geAtual.nome}</div>}
             </div>
           </div>

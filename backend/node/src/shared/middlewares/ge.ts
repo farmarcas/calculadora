@@ -3,8 +3,8 @@ import { z } from 'zod';
 import { prisma } from '../database/prisma.js';
 import { AppError } from '../errors/app-error.js';
 
-// GE de quem chama (cabeçalho X-GE, escolhido em tela até o SSO existir). Conferido no banco a cada chamada:
-// tem de existir e estar ativo. Os repositórios recebem este id e filtram todas as consultas por ele.
+// GE de quem chama (cabeçalho X-GE). Conferido a cada chamada: tem de existir, estar ativo e, com sessão, estar no acesso dela.
+// Os repositórios recebem este id e filtram todas as consultas por ele.
 const uuid = z.uuid();
 
 export const exigirGe = async (req: Request, res: Response, next: NextFunction) => {
@@ -17,7 +17,10 @@ export const exigirGe = async (req: Request, res: Response, next: NextFunction) 
           select: { id: true, ativo: true },
         })
       : null;
-    if (!ge?.ativo) throw new AppError('Grupo econômico indisponível', 403, 'GE_INDISPONIVEL');
+    const sessao = res.locals.sessao;
+    const noAcesso = !sessao || sessao.operador || sessao.grupos.some((g) => g.geId === ge?.id);
+    if (!ge?.ativo || !noAcesso)
+      throw new AppError('Grupo econômico indisponível', 403, 'GE_INDISPONIVEL');
     res.locals.geId = ge.id;
     next();
   } catch (e) {

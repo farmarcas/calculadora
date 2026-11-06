@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, getGe, getPerfil, GE_INICIAL, setGe, setPerfil } from "./api/client.js";
+import { acessoTotalNoGrupo, perfilNoGrupo } from "./auth/sessao.js";
 import { ehOperador, cuidaDoGrupo } from "./api/perfis.js";
 import CadastrosPage from "./features/cadastros/CadastrosPage.jsx";
 import EscalaPage from "./features/diagnostico/EscalaPage.jsx";
@@ -12,13 +13,16 @@ import AppShell from "./shell/AppShell.jsx";
 import FaixaDeContexto from "./shell/FaixaDeContexto.jsx";
 import MenuDaConta from "./shell/MenuDaConta.jsx";
 import { horasDeFuncionamento } from "./shell/horas.js";
-import { SECAO_INICIAL, folhaAtual, folhas, telaTemFaixa } from "./shell/menu.js";
+import { SECAO_INICIAL, folhaAtual, folhas, telaTemFaixa, telaTemFiltroDeGrupo } from "./shell/menu.js";
 
 const TELAS = ["cadastros", "escala", "grupos"];
 
-export default function App() {
-  const [perfil, setP] = useState(getPerfil());
+export default function App({ sessao, onSair }) {
+  const sso = Boolean(sessao?.sso);
+  const [perfilDemonstracao, setP] = useState(getPerfil());
   const [ge, setG] = useState(getGe());
+  const perfil = sso ? perfilNoGrupo(sessao, ge) : perfilDemonstracao;
+  const acessoTotal = acessoTotalNoGrupo(sessao, ge);
   const [ges, setGes] = useState([]);
   const [tela, setTela] = useState(() => (TELAS.includes(lerUrl().tela) ? lerUrl().tela : "cadastros"));
   const [secao, setSecao] = useState(() => SECAO_INICIAL[TELAS.includes(lerUrl().tela) ? lerUrl().tela : "cadastros"]);
@@ -39,7 +43,6 @@ export default function App() {
     if (f.tela !== "cadastros") window.history.replaceState(null, "", `${window.location.pathname}?tela=${f.tela}`);
   };
 
-  // Sem login (o SSO virá depois): o papel e o grupo são escolhidos no menu da conta, só para demonstração.
   const escolherGe = useCallback((id) => {
     setGe(id);
     setG(id);
@@ -73,7 +76,14 @@ export default function App() {
     setPerfil(p);
     setP(p);
   };
+  const trocarGrupo = (id) => {
+    if (confirmarSaida()) escolherGe(id);
+  };
   const sair = () => {
+    if (sso) {
+      onSair();
+      return;
+    }
     // Sem login não há sessão para encerrar: volta ao padrão de demonstração.
     trocarPerfil("TENANT_ADMIN");
     escolherGe(GE_INICIAL);
@@ -83,8 +93,14 @@ export default function App() {
   const lojaAtual = lojas?.find((l) => l.id === lojaId);
   const podeEscrever = cuidaDoGrupo(perfil);
 
-  const faixa = telaTemFaixa(folha.tela) ? (
+  const comFiltroDeGrupo = telaTemFiltroDeGrupo(folha, sso);
+  const faixa = telaTemFaixa(folha.tela) || comFiltroDeGrupo ? (
     <FaixaDeContexto
+      soGrupo={!telaTemFaixa(folha.tela)}
+      grupos={comFiltroDeGrupo ? ges : null}
+      grupoId={ge}
+      onGrupo={trocarGrupo}
+      acessoTotal={acessoTotal}
       lojas={lojas ?? []}
       lojaId={lojaId}
       onLoja={setLojaId}
@@ -101,11 +117,11 @@ export default function App() {
         folha={folha}
         onNavegar={irPara}
         faixa={faixa}
-        conta={<MenuDaConta perfil={perfil} ge={ge} ges={ges} geAtual={geAtual} onPerfil={trocarPerfil} onGe={escolherGe} onSair={sair} />}
+        conta={<MenuDaConta perfil={perfil} ge={ge} ges={ges} geAtual={geAtual} onPerfil={trocarPerfil} onGe={escolherGe} onSair={sair} usuario={sessao?.usuario} demonstracao={sso ? false : undefined} />}
       >
         {folha.tela === "grupos" && ehOperador(perfil) && <GruposPage geAtual={ge} onAbrir={(id) => { escolherGe(id); irPara(folhas(perfil).find((f) => f.tela === "cadastros")); }} onMudou={carregarGes} />}
         {/* Trocar de grupo recarrega a tela inteira: nada do grupo anterior fica. */}
-        {folha.tela === "cadastros" && <CadastrosPage key={ge} perfil={perfil} secao={folha.secao} versaoDados={versaoDados} onImportar={setImportando} />}
+        {folha.tela === "cadastros" && <CadastrosPage key={ge} perfil={perfil} acessoTotal={acessoTotal} secao={folha.secao} versaoDados={versaoDados} onImportar={setImportando} />}
         {folha.tela === "escala" && (
           <EscalaPage
             key={ge}

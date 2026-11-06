@@ -28,6 +28,12 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       # Banco separado para testes de integração (o Prisma o cria se não existir).
       TEST_DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}_test
+      # Login pelo Radar: desligado por padrão no ambiente local (modo demonstração).
+      SSO_HABILITADO: ${SSO_HABILITADO:-false}
+      RADAR_AUTH_URL: ${RADAR_AUTH_URL:-}
+      SSO_CLIENT_ID: ${SSO_CLIENT_ID:-}
+      SSO_CLIENT_SECRET: ${SSO_CLIENT_SECRET:-}
+      JWT_SEGREDO: ${JWT_SEGREDO:-}
     ports:
       - "127.0.0.1:${API_PORT:-4000}:4000"
     volumes:
@@ -50,6 +56,7 @@ services:
     environment:
       # O Vite repassa /api e /health para a API: o navegador fala só com a porta da tela (sem CORS).
       API_PROXY_TARGET: http://api:4000
+      VITE_RADAR_URL: ${RADAR_URL:-https://dev.radar.farmarcas.com.br}
     ports:
       - "127.0.0.1:${WEB_PORT:-3000}:3000"
     volumes:

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { destinoDoItem, folhaAtual, folhas, itemDaFolha, itensDoMenu, telaTemFaixa } from "./menu.js";
+import { destinoDoItem, folhaAtual, folhas, itemDaFolha, itensDoMenu, telaTemFaixa, telaTemFiltroDeGrupo } from "./menu.js";
 
 const ids = (perfil) => itensDoMenu(perfil).map((i) => i.id);
 
@@ -49,5 +49,17 @@ describe("faixa de contexto", () => {
     expect(telaTemFaixa("escala")).toBe(true);
     expect(telaTemFaixa("cadastros")).toBe(false);
     expect(telaTemFaixa("grupos")).toBe(false);
+  });
+});
+
+describe("filtro de Grupo", () => {
+  it("aparece na Escala e em Minhas Lojas, só com o login ligado", () => {
+    expect(telaTemFiltroDeGrupo({ tela: "escala", secao: "diagnostico" }, true)).toBe(true);
+    expect(telaTemFiltroDeGrupo({ tela: "cadastros", secao: "lojas" }, true)).toBe(true);
+    expect(telaTemFiltroDeGrupo({ tela: "cadastros", secao: "lojas" }, false)).toBe(false);
+  });
+  it("não aparece no que vale para toda a plataforma", () => {
+    expect(telaTemFiltroDeGrupo({ tela: "cadastros", secao: "parametros" }, true)).toBe(false);
+    expect(telaTemFiltroDeGrupo({ tela: "grupos", secao: null }, true)).toBe(false);
   });
 });

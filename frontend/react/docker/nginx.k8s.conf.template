@@ -7,6 +7,11 @@ server {
   server_name _;
   root /usr/share/nginx/html;
 
+  # Atras do CloudFront/ALB o nginx recebe http e Host da origin; sem isto os redirects
+  # (return 301/302) saem absolutos para http://escala.dev.radar... Relativo deixa o browser
+  # resolver contra a URL publica (https://dev.radar.farmarcas.com.br).
+  absolute_redirect off;
+
   # Planilhas (cadastro, ponto) podem ser grandes.
   client_max_body_size 20m;
 

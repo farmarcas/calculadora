@@ -293,7 +293,7 @@ export const makeSimulacoesService = (
       perfil: string,
     ) {
       const l = await loja(lojaId);
-      let base: { quadro: PessoaSim[]; turnos: TurnoSim[] };
+      let base: { quadro: PessoaSim[]; turnos: TurnoSim[]; horarios?: unknown };
       let origemId: string | null = null;
       if (b.origem === 'escala_atual') base = await doEscalaAtual(lojaId);
       else if (b.origem === 'vazia') {
@@ -306,7 +306,8 @@ export const makeSimulacoesService = (
       } else {
         const o = await simulacao(b.origem);
         if (o.lojaId !== lojaId) throw new ValidationError('A simulação de origem é de outra loja');
-        base = { quadro: o.quadro, turnos: o.turnos };
+        // A cópia leva o horário simulado junto (nulo = o da loja).
+        base = { quadro: o.quadro, turnos: o.turnos, horarios: o.horarios };
         origemId = o.id;
       }
       if (b.comVagasSugeridas) {
@@ -418,7 +419,8 @@ export const makeSimulacoesService = (
       // A escala por turno saiu da Simulação: as regras de turno (cobertura, jornada, interjornada) não travam mais gravar nem aprovar.
       await repo.gravar(
         id,
-        { ...c.premissas, regra: s.regra },
+        // `horariosDaLoja`: o horário da loja agora, para saber depois se ela mudou (o `horarios` das premissas é o simulado).
+        { ...c.premissas, regra: s.regra, horariosDaLoja: l.horarios },
         { erros: 0, avisos: avaliacao.avisos.length, porPessoa: avaliacao.porPessoa },
         // Todo cenário salvo ganha um número da loja (1, 2, 3…); só "Salvar como cenário" troca o nome.
         await (async () => {
@@ -543,6 +545,8 @@ export const makeSimulacoesService = (
         autor: perfil,
         quadro: o.quadro,
         turnos: o.turnos,
+        // A cópia continua com o mesmo horário simulado (e não volta para o da loja).
+        horarios: o.horarios,
       });
       await auditar({
         acao: 'simulacao.clonada',

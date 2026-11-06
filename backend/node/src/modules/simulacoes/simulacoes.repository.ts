@@ -27,6 +27,9 @@ export type Premissas = {
   // Custos da loja no momento de gravar: a simulação gravada sempre usa este retrato.
   custos?: Custos | null;
   regra: string;
+  // O horário de funcionamento que a LOJA tinha ao gravar (`horarios` acima é o da simulação, que pode ser outro).
+  // É com ele que se vê se a loja mudou depois. Ausente nas simulações gravadas antes desta regra.
+  horariosDaLoja?: unknown;
 };
 
 export type SimulacaoRegistro = {
@@ -97,6 +100,8 @@ export const simulacoesRepository = (geId: string) => ({
     autor: string;
     quadro: PessoaSim[];
     turnos: TurnoSim[];
+    // Horário simulado que a cópia leva junto; nulo ou ausente = o da loja.
+    horarios?: unknown;
   }) {
     if (!(await prisma.loja.count({ where: { id: d.lojaId, geId, deletedAt: null } })))
       throw new NotFoundError('Loja não encontrada', 'LOJA_NAO_ENCONTRADA');
@@ -108,6 +113,7 @@ export const simulacoesRepository = (geId: string) => ({
         origemId: d.origemId,
         autor: d.autor,
         quadro: d.quadro as unknown as Prisma.InputJsonValue,
+        ...(d.horarios != null ? { horarios: d.horarios as Prisma.InputJsonValue } : {}),
         turnos: { create: turnosCreate(d.turnos) },
       },
       include: { turnos: true },

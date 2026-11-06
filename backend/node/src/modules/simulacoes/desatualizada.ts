@@ -33,10 +33,13 @@ export const motivosDeDesatualizacao = (a: {
     return x && (!x.ativo || x.lojaId !== a.lojaId);
   });
   if (sairam.length) motivos.push(`Saiu do quadro da loja: ${sairam.map((p) => p.nome).join(', ')}.`);
-  // Compara os dois já convertidos: só mudar o formato do cadastro não é mudança de horário.
+  // O horário da loja mudou? Compara com o que a loja tinha ao gravar (`horariosDaLoja`), não com o horário simulado: uma
+  // simulação que amplia ou reduz horários não fica desatualizada por isso. Simulações gravadas antes desta regra não têm
+  // esse retrato e ficam sem esta checagem (melhor não avisar do que avisar por engano). Só mudar o formato não conta.
   if (
+    a.premissas.horariosDaLoja !== undefined &&
     JSON.stringify(normalizarHorarios(a.hoje.horarios)) !==
-    JSON.stringify(normalizarHorarios(a.premissas.horarios))
+      JSON.stringify(normalizarHorarios(a.premissas.horariosDaLoja))
   )
     motivos.push('O horário de funcionamento da loja mudou.');
   if (!minimosIguais(a.hoje.minimos, a.premissas.minimos))

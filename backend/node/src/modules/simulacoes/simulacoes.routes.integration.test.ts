@@ -609,6 +609,37 @@ describe('simulações (rotas)', () => {
       expect(c[0].desatualizada).toBe(true);
     });
 
+    it('simulação que amplia horários não fica desatualizada sozinha; mudar o horário da loja depois sim', async () => {
+      await reqGe().patch(`/api/v1/lojas/${lojaId}`).set(admin).send({ horarios: semana('20:00') });
+      const amplia = await gravada('Amplia', { horarios: semana('22:00') });
+      const mantem = await gravada('Mantém');
+      let l = await lista();
+      expect(l.find((x) => x.id === amplia.id)).toMatchObject({ tipo: 'amplia', desatualizada: false });
+      expect(l.find((x) => x.id === mantem.id)!.desatualizada).toBe(false);
+      await reqGe().patch(`/api/v1/lojas/${lojaId}`).set(admin).send({ horarios: semana('21:00') });
+      l = await lista();
+      expect(l.find((x) => x.id === amplia.id)!.desatualizada).toBe(true);
+      expect(l.find((x) => x.id === mantem.id)!.desatualizada).toBe(true);
+    });
+
+    it('a cópia leva o horário simulado junto (clonar e "Clonar" ao criar)', async () => {
+      await reqGe().patch(`/api/v1/lojas/${lojaId}`).set(admin).send({ horarios: semana('20:00') });
+      const amplia = await gravada('Amplia', { horarios: semana('22:00') });
+      const horasOriginal = (await lista()).find((x) => x.id === amplia.id)!.horasAbertas;
+      const copia = await reqGe().post(`/api/v1/simulacoes/${amplia.id}/clonar`).set(admin);
+      expect(copia.status).toBe(201);
+      const nova = await criar({ nome: 'Clonada pela origem', regra: 'r40', origem: amplia.id });
+      expect(nova.status).toBe(201);
+      const l = await lista();
+      for (const id of [copia.body.id, nova.body.id]) {
+        expect(l.find((x) => x.id === id)).toMatchObject({ tipo: 'amplia', horasAbertas: horasOriginal });
+      }
+      // uma cópia de simulação sem horário simulado continua com o da loja
+      const mantem = await gravada('Mantém');
+      const copiaMantem = await reqGe().post(`/api/v1/simulacoes/${mantem.id}/clonar`).set(admin);
+      expect((await lista()).find((x) => x.id === copiaMantem.body.id)).toMatchObject({ tipo: 'mantem' });
+    });
+
     it('compara de 2 a 4 simulações na ordem recebida; 1 ou 5 são recusadas', async () => {
       const ids = [];
       for (const n of ['A', 'B', 'C', 'D', 'E']) ids.push((await gravada(`Plano ${n}`)).id);

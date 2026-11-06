@@ -38,6 +38,9 @@ server {
     try_files $uri =404;
   }
 
+  # /escala (sem barra) -> /escala/ (senao cai no 404 default do nginx).
+  location = /escala { return 301 /escala/; }
+
   # Tela (SPA): qualquer caminho sob /escala volta para o index (rotas do React).
   location /escala/ {
     alias /usr/share/nginx/html/;

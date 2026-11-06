@@ -1,0 +1,90 @@
+name: Build, Deploy to ECR, Change Tag for CD
+
+# CD da calculadora de escala (FAR-896).
+# - push na main  -> builda web+api, publica no ECR de DEV (stg) e dispara o CD do stg.
+# - workflow_dispatch (manual) -> mesma coisa no ECR de PROD e dispara o CD de prod.
+#   (gate humano para producao, ja que o repo so tem a branch main)
+#
+# Pre-requisitos no repo:
+#   - OIDC: roles calculadora-github nas contas de dev (211125687047) e prod (085860729340),
+#     com trust em repo:farmarcas@79937245/calculadora@1434792728:ref:refs/heads/main
+#     (infrastructure-aws-terraform/terraform-roles{,-develop}, FAR-896).
+#   - secret PAT: token com acesso a farmarcas/argocd-gitops (repository_dispatch do CD).
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      REGION: us-east-1
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Ambiente (stg no push, prod no dispatch manual)
+        id: env
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "account=085860729340" >> "$GITHUB_OUTPUT"
+            echo "role=arn:aws:iam::085860729340:role/calculadora-github" >> "$GITHUB_OUTPUT"
+            echo "event_type=calculadora-prd" >> "$GITHUB_OUTPUT"
+          else
+            echo "account=211125687047" >> "$GITHUB_OUTPUT"
+            echo "role=arn:aws:iam::211125687047:role/calculadora-github" >> "$GITHUB_OUTPUT"
+            echo "event_type=calculadora-dev" >> "$GITHUB_OUTPUT"
+          fi
+          echo "tag=main-${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ steps.env.outputs.role }}
+          aws-region: ${{ env.REGION }}
+          role-session-name: GitHub-OIDC
+
+      - name: Login to Amazon ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build & push web
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+          TAG: ${{ steps.env.outputs.tag }}
+        run: |
+          docker build \
+            --build-arg APP_BASE=/escala/ \
+            --build-arg NGINX_RUNTIME=k8s \
+            -t "$REGISTRY/calculadora-web:$TAG" \
+            frontend/react
+          docker push "$REGISTRY/calculadora-web:$TAG"
+
+      - name: Build & push api
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+          TAG: ${{ steps.env.outputs.tag }}
+        run: |
+          docker build -t "$REGISTRY/calculadora-api:$TAG" backend/node
+          docker push "$REGISTRY/calculadora-api:$TAG"
+
+      - name: Dispatch CD (web)
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.PAT }}
+          repository: farmarcas/argocd-gitops
+          event-type: ${{ steps.env.outputs.event_type }}
+          client-payload: '{"registry": "${{ steps.ecr.outputs.registry }}", "image": "calculadora-web", "tag": "${{ steps.env.outputs.tag }}"}'
+
+      - name: Dispatch CD (api)
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.PAT }}
+          repository: farmarcas/argocd-gitops
+          event-type: ${{ steps.env.outputs.event_type }}
+          client-payload: '{"registry": "${{ steps.ecr.outputs.registry }}", "image": "calculadora-api", "tag": "${{ steps.env.outputs.tag }}"}'

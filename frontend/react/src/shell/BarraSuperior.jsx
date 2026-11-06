@@ -24,7 +24,7 @@ export default function BarraSuperior({ menuAberto, onAlternar, idMenu }) {
         onClick={(e) => { if (!confirmarSaida()) e.preventDefault(); }} // alterações não salvas no cadastro pedem confirmação antes de sair
         className="inline-flex items-center rounded-btn focus-visible:outline-2 focus-visible:outline-[var(--border-focus)]"
       >
-        <img src="/radar-logo.png" alt="Radar" width="152" height="28" className="block h-7 w-auto" />
+        <img src={`${import.meta.env.BASE_URL}radar-logo.png`} alt="Radar" width="152" height="28" className="block h-7 w-auto" />
       </a>
       <span className="flex-1" />
     </header>

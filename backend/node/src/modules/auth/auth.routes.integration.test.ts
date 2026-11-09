@@ -46,13 +46,15 @@ const radar: RadarClient = {
 
 const app = createApp({ sso, radar });
 
+const GESTAO_DE_ESCALA = { farmarcasSystem: 'Management', key: 'ManagementWorkSchedule' };
+
 const usuario = (over: Partial<UsuarioDoRadar> = {}): UsuarioDoRadar => ({
   id: '77',
   name: 'Ana',
   email: 'ana@exemplo.com',
-  occupation: 'Proprietário(a)',
   role: { name: 'User' },
   stores: [],
+  permissions: [GESTAO_DE_ESCALA],
   ...over,
 });
 
@@ -215,7 +217,7 @@ describe('login pelo Radar', () => {
 
     it('abre o retorno do Radar sem nada guardado no navegador', async () => {
       const code = randomUUID();
-      codigos.set(code, usuario({ role: { name: 'Admin' } }));
+      codigos.set(code, usuario({ stores: [lojaRadar(250)] }));
 
       const resposta = await request(app).post('/api/v1/auth/sso/exchange').send({ code });
 
@@ -259,7 +261,7 @@ describe('login pelo Radar', () => {
     });
 
     it('recusa código já usado', async () => {
-      const { agente, code } = await entrar(usuario({ role: { name: 'Admin' } }));
+      const { agente, code } = await entrar(usuario({ stores: [lojaRadar(250)] }));
 
       const resposta = await agente.post('/api/v1/auth/sso/exchange').send({ code });
 
@@ -276,54 +278,49 @@ describe('login pelo Radar', () => {
     });
   });
 
-  describe('papéis', () => {
-    it.each(['Admin', 'Angel'])('%s entra como operador e vê todos os grupos', async (name) => {
-      await criarGrupo('900');
-      await criarGrupo('901');
-
-      const { agente, resposta } = await entrar(usuario({ role: { name } }));
-
-      expect(resposta.body.operador).toBe(true);
-      expect(resposta.body.grupos.map((g: { perfil: string }) => g.perfil)).toContain(
-        'PLATFORM_OPERATOR',
-      );
-      const ge = await agente.get('/api/v1/ge');
-      expect(ge.body.data.map((g: { identificacao: string }) => g.identificacao)).toEqual(
-        expect.arrayContaining(['900', '901']),
-      );
-    });
-
-    it('operador não cria grupo nem loja no login', async () => {
-      const antes = await prisma.grupoEconomico.count();
-
-      await entrar(usuario({ role: { name: 'Admin' }, stores: [lojaRadar(250)] }));
-
-      expect(await prisma.grupoEconomico.count()).toBe(antes);
-      expect(await prisma.loja.count()).toBe(0);
-    });
-
-    it('usuário de loja que não é dono só consulta', async () => {
-      const { resposta } = await entrar(
-        usuario({ occupation: 'Farmacêutico(a)', stores: [lojaRadar(250)] }),
-      );
-
-      expect(resposta.body.grupos[0].perfil).toBe('SCHEDULE_VIEWER');
-    });
-
-    it.each(['INDUSTRY', 'DISTRIBUTOR', 'Supplier'])(
-      '%s não entra e nada é gravado',
+  describe('permissão Gestão de Escala', () => {
+    it.each(['Admin', 'Angel', 'User'])(
+      '%s com a permissão entra como dono do grupo das suas lojas',
       async (name) => {
-        const { resposta } = await entrar(usuario({ role: { name }, stores: [lojaRadar(250)] }));
+        const { resposta } = await entrar(
+          usuario({ role: { name }, stores: [lojaRadar(250), lojaRadar(251)] }),
+        );
 
-        expect(resposta.status).toBe(403);
-        expect(resposta.body.error.code).toBe('SEM_ACESSO');
-        expect(await prisma.sessao.count()).toBe(0);
-        expect(await prisma.loja.count()).toBe(0);
+        expect(resposta.status).toBe(200);
+        expect(resposta.body.operador).toBe(false);
+        expect(resposta.body.grupos.map((g: { perfil: string }) => g.perfil)).toEqual([
+          'TENANT_ADMIN',
+          'TENANT_ADMIN',
+        ]);
       },
     );
 
-    it('usuário sem nenhuma loja não entra', async () => {
-      const { resposta } = await entrar(usuario());
+    it('ninguém vira operador: Admin só vê os grupos das suas lojas', async () => {
+      await criarGrupo('900');
+
+      const { agente } = await entrar(
+        usuario({ role: { name: 'Admin' }, stores: [lojaRadar(250)] }),
+      );
+
+      const ge = await agente.get('/api/v1/ge');
+      expect(ge.body.data.map((g: { identificacao: string }) => g.identificacao)).toEqual(['250']);
+      expect((await agente.get('/api/v1/users')).status).toBe(403);
+    });
+
+    it.each([
+      ['sem permissão nenhuma', []],
+      ['só com o card Escala', [{ farmarcasSystem: 'Management', key: 'AccessWorkSchedule' }]],
+    ])('%s não entra e nada é gravado', async (_, permissions) => {
+      const { resposta } = await entrar(usuario({ permissions, stores: [lojaRadar(250)] }));
+
+      expect(resposta.status).toBe(403);
+      expect(resposta.body.error.code).toBe('SEM_ACESSO');
+      expect(await prisma.sessao.count()).toBe(0);
+      expect(await prisma.loja.count()).toBe(0);
+    });
+
+    it('com a permissão mas sem nenhuma loja não entra', async () => {
+      const { resposta } = await entrar(usuario({ role: { name: 'Admin' }, stores: [] }));
 
       expect(resposta.status).toBe(403);
       expect(resposta.body.error.code).toBe('SEM_ACESSO');
@@ -465,29 +462,16 @@ describe('login pelo Radar', () => {
     });
 
     it('ignora X-Perfil', async () => {
-      const { agente, resposta } = await entrar(
-        usuario({ occupation: 'Farmacêutico(a)', stores: [lojaRadar(250)] }),
-      );
+      const { agente, resposta } = await entrar(usuario({ stores: [lojaRadar(250)] }));
       const geId = resposta.body.grupos[0].id;
-      const loja = await prisma.loja.findFirstOrThrow();
 
-      const custos = await agente
-        .get(`/api/v1/lojas/${loja.id}/custos`)
-        .set({ 'X-GE': geId, 'X-Perfil': 'TENANT_ADMIN' });
       const resumo = await agente
         .get('/api/v1/ge/resumo')
         .set({ 'X-GE': geId, 'X-Perfil': 'PLATFORM_OPERATOR' });
+      const usuarios = await agente.get('/api/v1/users').set('X-Perfil', 'PLATFORM_OPERATOR');
 
-      expect(custos.status).toBe(403);
       expect(resumo.status).toBe(403);
-    });
-
-    it('só o operador usa /users', async () => {
-      const dono = await entrar(usuario({ stores: [lojaRadar(250)] }));
-      const operador = await entrar(usuario({ id: '1', role: { name: 'Admin' } }));
-
-      expect((await dono.agente.get('/api/v1/users')).status).toBe(403);
-      expect((await operador.agente.get('/api/v1/users')).status).toBe(200);
+      expect(usuarios.status).toBe(403);
     });
   });
 
@@ -613,7 +597,7 @@ describe('login pelo Radar', () => {
 
   describe('sair e fim da sessão', () => {
     it('"Sair" invalida o cookie na hora', async () => {
-      const { agente, resposta } = await entrar(usuario({ role: { name: 'Admin' } }));
+      const { agente, resposta } = await entrar(usuario({ stores: [lojaRadar(250)] }));
 
       const saida = await agente.post('/api/v1/auth/sair');
       const reaproveitado = await request(app)
@@ -630,7 +614,7 @@ describe('login pelo Radar', () => {
     });
 
     it('sessão vencida é recusada', async () => {
-      const { agente } = await entrar(usuario({ role: { name: 'Admin' } }));
+      const { agente } = await entrar(usuario({ stores: [lojaRadar(250)] }));
       await prisma.sessao.updateMany({ data: { expiraEm: new Date(Date.now() - 1000) } });
 
       expect((await agente.get('/api/v1/ge')).status).toBe(401);
@@ -642,7 +626,7 @@ describe('login pelo Radar', () => {
         data: { radarUsuarioId: '1', nome: 'A', email: 'a@b', grupos: [], expiraEm: antiga },
       });
 
-      await entrar(usuario({ role: { name: 'Admin' } }));
+      await entrar(usuario({ stores: [lojaRadar(250)] }));
 
       expect(await prisma.sessao.count()).toBe(1);
     });

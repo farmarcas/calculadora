@@ -1,18 +1,12 @@
 import type { Perfil } from '../../shared/middlewares/perfil.js';
 import type { UsuarioDoRadar } from './radar.client.js';
 
-export type Papel = { operador: true } | { operador: false; perfil: Perfil };
+const SISTEMA_DA_PERMISSAO = 'Management';
+const PERMISSAO_DE_ESCALA = 'ManagementWorkSchedule';
 
-const PAPEIS_DE_OPERADOR = ['Admin', 'Angel'];
-const OCUPACAO_DE_DONO = 'Proprietário(a)';
+export const PERFIL_DE_QUEM_ENTRA: Perfil = 'TENANT_ADMIN';
 
-const ehDono = (usuario: UsuarioDoRadar) =>
-  usuario.role.name === 'Owner' ||
-  usuario.occupation === OCUPACAO_DE_DONO ||
-  (usuario.stores ?? []).some((loja) => loja.owner?.id === usuario.id);
-
-export const papelDoRadar = (usuario: UsuarioDoRadar): Papel | null => {
-  if (PAPEIS_DE_OPERADOR.includes(usuario.role.name)) return { operador: true };
-  if (usuario.role.name !== 'User' && usuario.role.name !== 'Owner') return null;
-  return { operador: false, perfil: ehDono(usuario) ? 'TENANT_ADMIN' : 'SCHEDULE_VIEWER' };
-};
+export const podeUsarEscala = (usuario: UsuarioDoRadar) =>
+  (usuario.permissions ?? []).some(
+    (p) => p.farmarcasSystem === SISTEMA_DA_PERMISSAO && p.key === PERMISSAO_DE_ESCALA,
+  );

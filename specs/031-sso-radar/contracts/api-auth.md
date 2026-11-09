@@ -25,7 +25,7 @@ Corpo: `{ "code": "…" }`. Com sucesso, grava o cookie de sessão.
 - `200` com o mesmo corpo de `GET /auth/sessao`
 - `400 VALIDATION_ERROR`
 - `401 LOGIN_INVALIDO`: código inválido, vencido ou já usado
-- `403 SEM_ACESSO`: papel sem acesso, ou nenhuma loja
+- `403 SEM_ACESSO`: sem a permissão "Gestão de Escala", ou nenhuma loja
 - `503 RADAR_INDISPONIVEL`
 
 ### `POST /auth/sair`
@@ -49,7 +49,7 @@ Nenhuma alteração de código além do valor `Calculadora` no enum `SsoSlugType
 
 - `GET Sso/Start?slug=Calculadora`: chamado pelo Radar, com a sessão de quem está logado; devolve `{ redirectUrl }`, que aponta para `<CallbackUrl>?code=…`.
 - `POST Sso/Exchange`: Basic, corpo `{ code, slug }`, devolve `{ accessToken, tokenType, expiresIn, payload }`.
-- `GET SessionInfo`: Bearer, devolve `role`, `occupation` e `stores[]`.
+- `GET SessionInfo`: Bearer, devolve `stores[]` e `permissions[]` (`{ farmarcasSystem, key }`).
 
 ### Configuração por ambiente
 
@@ -57,4 +57,4 @@ Nenhuma alteração de código além do valor `Calculadora` no enum `SsoSlugType
 
 ## Radar (`webapp-radar`)
 
-Item "Calculadora" no menu Aplicações. `SsoService.openCalculadora()` chama `Sso/Start` e abre o `redirectUrl` em outra aba, como `openPrisma()`.
+Item "Escala" em Gestão, abaixo de "Gestão de banners", com o ícone do Financeiro e visível só com `ManagementWorkSchedule` em `Management`. `SsoService.openCalculadora()` chama `Sso/Start` e abre o `redirectUrl` em outra aba, como `openPrisma()`.

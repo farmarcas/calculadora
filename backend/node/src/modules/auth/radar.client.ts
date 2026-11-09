@@ -15,16 +15,17 @@ const lojaSchema = z.object({
   cnpj: z.string().nullish(),
   status: z.number(),
   economicGroup: z.object({ id, name: z.string().nullish() }).nullish(),
-  owner: z.object({ id }).nullish(),
 });
+
+const permissaoSchema = z.object({ farmarcasSystem: z.string(), key: z.string() });
 
 const usuarioSchema = z.object({
   id,
   name: z.string(),
   email: z.string(),
-  occupation: z.string().nullish(),
   role: z.object({ name: z.string() }),
   stores: z.array(lojaSchema).nullish(),
+  permissions: z.array(permissaoSchema).nullish(),
 });
 
 export type LojaDoRadar = z.infer<typeof lojaSchema>;

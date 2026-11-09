@@ -10,6 +10,12 @@
 
 ## Clarifications
 
+### Session 2026-11-09
+
+- Q: Onde fica a entrada no Radar? → A: Em Gestão → Escala, logo abaixo de "Gestão de banners", com o ícone do Financeiro, só para quem tem a permissão; o item "Calculadora" do menu Aplicações sai.
+- Q: Quem entra e com qual papel? → A: Só quem tem a permissão "Gestão de Escala" (grupo de permissão "Escala" na edição do usuário do Radar), e sempre como Dono do grupo, nos grupos das suas lojas. Substitui a regra anterior de FR-012.
+- Q: Quais papéis do Radar podem receber a permissão? → A: Admin, Angel e User; ninguém recebe por padrão.
+
 ### Session 2026-11-06
 
 - Q: Como a pessoa entra, já que o `Sso/Start` só atende quem está logado no Radar? → A: Por um link no menu do Radar, igual ao Prisma. A calculadora não redireciona para o login.
@@ -23,15 +29,15 @@
 
 ### User Story 1 - Entrar na calculadora com a conta do Radar (Priority: P1)
 
-Quem está logado no Radar abre a calculadora pelo menu Aplicações e ela abre em outra aba já conectada, sem digitar nada, como o Prisma. Quem abre o endereço da calculadora sem sessão vê uma tela que manda voltar ao Radar, sem nenhum dado. A conexão continua valendo por um dia de trabalho, inclusive ao recarregar a página, e existe "Sair".
+Quem está logado no Radar e tem a permissão "Gestão de Escala" abre a calculadora por Gestão → Escala e ela abre em outra aba já conectada, sem digitar nada, como o Prisma. Quem abre o endereço da calculadora sem sessão vê uma tela que manda voltar ao Radar, sem nenhum dado. A conexão continua valendo por um dia de trabalho, inclusive ao recarregar a página, e existe "Sair".
 
 **Why this priority**: Hoje a calculadora está aberta: quem tiver o endereço vê e altera os dados, inclusive salários. Sem o login nenhuma das outras histórias faz sentido, e os dados reais não podem entrar antes disso.
 
-**Independent Test**: Abrir a calculadora numa janela anônima e ver a tela "Ir para o Radar", sem nenhum dado; entrar pelo menu Aplicações do Radar e chegar à calculadora conectado; recarregar e continuar conectado.
+**Independent Test**: Abrir a calculadora numa janela anônima e ver a tela "Ir para o Radar", sem nenhum dado; entrar por Gestão → Escala no Radar e chegar à calculadora conectado; recarregar e continuar conectado.
 
 **Acceptance Scenarios**:
 
-1. **Given** uma pessoa logada no Radar, **When** escolhe "Calculadora" no menu Aplicações, **Then** a calculadora abre em outra aba já conectada, sem pedir usuário e senha.
+1. **Given** uma pessoa logada no Radar, **When** escolhe Gestão → Escala, **Then** a calculadora abre em outra aba já conectada, sem pedir usuário e senha.
 2. **Given** uma pessoa sem sessão, **When** abre o endereço da calculadora, **Then** vê uma tela dizendo que o acesso é feito pelo Radar, com o botão "Ir para o Radar", e nenhum dado.
 3. **Given** uma pessoa que acabou de entrar pelo Radar, **When** a calculadora abre, **Then** cai na tela inicial, sem o código do retorno no endereço.
 4. **Given** uma pessoa conectada, **When** recarrega a página ou abre a calculadora em outra aba, **Then** continua conectada, sem passar pelo Radar.
@@ -98,7 +104,7 @@ O que a pessoa pode fazer na calculadora passa a vir do cadastro dela no Radar. 
 **Login**
 
 - **FR-001**: Toda tela da calculadora MUST exigir sessão válida; sem sessão, a pessoa MUST ver a tela "Ir para o Radar", sem nenhum dado.
-- **FR-002**: A entrada MUST partir do menu Aplicações do Radar, que chama `Sso/Start` com o slug `Calculadora`, usando a sessão de quem está logado, e abre o `RedirectUrl` devolvido em outra aba, como o Prisma.
+- **FR-002**: A entrada MUST partir do item Gestão → Escala do Radar, que chama `Sso/Start` com o slug `Calculadora`, usando a sessão de quem está logado, e abre o `RedirectUrl` devolvido em outra aba, como o Prisma.
 - **FR-003**: Quem entra pelo menu MUST chegar à calculadora sem digitar credenciais. A calculadora MUST NOT redirecionar sozinha para o login.
 - **FR-004**: O retorno do Radar MUST ser validado pela API da calculadora junto à API de autenticação (`Sso/Exchange`, com o slug da calculadora), antes de qualquer sessão ser criada. Um retorno inválido, vencido ou já usado MUST ser recusado.
 - **FR-005**: Retirado. O link nasce no Radar, então a calculadora não tem um login iniciado para comparar. A proteção é a mesma do Prisma: código de uso único, com validade curta, trocado com as credenciais da calculadora.
@@ -111,20 +117,20 @@ O que a pessoa pode fazer na calculadora passa a vir do cadastro dela no Radar. 
 
 - **FR-010**: No login, a API da calculadora MUST obter do Radar, com o token recebido, os grupos econômicos e as lojas da pessoa, e guardá-los como o acesso daquela sessão.
 - **FR-011**: A ligação com a calculadora MUST usar o número do grupo econômico do Radar (a "identificação" do grupo) e o CNPJ da loja.
-- **FR-012**: O papel na calculadora MUST vir do cadastro da pessoa no Radar: Admin e Angel → Operador da plataforma; dono de loja (usuário de loja com ocupação Dono) → Dono do grupo, nos grupos em que é dono; demais usuários de loja → Somente consulta; Indústria, Distribuidor e Fornecedor → sem acesso.
+- **FR-012**: Só entra quem tem, no Radar, a permissão "Gestão de Escala" (`Management` / `ManagementWorkSchedule`), e sempre como Dono do grupo, nos grupos das suas lojas, qualquer que seja o papel ou a ocupação no Radar. Sem a permissão, não entra. Nenhum outro perfil é atribuído pelo login.
 - **FR-013**: Grupos e lojas do Radar que ainda não existem na calculadora MUST ser criados no login, só com número, nome e CNPJ; a loja criada assim MUST aparecer com os dados pendentes para o dono completar, e o que já existe na calculadora MUST NOT ser sobrescrito.
 - **FR-014**: O filtro de Grupo e o filtro de Loja no topo das telas MUST listar só o acesso da pessoa; ao trocar de grupo, a loja e a tela MUST ser atualizadas.
 - **FR-015**: Em todo pedido, o servidor MUST conferir grupo e loja contra o acesso da sessão, e registro fora dele MUST responder como "não encontrado".
 - **FR-016**: O papel e o grupo informados pelo navegador MUST NOT conceder acesso: o papel vale só o da sessão, e o grupo só se estiver no acesso dela.
-- **FR-017**: Quem entra sem nenhuma loja e sem papel de operador MUST ver a tela de sem acesso, sem dados.
-- **FR-018**: O operador da plataforma MUST continuar vendo todos os grupos, como hoje, e seguir sem ver valores em reais.
+- **FR-017**: Quem entra sem a permissão, ou com ela mas sem nenhuma loja, MUST ver a tela de sem acesso, sem dados.
+- **FR-018**: O login pelo Radar MUST NOT dar o perfil de Operador da plataforma; esse perfil continua só no modo demonstração e no login por token do Radar (`AUTH_MODE=radar`).
 - **FR-019**: O bloco "Demonstração" do menu da conta MUST sumir; o menu MUST mostrar nome, e-mail e papel reais.
 - **FR-020**: As ações auditadas MUST passar a registrar quem fez, além do perfil.
 
 **Radar e autenticação**
 
 - **FR-021**: A API de autenticação MUST ter um slug próprio da calculadora, com endereço de retorno e credenciais por ambiente.
-- **FR-022**: A entrada MUST usar o que já existe: as rotas `Sso/Start`, `Sso/Exchange` e `SessionInfo`. Nenhuma rota nova na API de autenticação. No Radar, só o item "Calculadora" no menu Aplicações.
+- **FR-022**: A entrada MUST usar o que já existe: as rotas `Sso/Start`, `Sso/Exchange` e `SessionInfo`. Nenhuma rota nova na API de autenticação. No Radar, só o item "Escala" em Gestão; no `api-management-dotnet`, só a migration da permissão.
 
 ### Key Entities
 
@@ -151,8 +157,9 @@ O que a pessoa pode fazer na calculadora passa a vir do cadastro dela no Radar. 
 - Decision: em ambiente local o login pode ser desligado por configuração, voltando ao modo de demonstração; em produção ele é sempre obrigatório. Why: permite desenvolver sem depender do Radar, sem abrir brecha em produção.
 - Decision: o filtro de Grupo fica ao lado do filtro de Loja no topo da Escala e aparece sozinho no topo de Cadastros. Why: sem o bloco "Demonstração", Cadastros ficaria sem nenhum lugar para trocar de grupo.
 - Decision: quem tem só parte das lojas de um grupo não usa as importações que valem para o grupo inteiro (cadastro e base de vendas). Why: um arquivo pode trazer lojas fora do acesso da pessoa.
-- Decision: uma loja excluída na calculadora não volta sozinha no login, mesmo que o Radar ainda a traga. Why: a exclusão foi uma decisão do operador. Pelo mesmo motivo, o login só cria grupos e lojas para usuários de loja, não para o operador, que já vê tudo.
-- Um segundo dono de loja cuja ocupação no Radar não é `Proprietário(a)` entra como consulta, porque o Radar só aponta o primeiro dono de cada loja.
+- Decision: uma loja excluída na calculadora não volta sozinha no login, mesmo que o Radar ainda a traga. Why: a exclusão foi uma decisão do operador.
+- Decision: quem tem a permissão entra como Dono do grupo mesmo sendo Admin ou Angel. Why: pedido do negócio; a pessoa interna só vê os grupos das lojas ligadas a ela no Radar.
+- Com o login pelo Radar ligado, ninguém usa as telas do operador (Grupos, carga de lojas, parâmetros legais, encargos, usuários).
 - A carga de lojas por planilha continua existindo para o operador; ela completa os dados que o Radar não traz (horários, faturamento, custos).
 - A ligação entre a loja da calculadora e a do Radar depende do CNPJ; lojas antigas com "CNPJ pendente" só aparecem para quem tem acesso depois de receberem o CNPJ.
 - Fora desta entrega: sair do Radar junto com a calculadora, trocar a senha, papéis por loja e atualizar o acesso durante a sessão.
@@ -160,6 +167,6 @@ O que a pessoa pode fazer na calculadora passa a vir do cadastro dela no Radar. 
 ## Dependencies
 
 - Em `api-authentication-dotnet`, publicado antes de ligar o login: só o slug `Calculadora` e a configuração dele.
-- Em `webapp-radar`, publicado depois da API de autenticação: o item "Calculadora" no menu Aplicações.
-- Quem não tem papel aceito vê o item no menu, como acontece com o Prisma, e a calculadora responde que a conta não tem acesso.
+- Em `api-management-dotnet`, publicado antes do Radar: a migration que cria o grupo de permissão "Escala" → "Gestão de Escala".
+- Em `webapp-radar`, publicado depois da API de autenticação e da migration: o item "Escala" em Gestão, visível só com a permissão.
 - Credenciais e endereço de retorno da calculadora cadastrados por ambiente no cofre da API de autenticação e no Coolify.

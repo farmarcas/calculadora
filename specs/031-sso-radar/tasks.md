@@ -45,6 +45,11 @@ Formato: `- [ ] ID [P] [História] descrição com o arquivo`. Três repositóri
 - [x] T034 [P] `docker-compose.yml`, `docker-compose.prod.yml`, `.env.example`, `.env.production.example`, `backend/node/.env.example`, `README.md`: variáveis novas; retirar o aviso de "sem login". `scripts/sync-templates.sh` fica de fora: `templates/` está desatualizada desde a spec 021, e sincronizar traria 112 arquivos sem relação com o login
 - [x] T035 Rodar tudo (lint, type-check, unidade, integração, tela), subir o ambiente e percorrer o fluxo com um Radar de mentira local
 
+## Fatia 8 — Permissão Gestão de Escala (2026-11-09)
+- [x] T036 [P] `api-management-dotnet`: migration do grupo de permissão "Escala" → "Gestão de Escala" e rollback manual
+- [x] T037 [P] `webapp-radar`: item "Escala" em Gestão, só com a permissão; sai o item "Calculadora" do menu Aplicações
+- [x] T038 `modules/auth/papel.ts` e `auth.service.ts`: entra só com a permissão, sempre como `TENANT_ADMIN`; testes unitários e de integração
+
 ## Dependências e ordem
 - As fatias 1 e 2 não dependem das outras no código; a 2 só funciona publicada depois da 1.
 - 3 → 4 → 5 → 6. T028 depois de T015–T027. T034 pode andar junto.

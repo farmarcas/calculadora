@@ -6,7 +6,7 @@
 
 ## Summary
 
-A calculadora passa a exigir sessão. A entrada é um item no menu Aplicações do Radar, igual ao do Prisma: o Radar chama `Sso/Start` com o slug `Calculadora` e a sessão de quem está logado, e abre o `RedirectUrl` em outra aba. Na volta, a API da calculadora troca o código em `Sso/Exchange`, lê grupos, lojas e papel em `SessionInfo`, cria o que falta, grava a sessão e emite um JWT em cookie httpOnly. Sem sessão, a tela mostra "Ir para o Radar". A partir daí, papel e acesso vêm só da sessão, conferidos por grupo e por loja em toda rota; "Sair" encerra a sessão na hora.
+A calculadora passa a exigir sessão. A entrada é o item Gestão → Escala do Radar, visível só com a permissão "Gestão de Escala", e funciona como o do Prisma: o Radar chama `Sso/Start` com o slug `Calculadora` e a sessão de quem está logado, e abre o `RedirectUrl` em outra aba. Na volta, a API da calculadora troca o código em `Sso/Exchange`, lê grupos, lojas e permissões em `SessionInfo`, cria o que falta, grava a sessão e emite um JWT em cookie httpOnly. Sem sessão, a tela mostra "Ir para o Radar". A partir daí, papel e acesso vêm só da sessão, conferidos por grupo e por loja em toda rota; "Sair" encerra a sessão na hora.
 
 ## For the reader
 

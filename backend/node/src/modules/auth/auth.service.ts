@@ -6,7 +6,7 @@ import { geRepository } from '../ge/ge.repository.js';
 import { separarLojas } from './acesso.js';
 import type { AuthRepository } from './auth.repository.js';
 import { assinarSessao } from './jwt.js';
-import { papelDoRadar } from './papel.js';
+import { PERFIL_DE_QUEM_ENTRA, podeUsarEscala } from './papel.js';
 import type { RadarClient } from './radar.client.js';
 
 const semAcesso = () =>
@@ -32,23 +32,19 @@ export const makeAuthService = (radar: RadarClient, repo: AuthRepository, sso: C
   async entrar(code: string) {
     const accessToken = await radar.trocarCodigo(code);
     const usuario = await radar.lerUsuario(accessToken);
-    const papel = papelDoRadar(usuario);
-    if (!papel) throw semAcesso();
+    if (!podeUsarEscala(usuario)) throw semAcesso();
 
-    let grupos: SessaoAtiva['grupos'] = [];
-    if (!papel.operador) {
-      const { aproveitaveis, ignoradas } = separarLojas(usuario.stores ?? []);
-      if (ignoradas.length)
-        logger.warn({ lojasDoRadar: ignoradas }, 'lojas do Radar sem grupo ou CNPJ válido');
-      grupos = await repo.sincronizarAcesso(aproveitaveis, papel.perfil);
-      if (!grupos.length) throw semAcesso();
-    }
+    const { aproveitaveis, ignoradas } = separarLojas(usuario.stores ?? []);
+    if (ignoradas.length)
+      logger.warn({ lojasDoRadar: ignoradas }, 'lojas do Radar sem grupo ou CNPJ válido');
+    const grupos = await repo.sincronizarAcesso(aproveitaveis, PERFIL_DE_QUEM_ENTRA);
+    if (!grupos.length) throw semAcesso();
 
     const sessao = await repo.abrirSessao({
       radarUsuarioId: usuario.id,
       nome: usuario.name,
       email: usuario.email,
-      operador: papel.operador,
+      operador: false,
       grupos,
       expiraEm: new Date(Date.now() + sso.sessaoHoras * 60 * 60 * 1000),
     });

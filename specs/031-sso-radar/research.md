@@ -2,7 +2,7 @@
 
 ## 1. Como a pessoa chega à calculadora
 
-- **Decision** (de quem pediu): link no menu Aplicações do Radar, igual ao Prisma. O `SsoService` do Radar chama `Sso/Start?slug=Calculadora` com a sessão de quem está logado e abre o `RedirectUrl` (`<CallbackUrl>?code=…`) em outra aba.
+- **Decision** (de quem pediu): link no Radar, igual ao Prisma (desde 2026-11-09, em Gestão → Escala). O `SsoService` do Radar chama `Sso/Start?slug=Calculadora` com a sessão de quem está logado e abre o `RedirectUrl` (`<CallbackUrl>?code=…`) em outra aba.
 - **Rationale**: em produção, `Sso/Start` responde 500 sem usuário logado, inclusive com Basic ou slug inexistente, porque o `SessionUser` é montado antes da ação. O código é gerado para quem está logado, então a chamada precisa partir do Radar.
 - **Alternatives**: rota `Sso/LoginUrl` e página `/sso/entrar` no Radar; URL do login em variável com `req_token`; `Sso/Start` chamado pela API da calculadora antes do login. Todas descartadas.
 
@@ -37,18 +37,18 @@
 
 - **Decision**: `GET SessionInfo` da API de autenticação, com o token do Radar, uma vez no login. O token do Radar é descartado em seguida.
 - **Rationale**: é o que o pedido descreve, e `SessionInfo` já traz `stores[].economicGroup`, `cnpj`, `status`, `name` e `role`. `EconomicGroupController` do `api-management-dotnet` é restrito a Admin e Angel, então não serve ao dono.
-- **Sem mudança no `SessionInfo`**: dono é quem tem a ocupação `Proprietário(a)` (nome de exibição da chave `Owner`) ou quem o Radar aponta em `stores[].owner`. Este traz só o primeiro dono de cada loja, então o nome de exibição cobre as lojas com dois donos.
+- **Sem mudança no `SessionInfo`**: ele já traz `permissions[]` como `{ farmarcasSystem, key }`, com as permissões padrão do papel e as concedidas na edição do usuário.
 
 ## 7. Regra de papel (FR-012)
 
+Revista em 2026-11-09: o papel deixa de vir de `role` e `occupation`.
+
 | Radar | Calculadora |
 | --- | --- |
-| `role.name` Admin ou Angel | `PLATFORM_OPERATOR`, todos os grupos |
-| `role.name` Owner, ou User com `occupation` `Proprietário(a)`, ou apontado em `stores[].owner` | `TENANT_ADMIN` nos grupos das suas lojas |
-| `role.name` User, nos demais casos | `SCHEDULE_VIEWER` nos grupos das suas lojas |
-| Qualquer outro papel | sem acesso |
+| `permissions[]` com `Management` / `ManagementWorkSchedule` | `TENANT_ADMIN` nos grupos das suas lojas |
+| Sem essa permissão | sem acesso |
 
-`SCHEDULE_MANAGER` continua no código, mas o login não o atribui.
+A permissão nasce na migration `20261109120000 - Add Escala permissions.sql` do `api-management-dotnet`: card "Escala" (`AccessWorkSchedule`) com o item "Gestão de Escala" (`ManagementWorkSchedule`), categoria Administrar, no sistema `Management`, liberada para Admin, Angel e User sem ser padrão. Só a chave do item vale; o card sozinho não dá acesso. `PLATFORM_OPERATOR`, `SCHEDULE_MANAGER` e `SCHEDULE_VIEWER` continuam no código, mas o login pelo Radar não os atribui.
 
 ## 8. Ligação e criação de grupos e lojas (FR-011, FR-013)
 

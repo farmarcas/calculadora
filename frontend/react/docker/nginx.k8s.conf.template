@@ -29,6 +29,7 @@ server {
   # API: /escala/api/... -> ${API_UPSTREAM}/api/... (o prefixo /escala é removido pelo proxy_pass).
   location /escala/api/ {
     proxy_pass ${API_UPSTREAM}/api/;
+    proxy_cookie_path /api /escala/api;
     proxy_set_header Host $host;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
@@ -45,6 +46,13 @@ server {
 
   # /escala (sem barra) -> /escala/ (senao cai no 404 default do nginx).
   location = /escala { return 301 /escala/; }
+
+  location = /escala/sso/callback {
+    access_log off;
+    add_header Cache-Control "no-store";
+    add_header Referrer-Policy "no-referrer";
+    try_files /index.html =404;
+  }
 
   # Tela (SPA): qualquer caminho sob /escala volta para o index (rotas do React).
   location /escala/ {

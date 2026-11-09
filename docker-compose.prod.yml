@@ -28,6 +28,11 @@ services:
       NODE_ENV: production
       PORT: 4000
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      SSO_HABILITADO: "true"
+      RADAR_AUTH_URL: ${RADAR_AUTH_URL:?defina RADAR_AUTH_URL nas variáveis}
+      SSO_CLIENT_ID: ${SSO_CLIENT_ID:?defina SSO_CLIENT_ID nas variáveis}
+      SSO_CLIENT_SECRET: ${SSO_CLIENT_SECRET:?defina SSO_CLIENT_SECRET nas variáveis}
+      JWT_SEGREDO: ${JWT_SEGREDO:?defina JWT_SEGREDO nas variáveis}
     depends_on:
       postgres:
         condition: service_healthy
@@ -42,6 +47,8 @@ services:
     build:
       context: ./frontend/react
       target: runtime
+      args:
+        VITE_RADAR_URL: ${RADAR_URL:-https://radar.farmarcas.com.br}
     restart: unless-stopped
     environment:
       API_UPSTREAM: http://api:4000

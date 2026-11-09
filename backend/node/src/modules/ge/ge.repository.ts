@@ -3,10 +3,10 @@ import { prisma } from '../../shared/database/prisma.js';
 const sel = { id: true, nome: true, identificacao: true, responsavel: true, ativo: true } as const;
 
 export const geRepository = {
-  // Lista curta para escolher o GE em tela (provisório até o SSO).
-  listarAtivos: () =>
+  // Lista curta para escolher o GE em tela; com ids, só esses.
+  listarAtivos: (ids?: string[]) =>
     prisma.grupoEconomico.findMany({
-      where: { ativo: true },
+      where: { ativo: true, ...(ids ? { id: { in: ids } } : {}) },
       select: { id: true, nome: true, identificacao: true },
       orderBy: { nome: 'asc' },
     }),

@@ -18,3 +18,9 @@ describe("menu Importar", () => {
     expect(proximoItem(0, 0, "ArrowDown")).toBe(-1);
   });
 });
+
+describe("acesso a parte das lojas do grupo", () => {
+  it("não oferece importação, que vale para o grupo inteiro", () => {
+    expect(itensDoMenuImportar("TENANT_ADMIN", false)).toEqual([]);
+  });
+});

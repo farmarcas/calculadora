@@ -70,7 +70,10 @@ export const cadastrosRouter = (
       throw new AppError('Só o dono informa o faturamento da loja', 403, 'SEM_PERMISSAO');
   };
   r.get('/lojas', validate(S.listarLojasReq), async (_req, res) => {
-    const pag = await s(res).listarLojas(v<typeof S.listarLojasReq>(res).query);
+    const pag = await s(res).listarLojas({
+      ...v<typeof S.listarLojasReq>(res).query,
+      lojaIds: res.locals.lojasPermitidas,
+    });
     res.json({ ...pag, data: pag.data.map((l) => ocultarFaturamento(l, perfilDe(res))) });
   });
   r.post('/lojas', soOperador, validate(S.criarLojaReq), async (_req, res) => {
@@ -98,7 +101,10 @@ export const cadastrosRouter = (
       ? { ...f, cpf: mascararCpf(f.cpf) }
       : f;
   r.get('/funcionarios', validate(S.listarReq), async (_req, res) => {
-    const pag = await s(res).listarFuncionarios(v<typeof S.listarReq>(res).query);
+    const pag = await s(res).listarFuncionarios({
+      ...v<typeof S.listarReq>(res).query,
+      lojaIds: res.locals.lojasPermitidas,
+    });
     res.json({ ...pag, data: pag.data.map((f) => cpfPara(f, perfilDe(res))) });
   });
   r.post('/funcionarios', escrita, validate(S.criarFuncReq), async (_req, res) =>

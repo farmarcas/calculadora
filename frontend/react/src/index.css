@@ -29,14 +29,19 @@ body { margin: 0; background: var(--surface-page); color: var(--ink-900); font-f
 /* Layout por LARGURA DO CONTEÚDO (container queries), não da janela: o menu lateral e as margens tiram espaço, então a janela
    pode ser larga e o conteúdo, estreito. Vale para o card do diagnóstico e para os cartões de cenários. */
 
-/* Cartões de cenários: 1 coluna até 1000 px de conteúdo; depois 3 colunas com as faixas alinhadas por subgrid. */
-.cenarios-conteiner { container-type: inline-size; container-name: cenarios; }
-.cenarios-grade { display: grid; grid-template-columns: minmax(0, 1fr); column-gap: 16px; }
-.cenarios-cartao { display: flex; flex-direction: column; gap: 16px; min-width: 0; margin-bottom: 16px; }
-.cenarios-cartao > * { min-width: 0; }
-@container cenarios (min-width: 1000px) {
-  .cenarios-grade { grid-template-columns: repeat(var(--colunas, 3), minmax(0, 1fr)); }
-  .cenarios-cartao { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: subgrid; grid-row: span var(--faixas, 11); margin-bottom: 0; }
+/* Cenários em linhas (spec 037): a partir de 920 px de conteúdo vira tabela (cenário, contratar, horário, venda, custo de
+   pessoal e botão); abaixo disso cada linha empilha as colunas, com o rótulo de cada uma. */
+.linhas-conteiner { container-type: inline-size; container-name: linhas; }
+.linha-cabecalho { display: none; }
+.linha-cenario { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; padding: 16px 16px 16px 20px; }
+.linha-cenario > * { min-width: 0; }
+.linha-rotulo { display: block; margin-bottom: 4px; font-size: 11px; line-height: 16px; font-weight: 700; color: var(--neutral-mid-300); text-transform: uppercase; }
+@container linhas (min-width: 920px) {
+  .linha-cabecalho, .linha-cenario { grid-template-columns: minmax(170px, 1.2fr) minmax(120px, 0.9fr) minmax(250px, 2.2fr) 80px 88px 108px; column-gap: 12px; align-items: start; }
+  .linha-cabecalho { display: grid; padding: 0 16px 0 20px; }
+  .linha-rotulo { display: none; }
+  .linha-indisponivel { grid-column: 2 / 6; }
+  .linha-faixa { grid-column: 1 / -1; }
 }
 
 /* Card do diagnóstico: o texto e os números ficam lado a lado a partir de 760 px de conteúdo; abaixo de 480 px, os quatro

@@ -247,3 +247,51 @@ export const contratacoesSimuladas = (quadro, turnos, funcao) =>
       texto: `${funcao} · ${p.cargaH}h ${p.cargaH > LIMITE_PARCIAL_H ? "integral" : "parcial"}`,
       turnos: turnos.filter((t) => t.matricula === p.matricula),
     }));
+
+const NOMES_LONGOS = ["segunda", "terça", "quarta", "quinta", "sexta", "sábado", "domingo"];
+
+// "na sexta e no sábado" ou "de segunda a sexta" (3 dias seguidos ou mais viram um intervalo).
+export const diasPorExtenso = (dias) => {
+  const ord = [...dias].sort((a, b) => a - b);
+  const partes = [];
+  for (let i = 0; i < ord.length; ) {
+    let j = i;
+    while (j + 1 < ord.length && ord[j + 1] === ord[j] + 1) j++;
+    if (j - i >= 2) partes.push(`de ${NOMES_LONGOS[ord[i]]} a ${NOMES_LONGOS[ord[j]]}`);
+    else for (let k = i; k <= j; k++) partes.push(COM_ARTIGO[ord[k]]);
+    i = j + 1;
+  }
+  return partes.length <= 1 ? (partes[0] ?? "") : `${partes.slice(0, -1).join(", ")} e ${partes[partes.length - 1]}`;
+};
+
+// As horas sem cobertura (abaixo do mínimo) nos dias escolhidos, de ponta a ponta: "19h às 21h" (ou "às 19h"). `janela`
+// ({ de, ate }, em horas) limita a conta às horas que o turno novo cobre.
+export const faixaDasFaltas = (coberturaPorDia, dias, janela = null) => {
+  const horas = dias
+    .flatMap((d) => (coberturaPorDia[d]?.porHora ?? []).filter((c) => !c.ok).map((c) => c.hora))
+    .filter((h) => !janela || (h >= janela.de && h < janela.ate));
+  if (!horas.length) return null;
+  const de = Math.min(...horas);
+  const ate = Math.max(...horas);
+  return de === ate ? `às ${de}h` : `${de}h às ${ate}h`;
+};
+
+// "Sugestão: 16h–22h na sexta e no sábado cobre as horas sem farmacêutico (19h às 21h)."
+export const textoDaSugestao = ({ sugestao, funcao, coberturaPorDia }) => {
+  if (!sugestao) return "";
+  if (sugestao.semFalta) return "Nenhuma hora está abaixo do mínimo agora. Escolha os dias e o horário da nova pessoa.";
+  const alvo = funcao === "Farmacêutico" ? "sem farmacêutico" : `abaixo do mínimo de ${funcao.toLowerCase()}`;
+  const faixa = faixaDasFaltas(coberturaPorDia, sugestao.dias, { de: sugestao.entra, ate: sugestao.sai });
+  return `Sugestão: ${Math.floor(sugestao.entra)}h–${Math.floor(sugestao.sai)}h ${diasPorExtenso(sugestao.dias)} cobre as horas ${alvo}${faixa ? ` (${faixa})` : ""}.`;
+};
+
+// As opções de hora do formulário (de 15 em 15 minutos): [{ valor: 16, texto: "16:00" }].
+export const opcoesDeHora = (min, max) => {
+  const opcoes = [];
+  for (let h = Math.floor(min); h <= Math.ceil(max) + EPS; h += 0.25) {
+    const horas = Math.floor(h + EPS);
+    const minutos = Math.round((h - horas) * 60);
+    opcoes.push({ valor: h, texto: `${String(horas).padStart(2, "0")}:${String(minutos).padStart(2, "0")}` });
+  }
+  return opcoes;
+};

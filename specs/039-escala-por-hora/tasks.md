@@ -28,15 +28,15 @@ Formato: `- [ ] ID [P] [História] descrição com o arquivo`. Servidor em `back
 - [x] T019 Conferir no navegador (dono, gestor e visualizador; Arariba) e rodar os testes da tela; commitar a fatia
 
 ## Fatia 4 — + Contratar e a contratação simulada (História 3)
-- [ ] T020 [US3] `escala/FormularioContratar.jsx` (novo): card sob a linha da função (um aberto por vez) com título "Contratar <função>", o subtítulo, "Fechar", Tipo, Dias (chips), Entra e Sai, a sugestão preenchida, o efeito na semana (horas cobertas e horário da loja) e, para o dono, o custo em % vindo da prévia e a venda como o sistema calcula; "Cancelar" e "Adicionar à simulação" (desabilitado com o motivo quando inválido)
-- [ ] T021 [US3] Adicionar: envia a vaga com os turnos (`salvar({ vagas })`), fecha o formulário e mostra a linha azul "Contratação simulada" ("Função · 16h parcial", barra tracejada azul, "Remover" em vermelho); a cobertura marca as horas reforçadas e o total da semana sobe
-- [ ] T022 [US3] Remover: envia as vagas sem a contratação e a cobertura volta ao estado anterior; erro do servidor aparece na própria seção
-- [ ] T023 Conferir no navegador (falta no sábado, sugestão, adicionar, remover; gestor e visualizador) e rodar os testes; commitar a fatia
+- [x] T020 [US3] `escala/FormularioContratar.jsx` (novo): card sob a linha da função (um aberto por vez) com título "Contratar <função>", o subtítulo, "Fechar", Tipo, Dias (chips), Entra e Sai, a sugestão preenchida, o efeito na semana (horas cobertas e horário da loja) e, para o dono, o custo em % vindo da prévia e a venda como o sistema calcula; "Cancelar" e "Adicionar à simulação" (desabilitado com o motivo quando inválido)
+- [x] T021 [US3] Adicionar: envia a vaga com os turnos (`salvar({ vagas })`), fecha o formulário e mostra a linha azul "Contratação simulada" ("Função · 16h parcial", barra tracejada azul, "Remover" em vermelho); a cobertura marca as horas reforçadas e o total da semana sobe
+- [x] T022 [US3] Remover: envia as vagas sem a contratação e a cobertura volta ao estado anterior; erro do servidor aparece na própria seção
+- [x] T023 Conferir no navegador (falta no sábado, sugestão, adicionar, remover; gestor e visualizador) e rodar os testes; commitar a fatia
 
 ## Fatia 5 — Arrastar e redimensionar (História 4)
-- [ ] T024 [US4] `LinhaDaPessoa.jsx`: arrastar a barra para mover e as bordas para redimensionar (de 15 em 15 minutos, com ponteiro e com teclado); durante o gesto mostra o turno e recalcula a cobertura e a faixa de aviso na tela; ao soltar grava `turnos` por `salvar`; a contratação simulada se comporta igual; só dono e gestor em rascunho
-- [ ] T025 [US4] Avisos de regra (jornada, intervalo, interjornada) da avaliação aparecem junto da grade e não impedem "Salvar como cenário"
-- [ ] T026 Conferir no navegador e rodar os testes; commitar a fatia
+- [x] T024 [US4] `LinhaDaPessoa.jsx`: arrastar a barra para mover e as bordas para redimensionar (de 15 em 15 minutos, com ponteiro e com teclado); durante o gesto mostra o turno e recalcula a cobertura e a faixa de aviso na tela; ao soltar grava `turnos` por `salvar`; a contratação simulada se comporta igual; só dono e gestor em rascunho
+- [x] T025 [US4] Avisos de regra (jornada, intervalo, interjornada) da avaliação aparecem junto da grade e não impedem "Salvar como cenário"
+- [x] T026 Conferir no navegador e rodar os testes; commitar a fatia
 
 ## Fatia 6 — Celular, estados e fechamento
 - [ ] T027 [US6] `escala/EscalaMobile.jsx` (novo): abaixo de ~700 px, lista por função com o turno de cada pessoa em texto ("07h–15h"), cobertura por hora numa faixa com rolagem horizontal e "+ Contratar" por função; sem rolagem lateral da página

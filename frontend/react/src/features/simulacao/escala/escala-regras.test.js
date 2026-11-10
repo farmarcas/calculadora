@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   cargaDaContratacao, celulasDaFuncao, contratacoesSimuladas, diasDasAbas, efeitoDaContratacao, erroDoFormulario, faixaDeAviso,
   faltasDaFuncao, horasDoDia, horasReforcadas, mediaDoDia, minimoDaFuncao, quartis, recalcularCobertura, sugerirContratacao,
-  textoDoEfeito, textoDoTurno, tomDoQuartil, totalDaSemana, turnosDoFormulario,
+  diasPorExtenso, faixaDasFaltas, opcoesDeHora, textoDaSugestao, textoDoEfeito, textoDoTurno, tomDoQuartil, totalDaSemana, turnosDoFormulario,
 } from "./escala-regras.js";
 
 const REGRA = { teto: 42, dias: 5, maxDia: 8 }; // teto efetivo 40
@@ -175,5 +175,37 @@ describe("efeito e contratações simuladas", () => {
     const lista = contratacoesSimuladas([{ matricula: "VAGA-1", nome: "Vaga 1", funcao: "Farmacêutico", cargaH: 16, vaga: true }, { matricula: "A", nome: "Ana", funcao: "Farmacêutico", cargaH: 44 }], [t], "Farmacêutico");
     expect(lista).toHaveLength(1);
     expect(lista[0]).toMatchObject({ texto: "Farmacêutico · 16h parcial", matricula: "VAGA-1" });
+  });
+});
+
+describe("texto da sugestão e opções de hora", () => {
+  const falta = cob("Farmacêutico", horas(8, 21, (h) => (h >= 19 ? 0 : 1)));
+  const cobPorDia = { 4: falta, 5: falta };
+  it("faixa das faltas e texto da sugestão", () => {
+    expect(faixaDasFaltas(cobPorDia, [4, 5])).toBe("19h às 21h");
+    expect(faixaDasFaltas({ 5: cob("F", [[8, 0], [9, 1]]) }, [5])).toBe("às 8h");
+    expect(faixaDasFaltas({ 5: cob("F", [[8, 1]]) }, [5])).toBeNull();
+    const sugestao = { dias: [4, 5], entra: 16, sai: 22, semFalta: false };
+    expect(textoDaSugestao({ sugestao, funcao: "Farmacêutico", coberturaPorDia: cobPorDia })).toBe("Sugestão: 16h–22h na sexta e no sábado cobre as horas sem farmacêutico (19h às 21h).");
+    expect(textoDaSugestao({ sugestao, funcao: "Caixa", coberturaPorDia: cobPorDia })).toContain("abaixo do mínimo de caixa");
+    expect(textoDaSugestao({ sugestao: { ...sugestao, semFalta: true }, funcao: "Caixa", coberturaPorDia: cobPorDia })).toContain("Nenhuma hora está abaixo do mínimo");
+  });
+  it("a faixa da sugestão conta só as horas que o turno novo cobre", () => {
+    const duas = { 5: cob("Farmacêutico", [[10, 0], [11, 1], [17, 0], [18, 1]]) };
+    expect(faixaDasFaltas(duas, [5])).toBe("10h às 17h");
+    expect(faixaDasFaltas(duas, [5], { de: 16, ate: 22 })).toBe("às 17h");
+    expect(faixaDasFaltas(duas, [5], { de: 12, ate: 16 })).toBeNull();
+  });
+  it("dias por extenso: intervalos de 3 ou mais e listas", () => {
+    expect(diasPorExtenso([0, 1, 2, 3, 4])).toBe("de segunda a sexta");
+    expect(diasPorExtenso([4, 5])).toBe("na sexta e no sábado");
+    expect(diasPorExtenso([0, 1, 2, 5])).toBe("de segunda a quarta e no sábado");
+    expect(diasPorExtenso([1, 3, 5])).toBe("na terça, na quinta e no sábado");
+    expect(diasPorExtenso([6])).toBe("no domingo");
+  });
+  it("opções de hora de 15 em 15 minutos", () => {
+    const o = opcoesDeHora(7, 9);
+    expect(o.map((x) => x.texto)).toEqual(["07:00", "07:15", "07:30", "07:45", "08:00", "08:15", "08:30", "08:45", "09:00"]);
+    expect(o[1].valor).toBe(7.25);
   });
 });

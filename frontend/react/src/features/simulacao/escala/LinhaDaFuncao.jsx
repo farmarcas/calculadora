@@ -22,7 +22,7 @@ export default function LinhaDaFuncao({ funcao, pessoas, cobertura, reforcadas, 
         <div
           key={c.hora}
           role="cell"
-          aria-label={c.ok ? `${c.hora}h: ${c.pessoas} pessoas` : `${c.hora}h: ${c.pessoas} de ${c.exigido} pessoas, abaixo do mínimo`}
+          aria-label={c.ok ? `${c.hora}h: ${c.pessoas} ${c.pessoas === 1 ? "pessoa" : "pessoas"}` : `${c.hora}h: ${c.pessoas} de ${c.exigido} pessoas, abaixo do mínimo`}
           className={`rounded-btn py-1.5 text-center text-xs leading-4 font-bold ${c.reforcada ? "border border-dashed border-[var(--system-500)]" : "border border-transparent"}`}
           style={c.ok ? { background: "var(--func-success-100)", color: "var(--text-success-strong)", ...(c.reforcada ? {} : {}) } : { background: "var(--func-warning-100)", color: "var(--neutral-dark-900)", borderColor: "var(--func-warning-300)", borderStyle: "solid" }}
         >

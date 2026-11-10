@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import FormularioContratar from "./FormularioContratar.jsx";
 import GradeDeHoras from "./GradeDeHoras.jsx";
 import LinhaDaFuncao from "./LinhaDaFuncao.jsx";
 import LinhaDaPessoa from "./LinhaDaPessoa.jsx";
@@ -9,14 +10,19 @@ const NOMES_LONGOS = ["segunda", "terça", "quarta", "quinta", "sexta", "sábado
 
 // "Escala por hora" (spec 039), dentro da Simulação: a grade do dia com venda e clientes por hora, a cobertura por função e
 // os turnos de cada pessoa. A contratação e os turnos valem só para esta simulação; nada vai ao Cadastro.
-export default function EscalaPorHora({ sim, editavel, dono, onSalvar }) {
+export default function EscalaPorHora({ sim, editavel, dono, calculando = false, onSalvar }) {
   const abas = useMemo(() => diasDasAbas(sim.diasAbertos), [sim.diasAbertos]);
   const [dia, setDia] = useState(abas[0]?.dia ?? 0);
   const [selecionado, setSelecionado] = useState(null);
   const [recolhidas, setRecolhidas] = useState(() => new Set());
   // Turnos com o ajuste em andamento (arrastar): a cobertura responde na hora; volta ao do servidor quando a simulação muda.
+  const [contratando, setContratando] = useState(null); // função com o formulário aberto (um por vez)
   const [ajuste, setAjuste] = useState(null);
   useEffect(() => setAjuste(null), [sim]);
+  // Se a gravação terminou (ou falhou), o turno volta a ser o do servidor.
+  useEffect(() => {
+    if (!calculando) setAjuste(null);
+  }, [calculando]);
 
   const aba = abas.find((a) => a.dia === dia) ?? abas[0];
   useEffect(() => {
@@ -47,6 +53,34 @@ export default function EscalaPorHora({ sim, editavel, dono, onSalvar }) {
   const aviso = faixaDeAviso(coberturas.filter(Boolean), dia);
   const turnoSelecionado = turnos.find((t) => t.matricula === selecionado && t.dia === dia);
   const pessoaSelecionada = quadro.find((p) => p.matricula === selecionado);
+
+  // As vagas simuladas de hoje, no formato que o servidor aceita de volta (quem já existe mantém a matrícula).
+  const vagasAtuais = sim.quadro.filter((p) => p.vaga && !p.desligado).map((v) => ({ matricula: v.matricula, funcao: v.funcao, cargaH: v.cargaH }));
+  const adicionar = (f, vaga) => {
+    onSalvar({ vagas: [...vagasAtuais, vaga] });
+    setContratando(null);
+  };
+  const remover = (matricula) => onSalvar({ vagas: vagasAtuais.filter((v) => v.matricula !== matricula) });
+  // A cobertura da função em cada dia aberto (com os turnos de agora): o formulário sugere e mede o efeito com ela.
+  const coberturaPorDia = (f) =>
+    Object.fromEntries(
+      abas.flatMap((a) => {
+        const base = sim.avaliacao?.cobertura?.[a.dia]?.find((c) => c.funcao === f);
+        if (!base) return [];
+        return [[a.dia, recalcularCobertura(base, turnos.filter((t) => t.dia === a.dia && funcaoDe.get(t.matricula) === f))]];
+      }),
+    );
+
+  // Muda o turno de uma pessoa neste dia: durante o gesto só a tela (a cobertura responde na hora); ao soltar, grava.
+  const mudarTurno = (matricula, novo, definitivo) => {
+    const base = ajuste ?? sim.turnos;
+    const novos = base.map((t) => (t.matricula === matricula && t.dia === novo.dia ? { ...t, ...novo } : t));
+    setAjuste(novos);
+    if (definitivo)
+      onSalvar({ turnos: novos.map(({ matricula: m, dia: d, entrada, saida, iniIntervalo, fimIntervalo }) => ({ matricula: m, dia: d, entrada, saida, iniIntervalo: iniIntervalo ?? null, fimIntervalo: fimIntervalo ?? null })) });
+  };
+  // As regras de jornada, intervalo e folga que a avaliação aponta; avisam e não impedem salvar o cenário.
+  const regrasDeTurno = [...(sim.avaliacao?.erros ?? []), ...(sim.avaliacao?.avisos ?? [])].filter((a) => !["cobertura", "farmaceutico"].includes(a.regra));
 
   const alternar = (f) => setRecolhidas((r) => { const n = new Set(r); if (n.has(f)) n.delete(f); else n.add(f); return n; });
 
@@ -87,15 +121,16 @@ export default function EscalaPorHora({ sim, editavel, dono, onSalvar }) {
               const reforcadas = horasReforcadas(turnos.filter((t) => simuladas.some((s) => s.matricula === t.matricula)), dia);
               return (
                 <div key={f}>
-                  <LinhaDaFuncao funcao={f} pessoas={pessoas.length} cobertura={cob} reforcadas={reforcadas} recolhida={recolhidas.has(f)} onAlternar={() => alternar(f)} colunas={colunas} />
+                  <LinhaDaFuncao funcao={f} pessoas={pessoas.length} cobertura={cob} reforcadas={reforcadas} recolhida={recolhidas.has(f)} onAlternar={() => alternar(f)} onContratar={editavel ? () => setContratando(contratando === f ? null : f) : undefined} colunas={colunas} />
+                  {contratando === f && <FormularioContratar simId={sim.id} funcao={f} abas={abas} coberturaPorDia={coberturaPorDia(f)} regra={sim.regraInfo} dono={dono} diaPreferido={dia} onCancelar={() => setContratando(null)} onAdicionar={(vaga) => adicionar(f, vaga)} />}
                   {!recolhidas.has(f) && (
                     <>
                       {pessoas.map((p) => (
-                        <LinhaDaPessoa key={p.matricula} pessoa={p} turno={turnoDoDiaDe(turnos, p.matricula, dia)} turnosDaPessoa={turnos.filter((t) => t.matricula === p.matricula)} ini={ini} fim={fim} colunas={colunas} selecionado={selecionado === p.matricula} onSelecionar={() => setSelecionado(p.matricula)} />
+                        <LinhaDaPessoa key={p.matricula} pessoa={p} turno={turnoDoDiaDe(turnos, p.matricula, dia)} turnosDaPessoa={turnos.filter((t) => t.matricula === p.matricula)} ini={ini} fim={fim} colunas={colunas} selecionado={selecionado === p.matricula} onSelecionar={() => setSelecionado(p.matricula)} editavel={editavel} onMudar={(t, fim2) => mudarTurno(p.matricula, t, fim2)} />
                       ))}
                       {simuladas.map((s) => {
                         const p = quadro.find((x) => x.matricula === s.matricula);
-                        return <LinhaDaPessoa key={s.matricula} pessoa={p} turno={turnoDoDiaDe(turnos, s.matricula, dia)} turnosDaPessoa={s.turnos} ini={ini} fim={fim} colunas={colunas} simulada selecionado={selecionado === s.matricula} onSelecionar={() => setSelecionado(s.matricula)} rotuloSimulada={s.texto} />;
+                        return <LinhaDaPessoa key={s.matricula} pessoa={p} turno={turnoDoDiaDe(turnos, s.matricula, dia)} turnosDaPessoa={s.turnos} ini={ini} fim={fim} colunas={colunas} simulada selecionado={selecionado === s.matricula} onSelecionar={() => setSelecionado(s.matricula)} rotuloSimulada={s.texto} onRemover={editavel ? () => remover(s.matricula) : undefined} editavel={editavel} onMudar={(t, fim2) => mudarTurno(s.matricula, t, fim2)} />;
                       })}
                     </>
                   )}
@@ -105,6 +140,13 @@ export default function EscalaPorHora({ sim, editavel, dono, onSalvar }) {
           </div>
         </div>
       </div>
+      {regrasDeTurno.length > 0 && (
+        <div className="mx-6 mb-6 rounded-btn bg-[var(--surface-subtle)] px-4 py-3 text-xs leading-4 text-[var(--text-secondary)]" data-testid="avisos-de-regra">
+          <strong className="text-[var(--text-strong)]">Avisos de regra.</strong> Eles não impedem salvar o cenário.
+          <ul className="m-0 mt-1 list-disc pl-5">{regrasDeTurno.slice(0, 5).map((a, i) => <li key={i}>{a.texto}</li>)}</ul>
+          {regrasDeTurno.length > 5 && <div className="mt-1">E mais {regrasDeTurno.length - 5}.</div>}
+        </div>
+      )}
     </section>
   );
 }

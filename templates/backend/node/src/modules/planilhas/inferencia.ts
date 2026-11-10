@@ -23,7 +23,8 @@ const pontuar = (cabecalho: string, amostra: string[], campo: CampoDef): number 
   ];
   let porTitulo = 0;
   for (const alvo of alvos) {
-    if (titulo === alvo) porTitulo = 1;
+    // Título igual ao alvo: 1, com um pequeno bônus pelo alvo mais específico ("função de escala" vence "cargo" numa planilha que tem as duas colunas).
+    if (titulo === alvo) porTitulo = Math.max(porTitulo, 1 + alvo.length / 10000);
     else porTitulo = Math.max(porTitulo, similaridade(titulo, alvo) * 0.9);
   }
   if (campo.conteudo) {
@@ -53,7 +54,11 @@ export const mapearColunas = (aba: Aba, campos: CampoDef[]): SugestaoColuna[] =>
   for (const p of pares) {
     if (p.nota < LIMITE_CONFIANCA) break;
     if (feitos.has(p.campo) || usadas.has(p.coluna)) continue;
-    feitos.set(p.campo, { campo: p.campo, coluna: p.coluna, confianca: Number(p.nota.toFixed(2)) });
+    feitos.set(p.campo, {
+      campo: p.campo,
+      coluna: p.coluna,
+      confianca: Number(Math.min(1, p.nota).toFixed(2)),
+    });
     usadas.add(p.coluna);
   }
   return campos.map((c) => feitos.get(c.chave) ?? { campo: c.chave, coluna: null, confianca: 0 });
@@ -85,13 +90,17 @@ export const inferirMapeamento = (abas: Aba[]): Inferencia => {
     };
   });
 
-  const obrigOk = (sug: SugestaoColuna[], campos: CampoDef[]) =>
-    campos
-      .filter((c) => c.obrigatorio)
-      .every((c) => sug.find((s) => s.campo === c.chave)?.coluna != null);
+  // A aba precisa trazer os campos obrigatórios e a identificação da loja: o CNPJ ou, em planilha antiga, o código.
+  const obrigOk = (sug: SugestaoColuna[], campos: CampoDef[]) => {
+    const tem = (chave: string) => sug.find((s) => s.campo === chave)?.coluna != null;
+    const identifica =
+      campos === CAMPOS_LOJA ? tem('cnpj') || tem('codigo') : tem('cnpj_loja') || tem('loja');
+    return identifica && campos.filter((c) => c.obrigatorio).every((c) => tem(c.chave));
+  };
 
   const escolhaLoja = avaliadas
-    .filter((a) => obrigOk(a.l, CAMPOS_LOJA))
+    // Uma aba só é a de lojas se parece mais com lojas do que com funcionários (o nome não é mais obrigatório).
+    .filter((a) => obrigOk(a.l, CAMPOS_LOJA) && a.notaL > a.notaF)
     .sort((a, b) => b.notaL - b.notaF - (a.notaL - a.notaF))[0];
   const escolhaFunc = avaliadas
     .filter((a) => a !== escolhaLoja && obrigOk(a.f, CAMPOS_FUNCIONARIO))
@@ -101,7 +110,10 @@ export const inferirMapeamento = (abas: Aba[]): Inferencia => {
     Object.fromEntries(sug.map((s) => [s.campo, s.coluna])) as Record<string, number | null>;
 
   // Quando nenhuma aba cumpre os obrigatórios, sugere a melhor mesmo assim (a pessoa completa na tela).
-  const melhorLoja = escolhaLoja ?? [...avaliadas].sort((a, b) => b.notaL - a.notaL)[0];
+  // Uma aba que parece mais de funcionários nunca é sugerida como de lojas: importá-la como lojas trocaria dados de loja.
+  const melhorLoja =
+    escolhaLoja ??
+    [...avaliadas].filter((a) => a.notaL > a.notaF).sort((a, b) => b.notaL - a.notaL)[0];
   const melhorFunc =
     escolhaFunc ??
     [...avaliadas].filter((a) => a !== melhorLoja).sort((a, b) => b.notaF - a.notaF)[0];

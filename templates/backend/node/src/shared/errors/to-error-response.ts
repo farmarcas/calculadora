@@ -47,6 +47,24 @@ export const toErrorResponse = (error: unknown): ErrorResponse => {
     };
   }
 
+  // Arquivo acima do limite do envio (Multer): mensagem de como corrigir, em vez de erro interno.
+  if (error instanceof Error && error.name === 'MulterError' && 'code' in error) {
+    const limite = error.code === 'LIMIT_FILE_SIZE';
+    return {
+      statusCode: 400,
+      level: 'warn',
+      body: {
+        error: {
+          code: limite ? 'ARQUIVO_GRANDE' : 'ARQUIVO_INVALIDO',
+          message: limite
+            ? 'O arquivo tem mais de 10 MB. Divida a planilha em arquivos menores.'
+            : 'Envie uma planilha .xlsx ou .csv no campo "arquivo".',
+          details: [],
+        },
+      },
+    };
+  }
+
   if (error instanceof ZodError) {
     return {
       statusCode: 400,

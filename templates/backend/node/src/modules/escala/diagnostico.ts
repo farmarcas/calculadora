@@ -58,16 +58,13 @@ const hh = (h: number) =>
   `${String(Math.floor(h)).padStart(2, '0')}:${String(Math.round((h % 1) * 60)).padStart(2, '0')}`;
 
 // Dias abertos com a faixa de cada um (24 horas = 0 a 24). Aceita o formato novo e o antigo.
-// Valores de venda e margem que, vindos do faturamento do cadastro, só o dono pode ver.
+// Valores de venda que, vindos do faturamento do cadastro, só o dono pode ver.
 const CHAVES_DE_VENDA = new Set([
   'venda',
-  'margem',
   'vendaMes',
-  'margemMes',
   'vendaRefMes',
-  'margemRefMes',
+  'saldoMensal',
   'vendaCortadaMes',
-  'margemCortadaMes',
 ]);
 const semValoresDeVenda = (v: unknown): unknown =>
   Array.isArray(v)
@@ -127,9 +124,8 @@ export const montarDiagnostico = (a: {
   foraDaConta?: { nome: string; motivo: string }[];
   // Parâmetros legais vigentes (jornada, dias, divisor); sem eles valem os de hoje.
   parametros?: TabelaParametros;
-  // Premissas só para simular (recaptura, fator de dia novo, dias protegidos, limite do parcial) e a margem simulada do dono.
+  // Premissas só para simular (recaptura, fator de dia novo, dias protegidos, limite do parcial).
   premissas?: Premissas;
-  margemPctSimulada?: number | null;
 }) => {
   const { loja, escala, turnos, base, vendas } = a;
   const prem = a.premissas ?? PREMISSAS_PADRAO;
@@ -139,12 +135,6 @@ export const montarDiagnostico = (a: {
 
   const fontes = {
     horario: dias.length > 0,
-    escala: escala && {
-      arquivo: escala.arquivo,
-      recebidaEm: escala.recebidaEm,
-      aceitas: escala.linhasAceitas,
-      rejeitadas: escala.linhasRejeitadas,
-    },
     base: base && {
       arquivo: base.arquivo,
       recebidaEm: base.recebidaEm,
@@ -176,7 +166,7 @@ export const montarDiagnostico = (a: {
       status: 'pendente' as const,
       mensagem: !fontes.horario
         ? 'Cadastre o horário de funcionamento da loja para calcular o diagnóstico.'
-        : 'Importe a escala atual para ver o diagnóstico.',
+        : 'Cadastre o horário dos funcionários em Cadastros › Equipe para ver o diagnóstico.',
       fontes,
       config,
     };
@@ -238,11 +228,17 @@ export const montarDiagnostico = (a: {
     const com8h24 =
       id === 'r42' && !loja.convencao8h24
         ? {
-            funcoes: verificarRegra(regraPara('r42', true, a.parametros), dias, exigencias, pessoas, {
-              limiteParcial: prem.limiteParcial,
-              regraAtual: regraPara('atual', loja.convencao8h24, a.parametros),
-              divisor: (a.parametros ?? PARAMETROS_PADRAO)[id].divisor,
-            }).map((f) => ({
+            funcoes: verificarRegra(
+              regraPara('r42', true, a.parametros),
+              dias,
+              exigencias,
+              pessoas,
+              {
+                limiteParcial: prem.limiteParcial,
+                regraAtual: regraPara('atual', loja.convencao8h24, a.parametros),
+                divisor: (a.parametros ?? PARAMETROS_PADRAO)[id].divisor,
+              },
+            ).map((f) => ({
               funcao: f.funcao,
               capacidadeH: f.capacidadeH,
               necessidadeH: f.necessidadeH,
@@ -297,17 +293,7 @@ export const montarDiagnostico = (a: {
   const doCadastro = vendas.length === 0 ? vendasDoCadastro(loja.faturamento, dias) : null;
   const origemVendas =
     vendas.length > 0 ? ('base' as const) : doCadastro ? ('cadastro' as const) : null;
-  // Margem simulada (só o dono): substitui a margem da base ou do cadastro em todas as horas, sem gravar nada.
-  const margemEmUso = a.margemPctSimulada ?? loja.faturamento?.margemPct ?? null;
-  const vendasBrutas = doCadastro?.linhas ?? vendas;
-  // Base comercial sem coluna de margem (tudo zero): vale a margem média cadastrada na loja, como nas vendas do cadastro.
-  const baseSemMargem = vendas.length > 0 && vendas.every((l) => !(l.margem > 0));
-  const margemAplicada =
-    a.margemPctSimulada ?? (baseSemMargem ? (loja.faturamento?.margemPct ?? null) : null);
-  const vendasUsadas =
-    margemAplicada == null
-      ? vendasBrutas
-      : vendasBrutas.map((l) => ({ ...l, margem: (l.venda * margemAplicada) / 100 }));
+  const vendasUsadas = doCadastro?.linhas ?? vendas;
   // Sem curva por hora (origem cadastro) não existe "horário de maior venda".
   const resumoVendas = origemVendas === 'base' ? resumirVendas(vendas) : null;
 
@@ -354,9 +340,8 @@ export const montarDiagnostico = (a: {
   } else if (origemVendas === 'cadastro') {
     atencao.push({
       tom: 'atencao',
-      texto: doCadastro?.comMargem
-        ? 'Venda estimada pelo faturamento do cadastro, dividido igualmente entre as horas abertas. Envie a base comercial para ver as horas de maior venda.'
-        : 'Venda estimada pelo faturamento do cadastro, dividido igualmente entre as horas abertas. Informe a margem bruta média da loja no Cadastro para estimar o ganho dos cenários.',
+      texto:
+        'Venda estimada pelo faturamento do cadastro, dividido igualmente entre as horas abertas. Envie a base comercial para ver as horas de maior venda.',
     });
   } else {
     atencao.push({
@@ -370,11 +355,6 @@ export const montarDiagnostico = (a: {
     atencao.push({
       tom: 'atencao',
       texto: `${fora.length} colaborador(es) sem função de escala, fora do cálculo: ${fora.map((t) => t.nome).join(', ')}.`,
-    });
-  if (escala.linhasRejeitadas)
-    atencao.push({
-      tom: 'atencao',
-      texto: `${escala.linhasRejeitadas} linha(s) da escala foram rejeitadas na importação.`,
     });
 
   const lacunas = cob.funcoes.some((f) => f.porHora.some((c) => c.ok === false));
@@ -409,7 +389,8 @@ export const montarDiagnostico = (a: {
         ).length
       : null,
     foraDoCalculo: turnos.filter((t) => !t.funcao).length,
-    linhasRejeitadas: escala.linhasRejeitadas,
+    // A planilha de escala foi aposentada (spec 026): não há mais linhas rejeitadas; o campo fica por compatibilidade.
+    linhasRejeitadas: 0,
   };
 
   // Origem da venda por dia: base comercial, faturamento do cadastro por dia, ou estimativa (só o mensal informado).
@@ -443,6 +424,7 @@ export const montarDiagnostico = (a: {
         recaptura: prem.recaptura / 100,
         diasProtegidos: prem.diasProtegidos,
         fatorDiaNovo: prem.fatorDiaNovo / 100,
+        fatorHoraNova: prem.fatorHoraNova,
         limiteParcial: prem.limiteParcial,
       };
       const cenarios = montarCenarios(entrada);
@@ -459,7 +441,7 @@ export const montarDiagnostico = (a: {
     'r42' | 'r40',
     ReturnType<typeof montarCenarios> & ExtrasRegra & { comparativo: Comparativo }
   >;
-  // Venda e margem são valores em reais: só o dono vê, venha a venda da base comercial ou do cadastro.
+  // A venda é valor em reais: só o dono vê, venha a venda da base comercial ou do cadastro.
   const cenariosSaida = (
     a.dono ? cenariosPorRegra : semValoresDeVenda(cenariosPorRegra)
   ) as typeof cenariosPorRegra;
@@ -504,13 +486,6 @@ export const montarDiagnostico = (a: {
     etapas,
     premissas: {
       ...prem,
-      // A margem (valor em reais indireto) só o dono vê: a em uso e a do cadastro, para voltar a ela.
-      ...(a.dono
-        ? {
-            margemPct: margemEmUso,
-            margemPctCadastro: loja.faturamento?.margemPct ?? null,
-          }
-        : {}),
     },
     pontosAtencao: atencao,
     colaboradores: turnos.map((t) => ({

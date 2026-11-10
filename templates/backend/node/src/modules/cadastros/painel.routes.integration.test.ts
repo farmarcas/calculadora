@@ -41,19 +41,34 @@ describe('salvar tudo: PUT /lojas/:id/painel (spec 017)', () => {
   });
 
   it('o dono grava dados, funcionamento, faturamento, configuração e custos numa só chamada', async () => {
-    const fat = { dias: [1000, 1000, 1000, 1000, 1000, 1000, null], mensal: null, margemPct: 30 };
+    const fat = { dias: [1000, 1000, 1000, 1000, 1000, 1000, null], mensal: null };
     const r = await salvar({
-      loja: { nome: 'Centro Novo', cidade: 'Sumaré', uf: 'SP', regimeTributario: 'real', horarios: semana(), faturamento: fat },
+      loja: {
+        nome: 'Centro Novo',
+        cidade: 'Sumaré',
+        uf: 'SP',
+        regimeTributario: 'real',
+        horarios: semana(),
+        faturamento: fat,
+      },
       configuracao: {
         convencao8h24: true,
         minimos: { Atendimento: 2 },
-        turnos: [turno('Manhã', '08:00', '14:00'), turno('Tarde', '12:00', '22:00', { Atendimento: 3 })],
+        turnos: [
+          turno('Manhã', '08:00', '14:00'),
+          turno('Tarde', '12:00', '22:00', { Atendimento: 3 }),
+        ],
         modoMinimo: 'turnos',
       },
       custos: { salarioMedio: { Farmacêutico: 5000 }, encargos: { ratPct: 2 } },
     });
     expect(r.status).toBe(200);
-    expect(r.body.loja).toMatchObject({ nome: 'Centro Novo', cidade: 'Sumaré', uf: 'SP', regimeTributario: 'real' });
+    expect(r.body.loja).toMatchObject({
+      nome: 'Centro Novo',
+      cidade: 'Sumaré',
+      uf: 'SP',
+      regimeTributario: 'real',
+    });
     expect(r.body.loja.faturamento).toEqual(fat);
     expect(r.body.situacao.status).toBe('revisar'); // ainda sem farmacêutico na equipe
     const l = await doBanco();
@@ -80,7 +95,7 @@ describe('salvar tudo: PUT /lojas/:id/painel (spec 017)', () => {
 
     const ruim = await salvar({
       loja: { nome: 'Outro nome' },
-      custos: { salarioMedio: { Farmacêutico: 5000 }, encargos: { ratPct: 9 } }, // RAT fora de 1 a 3
+      custos: { salarioMedio: { Farmacêutico: 0 } }, // salário inválido
     });
     expect(ruim.status).toBe(400);
     expect((await doBanco()).nome).toBe(antes.nome);
@@ -93,13 +108,16 @@ describe('salvar tudo: PUT /lojas/:id/painel (spec 017)', () => {
   });
 
   it('permissões: faturamento e custos só do dono; configuração não é do operador; consulta não grava', async () => {
-    const fat = { dias: [1, 1, 1, 1, 1, 1, null], mensal: null, margemPct: null };
+    const fat = { dias: [1, 1, 1, 1, 1, 1, null], mensal: null };
     const g = await salvar({ loja: { faturamento: fat } }, gestor);
     expect(g.status).toBe(403);
     expect((await salvar({ custos: { salarioMedio: { Caixa: 2000 } } }, gestor)).status).toBe(403);
     expect((await salvar({ configuracao: { convencao8h24: true } }, operador)).status).toBe(403);
     expect((await salvar({ loja: { cidade: 'X' } }, consulta)).status).toBe(403);
-    const ok = await salvar({ loja: { cidade: 'Campinas' }, configuracao: { convencao8h24: true } }, gestor);
+    const ok = await salvar(
+      { loja: { cidade: 'Campinas' }, configuracao: { convencao8h24: true } },
+      gestor,
+    );
     expect(ok.status).toBe(200);
     // O gestor recebe a loja sem o faturamento.
     expect(ok.body.loja).not.toHaveProperty('faturamento');
@@ -120,14 +138,16 @@ describe('salvar tudo: PUT /lojas/:id/painel (spec 017)', () => {
     await salvar({ configuracao: { turnos: [turno('Dia', '08:00', '20:00')] } });
     await salvar({ configuracao: { modoMinimo: 'unico' } });
     expect(await doBanco()).toMatchObject({ turnos: { modo: 'unico', turnos: [{ nome: 'Dia' }] } });
-    await salvar({ loja: { faturamento: { dias: [1, 1, 1, 1, 1, 1, null], mensal: null, margemPct: null } } });
+    await salvar({ loja: { faturamento: { dias: [1, 1, 1, 1, 1, 1, null], mensal: null } } });
     const r = await salvar({ loja: { faturamento: null } });
     expect(r.status).toBe(200);
     expect(r.body.loja.faturamento ?? null).toBeNull();
   });
 
   it('turnos com buraco gravam e devolvem o aviso "Sem turno entre …"', async () => {
-    const r = await salvar({ configuracao: { turnos: [turno('A', '08:00', '12:00'), turno('B', '14:00', '21:00')] } });
+    const r = await salvar({
+      configuracao: { turnos: [turno('A', '08:00', '12:00'), turno('B', '14:00', '21:00')] },
+    });
     expect(r.status).toBe(200);
     expect(r.body.avisosDeTurnos.join(' ')).toContain('Sem turno entre 12:00 e 14:00');
   });
@@ -135,7 +155,10 @@ describe('salvar tudo: PUT /lojas/:id/painel (spec 017)', () => {
   it('loja de outro grupo não existe para quem chama; GET devolve o estado atual', async () => {
     const outro = await criarGe('G-PAINEL', 'Outro grupo');
     const l2 = await postLoja({ codigo: '009', nome: 'Do outro' }, outro.id);
-    const r = await reqGe().put(`/api/v1/lojas/${l2.body.id}/painel`).set(admin).send({ loja: { cidade: 'X' } });
+    const r = await reqGe()
+      .put(`/api/v1/lojas/${l2.body.id}/painel`)
+      .set(admin)
+      .send({ loja: { cidade: 'X' } });
     expect(r.status).toBe(404);
     const g = await reqGe().get(`/api/v1/lojas/${lojaId}/painel`).set(admin);
     expect(g.status).toBe(200);

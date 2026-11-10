@@ -5,16 +5,20 @@ import { ConflictError } from '../../shared/errors/conflict-error.js';
 import { NotFoundError } from '../../shared/errors/not-found-error.js';
 import { ValidationError } from '../../shared/errors/validation-error.js';
 import { prisma } from '../../shared/database/prisma.js';
-import { regimeValido, validarAjustes } from '../regras/encargos.js';
-import { avisosDeTurnos, normalizarTurnos, validarTurnos, type TurnosLoja } from '../regras/turnos.js';
-import type { CustosGravados } from '../custos/custos.schemas.js';
+import {
+  avisosDeTurnos,
+  normalizarTurnos,
+  validarTurnos,
+  type TurnosLoja,
+} from '../regras/turnos.js';
+import { manterAjustesAntigos, type CustosGravados } from '../custos/custos.schemas.js';
 import type { configuracaoBody } from '../escala/escala.schemas.js';
 import type { z } from 'zod';
 import type { CadastrosRepository, LojaRegistro } from './cadastros.service.js';
-import { ocultarFaturamento } from './faturamento.js';
+import { manterMargem, ocultarFaturamento, type Faturamento } from './faturamento.js';
 import { faixasDaSemana, normalizarHorarios } from './horarios.js';
 import type { LojaBody } from './cadastros.schemas.js';
-import { situacaoDoCadastro } from './situacao.js';
+import { pendenciasDoCadastro, situacaoDoCadastro } from './situacao.js';
 
 export type PainelBody = {
   loja?: Partial<LojaBody>;
@@ -30,11 +34,16 @@ const semPermissao = (m: string) => new AppError(m, 403, 'SEM_PERMISSAO');
 
 // "Salvar alterações" da tela de Cadastro de loja: dados, funcionamento, faturamento, configuração e custos de uma vez.
 // Tudo é validado ANTES de gravar e vai numa única atualização da loja (mesma linha do banco): ou grava tudo, ou nada.
-export const makePainelService = (geId: string, cadastros: CadastrosRepository, auditar: Auditor) => ({
+export const makePainelService = (
+  geId: string,
+  cadastros: CadastrosRepository,
+  auditar: Auditor,
+) => ({
   async salvar(lojaId: string, body: PainelBody, perfil: string) {
     // 1 · Quem pode mexer em quê (o mesmo que as rotas separadas já exigiam).
     if (body.loja) {
-      if (![OPERADOR, DONO, GESTOR].includes(perfil)) throw semPermissao('Seu perfil não pode editar a loja');
+      if (![OPERADOR, DONO, GESTOR].includes(perfil))
+        throw semPermissao('Seu perfil não pode editar a loja');
       if (body.loja.faturamento !== undefined && perfil !== DONO)
         throw semPermissao('Só o dono informa o faturamento da loja');
     }
@@ -46,7 +55,14 @@ export const makePainelService = (geId: string, cadastros: CadastrosRepository, 
     if (!atual) throw new NotFoundError('Loja não encontrada', 'LOJA_NAO_ENCONTRADA');
     const bruto = await prisma.loja.findFirstOrThrow({
       where: { id: lojaId, geId, ...ativo },
-      select: { turnos: true, minimos: true, custos: true, horarios: true, regimeTributario: true },
+      select: {
+        turnos: true,
+        minimos: true,
+        custos: true,
+        horarios: true,
+        regimeTributario: true,
+        faturamento: true,
+      },
     });
 
     const dados: Prisma.LojaUpdateInput = {};
@@ -76,22 +92,32 @@ export const makePainelService = (geId: string, cadastros: CadastrosRepository, 
         if (outra && outra.id !== lojaId)
           throw new ConflictError('Já existe loja com esse código', 'LOJA_DUPLICADA');
       }
-      for (const k of ['codigo', 'nome', 'cnpj', 'cidade', 'uf', 'marca', 'regimeTributario'] as const)
+      for (const k of [
+        'codigo',
+        'nome',
+        'cnpj',
+        'cidade',
+        'uf',
+        'marca',
+        'regimeTributario',
+      ] as const)
         if (l[k] !== undefined) (dados as Record<string, unknown>)[k] = l[k];
       if (l.horarios !== undefined) dados.horarios = l.horarios as unknown as Prisma.InputJsonValue;
-      if (l.faturamento !== undefined)
-        dados.faturamento = l.faturamento === null ? Prisma.JsonNull : (l.faturamento as never);
+      if (l.faturamento !== undefined) {
+        const fat = manterMargem(l.faturamento as Faturamento | null, bruto.faturamento);
+        dados.faturamento = fat === null ? Prisma.JsonNull : (fat as never);
+      }
     }
-    const horariosFinais = normalizarHorarios(l?.horarios !== undefined ? l.horarios : bruto.horarios);
-    const regimeFinal = l?.regimeTributario !== undefined ? l.regimeTributario : bruto.regimeTributario;
+    const horariosFinais = normalizarHorarios(
+      l?.horarios !== undefined ? l.horarios : bruto.horarios,
+    );
 
     // 3 · Configuração: convenção, mínimo único, turnos e modo do mínimo.
     const c = body.configuracao;
     let turnosFinais: TurnosLoja | null | undefined;
     if (c) {
       if (c.convencao8h24 !== undefined) dados.convencao8h24 = c.convencao8h24;
-      if (c.minimos)
-        dados.minimos = { ...((bruto.minimos as object | null) ?? {}), ...c.minimos };
+      if (c.minimos) dados.minimos = { ...((bruto.minimos as object | null) ?? {}), ...c.minimos };
       const guardados = bruto.turnos as unknown as TurnosLoja | null;
       if (c.turnos === null) turnosFinais = null;
       else if (c.turnos) {
@@ -105,16 +131,11 @@ export const makePainelService = (geId: string, cadastros: CadastrosRepository, 
         dados.turnos = turnosFinais === null ? Prisma.JsonNull : (turnosFinais as never);
     }
 
-    // 4 · Custos: RAT e FAP na faixa (no Simples o RAT padrão é zero, então 0 vale lá).
+    // 4 · Custos: os ajustes antigos de RAT/FAP/rescisão já guardados continuam como estão (não valem mais).
     if (body.custos) {
-      const erros = validarAjustes(
-        body.custos.encargos ?? {},
-        regimeValido(regimeFinal) && regimeFinal === 'simples',
-      );
-      if (erros.length) throw new ValidationError(erros.join(' '));
-      const { encargosPct: _antigo, ...guardar } = body.custos;
+      const { encargosPct: _antigo, ...novo } = body.custos;
       void _antigo;
-      dados.custos = guardar as unknown as Prisma.InputJsonValue;
+      dados.custos = manterAjustesAntigos(novo, bruto.custos) as unknown as Prisma.InputJsonValue;
     }
 
     // 5 · Uma única gravação.
@@ -124,7 +145,9 @@ export const makePainelService = (geId: string, cadastros: CadastrosRepository, 
       perfil,
       alvoTipo: 'loja',
       alvoId: lojaId,
-      detalhe: { blocos: [l && 'loja', c && 'configuracao', body.custos && 'custos'].filter(Boolean) },
+      detalhe: {
+        blocos: [l && 'loja', c && 'configuracao', body.custos && 'custos'].filter(Boolean),
+      },
     });
 
     // 6 · Devolve o que a tela precisa para se atualizar.
@@ -142,11 +165,24 @@ export const makePainelService = (geId: string, cadastros: CadastrosRepository, 
     const horarios = normalizarHorarios((loja as unknown as { horarios: unknown }).horarios);
     return {
       loja: ocultarFaturamento(loja as LojaRegistro & { faturamento?: unknown }, perfil),
-      situacao: situacaoDoCadastro(
-        loja as unknown as Parameters<typeof situacaoDoCadastro>[0],
-        achada.farmaceuticos,
-        achada.cadastro,
-      ),
+      situacao: {
+        ...situacaoDoCadastro(
+          loja as unknown as Parameters<typeof situacaoDoCadastro>[0],
+          achada.farmaceuticos,
+          achada.cadastro,
+        ),
+        // Tudo o que falta, para o painel "O que falta preencher" (nunca traz valores em reais).
+        pendencias: pendenciasDoCadastro(
+          loja as unknown as Parameters<typeof pendenciasDoCadastro>[0],
+          achada.farmaceuticos,
+          achada.cadastro,
+        ),
+      },
+      // O que a tela precisa da equipe para refazer a conta sobre o que a pessoa digita (sem salários).
+      equipe: {
+        farmaceuticos: achada.farmaceuticos,
+        funcoesNaEquipe: achada.cadastro.funcoesNaEquipe,
+      },
       avisosDeTurnos: avisosDeTurnos(turnos, faixasDaSemana(horarios)),
     };
   },

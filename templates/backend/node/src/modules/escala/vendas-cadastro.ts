@@ -17,7 +17,6 @@ export type VendasDoCadastro = {
   linhas: VendaLinha[];
   // Dias abertos que ficaram sem valor próprio e usaram a média dos informados.
   diasPelaMedia: number[];
-  comMargem: boolean;
   // Só o faturamento mensal foi informado: o valor de cada dia é a divisão igual entre os dias abertos (estimativa).
   soMensal: boolean;
 };
@@ -49,7 +48,6 @@ export const vendasDoCadastro = (
     valorDoDia = () => porDia;
   } else return null;
 
-  const pct = (fat.margemPct ?? 0) / 100;
   const linhas: VendaLinha[] = [];
   for (const d of dias) {
     const total = valorDoDia(d.dia);
@@ -63,12 +61,12 @@ export const vendasDoCadastro = (
         data: DATAS_REF[d.dia]!,
         hora: h,
         venda,
-        margem: venda * pct,
+        margem: 0,
         clientes: 0,
         unidades: 0,
       });
     }
   }
   if (linhas.length === 0) return null;
-  return { linhas, diasPelaMedia, comMargem: pct > 0, soMensal };
+  return { linhas, diasPelaMedia, soMensal };
 };

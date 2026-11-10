@@ -1,13 +1,12 @@
 import { Router, type Request, type Response } from 'express';
 import type { z } from 'zod';
 import { auditorDoGe } from '../../shared/auditoria/auditoria.js';
-import { AppError } from '../../shared/errors/app-error.js';
 import { ValidationError } from '../../shared/errors/validation-error.js';
 import { geDe } from '../../shared/middlewares/ge.js';
 import { exigirPerfil, type Perfil } from '../../shared/middlewares/perfil.js';
 import { uploadPlanilha } from '../../shared/middlewares/upload.js';
 import { readValidated, validate } from '../../shared/middlewares/validate.js';
-import { gerarModeloBase, gerarModeloEscala } from '../planilhas/modelo.js';
+import { gerarModeloBase } from '../planilhas/modelo.js';
 import { escalaRepository, type EscalaRepository } from './escala.repository.js';
 import * as S from './escala.schemas.js';
 import { makeEscalaService } from './escala.service.js';
@@ -28,15 +27,14 @@ export const escalaRouter = (repoDoGe: (geId: string) => EscalaRepository = esca
       res.setHeader('Content-Disposition', `attachment; filename="modelo-${nome}.xlsx"`);
       res.send(await gerar());
     });
-  modelo('escala', gerarModeloEscala);
   modelo('base', gerarModeloBase);
 
-  r.post('/cargas/escala', escrita, uploadPlanilha, async (req: Request, res: Response) => {
+  // Revisão antes de enviar: lê o arquivo e devolve o resumo, sem gravar nada.
+  r.post('/cargas/base/revisar', escrita, uploadPlanilha, async (req: Request, res: Response) => {
     if (!req.file) throw new ValidationError('Envie o arquivo no campo "arquivo".');
-    res
-      .status(201)
-      .json(await s(res).importarEscala(req.file.originalname, req.file.buffer, perfilDe(res)));
+    res.json(await s(res).revisarBase(req.file.originalname, req.file.buffer));
   });
+
   r.post('/cargas/base', escrita, uploadPlanilha, async (req: Request, res: Response) => {
     if (!req.file) throw new ValidationError('Envie o arquivo no campo "arquivo".');
     res
@@ -46,9 +44,6 @@ export const escalaRouter = (repoDoGe: (geId: string) => EscalaRepository = esca
 
   r.get('/lojas/:id/diagnostico', validate(S.diagnosticoReq), async (_req, res) => {
     const { params, query } = v<typeof S.diagnosticoReq>(res);
-    // A margem simulada mexe nos valores em reais: só o dono.
-    if (query.margemPct !== undefined && perfilDe(res) !== 'TENANT_ADMIN')
-      throw new AppError('Só o dono simula a margem bruta', 403, 'SEM_PERMISSAO');
     res.json(await s(res).diagnostico(params.id, perfilDe(res), query));
   });
   r.get('/lojas/:id/cargas', validate(S.porLojaReq), async (_req, res) =>

@@ -5,19 +5,18 @@ import type { Custos } from '../custos/custos.schemas.js';
 import type { Minimos } from '../regras/requisitos.js';
 import type { PessoaSim, TurnoSim } from './avaliar.js';
 
-export type SimulacaoStatus = 'rascunho' | 'gravada' | 'em_uso' | 'substituida' | 'descartada';
+export type SimulacaoStatus = 'rascunho' | 'gravada' | 'descartada';
 const paraBanco = {
   rascunho: 'RASCUNHO',
   gravada: 'GRAVADA',
-  em_uso: 'EM_USO',
-  substituida: 'SUBSTITUIDA',
   descartada: 'DESCARTADA',
 } as const;
 const doBanco = {
   RASCUNHO: 'rascunho',
   GRAVADA: 'gravada',
-  EM_USO: 'em_uso',
-  SUBSTITUIDA: 'substituida',
+  // Estados antigos (aprovar/em uso): a migration os converteu em gravada; se algum aparecer, vale como gravada.
+  EM_USO: 'gravada',
+  SUBSTITUIDA: 'gravada',
   DESCARTADA: 'descartada',
 } as const;
 
@@ -28,6 +27,9 @@ export type Premissas = {
   // Custos da loja no momento de gravar: a simulação gravada sempre usa este retrato.
   custos?: Custos | null;
   regra: string;
+  // O horário de funcionamento que a LOJA tinha ao gravar (`horarios` acima é o da simulação, que pode ser outro).
+  // É com ele que se vê se a loja mudou depois. Ausente nas simulações gravadas antes desta regra.
+  horariosDaLoja?: unknown;
 };
 
 export type SimulacaoRegistro = {
@@ -46,9 +48,6 @@ export type SimulacaoRegistro = {
   numeroCenario: number | null;
   criadaEm: Date;
   gravadaEm: Date | null;
-  aprovadaPor: string | null;
-  aprovadaEm: Date | null;
-  vigenciaInicio: Date | null;
   turnos: TurnoSim[];
 };
 
@@ -69,9 +68,6 @@ const mapear = (s: Linha): SimulacaoRegistro => ({
   numeroCenario: s.numeroCenario,
   criadaEm: s.criadaEm,
   gravadaEm: s.gravadaEm,
-  aprovadaPor: s.aprovadaPor,
-  aprovadaEm: s.aprovadaEm,
-  vigenciaInicio: s.vigenciaInicio,
   turnos: s.turnos.map((t) => ({
     matricula: t.matricula,
     dia: t.dia,
@@ -104,6 +100,8 @@ export const simulacoesRepository = (geId: string) => ({
     autor: string;
     quadro: PessoaSim[];
     turnos: TurnoSim[];
+    // Horário simulado que a cópia leva junto; nulo ou ausente = o da loja.
+    horarios?: unknown;
   }) {
     if (!(await prisma.loja.count({ where: { id: d.lojaId, geId, deletedAt: null } })))
       throw new NotFoundError('Loja não encontrada', 'LOJA_NAO_ENCONTRADA');
@@ -115,6 +113,7 @@ export const simulacoesRepository = (geId: string) => ({
         origemId: d.origemId,
         autor: d.autor,
         quadro: d.quadro as unknown as Prisma.InputJsonValue,
+        ...(d.horarios != null ? { horarios: d.horarios as Prisma.InputJsonValue } : {}),
         turnos: { create: turnosCreate(d.turnos) },
       },
       include: { turnos: true },
@@ -130,7 +129,8 @@ export const simulacoesRepository = (geId: string) => ({
     return s ? mapear(s) : null;
   },
 
-  async listar(lojaId: string, incluirDescartadas: boolean) {
+  // Registros completos (quadro, turnos, premissas e horários): a lista calcula o resumo de cada simulação.
+  async listar(lojaId: string, incluirDescartadas: boolean): Promise<SimulacaoRegistro[]> {
     const rows = await prisma.simulacao.findMany({
       where: {
         lojaId,
@@ -138,23 +138,9 @@ export const simulacoesRepository = (geId: string) => ({
         ...(incluirDescartadas ? {} : { status: { not: 'DESCARTADA' } }),
       },
       orderBy: { criadaEm: 'desc' },
-      select: {
-        id: true,
-        nome: true,
-        status: true,
-        regra: true,
-        origemId: true,
-        autor: true,
-        criadaEm: true,
-        gravadaEm: true,
-        aprovadaPor: true,
-        aprovadaEm: true,
-        vigenciaInicio: true,
-        resultado: true,
-        numeroCenario: true,
-      },
+      include: { turnos: true },
     });
-    return rows.map((r) => ({ ...r, status: doBanco[r.status] }));
+    return rows.map(mapear);
   },
 
   async atualizarRascunho(
@@ -176,7 +162,10 @@ export const simulacoesRepository = (geId: string) => ({
           ...(d.regra ? { regra: d.regra } : {}),
           ...(d.quadro ? { quadro: d.quadro as unknown as Prisma.InputJsonValue } : {}),
           ...(d.horarios !== undefined
-            ? { horarios: d.horarios === null ? Prisma.JsonNull : (d.horarios as Prisma.InputJsonValue) }
+            ? {
+                horarios:
+                  d.horarios === null ? Prisma.JsonNull : (d.horarios as Prisma.InputJsonValue),
+              }
             : {}),
         },
       });
@@ -218,27 +207,5 @@ export const simulacoesRepository = (geId: string) => ({
 
   async mudarStatus(id: string, status: SimulacaoStatus) {
     await prisma.simulacao.update({ where: { id }, data: { status: paraBanco[status] } });
-  },
-
-  // Aprovar: a anterior em uso vira substituída e esta passa a valer (uma em uso por loja).
-  async aprovar(id: string, lojaId: string, perfil: string, vigenciaInicio: Date) {
-    await prisma.$transaction(async (tx) => {
-      await tx.simulacao.updateMany({
-        where: { lojaId, loja: { geId }, status: 'EM_USO' },
-        data: { status: 'SUBSTITUIDA', substituidaEm: new Date() },
-      });
-      await tx.simulacao.update({
-        where: { id },
-        data: { status: 'EM_USO', aprovadaPor: perfil, aprovadaEm: new Date(), vigenciaInicio },
-      });
-    });
-  },
-
-  async emUso(lojaId: string) {
-    const s = await prisma.simulacao.findFirst({
-      where: { lojaId, loja: { geId }, status: 'EM_USO' },
-      include: { turnos: true },
-    });
-    return s ? mapear(s) : null;
   },
 });

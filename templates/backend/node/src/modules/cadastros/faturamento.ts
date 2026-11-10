@@ -2,13 +2,15 @@ import { z } from 'zod';
 
 const valor = z.number().min(0).max(1_000_000_000);
 
-// Faturamento médio da loja: um valor por dia da semana (segunda … domingo), o mensal e a margem bruta média.
+// Faturamento médio da loja: um valor por dia da semana (segunda … domingo) e o mensal.
 // Tudo opcional: dia fechado ou sem informação fica nulo.
+// `margemPct` é um valor antigo: continua guardado, mas não tem tela, não vem de planilha, não entra em conta nenhuma
+// e nenhuma gravação o altera (ver `manterMargem`).
 export const faturamentoSchema = z
   .object({
     dias: z.array(valor.nullable()).length(7),
     mensal: valor.nullable(),
-    margemPct: z.number().min(0).max(100).nullable(),
+    margemPct: z.number().min(0).max(100).nullable().optional(),
   })
   .strict();
 export type Faturamento = z.infer<typeof faturamentoSchema>;
@@ -26,25 +28,34 @@ const numero = (texto: string) => {
   return Number.isFinite(n) && n >= 0 ? n : Number.NaN;
 };
 
-// Lê as colunas Fat_Seg…Fat_Dom, Fat_Mensal e Margem_Pct de uma linha. Nulo quando a linha não traz nada.
+// Grava o faturamento novo mantendo a margem que já estava guardada: o que vier de margem no pedido é ignorado.
+// Faturamento limpo (null) com margem guardada vira "sem valores" com a margem preservada, para não perdê-la.
+export const manterMargem = (novo: Faturamento | null, atual: unknown): Faturamento | null => {
+  const guardada = (atual as { margemPct?: unknown } | null | undefined)?.margemPct;
+  const margem = typeof guardada === 'number' ? { margemPct: guardada } : {};
+  if (novo === null)
+    return 'margemPct' in margem
+      ? { dias: [null, null, null, null, null, null, null], mensal: null, ...margem }
+      : null;
+  const { margemPct: _ignorada, ...resto } = novo;
+  return { ...resto, ...margem };
+};
+
+// Lê as colunas Fat_Seg…Fat_Dom e Fat_Mensal de uma linha (a coluna de margem das planilhas antigas é ignorada).
+// Nulo quando a linha não traz nada.
 export const faturamentoDaLinha = (
   celula: (chave: string) => string,
 ): { faturamento?: Faturamento; erro?: string } => {
   const lidos = [
     ...DIAS_SIGLA.map((d) => numero(celula(`fat_${d}`))),
     numero(celula('fat_mensal')),
-    numero(celula('margem_pct')),
   ];
   if (lidos.every((n) => n === null)) return {};
-  if (lidos.some((n) => Number.isNaN(n)))
-    return { erro: 'faturamento ou margem com valor inválido' };
-  const margem = lidos[8]!;
-  if (margem !== null && margem > 100) return { erro: 'margem acima de 100%' };
+  if (lidos.some((n) => Number.isNaN(n))) return { erro: 'faturamento com valor inválido' };
   return {
     faturamento: {
       dias: lidos.slice(0, 7) as (number | null)[],
       mensal: lidos[7]!,
-      margemPct: margem,
     },
   };
 };

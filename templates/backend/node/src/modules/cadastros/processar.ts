@@ -15,6 +15,9 @@ import type { Mapeamento, MapeamentoAba } from '../planilhas/inferencia.js';
 import { lerDias, lerHora } from '../escala/interpretar.js';
 import { normalizar } from '../planilhas/normalizar.js';
 import { decimalParaHora, semanalDeMensal } from './carga.js';
+import { validarIntervalo } from './intervalo.js';
+import { cnpjDaPlanilha } from './documentos.js';
+import { formatarCnpj } from '../ge/cnpj.js';
 import { faturamentoDaLinha, type Faturamento } from './faturamento.js';
 import { configuracaoDaLinha, lerSimNao, type ConfiguracaoLinha } from './configuracao.js';
 
@@ -29,8 +32,9 @@ export const interpretarRegime = (texto: string) => {
 
 export type Horario = { abre: string; fecha: string };
 export type LojaInput = {
-  codigo: string;
-  nome: string;
+  // Formato antigo: o código identifica a loja. No modelo novo a loja é identificada pelo CNPJ (só dígitos, já validado).
+  codigo?: string;
+  nome?: string;
   cnpj?: string;
   cidade?: string;
   uf?: string;
@@ -46,7 +50,9 @@ export type LojaInput = {
 export type FuncionarioInput = {
   matricula: string;
   nome: string;
-  lojaCodigo: string;
+  // A loja de lotação: pelo CNPJ (modelo novo, só dígitos e já validado) ou, no formato antigo, pelo código.
+  lojaCnpj?: string;
+  lojaCodigo?: string;
   cpf?: string;
   cargo?: string;
   funcaoEscala: FuncaoEscala | null;
@@ -54,6 +60,8 @@ export type FuncionarioInput = {
   cargaMensalH?: number;
   entrada?: string;
   saida?: string;
+  iniIntervalo?: string;
+  fimIntervalo?: string;
   dias?: number[];
   regime?: string;
   horarioFixo?: boolean;
@@ -155,22 +163,36 @@ export const processarLinhas = (abas: Aba[], mapa: Mapeamento): Processado => {
       const n = idx + 2;
       const codigo = celula(l, mapa.lojas!, 'codigo');
       const nome = celula(l, mapa.lojas!, 'nome');
-      if (!codigo && !nome) return;
+      const cnpjTxt = celula(l, mapa.lojas!, 'cnpj');
+      if (!codigo && !nome && !cnpjTxt) return;
       const erro = (motivo: string) => out.erros.push({ aba: lojaAba.nome, linha: n, motivo });
-      if (!codigo) return erro('Código da loja vazio');
-      if (!nome) return erro('Nome da loja vazio');
-      if (vistosLoja.has(codigo)) return erro(`Código ${codigo} repetido na planilha`);
+      // A loja é identificada pelo CNPJ; planilha antiga, sem CNPJ, usa o código.
+      let cnpj: string | undefined;
+      if (cnpjTxt) {
+        const lido = cnpjDaPlanilha(cnpjTxt);
+        if (lido.erro) return erro(lido.erro);
+        cnpj = lido.cnpj;
+      }
+      if (!cnpj && !codigo) return erro('CNPJ da loja vazio');
+      if (!cnpj && !nome) return erro('Nome da loja vazio');
+      const chave = cnpj ?? `codigo:${codigo}`;
+      if (vistosLoja.has(chave))
+        return erro(
+          cnpj
+            ? `CNPJ ${formatarCnpj(cnpj)} repetido na planilha`
+            : `Código ${codigo} repetido na planilha`,
+        );
       const h = interpretarHorarioLoja((chave) => celula(l, mapa.lojas!, chave));
       if (h.erro) return erro(h.erro);
       const fat = faturamentoDaLinha((chave) => celula(l, mapa.lojas!, chave));
       if (fat.erro) return erro(fat.erro);
       const conf = configuracaoDaLinha((chave) => celula(l, mapa.lojas!, chave));
       if (conf.erro) return erro(conf.erro);
-      vistosLoja.add(codigo);
+      vistosLoja.add(chave);
       out.lojas.push({
-        codigo,
-        nome,
-        cnpj: celula(l, mapa.lojas!, 'cnpj') || undefined,
+        codigo: codigo || undefined,
+        nome: nome || undefined,
+        cnpj,
         cidade: celula(l, mapa.lojas!, 'cidade') || undefined,
         uf: celula(l, mapa.lojas!, 'uf').toUpperCase() || undefined,
         marca: celula(l, mapa.lojas!, 'marca') || undefined,
@@ -191,11 +213,19 @@ export const processarLinhas = (abas: Aba[], mapa: Mapeamento): Processado => {
       const matricula = celula(l, m, 'matricula');
       const nome = celula(l, m, 'nome');
       const lojaCodigo = celula(l, m, 'loja');
-      if (!matricula && !nome && !lojaCodigo) return;
+      const lojaCnpjTxt = celula(l, m, 'cnpj_loja');
+      if (!matricula && !nome && !lojaCodigo && !lojaCnpjTxt) return;
       const erro = (motivo: string) => out.erros.push({ aba: funcAba.nome, linha: n, motivo });
       if (!matricula) return erro('Matrícula vazia');
       if (!nome) return erro('Nome vazio');
-      if (!lojaCodigo) return erro('Loja de lotação vazia');
+      // A loja de lotação: pelo CNPJ da loja; planilha antiga, sem CNPJ, usa o código.
+      let lojaCnpj: string | undefined;
+      if (lojaCnpjTxt) {
+        const lido = cnpjDaPlanilha(lojaCnpjTxt);
+        if (lido.erro) return erro(lido.erro);
+        lojaCnpj = lido.cnpj;
+      }
+      if (!lojaCnpj && !lojaCodigo) return erro('CNPJ da loja vazio');
       if (vistosMat.has(matricula)) return erro(`Matrícula ${matricula} repetida na planilha`);
       const cargaTxt = celula(l, m, 'carga_semanal').replace(',', '.');
       const carga = cargaTxt ? Math.round(Number(cargaTxt)) : undefined;
@@ -215,6 +245,19 @@ export const processarLinhas = (abas: Aba[], mapa: Mapeamento): Processado => {
         return erro('Informe a entrada e a saída (ou deixe as duas em branco)');
       if (entrada !== null && entrada === saida)
         return erro('A saída deve ser diferente da entrada');
+      const iniTxt = celula(l, m, 'inicio_intervalo');
+      const fimTxt = celula(l, m, 'fim_intervalo');
+      const ini = iniTxt ? lerHora(iniTxt) : null;
+      const fim = fimTxt ? lerHora(fimTxt) : null;
+      if ((iniTxt && ini === null) || (fimTxt && fim === null))
+        return erro('Horário de início ou fim do intervalo inválido');
+      const erroIntervalo = validarIntervalo({
+        entrada: entrada === null ? null : decimalParaHora(entrada),
+        saida: saida === null ? null : decimalParaHora(saida),
+        ini: ini === null ? null : decimalParaHora(ini),
+        fim: fim === null ? null : decimalParaHora(fim),
+      });
+      if (erroIntervalo) return erro(erroIntervalo);
       const diasTxt = celula(l, m, 'dias');
       const dias = diasTxt ? lerDias(diasTxt) : null;
       if (diasTxt && !dias) return erro('Dias trabalhados inválidos');
@@ -225,7 +268,8 @@ export const processarLinhas = (abas: Aba[], mapa: Mapeamento): Processado => {
       out.funcionarios.push({
         matricula,
         nome,
-        lojaCodigo,
+        lojaCnpj,
+        lojaCodigo: lojaCodigo || undefined,
         cpf: celula(l, m, 'cpf') || undefined,
         cargo,
         funcaoEscala: deduzirFuncao(celula(l, m, 'funcao_escala') || undefined, cargo),
@@ -233,6 +277,8 @@ export const processarLinhas = (abas: Aba[], mapa: Mapeamento): Processado => {
         cargaMensalH: mensal,
         entrada: entrada === null ? undefined : decimalParaHora(entrada),
         saida: saida === null ? undefined : decimalParaHora(saida!),
+        iniIntervalo: ini === null ? undefined : decimalParaHora(ini),
+        fimIntervalo: fim === null ? undefined : decimalParaHora(fim),
         dias: dias ?? undefined,
         regime: celula(l, m, 'regime') || undefined,
         horarioFixo: fixo === null ? undefined : (fixo as boolean),

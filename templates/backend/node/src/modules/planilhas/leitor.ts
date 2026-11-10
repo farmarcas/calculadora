@@ -44,7 +44,8 @@ export const lerPlanilha = async (buffer: Buffer, nomeArquivo: string): Promise<
   const wb = new ExcelJS.Workbook();
   try {
     if (nomeArquivo.toLowerCase().endsWith('.csv')) {
-      const ws = await wb.csv.read(Readable.from(buffer));
+      // Tudo fica como texto: o leitor de CSV, por padrão, transforma "001" em 1 e perde o zero do código da loja.
+      const ws = await wb.csv.read(Readable.from(buffer), { map: (valor: unknown) => valor });
       ws.name = 'Planilha';
     } else {
       await wb.xlsx.load(buffer as unknown as ArrayBuffer);

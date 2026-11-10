@@ -1,7 +1,7 @@
 import type { NextFunction, Request, Response } from 'express';
 import { AppError } from '../errors/app-error.js';
+import type { SessaoAtiva } from './sessao.js';
 
-// Perfis de demonstração (sem login real nesta fase). Sem cabeçalho = só consulta.
 // PLATFORM_OPERATOR: quem cuida da plataforma (cria GEs e carrega lojas); nunca vê valores em reais.
 export const PERFIS = [
   'PLATFORM_OPERATOR',
@@ -11,7 +11,17 @@ export const PERFIS = [
 ] as const;
 export type Perfil = (typeof PERFIS)[number];
 
+const perfilDaSessao = (sessao: SessaoAtiva, geId: string | undefined): Perfil =>
+  sessao.operador
+    ? 'PLATFORM_OPERATOR'
+    : (sessao.grupos.find((g) => g.geId === geId)?.perfil ?? 'SCHEDULE_VIEWER');
+
 export const lerPerfil = (req: Request, res: Response, next: NextFunction) => {
+  if (res.locals.sessao) {
+    res.locals.perfil = perfilDaSessao(res.locals.sessao, req.header('x-ge'));
+    next();
+    return;
+  }
   const bruto = req.header('x-perfil') ?? 'SCHEDULE_VIEWER';
   const perfil = PERFIS.find((p) => p === bruto);
   if (!perfil) {

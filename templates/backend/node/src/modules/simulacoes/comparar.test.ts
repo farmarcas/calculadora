@@ -48,40 +48,35 @@ describe('calcularIndicadores', () => {
 });
 
 describe('sintese', () => {
-  it('compara com a simulação em uso', () => {
-    const base = {
-      erros: 0,
-      avisos: 0,
-      semFarmaceutico: false,
-      coberturaPct: 90,
-      horasFalta: 0,
-      horasSobra: 0,
-      pessoas: 2,
-      horasPlanejadas: 80,
-      horasContratadas: 80,
-      domingosTrabalhados: 0,
-      folgasPorPessoa: 2,
-    };
-    const t = sintese('5x2', { ...base, coberturaPct: 100, horasPlanejadas: 70 }, base, '6x1');
-    expect(t).toContain('melhora a cobertura em 10 ponto(s)');
-    expect(t).toContain('corta 10h por semana');
+  const base = {
+    erros: 0,
+    avisos: 0,
+    semFarmaceutico: false,
+    coberturaPct: 90,
+    horasFalta: 0,
+    horasSobra: 0,
+    pessoas: 2,
+    horasPlanejadas: 80,
+    horasContratadas: 80,
+    domingosTrabalhados: 0,
+    folgasPorPessoa: 2,
+  };
+  it('descreve só a própria simulação, sem comparar com uma em uso', () => {
+    const t = sintese('5x2', { ...base, coberturaPct: 100 }, { vagas: 2 });
+    expect(t).toBe('5x2 cobre 100% das horas exigidas; exige contratar 2 vaga(s).');
+    expect(t).not.toMatch(/em uso|aprovad|frente/);
   });
-  it('avisa quando não pode ser aprovada', () => {
-    const base = {
+  it('avisa os erros nas regras e a falta de farmacêutico, sem falar em aprovar', () => {
+    const t = sintese('Rascunho', {
+      ...base,
       erros: 2,
-      avisos: 0,
       semFarmaceutico: true,
       coberturaPct: 50,
       horasFalta: 4,
-      horasSobra: 0,
-      pessoas: 1,
-      horasPlanejadas: 10,
-      horasContratadas: 40,
-      domingosTrabalhados: 0,
-      folgasPorPessoa: 3,
-    };
-    const t = sintese('Rascunho', base, null, null);
-    expect(t).toContain('não pode ser aprovada');
+    });
+    expect(t).toContain('tem 2 erro(s) nas regras');
     expect(t).toContain('sem farmacêutico');
+    expect(t).toContain('faltam 4h-pessoa por semana');
+    expect(t).not.toMatch(/aprovad/);
   });
 });

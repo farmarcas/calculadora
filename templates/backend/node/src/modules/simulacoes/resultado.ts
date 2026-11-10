@@ -7,7 +7,10 @@ import type { Regra, RegraId } from '../regras/perfis.js';
 import type { Minimos } from '../regras/requisitos.js';
 import { SEMANAS_NO_MES } from '../escala/cenarios-dias.js';
 import { diaDaSemana, vendasPorDiaEHora, type VendaLinha } from '../escala/vendas.js';
+import { contratacoesDe, custoDasVagas } from '../escala/cenarios.js';
 import type { PessoaSim } from './avaliar.js';
+import { saldoDaSimulacao } from './saldo-simulacao.js';
+import { horasNovas, vendaEstimadaDasHorasNovas } from './venda-estimada.js';
 
 const arred = (n: number) => Math.round(n * 100) / 100;
 const hhmm = (h: number) =>
@@ -44,13 +47,20 @@ export type FuncaoResultado = {
 };
 
 export type ResultadoSimulacao = {
-  // Só para o dono (valores em reais): custo adicional por mês, sem sinal.
-  impactoMensal?: number | null;
+  // Só para o dono (valores em reais), por mês. O saldo é a economia de folha menos a venda que sai; a economia é o custo do
+  // "manter horário" (contratar para cobrir o horário do Cadastro com a equipe de hoje) menos o custo desta simulação.
   folhaExtra?: number | null;
   horaExtra?: number | null;
+  // Folha extra + hora extra desta simulação (custo adicional); nulo sem salário informado.
+  custoAdicional?: number | null;
+  economiaFolha?: number | null;
   vendaQueSai?: number | null;
-  margemPerdida?: number | null;
-  margemInformada: boolean;
+  // Venda estimada das horas novas, por mês (só dono): 0 quando nenhum horário aumenta; nulo sem base comercial.
+  vendaEstimada?: number | null;
+  saldoMensal?: number | null;
+  saldoAnual?: number | null;
+  // Saldo ÷ faturamento mensal médio (vendas da base × 52 ÷ 12); nulo sem base.
+  pesoNoFaturamentoPct?: number | null;
   temBase: boolean;
   horasAbertas: number;
   horasAbertasAntes: number;
@@ -69,6 +79,9 @@ export type ResultadoSimulacao = {
     clientes: number[][] | null;
     // Hora aberta no Cadastro e fechada na simulação.
     fechadas: boolean[][];
+    // Hora fechada no Cadastro e aberta na simulação (qualquer perfil vê), e a venda média estimada de cada uma (só dono).
+    novas: boolean[][];
+    estimada: number[][] | null;
     ticketMedio: number | null;
   };
 };
@@ -122,11 +135,12 @@ export const calcularResultado = (a: {
       abre: s ? hhmm(s.abre) : null,
       fecha: s ? hhmm(s.fecha) : null,
       horas: s ? arred(s.fecha - s.abre) : 0,
-      alterado: (s?.abre ?? null) !== (c?.abre ?? null) || (s?.fecha ?? null) !== (c?.fecha ?? null),
+      alterado:
+        (s?.abre ?? null) !== (c?.abre ?? null) || (s?.fecha ?? null) !== (c?.fecha ?? null),
     };
   });
 
-  // Venda e margem das horas que o Cadastro abre e a simulação fecha, por mês (média de um dia × 52 ÷ 12).
+  // Venda das horas que o Cadastro abre e a simulação fecha, por mês (média de um dia × 52 ÷ 12).
   const vb = vendasPorDiaEHora(a.vendas);
   const fechadas = Array.from({ length: 7 }, (_, d) =>
     Array.from(
@@ -135,18 +149,10 @@ export const calcularResultado = (a: {
     ),
   );
   let venda = 0;
-  let margem = 0;
-  let margemTotal = 0;
   if (vb)
     for (let d = 0; d < 7; d++)
-      for (let h = 0; h < 24; h++) {
-        margemTotal += vb.margem[d]![h]!;
-        if (fechadas[d]![h]) {
-          venda += vb.venda[d]![h]!;
-          margem += vb.margem[d]![h]!;
-        }
-      }
-  const margemInformada = margemTotal > 0;
+      for (let h = 0; h < 24; h++) if (fechadas[d]![h]) venda += vb.venda[d]![h]!;
+  const estimativa = vendaEstimadaDasHorasNovas(a.diasCadastro, a.dias, vb);
   const clientes = clientesPorDiaEHora(a.vendas);
   const totalVenda = vb ? vb.venda.flat().reduce((s, v) => s + v, 0) : 0;
   const totalClientes = clientes ? clientes.flat().reduce((s, v) => s + v, 0) : 0;
@@ -170,7 +176,10 @@ export const calcularResultado = (a: {
     return Math.max(0, arred((h0 ?? h1).necessidadeH - h1.capacidadeH));
   };
   const funcoesNomes = [
-    ...new Set([...hoje.map((l) => l.funcao), ...ativos.filter((p) => p.vaga).map((p) => p.funcao!)]),
+    ...new Set([
+      ...hoje.map((l) => l.funcao),
+      ...ativos.filter((p) => p.vaga).map((p) => p.funcao!),
+    ]),
   ];
 
   const sal = (f: string) => a.custos?.salarioMedio[f as keyof Custos['salarioMedio']] ?? null;
@@ -207,15 +216,27 @@ export const calcularResultado = (a: {
         contratacoes,
         resultado: {
           coberto: falta1 <= 0,
-          horas: falta1 > 0 ? falta1 : Math.max(0, arred((h1?.capacidadeH ?? 0) - (h0 ?? h1)!.necessidadeH)),
+          horas:
+            falta1 > 0
+              ? falta1
+              : Math.max(0, arred((h1?.capacidadeH ?? 0) - (h0 ?? h1)!.necessidadeH)),
         },
         ...(a.dono
-          ? { custoMensal: custos.some((c) => c == null) ? null : arred(custos.reduce((s, c) => s! + c!, 0)!) }
+          ? {
+              custoMensal: custos.some((c) => c == null)
+                ? null
+                : arred(custos.reduce((s, c) => s! + c!, 0)!),
+            }
           : {}),
       };
     })
     // Função sem exigência, sem ninguém e sem vaga não precisa aparecer.
-    .filter((f) => f.faltaHoje > 0 || f.contratacoes.length > 0 || (hoje.find((l) => l.funcao === f.funcao)?.pessoas ?? 0) > 0);
+    .filter(
+      (f) =>
+        f.faltaHoje > 0 ||
+        f.contratacoes.length > 0 ||
+        (hoje.find((l) => l.funcao === f.funcao)?.pessoas ?? 0) > 0,
+    );
 
   // Maior venda: dias e horas cujo total semanal fica a até 15% do maior.
   const maiorVenda = (() => {
@@ -230,7 +251,6 @@ export const calcularResultado = (a: {
   })();
 
   const base: ResultadoSimulacao = {
-    margemInformada,
     temBase: !!vb,
     horasAbertas,
     horasAbertasAntes,
@@ -248,6 +268,8 @@ export const calcularResultado = (a: {
       venda: a.dono ? (vb?.venda ?? null) : null,
       clientes,
       fechadas,
+      novas: horasNovas(a.diasCadastro, a.dias),
+      estimada: a.dono ? (estimativa?.porHora ?? null) : null,
       ticketMedio: a.dono && totalClientes > 0 ? arred(totalVenda / totalClientes) : null,
     },
   };
@@ -267,12 +289,45 @@ export const calcularResultado = (a: {
       horaExtra = null;
       break;
     }
-    horaExtra += falta * SEMANAS_DA_FOLHA * (s / tabela[a.regraId].divisor) * ADICIONAL_HORA_EXTRA * fator;
+    horaExtra +=
+      falta * SEMANAS_DA_FOLHA * (s / tabela[a.regraId].divisor) * ADICIONAL_HORA_EXTRA * fator;
   }
   if (horaExtra !== null) horaExtra = arred(horaExtra);
   const vendaQueSai = vb ? arred(venda * SEMANAS_NO_MES) : null;
-  const margemPerdida = vb && margemInformada ? arred(margem * SEMANAS_NO_MES) : null;
-  const impactoMensal =
-    folhaExtra == null || horaExtra == null ? null : arred(folhaExtra + horaExtra + (margemPerdida ?? 0));
-  return { ...base, impactoMensal, folhaExtra, horaExtra, vendaQueSai, margemPerdida };
+  const custoAdicional =
+    folhaExtra == null || horaExtra == null ? null : arred(folhaExtra + horaExtra);
+  // "Manter horário": as contratações que cobrem o horário do Cadastro com a equipe de hoje.
+  const linhasManter = verificarRegra(
+    a.regra,
+    a.diasCadastro,
+    a.minimos,
+    pessoasDe(atuais),
+    opcoes,
+  );
+  const custoManter = custoDasVagas(
+    a.regraId,
+    contratacoesDe(linhasManter),
+    linhasManter,
+    a.custos,
+    a.parametros,
+  );
+  const economiaFolha =
+    custoManter == null || custoAdicional == null ? null : arred(custoManter - custoAdicional);
+  const vendaEstimada = estimativa ? estimativa.vendaMes : null;
+  // Saldo contra a folha atual (a regra dos cartões): −folha extra − hora extra + venda estimada − venda que deixa de entrar.
+  const saldo = saldoDaSimulacao({ folhaExtra, horaExtra, vendaEstimada, vendaQueSai });
+  const faturamento = totalVenda * SEMANAS_NO_MES;
+  return {
+    ...base,
+    folhaExtra,
+    horaExtra,
+    custoAdicional,
+    economiaFolha,
+    vendaQueSai,
+    vendaEstimada,
+    saldoMensal: saldo,
+    saldoAnual: saldo == null ? null : arred(saldo * 12),
+    pesoNoFaturamentoPct:
+      saldo == null || faturamento <= 0 ? null : Math.round((saldo / faturamento) * 1000) / 10,
+  };
 };

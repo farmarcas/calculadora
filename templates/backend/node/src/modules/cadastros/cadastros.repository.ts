@@ -1,5 +1,7 @@
+import { Prisma } from '../../generated/prisma/client.js';
 import { prisma } from '../../shared/database/prisma.js';
 import { decimalParaHora, horaParaDecimal, mensalDeSemanal } from './carga.js';
+import { manterMargem, type Faturamento } from './faturamento.js';
 import { FUNCOES_NO_CALCULO, funcaoNoCalculo } from './funcoes.js';
 import { normalizarHorarios, resumoHorarios } from './horarios.js';
 import type { Aba } from '../planilhas/leitor.js';
@@ -34,6 +36,8 @@ const funcSel = {
   cargaMensalH: true,
   entrada: true,
   saida: true,
+  iniIntervalo: true,
+  fimIntervalo: true,
   dias: true,
   regime: true,
   horarioFixo: true,
@@ -75,13 +79,26 @@ const comoFunc = (r: Record<string, unknown>) => {
       (r.cargaMensalH as number | null) ?? (semanal ? mensalDeSemanal(semanal) : undefined),
     entrada: r.entrada == null ? undefined : decimalParaHora(r.entrada as number),
     saida: r.saida == null ? undefined : decimalParaHora(r.saida as number),
+    iniIntervalo: r.iniIntervalo == null ? undefined : decimalParaHora(r.iniIntervalo as number),
+    fimIntervalo: r.fimIntervalo == null ? undefined : decimalParaHora(r.fimIntervalo as number),
   } as unknown as FuncionarioRegistro;
 };
 // API (texto "HH:MM") → banco (horas decimais).
-const paraBanco = <T extends { entrada?: string | null; saida?: string | null }>(i: T) => ({
+const paraBanco = <
+  T extends {
+    entrada?: string | null;
+    saida?: string | null;
+    iniIntervalo?: string | null;
+    fimIntervalo?: string | null;
+  },
+>(
+  i: T,
+) => ({
   ...i,
   entrada: i.entrada == null ? i.entrada : horaParaDecimal(i.entrada),
   saida: i.saida == null ? i.saida : horaParaDecimal(i.saida),
+  iniIntervalo: i.iniIntervalo == null ? i.iniIntervalo : horaParaDecimal(i.iniIntervalo),
+  fimIntervalo: i.fimIntervalo == null ? i.fimIntervalo : horaParaDecimal(i.fimIntervalo),
 });
 const limpa = <T extends object>(o: T) =>
   Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined)) as T;
@@ -137,7 +154,8 @@ export const cadastrosRepository = (geId: string): CadastrosRepository => ({
       funcoes.set(g.lojaId, [...(funcoes.get(g.lojaId) ?? []), g.funcaoEscala!]);
     }
     return rows.map(({ custos, ...resto }) => {
-      const salarios = (custos as { salarioMedio?: Record<string, number> } | null)?.salarioMedio ?? {};
+      const salarios =
+        (custos as { salarioMedio?: Record<string, number> } | null)?.salarioMedio ?? {};
       return {
         // Os salários não saem daqui (só o dono os vê): a lista leva só quais funções têm salário informado.
         loja: comoLoja(resto),
@@ -159,6 +177,10 @@ export const cadastrosRepository = (geId: string): CadastrosRepository => ({
     const r = await prisma.loja.findFirst({ where: { codigo, geId, ...ativo }, select: lojaSel });
     return r ? comoLoja(r) : null;
   },
+  async buscarLojaPorCnpj(cnpj) {
+    const r = await prisma.loja.findFirst({ where: { cnpj, geId, ...ativo }, select: lojaSel });
+    return r ? comoLoja(r) : null;
+  },
   async cnpjEmUso(cnpj, exceto) {
     // De propósito sem filtrar por GE: o CNPJ é único no sistema todo.
     return (
@@ -168,18 +190,31 @@ export const cadastrosRepository = (geId: string): CadastrosRepository => ({
     );
   },
   async criarLoja(i) {
+    const dados = limpa(i) as Record<string, unknown>;
+    // Loja nova nasce sem margem: ela só existe nas lojas que já a tinham guardada.
+    if (dados.faturamento) dados.faturamento = manterMargem(dados.faturamento as Faturamento, null);
     return comoLoja(
       await prisma.loja.create({
-        data: { ...limpa(i), geId } as never,
+        data: { ...dados, geId } as never,
         select: lojaSel,
       }),
     );
   },
   async atualizarLoja(id, i) {
+    const dados = limpa(i) as Record<string, unknown>;
+    // A margem que já estava guardada no faturamento nunca muda por aqui.
+    if (dados.faturamento !== undefined) {
+      const atual = await prisma.loja.findFirst({
+        where: { id, geId },
+        select: { faturamento: true },
+      });
+      const fat = manterMargem(dados.faturamento as Faturamento | null, atual?.faturamento);
+      dados.faturamento = fat === null ? Prisma.JsonNull : fat;
+    }
     return comoLoja(
       await prisma.loja.update({
         where: { id, geId },
-        data: limpa(i) as never,
+        data: dados as never,
         select: lojaSel,
       }),
     );
@@ -213,10 +248,11 @@ export const cadastrosRepository = (geId: string): CadastrosRepository => ({
   contarFuncionariosDaLoja: (lojaId) =>
     prisma.funcionario.count({ where: { lojaId, loja: { geId }, ...ativo } }),
 
-  async listarFuncionarios({ page, pageSize, busca, lojaId }) {
+  async listarFuncionarios({ page, pageSize, busca, lojaId, lojaIds }) {
     const where = {
       ...ativo,
       loja: { geId },
+      ...(lojaIds ? { lojaId: { in: lojaIds } } : {}),
       ...(lojaId ? { lojaId } : {}),
       ...(busca
         ? {

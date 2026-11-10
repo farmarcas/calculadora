@@ -14,10 +14,10 @@
 - **Decision**: alças existem entre turnos consecutivos cujo fim é o início do próximo; em turnos sobrepostos ou com lacuna, o ajuste continua pelos campos.
 - **Rationale**: é o caso do desenho (turnos emendados) e evita regras novas de sobreposição; a validação de hoje continua a única fonte de verdade.
 
-## Decisão 4: sugerir turnos por programação dinâmica
-- **Decision**: agrupar horas contíguas em k trechos minimizando a soma dos quadrados dos desvios do faturamento por trecho.
-- **Rationale**: dá limites nos pontos onde o movimento muda mais, é determinístico, rápido para até 24 horas e fácil de explicar ("onde o movimento muda").
-- **Alternatives considered**: cortar nas maiores diferenças entre horas vizinhas (instável com dados ruidosos).
+## Decisão 4: sugerir turnos em partes iguais do movimento
+- **Decision**: dividir o horário da loja em k turnos que carregam partes iguais do faturamento do dia, com limites em horas cheias e mínimo de 1 hora por turno.
+- **Rationale**: é fácil de explicar ("cada turno cuida de um terço do movimento"), determinístico e dá turnos mais longos onde a loja vende pouco e mais curtos no pico. Uma primeira ideia (agrupar horas parecidas) isolava pontas de pouca venda e deixava um turno enorme no meio, o que não ajuda a escalar gente.
+- **Alternatives considered**: agrupar horas de faturamento parecido (turno gigante no meio); cortar nas horas de menor faturamento (limites arbitrários perto das pontas).
 
 ## Decisão 5: tipos de dia e período
 - **Decision**: segunda a sexta, sábado e domingo; toda a base ativa.

@@ -10,11 +10,11 @@ Formato: `- [ ] ID [P] [História] descrição com o arquivo`. Servidor em `back
 - [x] T005 Rodar os testes do servidor e commitar a fatia
 
 ## Fatia 2 — Regras puras do gráfico (Histórias 2, 3 e 4, P1/P2)
-- [ ] T006 [US3] `cadastro-loja/turnos/turnos-grafico.js` (novo, puro): horas do eixo pela janela da loja; faturamento do turno (soma das horas, % do dia, média por hora, pico e as horas dele) para turnos normais, sobrepostos e que viram a noite; as 3 horas de maior faturamento; faixas e linhas dos turnos; quais pares de turnos têm alça (fim = início do próximo)
-- [ ] T007 [US2] Em `turnos-grafico.js`: `moverLimite(turnos, indice, novaHora)` muda o fim do turno e o início do seguinte, de 1 em 1 hora, com mínimo de 1 hora por turno e sem sair da janela; devolve os turnos no formato que a tela já edita
-- [ ] T008 [US4] Em `turnos-grafico.js`: `sugerirTurnos(serie, janela, turnosAtuais)` agrupa as horas em k trechos contíguos minimizando a variação do faturamento por trecho (k = turnos atuais, ou 3 se forem 1 ou 2, até o máximo de hoje), mantém nomes e mínimos dos turnos atuais por ordem, com Farmacêutico no mínimo 1; nunca altera a entrada
-- [ ] T009 [P] [US2] `turnos-grafico.test.js`: faturamento do turno à mão (inclusive turno que vira a noite e hora fora da janela); mover limite (passo de 1 hora, mínimo de 1 hora, bordas); sugestão (corte onde o movimento muda, k pedido, mínimos preservados, determinística)
-- [ ] T010 Rodar os testes da tela e commitar a fatia
+- [x] T006 [US3] `cadastro-loja/turnos/turnos-grafico.js` (novo, puro): horas do eixo pela janela da loja; faturamento do turno (soma das horas, % do dia, média por hora, pico e as horas dele) para turnos normais, sobrepostos e que viram a noite; as 3 horas de maior faturamento; faixas e linhas dos turnos; quais pares de turnos têm alça (fim = início do próximo)
+- [x] T007 [US2] Em `turnos-grafico.js`: `moverLimite(turnos, indice, novaHora)` muda o fim do turno e o início do seguinte, de 1 em 1 hora, com mínimo de 1 hora por turno e sem sair da janela; devolve os turnos no formato que a tela já edita
+- [x] T008 [US4] Em `turnos-grafico.js`: `sugerirTurnos(serie, janela, turnosAtuais)` divide o horário da loja em k turnos com partes iguais do faturamento do dia (limites em horas cheias, mínimo de 1 hora) (k = turnos atuais, ou 3 se forem 1 ou 2, até o máximo de hoje), mantém nomes e mínimos dos turnos atuais por ordem, com Farmacêutico no mínimo 1; nunca altera a entrada
+- [x] T009 [P] [US2] `turnos-grafico.test.js`: faturamento do turno à mão (inclusive turno que vira a noite e hora fora da janela); mover limite (passo de 1 hora, mínimo de 1 hora, bordas); sugestão (partes iguais do movimento, k pedido, mínimos preservados, determinística)
+- [x] T010 Rodar os testes da tela e commitar a fatia
 
 ## Fatia 3 — Aba, ordem, padrão e tokens (História 1, P1)
 - [ ] T011 [US1] `cadastro-loja/config.js`: texto da aba "Custos e Turnos" (o id interno `regras` não muda); conferir pendências, atalhos e `DetalheLoja.jsx` que a nomeiam

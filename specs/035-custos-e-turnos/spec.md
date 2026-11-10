@@ -173,5 +173,5 @@ Os valores em reais do faturamento por hora são do dono do grupo. Os outros per
 - Decision: os tipos de dia são Dias úteis (segunda a sexta, padrão), Sábado e Domingo. Why: é o que o desenho propõe e o que se confirma com o produto.
 - Decision: o faturamento por hora vem calculado do servidor, a partir da base ativa, e a tela não refaz a conta. Why: mantém a regra de que valores em reais só saem para o dono.
 - Decision: o nome interno da aba (endereço e atalhos) não muda; só o texto que a pessoa lê. Why: evita quebrar links e avisos de pendência.
-- Assumption (de negócio): "Sugerir turnos pelo movimento" propõe até o número de turnos que a loja já tem (ou 3, se tiver só 1 ou 2), cortando nos pontos de maior mudança de faturamento. Why: respeita o limite de turnos de hoje e é fácil de explicar; o desenho não fixa a regra.
+- Assumption (de negócio): "Sugerir turnos pelo movimento" propõe o número de turnos que a loja já tem (ou 3, se tiver só 1 ou 2), dividindo o horário em turnos que carregam partes iguais do faturamento do dia. Why: respeita o limite de turnos de hoje e é fácil de explicar; o desenho não fixa a regra.
 - Fora do escopo: mudar o modo "Mínimo único do dia", a regra de cobertura, o cálculo de cenários, o faturamento por hora em outras telas, e o filtro de período.

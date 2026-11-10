@@ -65,13 +65,13 @@ export const statusDoCartao = (c) => {
   return { tom: "ok", texto: "Cobre o horário sem perder venda" };
 };
 
-// "R$ 5.467 a menos de folha que o Cenário 1" (dono). No Cenário 1: a referência.
+// "R$ 5.467 a menos de folha que Manter horários" (dono). No Cenário 1: a referência.
 export const comparacaoComCenario1 = (c, { ehReferencia, dono }) => {
   if (ehReferencia) return "Referência para comparar os outros";
   if (!dono || c.economiaFolhaMensal == null) return "";
   const e = c.economiaFolhaMensal;
-  if (Math.abs(e) < ZERO) return "Mesma folha do Cenário 1";
-  return e > 0 ? `${brl(e)} a menos de folha que o Cenário 1` : `${brl(-e)} a mais de folha que o Cenário 1`;
+  if (Math.abs(e) < ZERO) return "Mesma folha de Manter horários";
+  return e > 0 ? `${brl(e)} a menos de folha que Manter horários` : `${brl(-e)} a mais de folha que Manter horários`;
 };
 
 // ---- Contratações ----------------------------------------------------------------------------------------------------

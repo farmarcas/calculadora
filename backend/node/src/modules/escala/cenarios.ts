@@ -469,8 +469,8 @@ const montarEconomia = (
       viavel: false,
       motivoInviavel: `Não há ${semGente.funcao} no quadro: reduzir ou fechar o fim de semana não resolve, é preciso contratar.`,
       resultado: 'Não é possível sem contratar',
-      direcionamento: `Este caminho não é possível: sem ${semGente.funcao} no quadro, nenhum dia fica coberto. Veja o Cenário 1.`,
-      resumo: 'Não é possível sem contratar. Veja o Cenário 1.',
+      direcionamento: `Este caminho não é possível: sem ${semGente.funcao} no quadro, nenhum dia fica coberto. Veja Manter horários.`,
+      resumo: 'Não é possível sem contratar. Veja Manter horários.',
     };
   if (passa(linhas))
     return {
@@ -545,7 +545,7 @@ const montarEconomia = (
     : ' a equipe ainda não cobre o horário';
   const frase = seq.cobre
     ? `${acoes}. Assim a equipe atual cobre o horário sem contratar${evitadas > 0 ? ` (você deixa de contratar ${evitadas} pessoa${evitadas === 1 ? '' : 's'})` : ''}.`
-    : `${passos.length ? `${acoes}, mas` : 'Mesmo reduzindo o fim de semana,'} ${MOTIVO_PARADA[seq.parou!]}:${horasMsg}. Só mexer no fim de semana não resolve: veja o Cenário 3 (equilíbrio).`;
+    : `${passos.length ? `${acoes}, mas` : 'Mesmo reduzindo o fim de semana,'} ${MOTIVO_PARADA[seq.parou!]}:${horasMsg}. Só mexer no fim de semana não resolve: veja o Equilíbrio.`;
   const avisos = [
     e.origemVenda === 'estimativa'
       ? 'Venda estimada: só o faturamento mensal foi informado e ele foi dividido igualmente entre os dias abertos. Informe o faturamento por dia da semana para estimar melhor cada corte.'
@@ -754,18 +754,18 @@ const montarEquilibrio = (
         ? `O equilíbrio para esta loja é: ${acoes}. A equipe atual cobre o resto e você não contrata ninguém.`
         : `${acoes}, ${cs.length ? `contratando ${lista}` : 'sem contratar ninguém'}${economiaNaFolha ? `,${economiaNaFolha}` : ''}.`;
   resultado.resultado = resultado.coincideComManter
-    ? 'Igual ao Cenário 1'
+    ? 'Igual a Manter horários'
     : igualEconomia
-      ? 'Igual ao Cenário 2'
+      ? 'Igual a Sem contratações'
       : `${acoes}; ${
           cs.length
             ? `contrata ${melhor.avaliacao.pessoas} pessoa${melhor.avaliacao.pessoas === 1 ? '' : 's'}: ${listaDeFuncoes(cs.map((c) => c.funcao.toLowerCase()))}`
             : 'sem contratar ninguém'
         }`;
   resultado.direcionamento = resultado.coincideComManter
-    ? 'Nenhuma redução do fim de semana compensa o custo de cobrir o horário: o equilíbrio é o mesmo do Cenário 1, mantendo o horário de hoje.'
+    ? 'Nenhuma redução do fim de semana compensa o custo de cobrir o horário: o equilíbrio é o mesmo de Manter horários, mantendo o horário de hoje.'
     : igualEconomia
-      ? `${resultado.resumo} Este é o mesmo caminho do Cenário 2.`
+      ? `${resultado.resumo} Este é o mesmo caminho de Sem contratações.`
       : `${resultado.resumo} É a combinação de horários de fim de semana e contratações de melhor saldo entre as permitidas (segunda a sexta não mudam; perda máxima de ${TRAVAS.perdaMaxPct}% do faturamento e ao menos ${TRAVAS.horasMinPct}% das horas de hoje).`;
   return resultado;
 };

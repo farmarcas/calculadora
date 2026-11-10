@@ -158,7 +158,7 @@ describe('comparativo dos cenários 1, 2 e 3', () => {
       { dia: 5, antes: { abre: '08:00', fecha: '22:00' }, depois: { abre: '08:00', fecha: '17:00' } },
     ]);
     expect(e2.alertas.join(' ')).toContain('faltam 39 h');
-    expect(e2.alertas.join(' ')).toContain('Cenário 3');
+    expect(e2.alertas.join(' ')).toContain('Equilíbrio');
     // Cenário 3: não compensa cortar; contrata tudo e mantém o horário (igual ao 1).
     const e3 = col(r, 'equilibrio');
     expect(e3).toMatchObject({ status: 'viavel', diasFechar: [], custoFolhaMensal: 21000, saldoMensal: 0, horasSemana: 84, ajustes: [] });
@@ -271,7 +271,7 @@ describe('comparativo dos cenários 1, 2 e 3', () => {
       pessoas: farm(40, 40),
       custos: { salarioMedio: { Farmacêutico: 1000 }, encargosPct: 0 },
     });
-    expect(col(igualManter, 'equilibrio').alertas.join(' ')).toContain('mesmo do Cenário 1');
+    expect(col(igualManter, 'equilibrio').alertas.join(' ')).toContain('mesmo de Manter horários');
   });
 
   it('quem não é dono recebe contratações, dias, horas, status e alertas, sem nenhuma linha em reais nem destaque', () => {
@@ -324,7 +324,7 @@ describe('premissas, recolhimento e selo sugerido', () => {
   it('Cenário 3 igual ao 1 fica para recolher, apontando o cenário de origem', () => {
     const r = semCorte();
     expect(col(r, 'equilibrio').recolher).toBe('manter');
-    expect(col(r, 'equilibrio').resultado).toBe('Igual ao Cenário 1');
+    expect(col(r, 'equilibrio').resultado).toBe('Igual a Manter horários');
     expect(col(comparar(), 'equilibrio').recolher).toBeNull();
   });
 

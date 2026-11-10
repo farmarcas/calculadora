@@ -47,7 +47,7 @@ export default function Comparativo({ comparativo, cenarios, lojaId, podeEscreve
     setErro(null);
     setOcupado(true);
     try {
-      const corpo = { nome: `Cenário ${n}: ${c.nome}`.slice(0, 80), regra: cenarios.regra.id };
+      const corpo = { nome: c.nome.slice(0, 80), regra: cenarios.regra.id };
       let s;
       let aviso = null;
       try {

@@ -159,8 +159,8 @@ export const montarComparativo = (e: EntradaCenarios, c: CenariosRegra): Compara
     alertas(
       alertasEco,
       economia.faltaH
-        ? `Só mexer no fim de semana não resolve: ainda faltam ${String(economia.faltaH).replace('.', ',')} h de cobertura. Veja o Cenário 3.`
-        : 'Só mexer no fim de semana não resolve. Veja o Cenário 3.',
+        ? `Só mexer no fim de semana não resolve: ainda faltam ${String(economia.faltaH).replace('.', ',')} h de cobertura. Veja o Equilíbrio.`
+        : 'Só mexer no fim de semana não resolve. Veja o Equilíbrio.',
     );
   else if (!economia.viavel && economia.motivoInviavel)
     alertas(alertasEco, economia.motivoInviavel);
@@ -205,9 +205,9 @@ export const montarComparativo = (e: EntradaCenarios, c: CenariosRegra): Compara
   if (equilibrio.indisponivel) alertas(alertasEq, equilibrio.indisponivel.texto);
   else {
     if (equilibrio.coincideComManter)
-      alertas(alertasEq, 'O melhor caminho é o mesmo do Cenário 1.');
+      alertas(alertasEq, 'O melhor caminho é o mesmo de Manter horários.');
     if (equilibrio.coincideComEconomia)
-      alertas(alertasEq, 'O melhor caminho é o mesmo do Cenário 2.');
+      alertas(alertasEq, 'O melhor caminho é o mesmo de Sem contratações.');
     if (estimada) alertas(alertasEq, avisoEstimativa);
     if (equilibrio.estimativaDeVenda)
       alertas(

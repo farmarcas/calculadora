@@ -41,7 +41,6 @@ export default function CartaoCenario({ posicao, c, antes, novos, sugerido, dono
       <div>
         <div className={`text-[11px] leading-4 font-bold tracking-wide ${sugerido ? "text-[var(--color-primary)]" : "text-[var(--text-secondary)]"}`}>{sugerido ? "CENÁRIO SUGERIDO" : "ALTERNATIVA"}</div>
         <h3 id={idTitulo} className="m-0 mt-1 flex min-h-6 items-center gap-3 text-[18px] leading-[23.4px] font-bold text-[var(--text-strong)]">
-          <span aria-hidden="true" className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-btn text-sm leading-6 font-bold text-white ${sugerido ? "bg-[var(--color-primary)]" : "bg-[var(--neutral-dark-900)]"}`}>{posicao}</span>
           <span className="min-w-0 break-words">{c.nome}</span>
         </h3>
         <p className="m-0 mt-2 text-sm leading-5 text-[var(--text-secondary)]">{c.premissa}</p>
@@ -72,7 +71,7 @@ export default function CartaoCenario({ posicao, c, antes, novos, sugerido, dono
 
       <div className="flex items-end">
         {podeEscrever && (
-          <Botao tipo={sugerido ? "primario" : "secundario"} className="w-full" disabled={ocupado} aria-label={`Personalizar cenário ${posicao}: ${c.nome}`} onClick={onPersonalizar}>
+          <Botao tipo={sugerido ? "primario" : "secundario"} className="w-full" disabled={ocupado} aria-label={`Personalizar ${c.nome}`} onClick={onPersonalizar}>
             Personalizar
           </Botao>
         )}

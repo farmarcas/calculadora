@@ -30,9 +30,9 @@ Formato: `- [ ] ID [P] [História] descrição com o arquivo`. Servidor em `back
 - [x] T019 Rodar os testes (servidor e tela), conferir no navegador e commitar a fatia
 
 ## Fatia 5 — Validação, limpeza no banco local e entrega
-- [ ] T020 Mostrar o backup (T001) e pedir o seu aval; aplicar a migration no banco local e conferir que não há margem em lugar nenhum e que vendas e clientes não mudaram (contagens e somas antes e depois)
-- [ ] T021 Percorrer o `quickstart.md` no navegador local (CMV médio, base com CMV por hora, planilha antiga, perfis)
-- [ ] T022 Reiniciar a API, rodar tudo (servidor, integração, tela, type-check), commitar e subir a branch `feat/cmv-no-cadastro`
+- [x] T020 Mostrar o backup (T001) e pedir o seu aval; aplicar a migration no banco local e conferir que não há margem em lugar nenhum e que vendas e clientes não mudaram (contagens e somas antes e depois)
+- [x] T021 Percorrer o `quickstart.md` no navegador local (CMV médio, base com CMV por hora, planilha antiga, perfis)
+- [x] T022 Reiniciar a API, rodar tudo (servidor, integração, tela, type-check), commitar e subir a branch `feat/cmv-no-cadastro`
 
 ## Dependências e ordem
 - T002 e T003 antes de T004 e de toda a Fatia 2; T008 antes de T011.

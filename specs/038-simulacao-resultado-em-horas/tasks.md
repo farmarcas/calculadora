@@ -18,14 +18,14 @@ Formato: `- [ ] ID [P] [História] descrição com o arquivo`. Servidor em `back
 - [x] T011 Rodar os testes da tela e commitar a fatia
 
 ## Fatia 3 — A tela: o card novo (Histórias 1 a 6)
-- [ ] T012 [US1] `features/simulacao/ResultadoEmHoras.jsx` (novo): pill de status; dois números grandes (Venda e Custo de pessoal em %, com o apoio "em relação a hoje" e "N contratações"); total de horas e faixa dos 7 dias (`FaixaDosDias`); tabela Hoje × Simulação × Mudança; "Contratar" por função; faixa amarela de causa; carregamento de hoje enquanto calcula; "Informe os salários para ver a variação do custo." quando faltam salários
-- [ ] T013 [US5] `features/simulacao/PainelResultado.jsx`: título e ficha do tipo de solução, o corpo novo, e o botão "Salvar como cenário N" (ou "Clonar para ajustar") e o texto de apoio como hoje; remover as linhas em reais (saldo, folha extra, hora extra, margem, economia), o ⓘ da fórmula e a frase da régua
-- [ ] T014 [US6] Conferir os estados: sem base comercial (Venda "Não estimada"), sem salários, simulação gravada (card recalculado), tela estreita (card empilhado sem rolar para o lado)
-- [ ] T015 Conferir no navegador (dono, gestor e consulta; Arariba; celular de 375 px) e rodar os testes da tela; commitar a fatia
+- [x] T012 [US1] `features/simulacao/ResultadoEmHoras.jsx` (novo): pill de status; dois números grandes (Venda e Custo de pessoal em %, com o apoio "em relação a hoje" e "N contratações"); total de horas e faixa dos 7 dias (`FaixaDosDias`); tabela Hoje × Simulação × Mudança; "Contratar" por função; faixa amarela de causa; carregamento de hoje enquanto calcula; "Informe os salários para ver a variação do custo." quando faltam salários
+- [x] T013 [US5] `features/simulacao/PainelResultado.jsx`: título e ficha do tipo de solução, o corpo novo, e o botão "Salvar como cenário N" (ou "Clonar para ajustar") e o texto de apoio como hoje; remover as linhas em reais (saldo, folha extra, hora extra, margem, economia), o ⓘ da fórmula e a frase da régua
+- [x] T014 [US6] Conferir os estados: sem base comercial (Venda "Não estimada"), sem salários, simulação gravada (card recalculado), tela estreita (card empilhado sem rolar para o lado)
+- [x] T015 Conferir no navegador (dono, gestor e consulta; Arariba; celular de 375 px) e rodar os testes da tela; commitar a fatia
 
 ## Fatia 4 — Limpeza e fechamento
-- [ ] T016 Remover de `features/simulacao/formato.js` e de outros arquivos as funções que só o painel antigo usava (saldo com sinal, fórmula do saldo, percentual do peso), sem tocar nas que a comparação e o passo de contratações usam
-- [ ] T017 Rodar `tsc`, todos os testes (unidade, integração e tela) e `vite build`; atualizar o README onde descreve o card da Simulação; atualizar o `local/ver-tudo`; enviar a branch `feat/simulacao-resultado-em-horas`
+- [x] T016 Remover de `features/simulacao/formato.js` e de outros arquivos as funções que só o painel antigo usava (saldo com sinal, fórmula do saldo, percentual do peso), sem tocar nas que a comparação e o passo de contratações usam
+- [x] T017 Rodar `tsc`, todos os testes (unidade, integração e tela) e `vite build`; atualizar o README onde descreve o card da Simulação; atualizar o `local/ver-tudo`; enviar a branch `feat/simulacao-resultado-em-horas`
 
 ## Dependências
 - Fatia 1 antes da 3 (a tela lê `emHoras`). Fatia 2 antes da 3. Fatias 1 e 2 são independentes entre si.

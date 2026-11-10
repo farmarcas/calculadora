@@ -1,8 +1,6 @@
 export const reais = (n) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).replace(/ /g, " ");
 // Impacto é um custo: aparece com o sinal de menos (U+2212).
 export const impacto = (n) => (n === 0 ? reais(0) : `−${reais(Math.abs(n))}`);
-// Saldo tem sinal: + quando o cenário compensa, − quando custa mais do que economiza.
-export const saldoComSinal = (n) => (Math.abs(n) < 0.005 ? reais(0) : `${n > 0 ? "+" : "−"}${reais(Math.abs(n))}`);
 
 const DIAS = ["seg", "ter", "qua", "qui", "sex", "sáb", "dom"];
 // Junta números seguidos: [0,1,2,3,4] → "seg a sex"; [0,2] → "seg e qua".

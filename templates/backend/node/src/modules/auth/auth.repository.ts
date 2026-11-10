@@ -1,7 +1,14 @@
 import { prisma } from '../../shared/database/prisma.js';
 import type { Perfil } from '../../shared/middlewares/perfil.js';
 import type { GrupoDaSessao, SessaoAtiva } from '../../shared/middlewares/sessao.js';
-import { gruposACriar, lojasACriar, montarGrupos, type LojaAproveitavel } from './acesso.js';
+import {
+  gruposACriar,
+  juntarGrupos,
+  lojasACriar,
+  montarGrupos,
+  type GrupoInteiro,
+  type LojaAproveitavel,
+} from './acesso.js';
 
 const RETENCAO_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -16,7 +23,7 @@ const comoSessao = (s: {
 }): SessaoAtiva => ({ ...s, grupos: s.grupos as GrupoDaSessao[] });
 
 export const authRepository = {
-  sincronizarAcesso: (lojas: LojaAproveitavel[], perfil: Perfil) =>
+  sincronizarAcesso: (lojas: LojaAproveitavel[], perfil: Perfil, inteiros: GrupoInteiro[] = []) =>
     prisma.$transaction(async (tx) => {
       const cnpjs = lojas.map((l) => l.cnpj);
       const conhecidas = await tx.loja.findMany({
@@ -48,9 +55,21 @@ export const authRepository = {
         where: { geId: { in: daPessoa.map((l) => l.geId) }, deletedAt: null },
         _count: { _all: true },
       });
-      return montarGrupos(
+      const dasLojas = montarGrupos(
         daPessoa,
         new Map(ativasPorGe.map((g) => [g.geId, g._count._all])),
+        perfil,
+      );
+      if (!inteiros.length) return dasLojas;
+
+      await tx.grupoEconomico.createMany({ data: inteiros, skipDuplicates: true });
+      const gruposInteiros = await tx.grupoEconomico.findMany({
+        where: { identificacao: { in: inteiros.map((g) => g.identificacao) }, ativo: true },
+        select: { id: true },
+      });
+      return juntarGrupos(
+        dasLojas,
+        gruposInteiros.map((g) => g.id),
         perfil,
       );
     }),

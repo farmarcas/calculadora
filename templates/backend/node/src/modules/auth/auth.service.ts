@@ -3,7 +3,7 @@ import { AppError } from '../../shared/errors/app-error.js';
 import { logger } from '../../shared/logger.js';
 import type { SessaoAtiva } from '../../shared/middlewares/sessao.js';
 import { geRepository } from '../ge/ge.repository.js';
-import { separarLojas } from './acesso.js';
+import { gruposInteirosDe, separarLojas } from './acesso.js';
 import type { AuthRepository } from './auth.repository.js';
 import { assinarSessao } from './jwt.js';
 import { PERFIL_DE_QUEM_ENTRA, podeUsarEscala } from './papel.js';
@@ -30,14 +30,18 @@ export const corpoDaSessao = async (sessao: SessaoAtiva) => {
 
 export const makeAuthService = (radar: RadarClient, repo: AuthRepository, sso: ConfigSso) => ({
   async entrar(code: string) {
-    const accessToken = await radar.trocarCodigo(code);
+    const { accessToken, economicGroups } = await radar.trocarCodigo(code);
     const usuario = await radar.lerUsuario(accessToken);
     if (!podeUsarEscala(usuario)) throw semAcesso();
 
     const { aproveitaveis, ignoradas } = separarLojas(usuario.stores ?? []);
     if (ignoradas.length)
       logger.warn({ lojasDoRadar: ignoradas }, 'lojas do Radar sem grupo ou CNPJ válido');
-    const grupos = await repo.sincronizarAcesso(aproveitaveis, PERFIL_DE_QUEM_ENTRA);
+    const grupos = await repo.sincronizarAcesso(
+      aproveitaveis,
+      PERFIL_DE_QUEM_ENTRA,
+      gruposInteirosDe(economicGroups),
+    );
     if (!grupos.length) throw semAcesso();
 
     const sessao = await repo.abrirSessao({

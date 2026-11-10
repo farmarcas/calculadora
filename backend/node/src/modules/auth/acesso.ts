@@ -1,7 +1,7 @@
 import type { Perfil } from '../../shared/middlewares/perfil.js';
 import type { GrupoDaSessao } from '../../shared/middlewares/sessao.js';
 import { normalizarCnpj, validarCnpj } from '../ge/cnpj.js';
-import type { LojaDoRadar } from './radar.client.js';
+import type { GrupoDoRadar, LojaDoRadar } from './radar.client.js';
 
 const LOJA_ATIVA = 2;
 
@@ -36,6 +36,17 @@ export const separarLojas = (lojas: LojaDoRadar[]) => {
   return { aproveitaveis: [...aproveitaveis.values()], ignoradas };
 };
 
+export type GrupoInteiro = { identificacao: string; nome: string };
+
+export const gruposInteirosDe = (grupos: GrupoDoRadar[] | null | undefined): GrupoInteiro[] => {
+  const porNumero = new Map<string, GrupoInteiro>();
+  for (const g of grupos ?? []) {
+    if (!g.fullAccess || g.id === '0') continue;
+    porNumero.set(g.id, { identificacao: g.id, nome: g.name?.trim() || `Grupo ${g.id}` });
+  }
+  return [...porNumero.values()];
+};
+
 export const lojasACriar = (lojas: LojaAproveitavel[], cnpjsConhecidos: Set<string>) =>
   lojas.filter((l) => !cnpjsConhecidos.has(l.cnpj));
 
@@ -56,4 +67,16 @@ export const montarGrupos = (
     lojaIds,
     acessoTotal: lojaIds.length >= (lojasAtivasPorGe.get(geId) ?? 0),
   }));
+};
+
+export const juntarGrupos = (
+  dasLojas: GrupoDaSessao[],
+  inteiros: string[],
+  perfil: Perfil,
+): GrupoDaSessao[] => {
+  const ehInteiro = new Set(inteiros);
+  return [
+    ...[...ehInteiro].map((geId) => ({ geId, perfil, lojaIds: [], acessoTotal: true })),
+    ...dasLojas.filter((g) => !ehInteiro.has(g.geId)),
+  ];
 };

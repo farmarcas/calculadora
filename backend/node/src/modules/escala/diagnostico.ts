@@ -78,7 +78,7 @@ const semValoresDeVenda = (v: unknown): unknown =>
         )
       : v;
 
-const semValorPorHora = <
+export const semValorPorHora = <
   T extends { horas: { vendaMedia: number }[]; top: { vendaMedia: number }[] },
 >(
   v: T,

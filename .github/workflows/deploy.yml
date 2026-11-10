@@ -35,10 +35,12 @@ jobs:
             echo "account=085860729340" >> "$GITHUB_OUTPUT"
             echo "role=arn:aws:iam::085860729340:role/calculadora-github" >> "$GITHUB_OUTPUT"
             echo "event_type=calculadora-prd" >> "$GITHUB_OUTPUT"
+            echo "radar_url=https://radar.farmarcas.com.br" >> "$GITHUB_OUTPUT"
           else
             echo "account=211125687047" >> "$GITHUB_OUTPUT"
             echo "role=arn:aws:iam::211125687047:role/calculadora-github" >> "$GITHUB_OUTPUT"
             echo "event_type=calculadora-dev" >> "$GITHUB_OUTPUT"
+            echo "radar_url=https://dev.radar.farmarcas.com.br" >> "$GITHUB_OUTPUT"
           fi
           echo "tag=main-${{ github.run_number }}" >> "$GITHUB_OUTPUT"
 
@@ -61,6 +63,7 @@ jobs:
           docker build \
             --build-arg APP_BASE=/escala/ \
             --build-arg NGINX_RUNTIME=k8s \
+            --build-arg VITE_RADAR_URL=${{ steps.env.outputs.radar_url }} \
             -t "$REGISTRY/calculadora-web:$TAG" \
             frontend/react
           docker push "$REGISTRY/calculadora-web:$TAG"

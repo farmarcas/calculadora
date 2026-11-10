@@ -819,6 +819,84 @@ describe('simulações (rotas)', () => {
       expect(l.body.data[0]).toMatchObject({ numeroCenario: 1 });
     });
   });
+  describe('cobertura na simulação (spec 032)', () => {
+    const gestor = { 'X-Perfil': 'SCHEDULE_MANAGER', 'X-GE': GE_INICIAL_ID };
+    const semana = (fecha: string) => ({
+      versao: 2,
+      dias: [0, 1, 2, 3, 4]
+        .map(() => ({ aberta: true, abre: '08:00', fecha }))
+        .concat([{ aberta: false } as never, { aberta: false } as never]),
+    });
+    const put = (id: string, body: object) =>
+      reqGe().put(`/api/v1/simulacoes/${id}`).set(admin).send(body);
+    const farma = (c: { funcoes: { funcao: string; porHora: { hora: number; pessoas: number | null; ok: boolean | null }[] }[] }) =>
+      c.funcoes.find((f) => f.funcao === 'Farmacêutico')!.porHora;
+    const baseDeVendas = async () => {
+      const wb = new ExcelJS.Workbook();
+      const linhas = [['Data', 'Hora', 'Código da loja', 'Venda líquida (R$)']];
+      for (const d of ['07/09/2026', '08/09/2026', '09/09/2026', '10/09/2026', '11/09/2026'])
+        for (let h = 8; h < 20; h++) linhas.push([d, String(h), '001', '500,00']);
+      wb.addWorksheet('Base').addRows(linhas);
+      const up = await reqGe().post('/api/v1/cargas/base').set(admin).attach('arquivo', Buffer.from(await wb.xlsx.writeBuffer()), 'b.xlsx');
+      expect(up.status).toBe(201);
+    };
+
+    it('o detalhe traz a cobertura hora a hora com o quadro e o horário da simulação', async () => {
+      const sim = (await criar()).body;
+      expect(sim.cobertura.horas).toEqual([8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]);
+      expect(farma(sim.cobertura).every((c) => c.pessoas === 1 && c.ok === true)).toBe(true);
+      expect(sim.cobertura.vagasSemTurnos).toBe(0);
+      expect(sim.cobertura.vendas).toBeNull();
+    });
+
+    it('reduzir o horário tira as horas do fim da grade sem mexer no Cadastro nem nos números do resultado', async () => {
+      const sim = (await criar()).body;
+      const antes = sim.resultado;
+      const e = await put(sim.id, { horarios: semana('18:00') });
+      expect(e.body.cobertura.horas).toEqual([8, 9, 10, 11, 12, 13, 14, 15, 16, 17]);
+      expect(e.body.resultado.horasAbertas).toBe(50);
+      expect(antes.horasAbertas).toBe(60);
+      expect(e.body.resultado).not.toHaveProperty('cobertura');
+    });
+
+    it('desligar a farmacêutica da manhã derruba a cobertura nessas horas', async () => {
+      const sim = (await criar()).body;
+      const d = await put(sim.id, { desligados: ['F1'] });
+      const horas = farma(d.body.cobertura);
+      expect(horas.filter((c) => c.hora < 14).every((c) => c.pessoas === 0 && c.ok === false)).toBe(true);
+      expect(horas.filter((c) => c.hora >= 14).every((c) => c.pessoas === 1 && c.ok === true)).toBe(true);
+    });
+
+    it('vaga sem turnos não cobre e é contada à parte; com turnos passa a cobrir', async () => {
+      const sim = (await criar()).body;
+      const v = await put(sim.id, { vagas: [{ funcao: 'Atendimento', cargaH: 24 }] });
+      expect(v.body.cobertura.vagasSemTurnos).toBe(1);
+      const turnos = [...v.body.turnos, { matricula: 'VAGA-1', dia: 0, entrada: 8, saida: 14, iniIntervalo: null, fimIntervalo: null }];
+      const c = await put(sim.id, { turnos });
+      expect(c.body.cobertura.vagasSemTurnos).toBe(0);
+    });
+
+    it('valores em reais só para o dono: o gestor recebe a participação e nenhum valor', async () => {
+      await baseDeVendas();
+      const sim = (await criar()).body;
+      const dono = await reqGe().get(`/api/v1/simulacoes/${sim.id}`).set(admin);
+      expect(dono.body.cobertura.vendas.horas[0]).toHaveProperty('vendaMedia');
+      const g = await reqGe().get(`/api/v1/simulacoes/${sim.id}`).set(gestor);
+      expect(g.body.cobertura.vendas.horas[0]).toHaveProperty('participacao');
+      expect(JSON.stringify(g.body.cobertura)).not.toMatch(/vendaMedia/);
+    });
+
+    it('a lista e a comparação não trazem a cobertura', async () => {
+      const a = (await criar()).body;
+      const b = (await criar({ nome: 'Outra', regra: 'r40' })).body;
+      const lista = (await reqGe().get(`/api/v1/lojas/${lojaId}/simulacoes`).set(admin)).body.data as object[];
+      expect(lista.every((x) => !('cobertura' in x))).toBe(true);
+      await reqGe().post(`/api/v1/simulacoes/${a.id}/gravar`).set(admin);
+      await reqGe().post(`/api/v1/simulacoes/${b.id}/gravar`).set(admin);
+      const cmp = await reqGe().get(`/api/v1/lojas/${lojaId}/simulacoes/comparar?ids=${a.id},${b.id}`).set(admin);
+      expect(JSON.stringify(cmp.body)).not.toContain('"cobertura":{"horas"');
+    });
+  });
   describe('régua da simulação: margem ou venda (spec 033)', () => {
     const gestor = { 'X-Perfil': 'SCHEDULE_MANAGER', 'X-GE': GE_INICIAL_ID };
     const semana = (fecha: string) => ({

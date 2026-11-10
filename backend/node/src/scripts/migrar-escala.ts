@@ -15,7 +15,10 @@ const linhas = [
   '',
   ...r.lojas.flatMap((l) => [
     `Loja ${l.loja} · ${l.nomeLoja}: preenchidos ${l.preenchidos} · já tinham dados ${l.jaTinhamDados} · sem correspondente ${l.semCorrespondente.length}`,
-    ...l.semCorrespondente.map((s) => `    sem funcionário no Cadastro: ${s.matricula} (${s.nome})${l.criados > 0 ? ' → criado' : ''}`),
+    ...l.semCorrespondente.map(
+      (s) =>
+        `    sem funcionário no Cadastro: ${s.matricula} (${s.nome})${l.criados > 0 ? ' → criado' : ''}`,
+    ),
   ]),
   '',
   `Total: ${r.totais.lojas} loja(s) · preenchidos ${r.totais.preenchidos} · já tinham dados ${r.totais.jaTinhamDados} · sem correspondente ${r.totais.semCorrespondente} · criados ${r.totais.criados}`,

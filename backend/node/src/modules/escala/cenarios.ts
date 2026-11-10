@@ -418,7 +418,8 @@ const motivoDeParada = (e: EntradaCenarios, parou: MotivoParada): string =>
     horas: `a loja ficaria com menos de ${TRAVAS.horasMinPct}% das horas abertas de hoje`,
     fim_de_semana: 'não há mais o que reduzir ou fechar no fim de semana',
   })[parou];
-const limiteDePerdaDoCenario2 = (e: EntradaCenarios) => e.limitePerdaCenario2Pct ?? PERDA_MAX_CENARIO_2_PCT;
+const limiteDePerdaDoCenario2 = (e: EntradaCenarios) =>
+  e.limitePerdaCenario2Pct ?? PERDA_MAX_CENARIO_2_PCT;
 
 // Com a equipe atual e os horários do cenário: quanto cada função fica abaixo da meta e quantas horas
 // semanais o farmacêutico deixa de cobrir.
@@ -458,7 +459,9 @@ const montarEconomia = (
   const temHoraria = temVendaHoraria(e);
   const tabela = temHoraria ? vendasPorDiaEHora(e.vendas) : null;
   // A perda do impacto é medida na régua (margem ou venda); as travas e o % do faturamento seguem em venda real.
-  const tabelaRegua = temHoraria ? vendasPorDiaEHora(linhasNaRegua(e.vendas, e.regua ?? null)) : null;
+  const tabelaRegua = temHoraria
+    ? vendasPorDiaEHora(linhasNaRegua(e.vendas, e.regua ?? null))
+    : null;
   const base = {
     foco: 'Não contratar; ajustar horários só se precisar',
     resultado: 'Nenhum horário precisa mudar',

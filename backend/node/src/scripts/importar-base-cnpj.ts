@@ -7,7 +7,13 @@
 import { readFileSync } from 'node:fs';
 import { basename } from 'node:path';
 import { prisma } from '../shared/database/prisma.js';
-import { erroDoPeriodo, interpretarPorCnpj, mesclarCadastro, faturamentoDaBase, soDigitos } from '../modules/escala/base-por-cnpj.js';
+import {
+  erroDoPeriodo,
+  interpretarPorCnpj,
+  mesclarCadastro,
+  faturamentoDaBase,
+  soDigitos,
+} from '../modules/escala/base-por-cnpj.js';
 import { abaPorCnpj, gravarBaseDaLoja } from '../modules/escala/base-por-cnpj.service.js';
 import { escalaRepository } from '../modules/escala/escala.repository.js';
 import { lerPlanilha } from '../modules/planilhas/leitor.js';
@@ -17,7 +23,9 @@ const valorDe = (nome: string) => {
   const i = args.indexOf(nome);
   return i >= 0 ? args[i + 1] : undefined;
 };
-const arquivo = args.find((a, i) => !a.startsWith('--') && !['--inicio', '--fim'].includes(args[i - 1] ?? ''));
+const arquivo = args.find(
+  (a, i) => !a.startsWith('--') && !['--inicio', '--fim'].includes(args[i - 1] ?? ''),
+);
 const inicio = valorDe('--inicio');
 const fim = valorDe('--fim');
 const aplicar = args.includes('--aplicar');
@@ -26,13 +34,19 @@ const sair = (msg: string): never => {
   process.exit(1);
 };
 
-if (!arquivo) sair('Informe o arquivo: npm run importar-base-cnpj -- <arquivo.csv> --inicio AAAA-MM-DD --fim AAAA-MM-DD [--aplicar]');
+if (!arquivo)
+  sair(
+    'Informe o arquivo: npm run importar-base-cnpj -- <arquivo.csv> --inicio AAAA-MM-DD --fim AAAA-MM-DD [--aplicar]',
+  );
 const erroPeriodo = erroDoPeriodo(inicio, fim);
 if (erroPeriodo) sair(erroPeriodo);
 
 const nome = basename(arquivo!);
 const leitura = abaPorCnpj(await lerPlanilha(readFileSync(arquivo!), nome));
-if (!leitura) sair('O arquivo não está no formato por CNPJ (precisa das colunas cnpj, dia_semana e faturamento).');
+if (!leitura)
+  sair(
+    'O arquivo não está no formato por CNPJ (precisa das colunas cnpj, dia_semana e faturamento).',
+  );
 const periodo = { inicio: inicio!, fim: fim! };
 const lidas = interpretarPorCnpj(leitura!.aba, leitura!.colunas, periodo);
 
@@ -42,13 +56,16 @@ const todas = await prisma.loja.findMany({
   select: { id: true, geId: true, codigo: true, nome: true, cnpj: true, faturamento: true },
 });
 const porDigitos = new Map<string, typeof todas>();
-for (const l of todas) if (l.cnpj) porDigitos.set(soDigitos(l.cnpj), [...(porDigitos.get(soDigitos(l.cnpj)) ?? []), l]);
+for (const l of todas)
+  if (l.cnpj) porDigitos.set(soDigitos(l.cnpj), [...(porDigitos.get(soDigitos(l.cnpj)) ?? []), l]);
 const cnpjs = [...lidas.porCnpj.keys()].sort();
 const semLoja = cnpjs.filter((c) => !porDigitos.has(c));
 const alvos = cnpjs.flatMap((cnpj) => (porDigitos.get(cnpj) ?? []).map((loja) => ({ cnpj, loja })));
 const grupos = new Set(alvos.map((a) => a.loja.geId));
 let preencheria = 0;
-for (const { cnpj, loja } of alvos) if (mesclarCadastro(loja.faturamento, faturamentoDaBase(lidas.porCnpj.get(cnpj)!)).novo) preencheria++;
+for (const { cnpj, loja } of alvos)
+  if (mesclarCadastro(loja.faturamento, faturamentoDaBase(lidas.porCnpj.get(cnpj)!)).novo)
+    preencheria++;
 
 const linhas = [
   aplicar ? 'CARGA APLICADA' : 'ENSAIO (nada foi gravado; use --aplicar para gravar)',
@@ -84,7 +101,9 @@ if (aplicar) {
         if (g.jaTinhaValor) jaTinham++;
         if (gravadas % 200 === 0) process.stdout.write(`  ${gravadas}/${alvos.length} lojas…\n`);
       } catch (e) {
-        falhas.push(`${a.loja.codigo} (${a.cnpj}): ${e instanceof Error ? e.message.slice(0, 120) : 'erro'}`);
+        falhas.push(
+          `${a.loja.codigo} (${a.cnpj}): ${e instanceof Error ? e.message.slice(0, 120) : 'erro'}`,
+        );
       }
     }
   };
@@ -94,13 +113,22 @@ if (aplicar) {
       acao: 'base-comercial.importada',
       perfil: 'COMANDO',
       alvoTipo: 'carga',
-      detalhe: { arquivo: nome, formato: 'por_cnpj', periodo, lojas: gravadas, cnpjsSemLoja: semLoja.length, falhas: falhas.length },
+      detalhe: {
+        arquivo: nome,
+        formato: 'por_cnpj',
+        periodo,
+        lojas: gravadas,
+        cnpjsSemLoja: semLoja.length,
+        falhas: falhas.length,
+      },
     },
   });
   process.stdout.write(
     [
       `Lojas gravadas: ${gravadas} de ${alvos.length} em ${Math.round((Date.now() - inicioTempo) / 1000)} s · Cadastro preenchido em ${preenchidas} · já tinham valor próprio ${jaTinham}`,
-      falhas.length ? `NÃO gravadas (${falhas.length}):\n${falhas.map((f) => `  ${f}`).join('\n')}` : 'Nenhuma falha.',
+      falhas.length
+        ? `NÃO gravadas (${falhas.length}):\n${falhas.map((f) => `  ${f}`).join('\n')}`
+        : 'Nenhuma falha.',
     ].join('\n') + '\n',
   );
 }

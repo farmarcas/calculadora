@@ -2,7 +2,8 @@ export type VendaLinha = {
   data: string;
   hora: number;
   venda: number;
-  margem: number;
+  // Lucro bruto da hora (venda − CMV), ou nulo quando a base não trouxe o CMV dela (spec 034). O banco guarda o CMV.
+  margem: number | null;
   clientes: number;
   unidades: number;
 };
@@ -47,30 +48,27 @@ export const resumirVendas = (linhas: VendaLinha[]) => {
 // Segunda = 0 … domingo = 6, a partir da data "AAAA-MM-DD" (sem fuso).
 export const diaDaSemana = (data: string) => (new Date(`${data}T00:00:00Z`).getUTCDay() + 6) % 7;
 
-export type VendaDiaHora = { venda: number[][]; margem: number[][]; dias: number };
+export type VendaDiaHora = { venda: number[][]; dias: number };
 
-// Média de venda e margem por dia da semana e hora: soma ÷ número de datas daquele dia da semana.
+// Média de venda por dia da semana e hora: soma ÷ número de datas daquele dia da semana.
 // Hora sem linha vale zero. `dias` é o total de datas distintas usadas.
 export const vendasPorDiaEHora = (linhas: VendaLinha[]): VendaDiaHora | null => {
   if (linhas.length === 0) return null;
   const venda = Array.from({ length: 7 }, () => new Array<number>(24).fill(0));
-  const margem = Array.from({ length: 7 }, () => new Array<number>(24).fill(0));
   const datasPorDia = Array.from({ length: 7 }, () => new Set<string>());
   for (const l of linhas) {
     const d = diaDaSemana(l.data);
     datasPorDia[d]!.add(l.data);
     if (l.hora < 0 || l.hora > 23) continue;
     venda[d]![l.hora]! += l.venda;
-    margem[d]![l.hora]! += l.margem;
   }
   for (let d = 0; d < 7; d++) {
     const n = datasPorDia[d]!.size;
     for (let h = 0; h < 24; h++) {
       venda[d]![h] = n ? arred(venda[d]![h]! / n) : 0;
-      margem[d]![h] = n ? arred(margem[d]![h]! / n) : 0;
     }
   }
-  return { venda, margem, dias: new Set(linhas.map((l) => l.data)).size };
+  return { venda, dias: new Set(linhas.map((l) => l.data)).size };
 };
 
 const SEMANAS_NO_MES = 52 / 12;

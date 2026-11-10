@@ -19,7 +19,10 @@ const abertaNaHora = (dias: DiaAberto[], dia: number, h: number) => {
 // Matriz 7 × 24: verdadeiro na hora aberta na simulação e fechada no Cadastro.
 export const horasNovas = (diasCadastro: DiaAberto[], dias: DiaAberto[]): boolean[][] =>
   Array.from({ length: 7 }, (_, d) =>
-    Array.from({ length: 24 }, (_, h) => abertaNaHora(dias, d, h) && !abertaNaHora(diasCadastro, d, h)),
+    Array.from(
+      { length: 24 },
+      (_, h) => abertaNaHora(dias, d, h) && !abertaNaHora(diasCadastro, d, h),
+    ),
   );
 
 // Hora de borda do Cadastro para uma hora nova: a primeira hora aberta (se a nova vem antes) ou a última (se vem depois).

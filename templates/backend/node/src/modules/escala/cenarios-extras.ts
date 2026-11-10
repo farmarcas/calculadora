@@ -13,13 +13,12 @@ import {
   type EntradaCenarios,
 } from './cenarios.js';
 
-// Dia hoje fechado que o cenário sugere abrir. Venda e margem por mês (referência) só para o dono.
+// Dia hoje fechado que o cenário sugere abrir. Venda por mês (referência) só para o dono.
 export type DiaAbrir = {
   dia: number;
   abre: string;
   fecha: string;
   vendaMes?: number | null;
-  margemMes?: number | null;
 };
 
 export type CenarioEstender = {
@@ -35,11 +34,11 @@ export type CenarioEstender = {
   horarioSemana: DiaCenario[];
   // Referência, não previsão. Só para o dono; nulos sem dado de venda.
   vendaRefMes: number | null;
-  margemRefMes: number | null;
   aviso: string | null;
   // Só para o dono.
   custoAdicionalMensal?: number | null;
-  impactoMensal?: number | null;
+  // Venda estimada dos dias abertos menos o custo adicional de folha (positivo é bom). Venda, não lucro.
+  saldoMensal?: number | null;
 };
 
 export type CargoReduzir = {
@@ -74,8 +73,8 @@ const brl = (n: number) =>
 export const FATOR_DIA_NOVO_PADRAO = 0.5;
 
 // Cenário 4: com a equipe do Cenário 1 (atual + vagas), abre um dia hoje fechado (com o horário do dia aberto mais
-// curto) quando a regra de cobertura continua passando sem nova contratação e a margem estimada do dia compensa.
-// Escolhe o de maior margem e repete enquanto couber.
+// curto) quando a regra de cobertura continua passando sem nova contratação e há venda estimada para o dia.
+// Escolhe o de maior venda e repete enquanto couber.
 const montarEstender = (e: EntradaCenarios, c: CenariosRegra): CenarioEstender => {
   const regra = regraPara(e.regraId, e.convencao8h24, e.parametros);
   const porDia = vendasPorDia(e.vendas, e.dias, e.diasProtegidos);
@@ -97,7 +96,6 @@ const montarEstender = (e: EntradaCenarios, c: CenariosRegra): CenarioEstender =
     horasSemana: horasDaSemana(e.dias),
     horarioSemana: horarioDaSemana(e.dias),
     vendaRefMes: null,
-    margemRefMes: null,
     aviso: null,
   };
   const indisponivel = (motivo: string): CenarioEstender => ({
@@ -105,7 +103,7 @@ const montarEstender = (e: EntradaCenarios, c: CenariosRegra): CenarioEstender =
     motivoIndisponivel: motivo,
     direcionamento: motivo,
     resumo: motivo,
-    ...(e.dono ? { custoAdicionalMensal: null, impactoMensal: null } : {}),
+    ...(e.dono ? { custoAdicionalMensal: null, saldoMensal: null } : {}),
   });
 
   const abertos = e.dias.map((d) => d.dia);
@@ -118,17 +116,15 @@ const montarEstender = (e: EntradaCenarios, c: CenariosRegra): CenarioEstender =
   if (!maisCurto) return indisponivel('A loja não tem nenhum dia aberto cadastrado.');
 
   const temVenda = porDia.some((d) => (d.venda ?? 0) > 0);
-  const temMargem = porDia.some((d) => (d.margem ?? 0) > 0);
-  const mediaAbertos = (campo: 'vendaMes' | 'margemMes') =>
-    e.dias.reduce((s, d) => s + (porDia[d.dia]![campo] ?? 0), 0) / e.dias.length;
+  const mediaAbertos = () =>
+    e.dias.reduce((s, d) => s + (porDia[d.dia]!.vendaMes ?? 0), 0) / e.dias.length;
   // Dia com histórico vale o que vendeu; sem histórico, 50% da média dos dias abertos (referência).
   const estimativa = (dia: number) => {
     const d = porDia[dia]!;
     const proprio = (d.venda ?? 0) > 0;
     return {
       estimada: !proprio,
-      vendaMes: proprio ? d.vendaMes! : mediaAbertos('vendaMes') * fator,
-      margemMes: proprio ? d.margemMes! : mediaAbertos('margemMes') * fator,
+      vendaMes: proprio ? d.vendaMes! : mediaAbertos() * fator,
     };
   };
 
@@ -142,9 +138,9 @@ const montarEstender = (e: EntradaCenarios, c: CenariosRegra): CenarioEstender =
       .filter((x) =>
         cobre([...atuais, { dia: x.dia, abre: maisCurto.abre, fecha: maisCurto.fecha }]),
       )
-      // com dado de venda só vale abrir onde a margem estimada é positiva
-      .filter((x) => !temMargem || x.margemMes > 0)
-      .sort((a, b) => b.margemMes - a.margemMes || b.dia - a.dia);
+      // com dado de venda só vale abrir onde a venda estimada é positiva
+      .filter((x) => !temVenda || x.vendaMes > 0)
+      .sort((a, b) => b.vendaMes - a.vendaMes || b.dia - a.dia);
     const escolhido = viaveis[0];
     if (!escolhido) break;
     abrir.push(escolhido.dia);
@@ -154,8 +150,8 @@ const montarEstender = (e: EntradaCenarios, c: CenariosRegra): CenarioEstender =
   }
   if (abrir.length === 0)
     return indisponivel(
-      temMargem && fechados.some((d) => estimativa(d).margemMes <= 0)
-        ? 'Nenhum dia hoje fechado tem margem estimada positiva para compensar abrir.'
+      temVenda && fechados.some((d) => estimativa(d).vendaMes <= 0)
+        ? 'Nenhum dia hoje fechado tem venda estimada positiva para compensar abrir.'
         : 'A equipe do Cenário 1 não tem sobra de capacidade para abrir mais um dia sem nova contratação.',
     );
 
@@ -163,7 +159,6 @@ const montarEstender = (e: EntradaCenarios, c: CenariosRegra): CenarioEstender =
   const horas = maisCurto.fecha - maisCurto.abre;
   const itens = dias.map((dia) => ({ dia, ...estimativa(dia) }));
   const vendaRefMes = temVenda ? arred(itens.reduce((s, x) => s + x.vendaMes, 0)) : null;
-  const margemRefMes = temMargem ? arred(itens.reduce((s, x) => s + x.margemMes, 0)) : null;
   const algumaEstimada = itens.some((x) => x.estimada);
   const nomes = listaDeDias(dias);
   const usaSobra =
@@ -174,39 +169,33 @@ const montarEstender = (e: EntradaCenarios, c: CenariosRegra): CenarioEstender =
     ...base,
     disponivel: true,
     resumo:
-      e.dono && margemRefMes !== null
-        ? `${fraseBase} e traz cerca de ${brl(margemRefMes)} de margem por mês (referência).`
+      e.dono && vendaRefMes !== null
+        ? `${fraseBase} e traz cerca de ${brl(vendaRefMes)} de venda por mês (referência).`
         : `${fraseBase}.`,
     direcionamento:
-      e.dono && margemRefMes !== null
-        ? `${fraseBase}. Referência de ${brl(margemRefMes)} de margem por mês${algumaEstimada ? ', estimada em ' + Math.round(fator * 100) + '% da média dos dias abertos' : ''} (não é previsão). Faz sentido quando você já vai pagar essas horas de qualquer jeito.`
+      e.dono && vendaRefMes !== null
+        ? `${fraseBase}. Referência de ${brl(vendaRefMes)} de venda por mês${algumaEstimada ? ', estimada em ' + Math.round(fator * 100) + '% da média dos dias abertos' : ''} (não é previsão nem lucro: não desconta o custo da mercadoria). Faz sentido quando você já vai pagar essas horas de qualquer jeito.`
         : `${fraseBase}. Faz sentido quando você já vai pagar essas horas de qualquer jeito.`,
     diasAbrir: itens.map((x) => ({
       dia: x.dia,
       abre: hhmm(maisCurto.abre),
       fecha: hhmm(maisCurto.fecha),
-      ...(e.dono
-        ? {
-            vendaMes: temVenda ? arred(x.vendaMes) : null,
-            margemMes: temMargem ? arred(x.margemMes) : null,
-          }
-        : {}),
+      ...(e.dono ? { vendaMes: temVenda ? arred(x.vendaMes) : null } : {}),
     })),
     horasEstender: arred(horas * dias.length),
     horasSemana: horasDaSemana(atuais),
     horarioSemana: horarioDaSemana(atuais),
     vendaRefMes,
-    margemRefMes,
     aviso: !temVenda
       ? 'Sem venda informada: os dias foram escolhidos só pela capacidade da equipe. Informe o faturamento por dia da semana para estimar o ganho.'
       : algumaEstimada
-        ? `A margem de um dia que hoje não abre é uma referência: ${Math.round(fator * 100)}% da média dos dias abertos, não uma previsão.`
+        ? `A venda de um dia que hoje não abre é uma referência: ${Math.round(fator * 100)}% da média dos dias abertos, não uma previsão.`
         : null,
   };
   if (e.dono) {
     const custo = c.manter.custoAdicionalMensal ?? null;
     r.custoAdicionalMensal = custo;
-    r.impactoMensal = custo !== null && margemRefMes !== null ? arred(custo - margemRefMes) : null;
+    r.saldoMensal = custo !== null && vendaRefMes !== null ? arred(vendaRefMes - custo) : null;
   }
   return r;
 };

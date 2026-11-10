@@ -121,7 +121,10 @@ export const exigenciasDaLoja = (
 };
 
 // Avisos dos turnos já gravados: o que deixou de ser válido e as horas sem turno (informativo, não bloqueia).
-export const avisosDeTurnos = (turnos: TurnosLoja | null | undefined, dias: DiaAberto[]): string[] => {
+export const avisosDeTurnos = (
+  turnos: TurnosLoja | null | undefined,
+  dias: DiaAberto[],
+): string[] => {
   if (!turnos?.turnos.length || turnos.modo === 'unico') return [];
   const erros = validarTurnos(turnos.turnos, dias);
   if (erros.length) return erros;

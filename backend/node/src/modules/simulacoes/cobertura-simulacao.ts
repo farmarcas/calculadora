@@ -36,7 +36,9 @@ export const coberturaDaSimulacao = (e: EntradaCoberturaSimulacao) => {
       fimIntervalo: t.fimIntervalo,
     }));
   const comTurno = new Set(e.turnos.map((t) => t.matricula));
-  const vagasSemTurnos = e.quadro.filter((p) => p.vaga && !p.desligado && !comTurno.has(p.matricula)).length;
+  const vagasSemTurnos = e.quadro.filter(
+    (p) => p.vaga && !p.desligado && !comTurno.has(p.matricula),
+  ).length;
 
   const { horas, funcoes } = cobertura(e.dias, turnosDeFuncao, e.minimos);
   const resumo = resumirVendas(e.vendas);
@@ -47,6 +49,8 @@ export const coberturaDaSimulacao = (e: EntradaCoberturaSimulacao) => {
     vendas: resumo && (e.dono ? resumo : semValorPorHora(resumo)),
     vagasSemTurnos,
     horarios: e.horarios,
-    turnosDaLoja: e.turnosDaLoja ? { modoMinimo: e.turnosDaLoja.modo ?? 'turnos', turnos: e.turnosDaLoja.turnos } : null,
+    turnosDaLoja: e.turnosDaLoja
+      ? { modoMinimo: e.turnosDaLoja.modo ?? 'turnos', turnos: e.turnosDaLoja.turnos }
+      : null,
   };
 };

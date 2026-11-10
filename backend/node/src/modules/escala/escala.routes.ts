@@ -45,7 +45,14 @@ export const escalaRouter = (repoDoGe: (geId: string) => EscalaRepository = esca
     if (!req.file) throw new ValidationError('Envie o arquivo no campo "arquivo".');
     res
       .status(201)
-      .json(await s(res).importarBase(req.file.originalname, req.file.buffer, perfilDe(res), periodoDoForm(req)));
+      .json(
+        await s(res).importarBase(
+          req.file.originalname,
+          req.file.buffer,
+          perfilDe(res),
+          periodoDoForm(req),
+        ),
+      );
   });
 
   r.get('/lojas/:id/diagnostico', validate(S.diagnosticoReq), async (_req, res) => {

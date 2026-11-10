@@ -140,7 +140,8 @@ export const calcularResultado = (a: {
       abre: s ? hhmm(s.abre) : null,
       fecha: s ? hhmm(s.fecha) : null,
       horas: s ? arred(s.fecha - s.abre) : 0,
-      alterado: (s?.abre ?? null) !== (c?.abre ?? null) || (s?.fecha ?? null) !== (c?.fecha ?? null),
+      alterado:
+        (s?.abre ?? null) !== (c?.abre ?? null) || (s?.fecha ?? null) !== (c?.fecha ?? null),
     };
   });
 
@@ -184,7 +185,10 @@ export const calcularResultado = (a: {
     return Math.max(0, arred((h0 ?? h1).necessidadeH - h1.capacidadeH));
   };
   const funcoesNomes = [
-    ...new Set([...hoje.map((l) => l.funcao), ...ativos.filter((p) => p.vaga).map((p) => p.funcao!)]),
+    ...new Set([
+      ...hoje.map((l) => l.funcao),
+      ...ativos.filter((p) => p.vaga).map((p) => p.funcao!),
+    ]),
   ];
 
   const sal = (f: string) => a.custos?.salarioMedio[f as keyof Custos['salarioMedio']] ?? null;
@@ -221,15 +225,27 @@ export const calcularResultado = (a: {
         contratacoes,
         resultado: {
           coberto: falta1 <= 0,
-          horas: falta1 > 0 ? falta1 : Math.max(0, arred((h1?.capacidadeH ?? 0) - (h0 ?? h1)!.necessidadeH)),
+          horas:
+            falta1 > 0
+              ? falta1
+              : Math.max(0, arred((h1?.capacidadeH ?? 0) - (h0 ?? h1)!.necessidadeH)),
         },
         ...(a.dono
-          ? { custoMensal: custos.some((c) => c == null) ? null : arred(custos.reduce((s, c) => s! + c!, 0)!) }
+          ? {
+              custoMensal: custos.some((c) => c == null)
+                ? null
+                : arred(custos.reduce((s, c) => s! + c!, 0)!),
+            }
           : {}),
       };
     })
     // Função sem exigência, sem ninguém e sem vaga não precisa aparecer.
-    .filter((f) => f.faltaHoje > 0 || f.contratacoes.length > 0 || (hoje.find((l) => l.funcao === f.funcao)?.pessoas ?? 0) > 0);
+    .filter(
+      (f) =>
+        f.faltaHoje > 0 ||
+        f.contratacoes.length > 0 ||
+        (hoje.find((l) => l.funcao === f.funcao)?.pessoas ?? 0) > 0,
+    );
 
   // Maior venda: dias e horas cujo total semanal fica a até 15% do maior.
   const maiorVenda = (() => {
@@ -283,13 +299,21 @@ export const calcularResultado = (a: {
       horaExtra = null;
       break;
     }
-    horaExtra += falta * SEMANAS_DA_FOLHA * (s / tabela[a.regraId].divisor) * ADICIONAL_HORA_EXTRA * fator;
+    horaExtra +=
+      falta * SEMANAS_DA_FOLHA * (s / tabela[a.regraId].divisor) * ADICIONAL_HORA_EXTRA * fator;
   }
   if (horaExtra !== null) horaExtra = arred(horaExtra);
   const vendaQueSai = vbRegua ? arred(venda * SEMANAS_NO_MES) : null;
-  const custoAdicional = folhaExtra == null || horaExtra == null ? null : arred(folhaExtra + horaExtra);
+  const custoAdicional =
+    folhaExtra == null || horaExtra == null ? null : arred(folhaExtra + horaExtra);
   // "Manter horário": as contratações que cobrem o horário do Cadastro com a equipe de hoje.
-  const linhasManter = verificarRegra(a.regra, a.diasCadastro, a.minimos, pessoasDe(atuais), opcoes);
+  const linhasManter = verificarRegra(
+    a.regra,
+    a.diasCadastro,
+    a.minimos,
+    pessoasDe(atuais),
+    opcoes,
+  );
   const custoManter = custoDasVagas(
     a.regraId,
     contratacoesDe(linhasManter),
@@ -297,7 +321,8 @@ export const calcularResultado = (a: {
     a.custos,
     a.parametros,
   );
-  const economiaFolha = custoManter == null || custoAdicional == null ? null : arred(custoManter - custoAdicional);
+  const economiaFolha =
+    custoManter == null || custoAdicional == null ? null : arred(custoManter - custoAdicional);
   const vendaEstimada = estimativa ? estimativa.vendaMes : null;
   // Saldo contra a folha atual (a regra dos cartões): −folha extra − hora extra + venda estimada − venda que deixa de entrar.
   const saldo = saldoDaSimulacao({ folhaExtra, horaExtra, vendaEstimada, vendaQueSai });

@@ -19,12 +19,15 @@ import {
   ganhoDasHorasNovas,
   melhorEstado,
   passosDe,
-  perdaMensal,
+  vendaPerdidaHoraria,
+  type VendaPerdidaDia,
   sequenciaFimDeSemana,
+  PERDA_MAX_CENARIO_2_PCT,
   TRAVAS,
   type MotivoParada,
   type Passo,
 } from './ajustes-fim-de-semana.js';
+import { linhasNaRegua, palavraDaRegua, type Regua } from './regua.js';
 import { vendasPorDiaEHora, type VendaLinha } from './vendas.js';
 
 export type DiaCenario = {
@@ -51,7 +54,7 @@ export type Contratacao = {
 };
 
 export type CenarioManter = {
-  // Só para o dono: custo adicional + margem perdida, por mês (nulo se faltar dado).
+  // Só para o dono: custo adicional de folha, por mês (nulo se faltar dado).
   impactoMensal?: number | null;
   // Premissa fixa do cenário e o que acontece nesta loja ("Contrata 1 atendente e 1 apoio").
   foco: string;
@@ -71,8 +74,13 @@ export type CenarioManter = {
   faturamentoMensalRef?: number | null;
 };
 
-// Dia da semana que o cenário sugere fechar. Venda e margem por mês (já com a recaptura descontada) só para o dono.
-export type DiaFechar = { dia: number; vendaMes?: number | null; margemMes?: number | null };
+// Dia da semana que o cenário sugere fechar. Venda por mês (hora a hora, com a recaptura descontada) só para o dono.
+// Venda perdida de um dia alterado; o valor em reais só vai para o dono.
+export type VendaPerdidaDiaCenario = Pick<VendaPerdidaDia, 'dia' | 'horasFechadas' | 'ate'> & {
+  vendaMes?: number;
+};
+
+export type DiaFechar = { dia: number; vendaMes?: number | null };
 
 // Passo do cenário de economia na resposta: horários em "HH:MM".
 export type HorarioTxt = { abre: string; fecha: string };
@@ -116,11 +124,12 @@ export type CenarioEconomia = {
   horariosAjustados: HorarioAjustado[];
   // Só para o dono: perda sobre o faturamento mensal (%).
   perdaFaturamentoPct?: number;
-  // A margem bruta da loja foi informada? Sem ela, a margem perdida é nula (não zero).
-  margemInformada: boolean;
-  // Só para o dono; nulos sem dado de venda (e a margem, sem margem informada).
+  // Só para o dono. Venda que deixa de entrar por mês (soma da venda média das horas que fecham); nula sem venda hora a hora.
   vendaCortadaMes: number | null;
-  margemCortadaMes: number | null;
+  // A mesma venda, por dia alterado.
+  vendaCortadaPorDia: VendaPerdidaDiaCenario[];
+  // A loja não tem venda hora a hora (só o faturamento por dia do Cadastro): a venda perdida não é estimada.
+  semVendaHoraria: boolean;
   aviso: string | null;
 };
 
@@ -143,13 +152,21 @@ export type CenarioEquilibrio = {
   contratacoes: Contratacao[];
   pessoasContratar: number;
   ociosidadePct: number;
-  margemCortadaMes: number | null;
+  vendaCortadaPorDia: VendaPerdidaDiaCenario[];
+  semVendaHoraria: boolean;
   // Horas que o cenário abre a mais no fim de semana, com a origem da estimativa de venda de cada dia.
-  horasEstendidas: { dia: number; horasNovas: number; origem: 'registrada' | 'vizinha' | 'mista' }[];
+  horasEstendidas: {
+    dia: number;
+    horasNovas: number;
+    origem: 'registrada' | 'vizinha' | 'mista';
+  }[];
   // A venda das horas novas é estimada (nenhuma tem base registrada completa); a tela avisa.
   estimativaDeVenda: boolean;
-  // Só para o dono: margem mensal das horas novas e o impacto com metade dela (decide o "Cenário sugerido").
-  margemGanhaMes?: number | null;
+  // Só para o dono: venda mensal estimada das horas novas e o impacto com metade dela (decide o "Cenário sugerido").
+  vendaGanhaMes?: number | null;
+  // Só para o dono: perda e ganho em venda real (a base dos % do faturamento), quando a régua é margem.
+  vendaCortadaRealMes?: number | null;
+  vendaGanhaRealMes?: number | null;
   impactoRobusto?: number | null;
   // Venda mensal que deixa de entrar com as reduções e fechamentos (só o dono recebe).
   vendaCortadaMes: number | null;
@@ -159,14 +176,14 @@ export type CenarioEquilibrio = {
   // Só para o dono.
   custoAdicionalMensal?: number | null;
   acrescimoPct?: number | null;
-  // Margem dos dias abertos menos o custo adicional de folha, por mês.
-  resultadoMensal?: number | null;
 };
 
 export type CenariosRegra = {
   regra: { id: RegraId; nome: string };
   atual: { horasSemana: number; pessoas: number; folhaMensal?: number | null };
   vendasBase: { dias: number } | null;
+  // O que mede a perda e o ganho de horários: margem ou venda (nulo sem base hora a hora). Os campos "venda…" carregam a régua.
+  regua: Regua | null;
   // Venda de cada dia da semana (valores em reais só para o dono), de onde ela vem e os dias que não se sugere fechar.
   vendasPorDia: VendaDia[];
   origemVenda: OrigemVenda | null;
@@ -185,6 +202,10 @@ export type EntradaCenarios = {
   minimos: Minimos;
   pessoas: { funcao: string; cargaH: number }[];
   vendas: VendaLinha[];
+  // Limite de perda de faturamento do Cenário 2, em % (padrão 3).
+  limitePerdaCenario2Pct?: number;
+  // Régua da loja (margem ou venda); sem ela vale a venda, como sempre.
+  regua?: Regua | null;
   // Venda estimada pelo faturamento do cadastro (não é base de dias reais): sem aviso de "poucos dias".
   vendasDoCadastro?: boolean;
   // Parâmetros legais em uso (jornada, dias, divisor); sem eles valem os de hoje.
@@ -196,6 +217,8 @@ export type EntradaCenarios = {
   diasProtegidos?: number;
   // Parte da venda de um dia fechado que migra para os outros dias (0 a 0,3; padrão 0).
   recaptura?: number;
+  // Quanto da venda da hora vizinha vale uma hora nova, em % (0 a 100; padrão 50).
+  fatorHoraNova?: number;
   // Quanto da média dos dias abertos vale um dia hoje fechado que nunca vendeu (0 a 1; padrão 0,5).
   fatorDiaNovo?: number;
   // Turnos de sobra até os quais se contrata um parcial (0 a 3; padrão 3).
@@ -317,7 +340,9 @@ const listaContratacoes = (cs: Contratacao[]) =>
 
 // "atendimento", "farmacêutico e apoio", "farmacêutico, atendimento e apoio".
 const listaDeFuncoes = (nomes: string[]) =>
-  nomes.length < 2 ? nomes.join('') : `${nomes.slice(0, -1).join(', ')} e ${nomes[nomes.length - 1]}`;
+  nomes.length < 2
+    ? nomes.join('')
+    : `${nomes.slice(0, -1).join(', ')} e ${nomes[nomes.length - 1]}`;
 
 const montarManter = (e: EntradaCenarios, linhas: LinhaFuncao[], folha: number | null) => {
   const nomeRegra = regraPara(e.regraId, e.convencao8h24, e.parametros).nome;
@@ -386,11 +411,15 @@ const fraseDoPasso = (p: PassoCenario) => {
   }
   return `${nome} fecha`;
 };
-const MOTIVO_PARADA: Record<MotivoParada, string> = {
-  perda: `a perda chegaria ao limite de ${TRAVAS.perdaMaxPct}% do faturamento`,
-  horas: `a loja ficaria com menos de ${TRAVAS.horasMinPct}% das horas abertas de hoje`,
-  fim_de_semana: 'não há mais o que reduzir ou fechar no fim de semana',
-};
+// Por que o Cenário 2 parou de cortar; o limite de perda é o do cenário (3% por padrão).
+const motivoDeParada = (e: EntradaCenarios, parou: MotivoParada): string =>
+  ({
+    perda: `a perda chegaria ao limite de ${limiteDePerdaDoCenario2(e)}% do faturamento`,
+    horas: `a loja ficaria com menos de ${TRAVAS.horasMinPct}% das horas abertas de hoje`,
+    fim_de_semana: 'não há mais o que reduzir ou fechar no fim de semana',
+  })[parou];
+const limiteDePerdaDoCenario2 = (e: EntradaCenarios) =>
+  e.limitePerdaCenario2Pct ?? PERDA_MAX_CENARIO_2_PCT;
 
 // Com a equipe atual e os horários do cenário: quanto cada função fica abaixo da meta e quantas horas
 // semanais o farmacêutico deixa de cobrir.
@@ -404,6 +433,22 @@ const coberturaDoCenario = (e: EntradaCenarios, regra: Regra, dias: DiaAberto[])
   };
 };
 
+// Dia alterado com a venda perdida já com a recaptura descontada; sem o valor para quem não é dono.
+const porDiaDoCenario = (
+  p: VendaPerdidaDia,
+  fica: number,
+  dono: boolean,
+): VendaPerdidaDiaCenario => ({
+  dia: p.dia,
+  horasFechadas: p.horasFechadas,
+  ate: p.ate,
+  ...(dono ? { vendaMes: arred(p.vendaMes * fica) } : {}),
+});
+
+// Só a base comercial tem a venda de cada hora; o faturamento por dia do Cadastro é dividido por igual entre as horas.
+const temVendaHoraria = (e: EntradaCenarios) =>
+  e.origemVenda === undefined ? e.vendas.length > 0 : e.origemVenda === 'base';
+
 const montarEconomia = (
   e: EntradaCenarios,
   linhas: LinhaFuncao[],
@@ -411,7 +456,12 @@ const montarEconomia = (
 ): CenarioEconomia => {
   const regra = regraPara(e.regraId, e.convencao8h24, e.parametros);
   const temVenda = porDia.some((d) => (d.venda ?? 0) > 0);
-  const temMargem = porDia.some((d) => (d.margemMes ?? 0) > 0);
+  const temHoraria = temVendaHoraria(e);
+  const tabela = temHoraria ? vendasPorDiaEHora(e.vendas) : null;
+  // A perda do impacto é medida na régua (margem ou venda); as travas e o % do faturamento seguem em venda real.
+  const tabelaRegua = temHoraria
+    ? vendasPorDiaEHora(linhasNaRegua(e.vendas, e.regua ?? null))
+    : null;
   const base = {
     foco: 'Não contratar; ajustar horários só se precisar',
     resultado: 'Nenhum horário precisa mudar',
@@ -426,9 +476,9 @@ const montarEconomia = (
     faltaH: null as number | null,
     passos: [] as PassoCenario[],
     horariosAjustados: [] as HorarioAjustado[],
-    margemInformada: temMargem,
     vendaCortadaMes: null,
-    margemCortadaMes: null,
+    vendaCortadaPorDia: [] as VendaPerdidaDiaCenario[],
+    semVendaHoraria: !temHoraria,
     aviso: null as string | null,
   };
   const semGente = linhas.find((l) => l.obrigatorio && l.pessoas === 0);
@@ -438,14 +488,14 @@ const montarEconomia = (
       viavel: false,
       motivoInviavel: `Não há ${semGente.funcao} no quadro: reduzir ou fechar o fim de semana não resolve, é preciso contratar.`,
       resultado: 'Não é possível sem contratar',
-      direcionamento: `Este caminho não é possível: sem ${semGente.funcao} no quadro, nenhum dia fica coberto. Veja o Cenário 1.`,
-      resumo: 'Não é possível sem contratar. Veja o Cenário 1.',
+      direcionamento: `Este caminho não é possível: sem ${semGente.funcao} no quadro, nenhum dia fica coberto. Veja Manter horários.`,
+      resumo: 'Não é possível sem contratar. Veja Manter horários.',
     };
   if (passa(linhas))
     return {
       ...base,
       // Nada a mudar: nenhuma perda, desde que haja venda para afirmar isso.
-      ...(temVenda ? { vendaCortadaMes: 0, margemCortadaMes: temMargem ? 0 : null } : {}),
+      ...(temVenda && temHoraria ? { vendaCortadaMes: 0 } : {}),
       viavel: true,
       motivoInviavel: null,
       direcionamento: `A equipe atual já cobre todos os dias na regra de ${regra.nome}: não é preciso reduzir nem fechar nada.`,
@@ -466,6 +516,8 @@ const montarEconomia = (
   const seq = sequenciaFimDeSemana({
     dias: e.dias,
     porDia,
+    tabela,
+    perdaMaxPct: limiteDePerdaDoCenario2(e),
     cobre: (dias) =>
       passa(verificarRegra(regra, dias, e.minimos, e.pessoas, opcoesDoMotor(e, regra))),
     faltaH: (dias) =>
@@ -477,23 +529,16 @@ const montarEconomia = (
   const fica = 1 - recaptura;
   const hoje = [...e.dias].sort((x, y) => x.dia - y.dia);
   const fechados = hoje.filter((d) => !seq.dias.some((x) => x.dia === d.dia)).map((d) => d.dia);
-  const vendaMes = arred(perdaMensal(hoje, seq.dias, porDia) * fica);
-  const margemMes = temMargem
-    ? arred(
-        perdaMensal(
-          hoje,
-          seq.dias,
-          porDia.map((d) => ({ ...d, vendaMes: d.margemMes })),
-        ) * fica,
-      )
-    : null;
+  // Venda que deixa de entrar: a soma da venda média das horas que fecham (nula sem venda hora a hora).
+  const perdida = tabelaRegua ? vendaPerdidaHoraria(hoje, seq.dias, tabelaRegua) : null;
+  const vendaMes = perdida ? arred(perdida.vendaMes * fica) : null;
+  const vendaPorDia: VendaPerdidaDiaCenario[] = perdida
+    ? perdida.porDia.map((p) => porDiaDoCenario(p, fica, e.dono))
+    : [];
   const diasFechar: DiaFechar[] = fechados.map((dia) => ({
     dia,
-    ...(e.dono
-      ? {
-          vendaMes: arred(porDia[dia]!.vendaMes! * fica),
-          margemMes: temMargem ? arred(porDia[dia]!.margemMes! * fica) : null,
-        }
+    ...(e.dono && perdida
+      ? { vendaMes: vendaPorDia.find((p) => p.dia === dia)?.vendaMes ?? 0 }
       : {}),
   }));
   const passos = seq.passos.map(passoTxt);
@@ -511,21 +556,22 @@ const montarEconomia = (
       : null;
   const evitadas = linhas.reduce((s, l) => s + l.contratar, 0);
   const acoes = passos.length ? passos.map(fraseDoPasso).join('; ') : 'nenhuma mudança possível';
-  const perdaTxt = e.dono
-    ? ` Deixam de entrar cerca de ${brl(vendaMes)} em vendas por mês (${String(seq.perdaPct).replace('.', ',')}% do faturamento${margemMes !== null ? `, margem de ${brl(margemMes)}` : ''}${recaptura > 0 ? `, já descontados ${Math.round(recaptura * 100)}% que migram para os outros dias` : ''}).`
-    : '';
+  const perdaTxt =
+    e.dono && vendaMes !== null
+      ? ` Deixam de entrar cerca de ${brl(vendaMes)} ${e.regua?.tipo === 'margem' ? 'de margem' : 'em vendas'} por mês (${e.regua?.tipo === 'margem' ? 'a venda cortada é ' : ''}${String(seq.perdaPct).replace('.', ',')}% do faturamento${recaptura > 0 ? `, já descontados ${Math.round(recaptura * 100)}% que migram para os outros dias` : ''}).`
+      : '';
   const horasMsg = seq.faltaH
     ? ` ainda faltam ${horasTxt(seq.faltaH)} de cobertura`
     : ' a equipe ainda não cobre o horário';
   const frase = seq.cobre
     ? `${acoes}. Assim a equipe atual cobre o horário sem contratar${evitadas > 0 ? ` (você deixa de contratar ${evitadas} pessoa${evitadas === 1 ? '' : 's'})` : ''}.`
-    : `${passos.length ? `${acoes}, mas` : 'Mesmo reduzindo o fim de semana,'} ${MOTIVO_PARADA[seq.parou!]}:${horasMsg}. Só mexer no fim de semana não resolve: veja o Cenário 3 (equilíbrio).`;
+    : `${passos.length ? `${acoes}, mas` : 'Mesmo reduzindo o fim de semana,'} ${motivoDeParada(e, seq.parou!)}:${horasMsg}. Só mexer no fim de semana não resolve: veja o Equilíbrio.`;
   const avisos = [
     e.origemVenda === 'estimativa'
       ? 'Venda estimada: só o faturamento mensal foi informado e ele foi dividido igualmente entre os dias abertos. Informe o faturamento por dia da semana para estimar melhor cada corte.'
       : null,
-    passos.some((p) => p.tipo === 'reduzir')
-      ? 'A perda de reduzir o horário é uma estimativa: supõe vendas iguais em todas as horas do dia.'
+    passos.some((p) => p.tipo === 'reduzir') && !temHoraria
+      ? `Sem venda hora a hora, não é possível estimar a ${palavraDaRegua(e.regua ?? null)} perdida: o corte foi escolhido supondo vendas iguais em todas as horas do dia.`
       : null,
   ].filter((x): x is string => x !== null);
   const comum = {
@@ -539,9 +585,9 @@ const montarEconomia = (
     naoRecomendado,
     passos,
     horariosAjustados,
-    margemInformada: temMargem,
     vendaCortadaMes: vendaMes,
-    margemCortadaMes: margemMes,
+    vendaCortadaPorDia: vendaPorDia,
+    semVendaHoraria: !temHoraria,
     aviso: avisos.length ? avisos.join(' ') : null,
     ...(e.dono ? { perdaFaturamentoPct: seq.perdaPct } : {}),
   };
@@ -549,7 +595,7 @@ const montarEconomia = (
     return {
       ...comum,
       viavel: false,
-      motivoInviavel: `Só reduzir ou fechar o fim de semana não cobre o horário: ${MOTIVO_PARADA[seq.parou!]}.`,
+      motivoInviavel: `Só reduzir ou fechar o fim de semana não cobre o horário: ${motivoDeParada(e, seq.parou!)}.`,
       naoResolveSozinho: true,
       travou: seq.parou,
       faltaH: seq.faltaH,
@@ -564,7 +610,7 @@ const montarEconomia = (
     travou: null,
     faltaH: null,
     resumo: frase,
-    direcionamento: `${frase}${perdaTxt} Faz sentido quando o custo de contratar pesa mais que ${e.dono ? 'essa perda' : 'a venda perdida'}.`,
+    direcionamento: `${frase}${perdaTxt} Faz sentido quando o custo de contratar pesa mais que ${e.dono ? 'essa perda' : `a ${palavraDaRegua(e.regua ?? null)} perdida`}.`,
   };
 };
 
@@ -576,6 +622,7 @@ const montarEquilibrio = (
   economia: CenarioEconomia,
 ): CenarioEquilibrio => {
   const regra = regraPara(e.regraId, e.convencao8h24, e.parametros);
+  const temHoraria = temVendaHoraria(e);
   const vazio = {
     coincideComManter: false,
     coincideComEconomia: false,
@@ -586,8 +633,9 @@ const montarEquilibrio = (
     contratacoes: [] as Contratacao[],
     pessoasContratar: 0,
     ociosidadePct: 0,
-    margemCortadaMes: null,
     vendaCortadaMes: null,
+    vendaCortadaPorDia: [] as VendaPerdidaDiaCenario[],
+    semVendaHoraria: !temHoraria,
     horasEstendidas: [] as CenarioEquilibrio['horasEstendidas'],
     estimativaDeVenda: false,
     passos: [] as PassoCenario[],
@@ -601,17 +649,17 @@ const montarEquilibrio = (
     resultado: 'Não calculado: faltam dados',
     direcionamento: texto,
     resumo: texto,
-    ...(e.dono ? { custoAdicionalMensal: null, acrescimoPct: null, resultadoMensal: null } : {}),
+    ...(e.dono ? { custoAdicionalMensal: null, acrescimoPct: null } : {}),
   });
   if (!porDia.some((d) => (d.venda ?? 0) > 0))
     return indisponivel(
       'vendas',
-      'Informe o faturamento por dia da semana no Cadastro (ou envie a base comercial) para comparar a margem de cada dia com o custo de contratar.',
+      'Informe o faturamento por dia da semana no Cadastro (ou envie a base comercial) para comparar a venda de cada dia com o custo de contratar.',
     );
-  if (!porDia.some((d) => (d.margemMes ?? 0) > 0))
+  if (!temHoraria)
     return indisponivel(
       'vendas',
-      'Informe a margem bruta média da loja no Cadastro (ou envie a base com a coluna de margem) para comparar a margem de cada dia com o custo de contratar.',
+      'Sem venda hora a hora, não é possível comparar contratar com abrir ou fechar horários. Envie a base comercial da loja.',
     );
   const faltam = requisitos(e.minimos).funcoes.filter(
     (f) => !e.custos?.salarioMedio[f as keyof Custos['salarioMedio']],
@@ -627,14 +675,22 @@ const montarEquilibrio = (
   const recaptura = Math.min(0.3, Math.max(0, e.recaptura ?? 0));
   const fica = 1 - recaptura;
   const hoje = [...e.dias].sort((x, y) => x.dia - y.dia);
-  // Média de venda e margem por dia da semana e hora (base ou cadastro): de onde vem a venda das horas novas.
+  // Venda média por dia da semana e hora (base comercial): de onde vêm a venda que sai e a das horas novas.
   const tabelaHoras = vendasPorDiaEHora(e.vendas);
+  // Na régua do cenário (margem ou venda): mede a perda, o ganho das horas novas e o impacto; as travas seguem em venda real.
+  const tabelaRegua = vendasPorDiaEHora(linhasNaRegua(e.vendas, e.regua ?? null));
+  const fatorHora = Math.min(100, Math.max(0, e.fatorHoraNova ?? 50)) / 100;
   const melhor = melhorEstado({
     dias: e.dias,
     porDia,
-    margemMes: (dia) => porDia[dia]!.margemMes! * fica,
-    ...(tabelaHoras && e.estenderHorario !== false
-      ? { ganhoMes: (dias: DiaAberto[]) => ganhoDasHorasNovas(hoje, dias, tabelaHoras).margemMes }
+    tabela: tabelaHoras,
+    tabelaImpacto: tabelaRegua,
+    fica,
+    ...(tabelaRegua && e.estenderHorario !== false
+      ? {
+          ganhoMes: (dias: DiaAberto[]) =>
+            ganhoDasHorasNovas(hoje, dias, tabelaRegua, fatorHora).vendaMes,
+        }
       : {}),
     avaliar: (dias) => {
       const linhas = verificarRegra(regra, dias, e.minimos, e.pessoas, opcoesDoMotor(e, regra));
@@ -649,8 +705,12 @@ const montarEquilibrio = (
   });
   const { linhas, cs, custo } = melhor.avaliacao;
   const fechados = melhor.fechados;
-  const margemPerdida = arred(melhor.perdida);
-  const ganhoHoras = ganhoDasHorasNovas(hoje, melhor.dias, tabelaHoras);
+  const vendaPerdida = arred(melhor.perdida);
+  const perdidaHoras = tabelaRegua
+    ? vendaPerdidaHoraria(hoje, melhor.dias, tabelaRegua)
+    : { vendaMes: 0, porDia: [] as VendaPerdidaDia[] };
+  const vendaPorDia = perdidaHoras.porDia.map((p) => porDiaDoCenario(p, fica, e.dono));
+  const ganhoHoras = ganhoDasHorasNovas(hoje, melhor.dias, tabelaRegua, fatorHora);
   const horasSemana = horasDaSemana(melhor.dias);
   const passos = passosDe(hoje, melhor.dias).map(passoTxt);
   const horariosAjustados: HorarioAjustado[] = passos.map((p) => ({
@@ -679,18 +739,14 @@ const montarEquilibrio = (
     horariosAjustados,
     diasFechar: fechados.map((dia) => ({
       dia,
-      ...(e.dono
-        ? {
-            vendaMes: arred(porDia[dia]!.vendaMes! * fica),
-            margemMes: arred(porDia[dia]!.margemMes! * fica),
-          }
-        : {}),
+      ...(e.dono ? { vendaMes: vendaPorDia.find((p) => p.dia === dia)?.vendaMes ?? 0 } : {}),
     })),
     contratacoes: cs,
     pessoasContratar: melhor.avaliacao.pessoas,
     ociosidadePct: ociosidadeTotal(linhas, cs),
-    margemCortadaMes: margemPerdida,
-    vendaCortadaMes: arred(perdaMensal(hoje, melhor.dias, porDia) * fica),
+    vendaCortadaMes: vendaPerdida,
+    vendaCortadaPorDia: vendaPorDia,
+    semVendaHoraria: false,
     horasEstendidas: ganhoHoras.porDia.map((g) => ({
       dia: g.dia,
       horasNovas: g.horasNovas,
@@ -701,43 +757,46 @@ const montarEquilibrio = (
   if (e.dono) {
     resultado.custoAdicionalMensal = arred(custo);
     resultado.acrescimoPct = folha !== null && folha > 0 ? pct((custo / folha) * 100) : null;
-    const margemAbertaHoje = e.dias.reduce((s, d) => s + porDia[d.dia]!.margemMes!, 0);
-    resultado.resultadoMensal = arred(
-      margemAbertaHoje - melhor.perdida + ganhoHoras.margemMes - custo,
-    );
-    resultado.margemGanhaMes = ganhoHoras.porDia.length ? ganhoHoras.margemMes : null;
+    resultado.vendaGanhaMes = ganhoHoras.porDia.length ? ganhoHoras.vendaMes : null;
+    // Os % do faturamento são sobre a venda real, mesmo quando a régua é margem.
+    resultado.vendaCortadaRealMes = tabelaHoras
+      ? arred(vendaPerdidaHoraria(hoje, melhor.dias, tabelaHoras).vendaMes * fica)
+      : null;
+    resultado.vendaGanhaRealMes = ganhoHoras.porDia.length
+      ? ganhoDasHorasNovas(hoje, melhor.dias, tabelaHoras, fatorHora).vendaMes
+      : null;
     resultado.impactoRobusto = ganhoHoras.porDia.length
-      ? arred(custo + melhor.perdida - ganhoHoras.margemMes / 2)
+      ? arred(custo + melhor.perdida - ganhoHoras.vendaMes / 2)
       : null;
   }
   const lista = listaContratacoes(cs);
   const acoes = passos.map(fraseDoPasso).join('; ');
   const economiaNaFolha =
     e.dono && custoManter !== null && custoManter - custo > 0.005
-      ? ` você economiza ${brl(custoManter - custo)} por mês de folha frente a manter tudo e perde ${brl(margemPerdida)} de margem`
+      ? ` você economiza ${brl(custoManter - custo)} por mês de folha frente a manter tudo e perde ${brl(vendaPerdida)} de ${palavraDaRegua(e.regua ?? null)}`
       : '';
   const estende = ganhoHoras.porDia.length > 0;
   resultado.resumo = resultado.coincideComManter
     ? 'O equilíbrio para esta loja é contratar tudo e manter o horário de hoje.'
     : estende
-      ? `${acoes}${cs.length ? `, contratando ${lista}` : ', sem contratar ninguém'}. A venda das horas novas é uma estimativa${e.dono ? `: cerca de ${brl(ganhoHoras.margemMes)} de margem por mês` : ''}.`
+      ? `${acoes}${cs.length ? `, contratando ${lista}` : ', sem contratar ninguém'}. A ${palavraDaRegua(e.regua ?? null)} das horas novas é uma estimativa${e.dono ? `: cerca de ${brl(ganhoHoras.vendaMes)} de ${palavraDaRegua(e.regua ?? null)} por mês` : ''}.`
       : igualEconomia
-      ? `O equilíbrio para esta loja é: ${acoes}. A equipe atual cobre o resto e você não contrata ninguém.`
-      : `${acoes}, ${cs.length ? `contratando ${lista}` : 'sem contratar ninguém'},${economiaNaFolha || ' você paga menos folha do que perde de margem'}.`;
+        ? `O equilíbrio para esta loja é: ${acoes}. A equipe atual cobre o resto e você não contrata ninguém.`
+        : `${acoes}, ${cs.length ? `contratando ${lista}` : 'sem contratar ninguém'}${economiaNaFolha ? `,${economiaNaFolha}` : ''}.`;
   resultado.resultado = resultado.coincideComManter
-    ? 'Igual ao Cenário 1'
+    ? 'Igual a Manter horários'
     : igualEconomia
-      ? 'Igual ao Cenário 2'
+      ? 'Igual a Sem contratações'
       : `${acoes}; ${
           cs.length
             ? `contrata ${melhor.avaliacao.pessoas} pessoa${melhor.avaliacao.pessoas === 1 ? '' : 's'}: ${listaDeFuncoes(cs.map((c) => c.funcao.toLowerCase()))}`
             : 'sem contratar ninguém'
         }`;
   resultado.direcionamento = resultado.coincideComManter
-    ? 'Nenhuma redução do fim de semana compensa o custo de cobrir o horário: o equilíbrio é o mesmo do Cenário 1, mantendo o horário de hoje.'
+    ? 'Nenhuma redução do fim de semana compensa o custo de cobrir o horário: o equilíbrio é o mesmo de Manter horários, mantendo o horário de hoje.'
     : igualEconomia
-      ? `${resultado.resumo} Este é o mesmo caminho do Cenário 2.`
-      : `${resultado.resumo} É a combinação de horários de fim de semana e contratações de menor impacto financeiro entre as permitidas (segunda a sexta não mudam; perda máxima de ${TRAVAS.perdaMaxPct}% do faturamento e ao menos ${TRAVAS.horasMinPct}% das horas de hoje).`;
+      ? `${resultado.resumo} Este é o mesmo caminho de Sem contratações.`
+      : `${resultado.resumo} É a combinação de horários de fim de semana e contratações de melhor saldo entre as permitidas (segunda a sexta não mudam; perda máxima de ${TRAVAS.perdaMaxPct}% do faturamento e ao menos ${TRAVAS.horasMinPct}% das horas de hoje).`;
   return resultado;
 };
 
@@ -765,6 +824,7 @@ export const montarCenarios = (e: EntradaCenarios): CenariosRegra => {
       ...(e.dono ? { folhaMensal: folha } : {}),
     },
     vendasBase: vb ? { dias: vb.dias } : null,
+    regua: e.regua ?? null,
     vendasPorDia: e.dono ? porDia : porDia.map(semValores),
     origemVenda: e.origemVenda ?? null,
     diasProtegidos: porDia.filter((d) => d.protegido).map((d) => d.dia),
@@ -776,7 +836,8 @@ export const montarCenarios = (e: EntradaCenarios): CenariosRegra => {
   return r;
 };
 
-// Impacto mensal = custo adicional + margem perdida. O destaque exige os custos e a base comercial
+// Impacto mensal = custo adicional de folha + venda perdida − venda ganha (o saldo é o custo do "manter horário" menos isso).
+// O destaque (menor impacto = maior saldo) exige os custos e a base comercial
 // (Cenários 1 e 3 calculáveis); o Cenário 2 sem solução fica de fora da comparação.
 // Empate: o que contrata menos; depois a ordem 1, 3, 2.
 export const destacar = (r: CenariosRegra) => {
@@ -784,17 +845,17 @@ export const destacar = (r: CenariosRegra) => {
   manter.impactoMensal = manter.custoAdicionalMensal ?? null;
   // O Cenário 2 que só fecha dia protegido é "não recomendado": não entra na escolha do selo.
   economia.impactoMensal =
-    economia.viavel && economia.naoRecomendado === null && economia.margemCortadaMes !== null
-      ? economia.margemCortadaMes
+    economia.viavel && economia.naoRecomendado === null && economia.vendaCortadaMes !== null
+      ? economia.vendaCortadaMes
       : null;
   equilibrio.impactoMensal =
     equilibrio.indisponivel === null &&
     equilibrio.custoAdicionalMensal != null &&
-    equilibrio.margemCortadaMes !== null
+    equilibrio.vendaCortadaMes !== null
       ? arred(
           equilibrio.custoAdicionalMensal +
-          equilibrio.margemCortadaMes -
-          (equilibrio.margemGanhaMes ?? 0),
+            equilibrio.vendaCortadaMes -
+            (equilibrio.vendaGanhaMes ?? 0),
         )
       : null;
   r.destaque = null;

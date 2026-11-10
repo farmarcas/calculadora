@@ -59,10 +59,10 @@ export const gerarModelo = async (): Promise<Buffer> => {
     [
       `Cargo: escolha na lista (${FUNCOES_ESCALA.join(', ')}). Não digite outros nomes de cargo: só esses três entram no cálculo da escala.`,
     ],
-    ['Para ver os horários de maior venda, envie também a base comercial (venda por hora) em "Importar".'],
     [
-      'Horários no formato HH:MM.',
+      'Para ver os horários de maior venda, envie também a base comercial (venda por hora) em "Importar".',
     ],
+    ['Horários no formato HH:MM.'],
     [
       'Intervalo (opcional): informe o início e o fim juntos, dentro do horário de trabalho (por exemplo, 12:00 e 13:00). A cobertura por hora desconta quem está no intervalo.',
     ],
@@ -73,7 +73,9 @@ export const gerarModelo = async (): Promise<Buffer> => {
       '"Meta de <função>": quantas pessoas por hora a loja quer ter. Em branco vale o nível de hoje; Farmacêutico é sempre ao menos 1.',
     ],
     ['"Salário médio": só o dono do grupo grava; para os outros perfis a coluna é ignorada.'],
-    ['Encargos: o percentual vem do regime tributário da loja (Simples Nacional, Lucro Presumido ou Lucro Real); não é digitado na planilha.'],
+    [
+      'Encargos: o percentual vem do regime tributário da loja (Simples Nacional, Lucro Presumido ou Lucro Real); não é digitado na planilha.',
+    ],
     ['"Faturamento": também só o dono grava.'],
     [''],
     ['Aba Funcionários'],

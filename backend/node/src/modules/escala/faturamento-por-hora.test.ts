@@ -1,12 +1,22 @@
 import { describe, expect, it } from 'vitest';
 import { faturamentoPorHora } from './faturamento-por-hora.js';
 
-const l = (data: string, hora: number, venda: number) => ({ data, hora, venda, margem: null, clientes: 1, unidades: 1 });
+const l = (data: string, hora: number, venda: number) => ({
+  data,
+  hora,
+  venda,
+  margem: null,
+  clientes: 1,
+  unidades: 1,
+});
 // 2026-09-07 segunda, 08 terça, 12 sábado, 13 domingo.
 const base = [
-  l('2026-09-07', 8, 100), l('2026-09-07', 9, 300),
-  l('2026-09-08', 8, 200), l('2026-09-08', 9, 100),
-  l('2026-09-12', 8, 50), l('2026-09-12', 9, 150),
+  l('2026-09-07', 8, 100),
+  l('2026-09-07', 9, 300),
+  l('2026-09-08', 8, 200),
+  l('2026-09-08', 9, 100),
+  l('2026-09-12', 8, 50),
+  l('2026-09-12', 9, 150),
   l('2026-09-13', 10, 80),
 ];
 
@@ -23,7 +33,10 @@ describe('faturamentoPorHora', () => {
       { hora: 8, participacao: 0.4286, valor: 150 },
       { hora: 9, participacao: 0.5714, valor: 200 },
     ]);
-    expect(r.tipos.sabado!.map((h) => [h.hora, h.valor])).toEqual([[8, 50], [9, 150]]);
+    expect(r.tipos.sabado!.map((h) => [h.hora, h.valor])).toEqual([
+      [8, 50],
+      [9, 150],
+    ]);
     expect(r.tipos.domingo!.map((h) => [h.hora, h.valor])).toEqual([[10, 80]]);
   });
 
@@ -46,7 +59,9 @@ describe('faturamentoPorHora', () => {
     if (!curto.temBase) throw new Error('sem base');
     expect(curto.poucosDias).toBe(true);
     expect(curto.periodo).toMatchObject({ inicio: '2026-09-07', fim: '2026-09-13', dias: 4 });
-    const longo = faturamentoPorHora([l('2026-09-07', 8, 100), l('2026-10-12', 8, 100)], { dono: true });
+    const longo = faturamentoPorHora([l('2026-09-07', 8, 100), l('2026-10-12', 8, 100)], {
+      dono: true,
+    });
     if (!longo.temBase) throw new Error('sem base');
     expect(longo.poucosDias).toBe(false);
   });
@@ -59,6 +74,8 @@ describe('faturamentoPorHora', () => {
   });
 
   it('horas fora de 0 a 23 são ignoradas', () => {
-    expect(faturamentoPorHora([l('2026-09-07', 30, 100)], { dono: true })).toEqual({ temBase: false });
+    expect(faturamentoPorHora([l('2026-09-07', 30, 100)], { dono: true })).toEqual({
+      temBase: false,
+    });
   });
 });

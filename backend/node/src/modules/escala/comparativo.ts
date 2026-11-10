@@ -128,7 +128,8 @@ export const montarComparativo = (e: EntradaCenarios, c: CenariosRegra): Compara
           : null,
       saldoMensal: saldo === null ? null : arred(saldo) || 0,
       saldoAnual: saldo === null ? null : arred(saldo * 12) || 0,
-      pesoNoFaturamentoPct: saldo !== null && fat !== null && fat > 0 ? pct((saldo / fat) * 100) : null,
+      pesoNoFaturamentoPct:
+        saldo !== null && fat !== null && fat > 0 ? pct((saldo / fat) * 100) : null,
     };
   };
 
@@ -254,7 +255,10 @@ export const montarComparativo = (e: EntradaCenarios, c: CenariosRegra): Compara
           equilibrio.vendaCortadaMes,
           equilibrio.vendaGanhaMes ?? 0,
           c.regua?.tipo === 'margem'
-            ? { perdida: equilibrio.vendaCortadaRealMes ?? null, adicional: equilibrio.vendaGanhaRealMes ?? 0 }
+            ? {
+                perdida: equilibrio.vendaCortadaRealMes ?? null,
+                adicional: equilibrio.vendaGanhaRealMes ?? 0,
+              }
             : undefined,
         )),
   };

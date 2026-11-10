@@ -42,28 +42,33 @@ const v = (res: Response) => readValidated<z.infer<typeof criarReq>>(res);
 export const parametrosRouter = (repo: ParametrosRepository = parametrosRepository) => {
   const r = Router();
 
-  // Todos os perfis veem; a alteração é só do dono do grupo.
-  r.get('/parametros-legais', validate(listarReq), async (_req, res) => {
-    const versoes = await repo.listar();
-    const hoje = hojeISO();
-    res.json({
-      hoje,
-      fases: FASES.map((fase) => {
-        const daFase = versoes.filter((x) => x.fase === fase);
-        const vigente = versaoVigente(daFase, hoje) ?? PARAMETROS_PADRAO[fase];
-        return {
-          fase,
-          nome: regraPara(fase, false).nome,
-          vigente,
-          historico: [...daFase].reverse(),
-        };
-      }),
-    });
-  });
+  // Parâmetros legais valem para toda a plataforma: ver e alterar é só do operador da plataforma.
+  r.get(
+    '/parametros-legais',
+    exigirPerfil('PLATFORM_OPERATOR'),
+    validate(listarReq),
+    async (_req, res) => {
+      const versoes = await repo.listar();
+      const hoje = hojeISO();
+      res.json({
+        hoje,
+        fases: FASES.map((fase) => {
+          const daFase = versoes.filter((x) => x.fase === fase);
+          const vigente = versaoVigente(daFase, hoje) ?? PARAMETROS_PADRAO[fase];
+          return {
+            fase,
+            nome: regraPara(fase, false).nome,
+            vigente,
+            historico: [...daFase].reverse(),
+          };
+        }),
+      });
+    },
+  );
 
   r.post(
     '/parametros-legais',
-    exigirPerfil('TENANT_ADMIN'),
+    exigirPerfil('PLATFORM_OPERATOR'),
     validate(criarReq),
     async (_req, res) => {
       const { body } = v(res);

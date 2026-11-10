@@ -22,12 +22,19 @@ const tipoDe = (data: string): TipoDeDia => {
   return d === 5 ? 'sabado' : d === 6 ? 'domingo' : 'uteis';
 };
 
-export const faturamentoPorHora = (linhas: VendaLinha[], opcoes: { dono: boolean }): FaturamentoPorHora => {
+export const faturamentoPorHora = (
+  linhas: VendaLinha[],
+  opcoes: { dono: boolean },
+): FaturamentoPorHora => {
   const comVenda = linhas.filter((l) => l.hora >= 0 && l.hora <= 23);
   if (comVenda.length === 0) return { temBase: false };
 
   const datas = [...new Set(comVenda.map((l) => l.data))].sort();
-  const datasDoTipo: Record<TipoDeDia, Set<string>> = { uteis: new Set(), sabado: new Set(), domingo: new Set() };
+  const datasDoTipo: Record<TipoDeDia, Set<string>> = {
+    uteis: new Set(),
+    sabado: new Set(),
+    domingo: new Set(),
+  };
   const somaPorHora: Record<TipoDeDia, number[]> = {
     uteis: new Array(24).fill(0),
     sabado: new Array(24).fill(0),
@@ -54,7 +61,13 @@ export const faturamentoPorHora = (linhas: VendaLinha[], opcoes: { dono: boolean
   };
 
   const dias = datas.length;
-  const semanas = arred((new Date(`${datas[dias - 1]}T00:00:00Z`).getTime() - new Date(`${datas[0]}T00:00:00Z`).getTime()) / 86_400_000 / 7 + 1 / 7);
+  const semanas = arred(
+    (new Date(`${datas[dias - 1]}T00:00:00Z`).getTime() -
+      new Date(`${datas[0]}T00:00:00Z`).getTime()) /
+      86_400_000 /
+      7 +
+      1 / 7,
+  );
   return {
     temBase: true,
     periodo: { inicio: datas[0]!, fim: datas[dias - 1]!, dias, semanas },

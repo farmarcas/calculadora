@@ -229,11 +229,17 @@ export const montarDiagnostico = (a: {
     const com8h24 =
       id === 'r42' && !loja.convencao8h24
         ? {
-            funcoes: verificarRegra(regraPara('r42', true, a.parametros), dias, exigencias, pessoas, {
-              limiteParcial: prem.limiteParcial,
-              regraAtual: regraPara('atual', loja.convencao8h24, a.parametros),
-              divisor: (a.parametros ?? PARAMETROS_PADRAO)[id].divisor,
-            }).map((f) => ({
+            funcoes: verificarRegra(
+              regraPara('r42', true, a.parametros),
+              dias,
+              exigencias,
+              pessoas,
+              {
+                limiteParcial: prem.limiteParcial,
+                regraAtual: regraPara('atual', loja.convencao8h24, a.parametros),
+                divisor: (a.parametros ?? PARAMETROS_PADRAO)[id].divisor,
+              },
+            ).map((f) => ({
               funcao: f.funcao,
               capacidadeH: f.capacidadeH,
               necessidadeH: f.necessidadeH,
@@ -403,7 +409,8 @@ export const montarDiagnostico = (a: {
 
   // A régua da loja (margem ou venda) vale igual para todos os cenários; só a base de vendas de verdade a define.
   // Com o CMV médio da loja, as horas sem CMV recebem o lucro bruto dele; a venda real não muda.
-  const vendasComCmv = origemVendas === 'base' ? preencherComCmvMedio(vendas, loja.faturamento?.cmvPct) : vendas;
+  const vendasComCmv =
+    origemVendas === 'base' ? preencherComCmvMedio(vendas, loja.faturamento?.cmvPct) : vendas;
   const regua = origemVendas === 'base' ? reguaDaBase(vendasComCmv) : null;
 
   const cenariosPorRegra = Object.fromEntries(

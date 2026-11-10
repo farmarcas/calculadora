@@ -74,23 +74,6 @@ describe('custos da loja (rotas)', () => {
           .send({ ...valores, encargosPct: -1 })
       ).status,
     ).toBe(400);
-    // RAT e FAP fora da faixa
-    expect(
-      (
-        await reqGe()
-          .put(url)
-          .set(admin)
-          .send({ ...valores, encargos: { ratPct: 5 } })
-      ).status,
-    ).toBe(400);
-    expect(
-      (
-        await reqGe()
-          .put(url)
-          .set(admin)
-          .send({ ...valores, encargos: { fap: 2.5 } })
-      ).status,
-    ).toBe(400);
     expect(
       (
         await reqGe()
@@ -144,27 +127,34 @@ describe('custos da loja (rotas)', () => {
     expect(guardado.custos).toEqual(valores);
   });
 
-  it('ajustes da loja (RAT, FAP, rescisão) mudam só aquela loja; "restaurar padrão" volta ao regime', async () => {
-    const outra = (await postLoja({ codigo: '002', nome: 'Norte' })).body.id;
-    for (const id of [lojaId, outra])
-      await reqGe().patch(`/api/v1/lojas/${id}`).set(admin).send({ regimeTributario: 'presumido' });
-    await reqGe().put(`/api/v1/lojas/${outra}/custos`).set(admin).send(valores);
-    // RAT 3% × FAP 1,5 = 4,5%: diretos 38,3 → 38,3 + 19,44 + 7,44552 = 65,18552
-    const ajustada = await reqGe()
+  it('RAT, FAP e rescisão por loja não valem mais: o custo é o do regime e o que já estava guardado fica como está', async () => {
+    await reqGe()
+      .patch(`/api/v1/lojas/${lojaId}`)
+      .set(admin)
+      .send({ regimeTributario: 'presumido' });
+    // enviar ajustes (formato antigo) é aceito, mas não muda o encargo: 62,2% do Presumido
+    const enviado = await reqGe()
       .put(`/api/v1/lojas/${lojaId}/custos`)
       .set(admin)
-      .send({ ...valores, encargos: { ratPct: 3, fap: 1.5 } });
-    expect(ajustada.body.encargos.totalPct).toBe(65.19);
-    const lida = await reqGe().get(`/api/v1/lojas/${outra}/custos`).set(admin);
+      .send({ ...valores, encargos: { ratPct: 3, fap: 1.5, rescisaoLigada: true } });
+    expect(enviado.status).toBe(200);
+    expect(enviado.body.encargos).toMatchObject({ totalPct: 62.2, rescisaoLigada: false });
+    expect((await prisma.loja.findUniqueOrThrow({ where: { id: lojaId } })).custos).toEqual(
+      valores,
+    );
+
+    // um ajuste que já estava guardado no banco (loja antiga) continua lá depois de salvar, mas não entra na conta
+    await prisma.loja.update({
+      where: { id: lojaId },
+      data: { custos: { ...valores, encargos: { ratPct: 3, fap: 1.5, rescisaoLigada: true } } },
+    });
+    const salvo = await reqGe().put(`/api/v1/lojas/${lojaId}/custos`).set(admin).send(valores);
+    expect(salvo.body.encargos.totalPct).toBe(62.2);
+    expect((await prisma.loja.findUniqueOrThrow({ where: { id: lojaId } })).custos).toEqual({
+      ...valores,
+      encargos: { ratPct: 3, fap: 1.5, rescisaoLigada: true },
+    });
+    const lida = await reqGe().get(`/api/v1/lojas/${lojaId}/custos`).set(admin);
     expect(lida.body.encargos.totalPct).toBe(62.2);
-    // com a rescisão ligada (5% no Presumido): 62,19952 + 5 = 67,19952
-    const rescisao = await reqGe()
-      .put(`/api/v1/lojas/${lojaId}/custos`)
-      .set(admin)
-      .send({ ...valores, encargos: { rescisaoLigada: true } });
-    expect(rescisao.body.encargos.totalPct).toBe(67.2);
-    // restaurar padrão = salvar sem ajustes
-    const padrao = await reqGe().put(`/api/v1/lojas/${lojaId}/custos`).set(admin).send(valores);
-    expect(padrao.body.encargos).toMatchObject({ totalPct: 62.2, rescisaoLigada: false });
   });
 });

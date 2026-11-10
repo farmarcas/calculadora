@@ -783,7 +783,9 @@ describe('Cenário 2 — premissa, resultado e falta de cobertura', () => {
     expect(eco.passos).toEqual([]);
     expect(eco.semFarmaceuticoH).toBe(0);
     expect(eco.faltaPorFuncao.length).toBeGreaterThan(0);
-    expect(eco.faltaPorFuncao.every((f) => f.funcao !== 'Farmacêutico' && f.horasSemana > 0)).toBe(true);
+    expect(eco.faltaPorFuncao.every((f) => f.funcao !== 'Farmacêutico' && f.horasSemana > 0)).toBe(
+      true,
+    );
   });
 
   it('sem falta de nenhuma função: lista vazia', () => {
@@ -825,10 +827,17 @@ describe('Cenário 2 — premissa, resultado e falta de cobertura', () => {
 
 describe('régua do cenário: margem ou venda (spec 033)', () => {
   const seis = [0, 1, 2, 3, 4, 5].map((dia) => ({ dia, abre: 8, fecha: 22 }));
-  const porMes = vendasDoCadastro({ dias: [1000, 1200, 900, 1100, 1500, 2000, null], mensal: null, margemPct: null }, seis)!.linhas;
+  const porMes = vendasDoCadastro(
+    { dias: [1000, 1200, 900, 1100, 1500, 2000, null], mensal: null, margemPct: null },
+    seis,
+  )!.linhas;
   // Margem uniforme de 25% da venda de cada hora.
   const uniforme = porMes.map((l) => ({ ...l, margem: l.venda * 0.25 }));
-  const cenario = (vendas: typeof porMes, regua: EntradaCenarios['regua'], extra: Partial<EntradaCenarios> = {}) =>
+  const cenario = (
+    vendas: typeof porMes,
+    regua: EntradaCenarios['regua'],
+    extra: Partial<EntradaCenarios> = {},
+  ) =>
     montarCenarios(
       base({
         minimos: { Farmacêutico: 1 },
@@ -885,14 +894,26 @@ describe('régua do cenário: margem ou venda (spec 033)', () => {
   });
 
   it('o ganho das horas novas também é medido na régua (50% da hora vizinha)', () => {
-    const m = cenario(uniforme, { tipo: 'margem' }, { estenderHorario: true, custos: { salarioMedio: { Farmacêutico: 1000 }, encargosPct: 0 } }).equilibrio;
+    const m = cenario(
+      uniforme,
+      { tipo: 'margem' },
+      { estenderHorario: true, custos: { salarioMedio: { Farmacêutico: 1000 }, encargosPct: 0 } },
+    ).equilibrio;
     if (m.vendaGanhaMes != null && m.vendaGanhaRealMes != null && m.vendaGanhaRealMes > 0)
       expect(m.vendaGanhaMes).toBeCloseTo(m.vendaGanhaRealMes * 0.25, 0);
   });
 
   it('o texto diz margem quando a régua é margem e venda quando é venda', () => {
-    const m = cenario(uniforme, { tipo: 'margem' }, { custos: { salarioMedio: { Farmacêutico: 40000 }, encargosPct: 0 } });
-    const v = cenario(uniforme, { tipo: 'venda' }, { custos: { salarioMedio: { Farmacêutico: 40000 }, encargosPct: 0 } });
+    const m = cenario(
+      uniforme,
+      { tipo: 'margem' },
+      { custos: { salarioMedio: { Farmacêutico: 40000 }, encargosPct: 0 } },
+    );
+    const v = cenario(
+      uniforme,
+      { tipo: 'venda' },
+      { custos: { salarioMedio: { Farmacêutico: 40000 }, encargosPct: 0 } },
+    );
     expect(m.economia.direcionamento).toMatch(/de margem por mês|margem perdida/);
     expect(v.economia.direcionamento).not.toMatch(/margem/);
   });

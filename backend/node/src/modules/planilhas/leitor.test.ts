@@ -17,7 +17,10 @@ describe('lerPlanilha (.csv)', () => {
 
 describe('lerPlanilha (arquivo grande)', () => {
   it('lê 200 mil linhas sem estourar a pilha (base por CNPJ de vários meses)', async () => {
-    const linhas = Array.from({ length: 200_000 }, (_, i) => `"00112423000101","1","Monday","${i % 24}","10.00"`);
+    const linhas = Array.from(
+      { length: 200_000 },
+      (_, i) => `"00112423000101","1","Monday","${i % 24}","10.00"`,
+    );
     const csv = `cnpj,dia_semana,dia_semana_nome,hora,faturamento\n${linhas.join('\n')}\n`;
     const [aba] = await lerPlanilha(Buffer.from(csv), 'base.csv');
     expect(aba!.linhas).toHaveLength(200_000);

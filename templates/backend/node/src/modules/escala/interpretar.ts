@@ -1,6 +1,5 @@
 import type { Aba } from '../planilhas/leitor.js';
 import { normalizar } from '../planilhas/normalizar.js';
-import { deduzirFuncao, type FuncaoEscala } from '../cadastros/processar.js';
 import type { VendaLinha } from './vendas.js';
 
 export type ErroLinha = { linha: number; motivo: string; loja?: string };
@@ -76,93 +75,6 @@ export const lerData = (txt: string): string | null => {
   return null;
 };
 
-export type TurnoLinha = {
-  loja: string;
-  matricula: string;
-  nome: string;
-  funcao: FuncaoEscala | null;
-  tipoEscala?: string;
-  dias: number[];
-  entrada: number;
-  iniIntervalo: number | null;
-  fimIntervalo: number | null;
-  saida: number;
-  cargaH: number;
-  status: 'ok' | 'fora_calculo';
-  motivo?: string;
-};
-
-export type CadastroPessoa = {
-  nome: string;
-  funcaoEscala: string | null;
-  cargaSemanalH: number | null;
-};
-
-export const interpretarEscala = (aba: Aba, c: Colunas, cadastro: Map<string, CadastroPessoa>) => {
-  const turnos: TurnoLinha[] = [];
-  const erros: ErroLinha[] = [];
-  const vistos = new Set<string>();
-
-  aba.linhas.forEach((l, idx) => {
-    const linha = idx + 2;
-    const loja = cel(l, c, 'loja');
-    const matricula = cel(l, c, 'matricula');
-    if (!loja && !matricula) return;
-    const erro = (motivo: string) => erros.push({ linha, motivo, loja: loja || undefined });
-    if (!loja) return erro('Código da loja vazio');
-    if (!matricula) return erro('ID do colaborador vazio');
-    if (vistos.has(`${loja}|${matricula}`))
-      return erro(`Colaborador ${matricula} repetido na loja ${loja}`);
-
-    let dias = lerDias(cel(l, c, 'dias'));
-    if (!dias) {
-      // Contagem de dias (ex.: 6) com a folga informada: trabalha todos os outros.
-      const folga = lerDias(cel(l, c, 'folga'));
-      if (folga && /^\d$/.test(cel(l, c, 'dias')))
-        dias = [0, 1, 2, 3, 4, 5, 6].filter((d) => !folga.includes(d));
-    }
-    if (!dias || dias.length === 0)
-      return erro('Dias de trabalho não entendidos (use "Seg a Sáb" ou "Seg,Ter,Qua")');
-
-    const entrada = lerHora(cel(l, c, 'entrada'));
-    const saida = lerHora(cel(l, c, 'saida'));
-    if (entrada === null) return erro('Hora de entrada vazia ou inválida');
-    if (saida === null) return erro('Hora de saída vazia ou inválida');
-    if (saida <= entrada) return erro('Saída antes da entrada');
-    const ini = lerHora(cel(l, c, 'ini_intervalo'));
-    const fim = lerHora(cel(l, c, 'fim_intervalo'));
-    if ((ini === null) !== (fim === null))
-      return erro('Intervalo incompleto (informe início e fim)');
-    if (ini !== null && fim !== null && !(entrada <= ini && ini < fim && fim <= saida))
-      return erro('Intervalo fora do turno');
-
-    const horasDia = saida - entrada - (ini !== null && fim !== null ? fim - ini : 0);
-    const cargaInformada = lerNumero(cel(l, c, 'carga'));
-    const pessoa = cadastro.get(matricula);
-    const funcao =
-      (pessoa?.funcaoEscala as FuncaoEscala | null | undefined) ??
-      deduzirFuncao(cel(l, c, 'funcao') || undefined, undefined);
-
-    vistos.add(`${loja}|${matricula}`);
-    turnos.push({
-      loja,
-      matricula,
-      nome: cel(l, c, 'nome') || pessoa?.nome || matricula,
-      funcao,
-      tipoEscala: cel(l, c, 'tipo_escala') || undefined,
-      dias,
-      entrada,
-      iniIntervalo: ini,
-      fimIntervalo: fim,
-      saida,
-      cargaH: cargaInformada ?? Math.round(horasDia * dias.length * 100) / 100,
-      status: funcao ? 'ok' : 'fora_calculo',
-      motivo: funcao ? undefined : 'Sem função de escala: fora do cálculo',
-    });
-  });
-  return { turnos, erros };
-};
-
 export type VendaComLoja = VendaLinha & { loja: string };
 
 export const interpretarBase = (aba: Aba, c: Colunas) => {
@@ -181,12 +93,14 @@ export const interpretarBase = (aba: Aba, c: Colunas) => {
     if (hora === null) return erro('Hora inválida');
     const venda = lerNumero(cel(l, c, 'venda'));
     if (venda === null) return erro('Venda líquida vazia ou inválida');
+    const cmvDaLinha = lerNumero(cel(l, c, 'cmv'));
     vendas.push({
       loja,
       data,
       hora: Math.floor(hora),
       venda,
-      margem: lerNumero(cel(l, c, 'margem')) ?? 0,
+      // O CMV é opcional: sem ele a hora fica sem lucro bruto (nulo), nunca zero.
+      margem: cmvDaLinha === null ? null : venda - cmvDaLinha,
       clientes: Math.round(lerNumero(cel(l, c, 'clientes')) ?? 0),
       unidades: Math.round(lerNumero(cel(l, c, 'unidades')) ?? 0),
     });
@@ -202,7 +116,8 @@ export const somarPorHora = (vendas: VendaLinha[]): VendaLinha[] => {
     const a = m.get(k);
     if (a) {
       a.venda += v.venda;
-      a.margem += v.margem;
+      // Uma hora com CMV conhecido em parte das linhas fica sem lucro bruto: nunca soma o que se sabe com o que falta.
+      a.margem = a.margem === null || v.margem === null ? null : a.margem + v.margem;
       a.clientes += v.clientes;
       a.unidades += v.unidades;
     } else m.set(k, { ...v });

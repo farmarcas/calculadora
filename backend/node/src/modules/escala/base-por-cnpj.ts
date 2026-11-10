@@ -48,11 +48,13 @@ const DIA_MS = 86_400_000;
 export const erroDoPeriodo = (inicio?: string | null, fim?: string | null): string | null => {
   const a = inicio ? dataUtc(inicio) : null;
   const b = fim ? dataUtc(fim) : null;
-  const base = 'Informe o período que o arquivo cobre (data inicial e final, com pelo menos uma semana).';
+  const base =
+    'Informe o período que o arquivo cobre (data inicial e final, com pelo menos uma semana).';
   if (!a || !b) return base;
   const dias = Math.round((b.getTime() - a.getTime()) / DIA_MS) + 1;
   if (dias < 7) return base;
-  if (dias > 800) return 'O período do arquivo é longo demais (máximo de mais de 2 anos). Confira as datas.';
+  if (dias > 800)
+    return 'O período do arquivo é longo demais (máximo de mais de 2 anos). Confira as datas.';
   return null;
 };
 
@@ -111,7 +113,8 @@ export const interpretarPorCnpj = (aba: Aba, colunas: ColunasPorCnpj, periodo: P
     const cnpjTxt = celula(l, 'cnpj');
     if (!cnpjTxt && !celula(l, 'dia') && !celula(l, 'venda')) return;
     const cnpj = soDigitos(cnpjTxt);
-    const erro = (motivo: string) => erros.push({ linha, motivo, loja: cnpj.length === 14 ? cnpj : undefined });
+    const erro = (motivo: string) =>
+      erros.push({ linha, motivo, loja: cnpj.length === 14 ? cnpj : undefined });
     if (cnpj.length !== 14) return erro('CNPJ inválido (precisa ter 14 dígitos)');
     const diaNum = lerNumero(celula(l, 'dia'));
     if (diaNum === null || !Number.isInteger(diaNum) || diaNum < 1 || diaNum > 7)
@@ -198,7 +201,8 @@ export const mesclarCadastro = (
   atual: unknown,
   calculado: { dias: (number | null)[]; cmvPct: number | null },
 ) => {
-  const a = atual as { dias?: (number | null)[]; mensal?: number | null; cmvPct?: unknown } | null | undefined;
+  const a = atual as
+    { dias?: (number | null)[]; mensal?: number | null; cmvPct?: unknown } | null | undefined;
   const diasAtuais = Array.isArray(a?.dias) ? a.dias : new Array<number | null>(7).fill(null);
   const cmvAtual = typeof a?.cmvPct === 'number' ? a.cmvPct : null;
   const jaTinha = diasAtuais.some((v) => typeof v === 'number') || cmvAtual !== null;

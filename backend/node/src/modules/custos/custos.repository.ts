@@ -24,7 +24,10 @@ export const custosRepository = (geId: string) => ({
     const { encargosPct: _antigo, ...novo } = custos;
     void _antigo;
     // Os ajustes antigos de RAT, FAP e rescisão que já estavam guardados continuam como estão.
-    const atual = await prisma.loja.findFirst({ where: { id: lojaId, geId }, select: { custos: true } });
+    const atual = await prisma.loja.findFirst({
+      where: { id: lojaId, geId },
+      select: { custos: true },
+    });
     const guardar = manterAjustesAntigos(novo, atual?.custos);
     await prisma.loja.update({
       where: { id: lojaId, geId },

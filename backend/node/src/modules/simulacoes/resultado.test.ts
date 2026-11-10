@@ -86,14 +86,20 @@ describe('calcularResultado', () => {
   it('base com CMV: a venda que sai, a estimada e o saldo são em margem; a venda real segue como informação', () => {
     const vendas = [venda(20, 1000, 300), venda(21, 1000, 300), venda(10, 1000, 300)];
     const comMargem = base({ dias: segundaAte20, vendas });
-    const comVenda = base({ dias: segundaAte20, vendas: vendas.map((l) => ({ ...l, margem: null })) });
+    const comVenda = base({
+      dias: segundaAte20,
+      vendas: vendas.map((l) => ({ ...l, margem: null })),
+    });
     expect(comMargem.regua).toEqual({ tipo: 'margem' });
     expect(comMargem.vendaQueSai).toBeCloseTo((600 * 52) / 12, 1);
     expect(comMargem.vendaQueSai!).toBeLessThan(comVenda.vendaQueSai!);
     // Custos não mudam; só a medida da perda: o saldo sobe exatamente o que a perda cai.
     expect(comMargem.folhaExtra).toBe(comVenda.folhaExtra);
     expect(comMargem.horaExtra).toBe(comVenda.horaExtra);
-    expect(comMargem.saldoMensal! - comVenda.saldoMensal!).toBeCloseTo(comVenda.vendaQueSai! - comMargem.vendaQueSai!, 1);
+    expect(comMargem.saldoMensal! - comVenda.saldoMensal!).toBeCloseTo(
+      comVenda.vendaQueSai! - comMargem.vendaQueSai!,
+      1,
+    );
     // O faturamento de referência e o ticket médio seguem em venda real.
     expect(comMargem.pesoNoFaturamentoPct).not.toBeNull();
     expect(comMargem.vendaPorHora.venda![0]![20]).toBe(1000);
@@ -111,18 +117,30 @@ describe('calcularResultado', () => {
     expect(r.regua).toEqual({ tipo: 'margem' });
     expect(r.vendaQueSai).toBeCloseTo((700 * 52) / 12, 1);
     // CMV da hora vale mais que o médio: a hora 21 com lucro bruto de 200 usa o 200.
-    const misto = base({ dias: segundaAte20, vendas: [venda(20, 1000), venda(21, 1000, 200), venda(10, 1000)], cmvMedioPct: 65 });
+    const misto = base({
+      dias: segundaAte20,
+      vendas: [venda(20, 1000), venda(21, 1000, 200), venda(10, 1000)],
+      cmvMedioPct: 65,
+    });
     expect(misto.vendaQueSai).toBeCloseTo(((350 + 200) * 52) / 12, 1);
   });
 
   it('sem CMV na base e sem CMV médio: mede em venda, como antes', () => {
-    const r = base({ dias: segundaAte20, vendas: [venda(20, 1000), venda(21, 1000)], cmvMedioPct: null });
+    const r = base({
+      dias: segundaAte20,
+      vendas: [venda(20, 1000), venda(21, 1000)],
+      cmvMedioPct: null,
+    });
     expect(r.regua).toEqual({ tipo: 'venda', motivo: 'sem_margem' });
     expect(r.vendaQueSai).toBeCloseTo((2000 * 52) / 12, 1);
   });
 
   it('o gestor recebe a régua e nenhum valor em reais', () => {
-    const r = base({ dias: segundaAte20, dono: false, vendas: [venda(20, 1000, 300), venda(21, 1000, 300)] });
+    const r = base({
+      dias: segundaAte20,
+      dono: false,
+      vendas: [venda(20, 1000, 300), venda(21, 1000, 300)],
+    });
     expect(r.regua).toEqual({ tipo: 'margem' });
     expect(r).not.toHaveProperty('vendaQueSai');
     expect(r).not.toHaveProperty('saldoMensal');
@@ -131,11 +149,17 @@ describe('calcularResultado', () => {
   it('saldo = −folha extra − hora extra + venda estimada − venda que deixa de entrar; anual = mensal × 12; peso sobre o faturamento', () => {
     // Duas farmacêuticas de 40h para 90h abertas: o "manter horário" contrata o que falta; a simulação fecha a segunda às 20h
     // (venda de 2 horas = 2000 × 52 ÷ 12 = 8666,67) e não contrata ninguém: a economia é o custo do manter horário.
-    const r = base({ dias: segundaAte20, vendas: [venda(10, 1000), venda(20, 1000), venda(21, 1000)] });
+    const r = base({
+      dias: segundaAte20,
+      vendas: [venda(10, 1000), venda(20, 1000), venda(21, 1000)],
+    });
     expect(r.custoAdicional).toBe(r.folhaExtra! + r.horaExtra!);
     // A economia de folha (contra manter o horário e contratar) é só informativa; o saldo é contra a folha atual.
     expect(typeof r.economiaFolha).toBe('number');
-    expect(r.saldoMensal).toBeCloseTo(-r.folhaExtra! - r.horaExtra! + r.vendaEstimada! - r.vendaQueSai!, 1);
+    expect(r.saldoMensal).toBeCloseTo(
+      -r.folhaExtra! - r.horaExtra! + r.vendaEstimada! - r.vendaQueSai!,
+      1,
+    );
     expect(r.saldoAnual).toBeCloseTo(r.saldoMensal! * 12, 0);
     const faturamento = 3000 * (52 / 12);
     expect(r.pesoNoFaturamentoPct).toBeCloseTo((r.saldoMensal! / faturamento) * 100, 0);
@@ -152,7 +176,10 @@ describe('calcularResultado', () => {
     expect(sem.horaExtra).toBeGreaterThan(0);
 
     const com = base({
-      quadro: [...sozinha, { matricula: 'VAGA-1', nome: 'Vaga 1', funcao: 'Farmacêutico', cargaH: 40, vaga: true }],
+      quadro: [
+        ...sozinha,
+        { matricula: 'VAGA-1', nome: 'Vaga 1', funcao: 'Farmacêutico', cargaH: 40, vaga: true },
+      ],
     });
     const f1 = com.funcoes.find((f) => f.funcao === 'Farmacêutico')!;
     expect(f1.contratacoes).toHaveLength(1);
@@ -177,7 +204,15 @@ describe('calcularResultado', () => {
 
   it('quem não é dono não recebe nenhum valor em reais', () => {
     const r = base({ dias: segundaAte20, dono: false });
-    for (const k of ['custoAdicional', 'economiaFolha', 'saldoMensal', 'saldoAnual', 'folhaExtra', 'horaExtra', 'vendaQueSai'])
+    for (const k of [
+      'custoAdicional',
+      'economiaFolha',
+      'saldoMensal',
+      'saldoAnual',
+      'folhaExtra',
+      'horaExtra',
+      'vendaQueSai',
+    ])
       expect(r).not.toHaveProperty(k);
     expect(r.vendaPorHora.venda).toBeNull();
     expect(r.horasAbertas).toBe(88);
@@ -185,7 +220,12 @@ describe('calcularResultado', () => {
   });
   it('nível de hoje: uma vaga que cobre o buraco deixa a função coberta ', async () => {
     // Duas atendentes de 44h mantêm 88h hoje; na regra de 40h cada uma faz 40h: faltam 8h, e uma vaga de 8h fecha.
-    const atend = (m: string): PessoaSim => ({ matricula: m, nome: m, funcao: 'Atendimento', cargaH: 44 });
+    const atend = (m: string): PessoaSim => ({
+      matricula: m,
+      nome: m,
+      funcao: 'Atendimento',
+      cargaH: 44,
+    });
     const q: PessoaSim[] = [
       ...quadro,
       atend('C'),

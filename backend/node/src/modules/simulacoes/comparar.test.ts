@@ -67,7 +67,13 @@ describe('sintese', () => {
     expect(t).not.toMatch(/em uso|aprovad|frente/);
   });
   it('avisa os erros nas regras e a falta de farmacêutico, sem falar em aprovar', () => {
-    const t = sintese('Rascunho', { ...base, erros: 2, semFarmaceutico: true, coberturaPct: 50, horasFalta: 4 });
+    const t = sintese('Rascunho', {
+      ...base,
+      erros: 2,
+      semFarmaceutico: true,
+      coberturaPct: 50,
+      horasFalta: 4,
+    });
     expect(t).toContain('tem 2 erro(s) nas regras');
     expect(t).toContain('sem farmacêutico');
     expect(t).toContain('faltam 4h-pessoa por semana');

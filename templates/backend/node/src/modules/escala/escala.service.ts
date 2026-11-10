@@ -1,9 +1,9 @@
 import type { Auditor } from '../../shared/auditoria/auditoria.js';
 import { NotFoundError } from '../../shared/errors/not-found-error.js';
 import { ValidationError } from '../../shared/errors/validation-error.js';
-import { CAMPOS_BASE, CAMPOS_ESCALA, type CampoDef } from '../planilhas/campos.js';
+import { CAMPOS_BASE, type CampoDef } from '../planilhas/campos.js';
 import { inferirUmaAba } from '../planilhas/inferencia.js';
-import { lerPlanilha } from '../planilhas/leitor.js';
+import { lerPlanilha, type Aba } from '../planilhas/leitor.js';
 import { calcularCusto } from '../custos/custo.js';
 import {
   normalizarTurnos,
@@ -13,9 +13,10 @@ import {
   type TurnosLoja,
 } from '../regras/turnos.js';
 import { diasAbertos, montarDiagnostico } from './diagnostico.js';
-import { interpretarBase, interpretarEscala, somarPorHora, type ErroLinha } from './interpretar.js';
+import { interpretarBase, somarPorHora, type ErroLinha } from './interpretar.js';
 import type { EscalaRepository } from './escala.repository.js';
 import { premissasDe, type PremissasEntrada } from './premissas.js';
+import { abaPorCnpj, makeBasePorCnpj, type PeriodoEntrada } from './base-por-cnpj.service.js';
 
 const entendi = (
   campos: CampoDef[],
@@ -44,83 +45,72 @@ const errosPorLoja = (erros: ErroLinha[]) => {
 };
 
 export const makeEscalaService = (repo: EscalaRepository, auditar: Auditor) => {
-  const abrir = async (arquivo: string, buffer: Buffer, campos: CampoDef[], nomeModelo: string) => {
-    const abas = await lerPlanilha(buffer, arquivo);
+  const abrir = async (
+    arquivo: string,
+    buffer: Buffer,
+    campos: CampoDef[],
+    _nomeModelo: string,
+    jaLidas?: Aba[],
+  ) => {
+    const abas = jaLidas ?? (await lerPlanilha(buffer, arquivo));
+    if (abas.filter((a) => !/como preencher/i.test(a.nome)).every((a) => a.linhas.length === 0))
+      throw new ValidationError(
+        'A planilha está vazia. Preencha a partir da linha 2 do modelo e envie de novo.',
+      );
     const inf = inferirUmaAba(
       abas.filter((a) => !/como preencher/i.test(a.nome)),
       campos,
     );
     if (!inf || inf.faltam.length)
       throw new ValidationError(
-        `Não encontrei as colunas obrigatórias: ${(inf?.faltam ?? campos.filter((c) => c.obrigatorio).map((c) => c.rotulo)).join(', ')}. Confira os títulos ou use o ${nomeModelo}.`,
+        `Não encontramos a coluna ${(inf?.faltam ?? campos.filter((c) => c.obrigatorio).map((c) => c.rotulo)).join(', ')}. Baixe o modelo e confira os nomes das colunas.`,
       );
     return inf;
   };
 
+  const porCnpj = makeBasePorCnpj(repo, auditar);
+
   return {
-    async importarEscala(arquivo: string, buffer: Buffer, perfil: string) {
-      const inf = await abrir(arquivo, buffer, CAMPOS_ESCALA, 'modelo de escala atual');
-      const matriculas = inf.aba.linhas
-        .map((l) => (l[inf.colunas.matricula!] ?? '').trim())
-        .filter(Boolean);
-      const cadastro = await repo.cadastroPorMatriculas(matriculas);
-      const { turnos, erros } = interpretarEscala(inf.aba, inf.colunas, cadastro);
-
-      const lojas = await repo.lojasPorCodigos([
-        ...new Set([
-          ...turnos.map((t) => t.loja),
-          ...erros.map((e) => e.loja).filter((x): x is string => !!x),
-        ]),
-      ]);
-      const id = new Map(lojas.map((l) => [l.codigo, l]));
-      const rej = errosPorLoja(erros);
-      const cadastradas = await repo.matriculasCadastradas(matriculas);
-
-      const resultado: {
-        codigo: string;
-        nome: string | null;
-        aceitas: number;
-        rejeitadas: number;
-        situacao: string;
-      }[] = [];
-      for (const [codigo, ts] of porLoja(turnos)) {
-        const loja = id.get(codigo);
-        if (!loja) {
-          resultado.push({
-            codigo,
-            nome: null,
-            aceitas: 0,
-            rejeitadas: ts.length + (rej.get(codigo) ?? 0),
-            situacao: 'Loja não cadastrada: cadastre antes de importar',
-          });
-          continue;
-        }
-        await repo.substituirEscala(loja.id, arquivo, ts, rej.get(codigo) ?? 0, cadastradas);
-        resultado.push({
-          codigo,
-          nome: loja.nome,
-          aceitas: ts.length,
-          rejeitadas: rej.get(codigo) ?? 0,
-          situacao: 'Importada',
-        });
-      }
-      await auditar({
-        acao: 'escala.importada',
-        perfil,
-        alvoTipo: 'carga',
-        detalhe: { arquivo, lojas: resultado.length, linhas: turnos.length, erros: erros.length },
-      });
+    // Revisão da base comercial: lê, resume e diz o que seria substituído, sem gravar nada.
+    async revisarBase(arquivo: string, buffer: Buffer, periodo: PeriodoEntrada = {}) {
+      const abas = await lerPlanilha(buffer, arquivo);
+      const cnpj = abaPorCnpj(abas);
+      if (cnpj) return porCnpj.revisar(arquivo, cnpj, periodo);
+      const inf = await abrir(arquivo, buffer, CAMPOS_BASE, 'modelo de base comercial', abas);
+      const { vendas, erros } = interpretarBase(inf.aba, inf.colunas);
+      const codigos = [...new Set(vendas.map((v) => v.loja))];
+      const lojas = await repo.lojasPorCodigos(codigos);
+      const porCodigo = new Map(lojas.map((l) => [l.codigo, l]));
+      const anteriores = lojas.length ? await repo.basesAtivasDasLojas(lojas.map((l) => l.id)) : [];
+      const desde = new Map(anteriores.map((c) => [c.lojaId, c.recebidaEm]));
+      const datas = vendas
+        .filter((v) => porCodigo.has(v.loja))
+        .map((v) => v.data)
+        .sort();
       return {
         arquivo,
-        entendi: entendi(CAMPOS_ESCALA, inf.aba, inf.colunas, inf.sugestoes),
-        lojas: resultado,
+        linhas: vendas.length,
+        lojas: lojas.length,
+        lojasNaoCadastradas: codigos.filter((c) => !porCodigo.has(c)),
+        periodo: datas.length ? { inicio: datas[0]!, fim: datas[datas.length - 1]! } : null,
+        substitui: lojas
+          .filter((l) => desde.has(l.id))
+          .map((l) => ({ codigo: l.codigo, desde: desde.get(l.id)!.toISOString().slice(0, 10) })),
         erros: erros.slice(0, 100),
         totalErros: erros.length,
       };
     },
 
-    async importarBase(arquivo: string, buffer: Buffer, perfil: string) {
-      const inf = await abrir(arquivo, buffer, CAMPOS_BASE, 'modelo de base comercial');
+    async importarBase(
+      arquivo: string,
+      buffer: Buffer,
+      perfil: string,
+      periodo: PeriodoEntrada = {},
+    ) {
+      const abas = await lerPlanilha(buffer, arquivo);
+      const cnpj = abaPorCnpj(abas);
+      if (cnpj) return porCnpj.importar(arquivo, cnpj, periodo, perfil);
+      const inf = await abrir(arquivo, buffer, CAMPOS_BASE, 'modelo de base comercial', abas);
       const { vendas, erros } = interpretarBase(inf.aba, inf.colunas);
       const lojas = await repo.lojasPorCodigos([
         ...new Set([
@@ -178,40 +168,25 @@ export const makeEscalaService = (repo: EscalaRepository, auditar: Auditor) => {
     async diagnostico(lojaId: string, perfil?: string, simulacao?: PremissasEntrada) {
       const loja = await repo.lojaParaDiagnostico(lojaId);
       if (!loja) throw new NotFoundError('Loja não encontrada', 'LOJA_NAO_ENCONTRADA');
-      const [escalaImportada, base, doCadastro, parametros, fixos] = await Promise.all([
-        repo.escalaAtiva(lojaId),
+      // A equipe vem só do Cadastro (função, carga, dias, entrada, saída e intervalo de cada funcionário).
+      const [base, turnosFinais, parametros, fixos] = await Promise.all([
         repo.baseAtiva(lojaId),
         repo.turnosDoCadastro(lojaId),
         repo.parametrosVigentes(),
         repo.matriculasHorarioFixo(lojaId),
       ]);
-      // A escala importada manda; o horário digitado no cadastro completa quem não está nela
-      // (ou serve de escala atual quando nada foi importado).
-      const importados = new Set((escalaImportada?.turnos ?? []).map((t) => t.matricula));
-      const extras = doCadastro.filter((t) => !importados.has(t.matricula));
       const escala =
-        escalaImportada ??
-        (extras.length > 0
+        turnosFinais.length > 0
           ? {
-              meta: {
-                arquivo: 'Cadastro de funcionários',
-                recebidaEm: new Date(),
-                linhasAceitas: extras.length,
-                linhasRejeitadas: 0,
-              },
-              turnos: [] as typeof extras,
+              arquivo: 'Cadastro de funcionários',
+              recebidaEm: new Date(),
+              linhasAceitas: turnosFinais.length,
+              linhasRejeitadas: 0,
             }
-          : null);
-      const turnosFinais = [...(escala?.turnos ?? []), ...extras];
-      const divergentes = doCadastro.filter((c) => {
-        const i = escalaImportada?.turnos.find((t) => t.matricula === c.matricula);
-        return (
-          !!i && (Math.abs(i.entrada - c.entrada) > 0.01 || Math.abs(i.saida - c.saida) > 0.01)
-        );
-      });
+          : null;
       const diag = montarDiagnostico({
         loja,
-        escala: escala?.meta ?? null,
+        escala,
         turnos: turnosFinais,
         horarioFixo: fixos,
         base: base?.meta ?? null,
@@ -219,17 +194,11 @@ export const makeEscalaService = (repo: EscalaRepository, auditar: Auditor) => {
         dono: perfil === 'TENANT_ADMIN',
         parametros,
         premissas: premissasDe(simulacao).valores,
-        margemPctSimulada: premissasDe(simulacao).margemPctSimulada,
         foraDaConta: await repo.foraDaEscala(
           lojaId,
           turnosFinais.map((t) => t.matricula),
         ),
       });
-      if (divergentes.length > 0 && diag.pontosAtencao)
-        diag.pontosAtencao.push({
-          tom: 'atencao',
-          texto: `O horário digitado no cadastro difere da escala importada para: ${divergentes.map((d) => d.nome).join(', ')}. A escala importada é a que vale.`,
-        });
       // Folha mensal atual: custo, então só o dono do grupo recebe (o campo nem existe para os outros).
       if (perfil !== 'TENANT_ADMIN' || diag.status === 'pendente') return diag;
       const quadro = turnosFinais

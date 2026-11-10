@@ -83,7 +83,10 @@ export const makeEscalaService = (repo: EscalaRepository, auditar: Auditor) => {
       const porCodigo = new Map(lojas.map((l) => [l.codigo, l]));
       const anteriores = lojas.length ? await repo.basesAtivasDasLojas(lojas.map((l) => l.id)) : [];
       const desde = new Map(anteriores.map((c) => [c.lojaId, c.recebidaEm]));
-      const datas = vendas.filter((v) => porCodigo.has(v.loja)).map((v) => v.data).sort();
+      const datas = vendas
+        .filter((v) => porCodigo.has(v.loja))
+        .map((v) => v.data)
+        .sort();
       return {
         arquivo,
         linhas: vendas.length,
@@ -98,7 +101,12 @@ export const makeEscalaService = (repo: EscalaRepository, auditar: Auditor) => {
       };
     },
 
-    async importarBase(arquivo: string, buffer: Buffer, perfil: string, periodo: PeriodoEntrada = {}) {
+    async importarBase(
+      arquivo: string,
+      buffer: Buffer,
+      perfil: string,
+      periodo: PeriodoEntrada = {},
+    ) {
       const abas = await lerPlanilha(buffer, arquivo);
       const cnpj = abaPorCnpj(abas);
       if (cnpj) return porCnpj.importar(arquivo, cnpj, periodo, perfil);

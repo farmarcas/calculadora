@@ -21,32 +21,30 @@ const linha = (data: string, hora: number, venda: number, margem = 0) => ({
   unidades: 0,
 });
 
-describe('venda e margem por dia da semana', () => {
-  // Segunda a sábado, 08h às 20h; faturamento por dia e margem de 25%.
+describe('venda por dia da semana', () => {
+  // Segunda a sábado, 08h às 20h; faturamento por dia.
   const dias = aberta(8, 20, [0, 1, 2, 3, 4, 5]);
   const cadastro = vendasDoCadastro(
-    { dias: [1000, 1200, 900, 1100, 1500, 2000, null], mensal: null, margemPct: 25 },
+    { dias: [1000, 1200, 900, 1100, 1500, 2000, null], mensal: null },
     dias,
   )!;
 
   it('com o faturamento por dia, o dia vale exatamente o informado (sem desvio de arredondamento)', () => {
     const v = vendasPorDia(cadastro.linhas, dias);
     expect(v.map((x) => x.venda)).toEqual([1000, 1200, 900, 1100, 1500, 2000, 0]);
-    expect(v.map((x) => x.margem)).toEqual([250, 300, 225, 275, 375, 500, 0]);
   });
 
-  it('o mês vale o dia × 52 ÷ 12 (conta à mão: 250 → 1083,33; 500 → 2166,67)', () => {
+  it('o mês vale o dia × 52 ÷ 12 (conta à mão: 1000 → 4333,33; 2000 → 8666,67)', () => {
     const v = vendasPorDia(cadastro.linhas, dias);
     expect(v[0]!.vendaMes).toBe(4333.33);
-    expect(v[0]!.margemMes).toBe(1083.33);
-    expect(v[1]!.margemMes).toBe(1300);
-    expect(v[5]!.margemMes).toBe(2166.67);
+    expect(v[1]!.vendaMes).toBe(5200);
+    expect(v[5]!.vendaMes).toBe(8666.67);
   });
 
   it('protege os três dias de maior faturamento entre os abertos (sábado, sexta, terça)', () => {
     const v = vendasPorDia(cadastro.linhas, dias);
     expect(v.filter((x) => x.protegido).map((x) => x.dia)).toEqual([1, 4, 5]);
-    expect(v[6]).toMatchObject({ aberto: false, protegido: false, venda: 0, margemMes: 0 });
+    expect(v[6]).toMatchObject({ aberto: false, protegido: false, venda: 0, vendaMes: 0 });
   });
 
   it('empate de faturamento: protege o dia mais tardio da semana', () => {
@@ -99,9 +97,9 @@ describe('venda e margem por dia da semana', () => {
       linha('2026-09-07', 10, 100, 20),
       linha('2026-09-14', 9, 300, 60),
     ];
-    expect(totaisPorDia(base)[0]).toEqual({ venda: 250, margem: 50 });
+    expect(totaisPorDia(base)[0]).toEqual({ venda: 250 });
     const v = vendasPorDia(base, aberta(8, 20, [0]));
-    expect(v[0]).toMatchObject({ venda: 250, margem: 50, vendaMes: 1083.33, margemMes: 216.67 });
+    expect(v[0]).toMatchObject({ venda: 250, vendaMes: 1083.33 });
   });
 
   it('dia fechado com venda na base aparece com o valor, mas nunca como protegido', () => {
@@ -112,7 +110,7 @@ describe('venda e margem por dia da semana', () => {
 
   it('sem nenhuma venda, tudo zero e sem dias protegidos', () => {
     const v = vendasPorDia([], aberta(8, 20, [0, 1]));
-    expect(v.every((x) => x.venda === 0 && x.margemMes === 0)).toBe(true);
+    expect(v.every((x) => x.venda === 0 && x.vendaMes === 0)).toBe(true);
   });
 
   it('semValores deixa só o dia, se está aberto e se é protegido', () => {

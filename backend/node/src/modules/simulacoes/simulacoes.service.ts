@@ -9,7 +9,6 @@ import { calcularResultado } from './resultado.js';
 import { diasAbertos, type LojaDiag } from '../escala/diagnostico.js';
 import type { EscalaRepository } from '../escala/escala.repository.js';
 import { FUNCOES_PADRAO_MINIMO, regraPara, type RegraId } from '../regras/perfis.js';
-import { minimosIguais } from '../regras/requisitos.js';
 import { exigenciasDaLoja } from '../regras/turnos.js';
 import { PARAMETROS_PADRAO, type TabelaParametros } from '../regras/parametros.js';
 import { calcularIndicadores, sintese } from './comparar.js';
@@ -138,14 +137,19 @@ export const makeSimulacoesService = (
     const quadroDeHoje = await cadastro.funcionariosDaLoja(lojaId);
     const matriculas = [
       ...new Set(
-        registros.filter((x) => x.status === 'gravada').flatMap((x) => x.quadro.map((p) => p.matricula)),
+        registros
+          .filter((x) => x.status === 'gravada')
+          .flatMap((x) => x.quadro.map((p) => p.matricula)),
       ),
     ];
     const situacao = matriculas.length ? await cadastro.situacaoPessoas(matriculas) : new Map();
     return {
       hoje: {
         horarios: l.horarios,
-        minimos: exigenciasDaLoja({ ...FUNCOES_PADRAO_MINIMO, ...soNoCalculo(l.minimos) }, l.turnos),
+        minimos: exigenciasDaLoja(
+          { ...FUNCOES_PADRAO_MINIMO, ...soNoCalculo(l.minimos) },
+          l.turnos,
+        ),
         convencao8h24: l.convencao8h24,
       },
       quadroDeHoje,
@@ -327,7 +331,9 @@ export const makeSimulacoesService = (
       }
       if (b.comVagasSugeridas) {
         if (b.origem !== 'escala_atual')
-          throw new ValidationError('As contratações sugeridas só valem a partir da equipe do Cadastro com horários.');
+          throw new ValidationError(
+            'As contratações sugeridas só valem a partir da equipe do Cadastro com horários.',
+          );
         const regra = regraPara(b.regra, l.convencao8h24, tabela);
         const sugeridas = vagasSugeridas(
           regra,

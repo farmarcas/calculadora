@@ -61,7 +61,12 @@ describe('configuracaoDaLinha', () => {
   });
 
   it('RAT, FAP e rescisão (mesmo inválidos) são ignorados e não geram erro nem configuração', () => {
-    for (const v of [{ rescisao: 'Não' }, { rescisao: 'talvez' }, { rat_pct: '3,5' }, { fap: '2,5' }] as Record<string, string>[]) {
+    for (const v of [
+      { rescisao: 'Não' },
+      { rescisao: 'talvez' },
+      { rat_pct: '3,5' },
+      { fap: '2,5' },
+    ] as Record<string, string>[]) {
       const r = configuracaoDaLinha(de(v));
       expect(r.erro).toBeUndefined();
       expect(r.configuracao).toBeUndefined();

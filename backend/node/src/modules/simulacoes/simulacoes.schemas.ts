@@ -30,11 +30,7 @@ export const turnoSchema = z
   .strict();
 
 export const REGRAS = ['atual', 'r42', 'r40'] as const;
-export const FUNCOES_ESCALA = [
-  'Farmacêutico',
-  'Atendimento',
-  'Caixa',
-] as const;
+export const FUNCOES_ESCALA = ['Farmacêutico', 'Atendimento', 'Caixa'] as const;
 
 // Vaga simulada: a matrícula (VAGA-n) só vem de volta para vagas que já existem.
 export const vagaSchema = z
@@ -56,7 +52,10 @@ export const listarReq = req(
 );
 export const porIdReq = req(vazio.default({}), id);
 // "Salvar como cenário N": grava e dá o nome "Cenário N"; sem isso, grava com o nome que já tem.
-export const gravarReq = req(z.object({ comoCenario: z.boolean().optional() }).strict().default({}), id);
+export const gravarReq = req(
+  z.object({ comoCenario: z.boolean().optional() }).strict().default({}),
+  id,
+);
 export const criarReq = req(
   z
     .object({

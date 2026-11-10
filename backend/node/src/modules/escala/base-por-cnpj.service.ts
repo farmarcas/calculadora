@@ -76,15 +76,23 @@ export const makeBasePorCnpj = (repo: EscalaRepository, auditar: Auditor) => {
     const cnpjs = [...lidas.porCnpj.keys()].sort();
     const casados = cnpjs.filter((c) => porDigitos.has(c));
     const semLoja = cnpjs.filter((c) => !porDigitos.has(c));
-    const alvos = casados.flatMap((cnpj) => (porDigitos.get(cnpj) ?? []).map((loja) => ({ cnpj, loja })));
+    const alvos = casados.flatMap((cnpj) =>
+      (porDigitos.get(cnpj) ?? []).map((loja) => ({ cnpj, loja })),
+    );
     return { erroPeriodo, periodo, lidas, lojasDoGe, alvos, semLoja };
   };
 
   return {
     // Lê o arquivo e diz o que aconteceria, sem gravar nada.
-    async revisar(arquivo: string, leitura: NonNullable<ReturnType<typeof abaPorCnpj>>, entrada: PeriodoEntrada) {
+    async revisar(
+      arquivo: string,
+      leitura: NonNullable<ReturnType<typeof abaPorCnpj>>,
+      entrada: PeriodoEntrada,
+    ) {
       const p = await preparar(leitura, entrada);
-      const anteriores = p.alvos.length ? await repo.basesAtivasDasLojas(p.alvos.map((a) => a.loja.id)) : [];
+      const anteriores = p.alvos.length
+        ? await repo.basesAtivasDasLojas(p.alvos.map((a) => a.loja.id))
+        : [];
       let preencheFaturamento = 0;
       let preencheCmv = 0;
       let jaTinhamValor = 0;
@@ -126,7 +134,8 @@ export const makeBasePorCnpj = (repo: EscalaRepository, auditar: Auditor) => {
       const p = await preparar(leitura, entrada);
       if (p.erroPeriodo) throw new AppError(p.erroPeriodo, 422, 'PERIODO_INVALIDO');
       const errosPorCnpj = new Map<string, number>();
-      for (const e of p.lidas.erros) if (e.loja) errosPorCnpj.set(e.loja, (errosPorCnpj.get(e.loja) ?? 0) + 1);
+      for (const e of p.lidas.erros)
+        if (e.loja) errosPorCnpj.set(e.loja, (errosPorCnpj.get(e.loja) ?? 0) + 1);
 
       const resultado: {
         cnpj: string;
@@ -142,9 +151,21 @@ export const makeBasePorCnpj = (repo: EscalaRepository, auditar: Auditor) => {
       const gravar = async ({ cnpj, loja }: (typeof p.alvos)[number]) => {
         const linhas = p.lidas.porCnpj.get(cnpj)!;
         const rejeitadas = errosPorCnpj.get(cnpj) ?? 0;
-        const base = { cnpj, codigo: loja.codigo, nome: loja.nome, aceitas: linhas.length, rejeitadas };
+        const base = {
+          cnpj,
+          codigo: loja.codigo,
+          nome: loja.nome,
+          aceitas: linhas.length,
+          rejeitadas,
+        };
         try {
-          const g = await gravarBaseDaLoja(repo, { loja, linhas, arquivo, rejeitadas, periodo: p.periodo });
+          const g = await gravarBaseDaLoja(repo, {
+            loja,
+            linhas,
+            arquivo,
+            rejeitadas,
+            periodo: p.periodo,
+          });
           if (g.preencheuCadastro) cadastroPreenchido++;
           if (g.jaTinhaValor) jaTinhamValor++;
           resultado.push({ ...base, situacao: 'Importada' });

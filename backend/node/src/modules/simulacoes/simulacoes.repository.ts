@@ -162,7 +162,10 @@ export const simulacoesRepository = (geId: string) => ({
           ...(d.regra ? { regra: d.regra } : {}),
           ...(d.quadro ? { quadro: d.quadro as unknown as Prisma.InputJsonValue } : {}),
           ...(d.horarios !== undefined
-            ? { horarios: d.horarios === null ? Prisma.JsonNull : (d.horarios as Prisma.InputJsonValue) }
+            ? {
+                horarios:
+                  d.horarios === null ? Prisma.JsonNull : (d.horarios as Prisma.InputJsonValue),
+              }
             : {}),
         },
       });

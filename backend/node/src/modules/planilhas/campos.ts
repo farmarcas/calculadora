@@ -461,7 +461,14 @@ export const CAMPOS_FUNCIONARIO: CampoDef[] = [
     rotulo: 'Início do intervalo',
     obrigatorio: false,
     exemplo: '12:00',
-    sinonimos: ['inicio intervalo', 'inicio do intervalo', 'ini intervalo', 'saida almoco', 'saida para almoco', 'intervalo inicio'],
+    sinonimos: [
+      'inicio intervalo',
+      'inicio do intervalo',
+      'ini intervalo',
+      'saida almoco',
+      'saida para almoco',
+      'intervalo inicio',
+    ],
     conteudo: (v) => /^\d{1,2}(:\d{2})?(:\d{2})?$/.test(v),
   },
   {
@@ -469,7 +476,14 @@ export const CAMPOS_FUNCIONARIO: CampoDef[] = [
     rotulo: 'Fim do intervalo',
     obrigatorio: false,
     exemplo: '13:00',
-    sinonimos: ['fim intervalo', 'fim do intervalo', 'volta almoco', 'volta do almoco', 'retorno almoco', 'intervalo fim'],
+    sinonimos: [
+      'fim intervalo',
+      'fim do intervalo',
+      'volta almoco',
+      'volta do almoco',
+      'retorno almoco',
+      'intervalo fim',
+    ],
     conteudo: (v) => /^\d{1,2}(:\d{2})?(:\d{2})?$/.test(v),
   },
   {
@@ -496,11 +510,7 @@ export const CAMPOS_FUNCIONARIO: CampoDef[] = [
   },
 ];
 
-export const FUNCOES_ESCALA = [
-  'Farmacêutico',
-  'Atendimento',
-  'Caixa',
-] as const;
+export const FUNCOES_ESCALA = ['Farmacêutico', 'Atendimento', 'Caixa'] as const;
 
 export const CAMPOS_BASE: CampoDef[] = [
   {
@@ -544,7 +554,15 @@ export const CAMPOS_BASE: CampoDef[] = [
     rotulo: 'CMV (R$)',
     obrigatorio: false,
     exemplo: '190,00',
-    sinonimos: ['cmv rs', 'cmv_rs', 'cmv', 'cmv bruto', 'custo da mercadoria', 'custo mercadoria vendida', 'custo da mercadoria vendida'],
+    sinonimos: [
+      'cmv rs',
+      'cmv_rs',
+      'cmv',
+      'cmv bruto',
+      'custo da mercadoria',
+      'custo mercadoria vendida',
+      'custo da mercadoria vendida',
+    ],
   },
   // Formato antigo: margem bruta por hora. Ainda é entendida (para não cair em outra coluna), mas é ignorada.
   {

@@ -53,7 +53,9 @@ describe('parâmetros de encargos (rotas)', () => {
     expect(
       (await reqGe().post('/api/v1/parametros-encargos').set(consulta).send(corpo)).status,
     ).toBe(403);
-    expect((await reqGe().post('/api/v1/parametros-encargos').set(admin).send(corpo)).status).toBe(403);
+    expect((await reqGe().post('/api/v1/parametros-encargos').set(admin).send(corpo)).status).toBe(
+      403,
+    );
     const ok = await reqGe().post('/api/v1/parametros-encargos').set(operador).send(corpo);
     expect(ok.status).toBe(201);
     const r = await reqGe().get('/api/v1/parametros-encargos').set(admin);

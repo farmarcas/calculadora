@@ -4,6 +4,7 @@ import { GE_INICIAL_ID } from '../../shared/ge.js';
 import { postLoja, reqGe } from '../../shared/testing/ge.js';
 import { prisma } from '../../shared/database/prisma.js';
 
+const operador = { 'X-Perfil': 'PLATFORM_OPERATOR', 'X-GE': GE_INICIAL_ID };
 const admin = { 'X-Perfil': 'TENANT_ADMIN', 'X-GE': GE_INICIAL_ID };
 const gestor = { 'X-Perfil': 'SCHEDULE_MANAGER', 'X-GE': GE_INICIAL_ID };
 const consulta = { 'X-Perfil': 'SCHEDULE_VIEWER', 'X-GE': GE_INICIAL_ID };
@@ -26,8 +27,13 @@ describe('parâmetros legais (rotas)', () => {
     await prisma.$disconnect();
   });
 
-  it('vem com os valores de hoje; todos os perfis veem', async () => {
-    for (const perfil of [admin, gestor, consulta]) {
+  it('só o operador da plataforma vê os parâmetros; dono, gestor e consulta recebem 403', async () => {
+    for (const perfil of [admin, gestor, consulta])
+      expect((await reqGe().get('/api/v1/parametros-legais').set(perfil)).status).toBe(403);
+  });
+
+  it('vem com os valores de hoje para o operador', async () => {
+    for (const perfil of [operador]) {
       const r = await reqGe().get('/api/v1/parametros-legais').set(perfil);
       expect(r.status).toBe(200);
       const por = Object.fromEntries(r.body.fases.map((f: { fase: string }) => [f.fase, f]));
@@ -53,20 +59,24 @@ describe('parâmetros legais (rotas)', () => {
     }
   });
 
-  it('só o dono cria versão; gestor e consulta recebem 403 e nada muda', async () => {
-    for (const perfil of [gestor, consulta])
+  it('só o operador cria versão; dono, gestor e consulta recebem 403 e nada muda', async () => {
+    for (const perfil of [admin, gestor, consulta])
       expect((await reqGe().post('/api/v1/parametros-legais').set(perfil).send(nova)).status).toBe(
         403,
       );
     expect(await prisma.parametroLegal.count()).toBe(3);
-    const r = await reqGe().post('/api/v1/parametros-legais').set(admin).send(nova);
+    const r = await reqGe().post('/api/v1/parametros-legais').set(operador).send(nova);
     expect(r.status).toBe(201);
-    expect(r.body).toMatchObject({ fase: 'r40', jornadaSemanalH: 36, criadoPor: 'TENANT_ADMIN' });
+    expect(r.body).toMatchObject({
+      fase: 'r40',
+      jornadaSemanalH: 36,
+      criadoPor: 'PLATFORM_OPERATOR',
+    });
   });
 
   it('alterar cria nova versão, preserva a antiga no histórico e registra auditoria', async () => {
-    await reqGe().post('/api/v1/parametros-legais').set(admin).send(nova);
-    const r = await reqGe().get('/api/v1/parametros-legais').set(consulta);
+    await reqGe().post('/api/v1/parametros-legais').set(operador).send(nova);
+    const r = await reqGe().get('/api/v1/parametros-legais').set(operador);
     const r40 = r.body.fases.find((f: { fase: string }) => f.fase === 'r40');
     expect(r40.vigente).toMatchObject({ jornadaSemanalH: 36, divisor: 180 });
     expect(r40.historico).toHaveLength(2);
@@ -77,23 +87,23 @@ describe('parâmetros legais (rotas)', () => {
       where: { acao: 'parametros.alterados' },
       orderBy: { criadoEm: 'desc' },
     });
-    expect(aud).toMatchObject({ perfil: 'TENANT_ADMIN', alvoTipo: 'parametros' });
+    expect(aud).toMatchObject({ perfil: 'PLATFORM_OPERATOR', alvoTipo: 'parametros' });
   });
 
   it('versão com início no futuro não vale ainda: a atual segue valendo', async () => {
     await reqGe()
       .post('/api/v1/parametros-legais')
-      .set(admin)
+      .set(operador)
       .send({ ...nova, vigenciaInicio: '2099-01-01' });
-    const r = await reqGe().get('/api/v1/parametros-legais').set(admin);
+    const r = await reqGe().get('/api/v1/parametros-legais').set(operador);
     const r40 = r.body.fases.find((f: { fase: string }) => f.fase === 'r40');
     // as duas começam no futuro (2027 e 2099): vale a mais antiga, a de hoje
     expect(r40.vigente.jornadaSemanalH).toBe(40);
     await reqGe()
       .post('/api/v1/parametros-legais')
-      .set(admin)
+      .set(operador)
       .send({ ...nova, vigenciaInicio: '2020-01-01' });
-    const depois = (await reqGe().get('/api/v1/parametros-legais').set(admin)).body.fases.find(
+    const depois = (await reqGe().get('/api/v1/parametros-legais').set(operador)).body.fases.find(
       (f: { fase: string }) => f.fase === 'r40',
     );
     expect(depois.vigente.jornadaSemanalH).toBe(36);
@@ -103,7 +113,7 @@ describe('parâmetros legais (rotas)', () => {
     const msg = async (corpo: object) => {
       const r = await reqGe()
         .post('/api/v1/parametros-legais')
-        .set(admin)
+        .set(operador)
         .send({ ...nova, ...corpo });
       expect(r.status).toBe(400);
       return JSON.stringify(r.body);
@@ -157,14 +167,14 @@ describe('parâmetros legais (rotas)', () => {
       x.funcoes.find((f: { funcao: string }) => f.funcao === 'Farmacêutico').cargaCheiaH;
     expect(cheia(antes)).toBe(40);
 
-    await reqGe().post('/api/v1/parametros-legais').set(admin).send(nova);
+    await reqGe().post('/api/v1/parametros-legais').set(operador).send(nova);
     const mudou = await r40();
     expect(mudou.nome).toBe('36h');
     expect(cheia(mudou)).toBe(36);
 
     await reqGe()
       .post('/api/v1/parametros-legais')
-      .set(admin)
+      .set(operador)
       .send({ ...nova, jornadaSemanalH: 40, divisor: 200, vigenciaInicio: '2026-06-01' });
     const voltou = await r40();
     expect(voltou.nome).toBe('40h');

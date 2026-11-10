@@ -19,7 +19,12 @@ const v = <T extends z.ZodType>(res: Response) => readValidated<z.infer<T>>(res)
 const cadastroDoGe = (geId: string) => ({
   async funcionariosDaLoja(lojaId: string): Promise<PessoaSim[]> {
     const rows = await prisma.funcionario.findMany({
-      where: { lojaId, loja: { geId }, deletedAt: null, funcaoEscala: { in: [...FUNCOES_NO_CALCULO] } },
+      where: {
+        lojaId,
+        loja: { geId },
+        deletedAt: null,
+        funcaoEscala: { in: [...FUNCOES_NO_CALCULO] },
+      },
       orderBy: { nome: 'asc' },
     });
     return rows.map((r) => ({
@@ -68,8 +73,7 @@ export const simulacoesRouter = () => {
   r.post('/simulacoes/:id/gravar', escrita, validate(S.gravarReq), async (_req, res) => {
     const { params, body } = v<typeof S.gravarReq>(res);
     res.json(await s(res).gravar(params.id, perfilDe(res), body.comoCenario === true));
-  },
-  );
+  });
   r.get('/lojas/:id/simulacoes/comparar', validate(S.compararReq), async (_req, res) => {
     const { params, query } = v<typeof S.compararReq>(res);
     res.json(await s(res).comparar(params.id, query.ids, perfilDe(res)));

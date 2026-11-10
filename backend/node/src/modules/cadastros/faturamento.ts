@@ -33,8 +33,12 @@ const numero = (texto: string) => {
 // margem antiga nunca é gravada. `soCmv` (planilha que traz só o CMV médio) mantém os valores de faturamento já guardados.
 // Faturamento limpo (null) limpa tudo, inclusive o CMV médio (ele agora tem campo na tela).
 export type FaturamentoEntrada = Faturamento & { soCmv?: boolean };
-export const mesclarFaturamento = (novo: FaturamentoEntrada | null, atual: unknown): Faturamento | null => {
-  const antes = atual as { dias?: (number | null)[]; mensal?: number | null; cmvPct?: unknown } | null | undefined;
+export const mesclarFaturamento = (
+  novo: FaturamentoEntrada | null,
+  atual: unknown,
+): Faturamento | null => {
+  const antes = atual as
+    { dias?: (number | null)[]; mensal?: number | null; cmvPct?: unknown } | null | undefined;
   const cmvAntes = typeof antes?.cmvPct === 'number' ? antes.cmvPct : undefined;
   if (novo === null) return null;
   const { margemPct: _antiga, soCmv, cmvPct, ...resto } = novo;
@@ -54,9 +58,9 @@ export const faturamentoDaLinha = (
   ];
   const cmv = numero(celula('cmv_pct'));
   if (lidos.every((n) => n === null) && cmv === null) return {};
-  if (lidos.some((n) => Number.isNaN(n)))
-    return { erro: 'faturamento com valor inválido' };
-  if (cmv !== null && (Number.isNaN(cmv) || cmv > 100)) return { erro: 'CMV médio fora de 0 a 100' };
+  if (lidos.some((n) => Number.isNaN(n))) return { erro: 'faturamento com valor inválido' };
+  if (cmv !== null && (Number.isNaN(cmv) || cmv > 100))
+    return { erro: 'CMV médio fora de 0 a 100' };
   const semFaturamento = lidos.every((n) => n === null);
   return {
     faturamento: {

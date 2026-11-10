@@ -5,7 +5,8 @@ const vazio = z.object({}).strict();
 const id = z.object({ id: z.string().uuid() }).strict();
 const FUNCOES = FUNCOES_NO_CALCULO;
 
-// Ajustes de encargos de UMA loja: só o que ela mudou do padrão do regime (RAT de 1% a 3%, FAP de 0,5 a 2,0, rescisão).
+// Ajustes antigos de encargos por loja (RAT, FAP, rescisão). Não valem mais (o encargo é só o do regime), mas seguem
+// aceitos no pedido e guardados no que já existe: nunca são lidos pelo cálculo nem alterados por uma gravação (`manterAjustesAntigos`).
 export const ajustesEncargosSchema = z
   .object({
     ratPct: z.number().finite().optional(),
@@ -35,3 +36,14 @@ const req = <B extends z.ZodType>(body: B) =>
   z.object({ body, params: id, query: vazio.default({}) });
 export const lerCustosReq = req(vazio.default({}));
 export const salvarCustosReq = req(custosSchema);
+
+// Grava os custos novos mantendo os ajustes antigos de encargos que já estavam guardados na loja; o que vier no pedido é ignorado.
+export const manterAjustesAntigos = <T extends { encargos?: unknown }>(
+  novo: T,
+  atual: unknown,
+): Omit<T, 'encargos'> & { encargos?: unknown } => {
+  const { encargos: _ignorado, ...resto } = novo;
+  void _ignorado;
+  const guardado = (atual as { encargos?: unknown } | null | undefined)?.encargos;
+  return guardado === undefined ? resto : { ...resto, encargos: guardado };
+};

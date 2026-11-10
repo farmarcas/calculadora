@@ -60,11 +60,7 @@ export const calcularIndicadores = (a: {
 };
 
 // Parágrafo curto: o que a simulação faz, só com os próprios números (cobertura, horas, vagas e o que falta).
-export const sintese = (
-  nome: string,
-  i: Indicadores,
-  extra: { vagas?: number } = {},
-): string => {
+export const sintese = (nome: string, i: Indicadores, extra: { vagas?: number } = {}): string => {
   const partes: string[] = [];
   if (i.erros > 0) partes.push(`tem ${i.erros} erro(s) nas regras`);
   if (i.semFarmaceutico) partes.push('deixa horário sem farmacêutico');

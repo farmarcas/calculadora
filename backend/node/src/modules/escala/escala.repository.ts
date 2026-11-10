@@ -133,7 +133,10 @@ export const escalaRepository = (geId: string) => {
 
     // Grava o faturamento do Cadastro já mesclado (só o que estava vazio foi preenchido, ver `mesclarCadastro`).
     async gravarFaturamento(lojaId: string, faturamento: Prisma.InputJsonValue) {
-      await prisma.loja.updateMany({ where: { id: lojaId, geId, ...ativo }, data: { faturamento } });
+      await prisma.loja.updateMany({
+        where: { id: lojaId, geId, ...ativo },
+        data: { faturamento },
+      });
     },
 
     // Parâmetros legais que valem hoje (a versão vigente de cada fase).

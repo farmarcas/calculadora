@@ -18,7 +18,10 @@ describe('faturamentoSchema', () => {
     expect(ok.success).toBe(true);
   });
   it('aceita, e depois ignora, a margem antiga que ainda vier num pedido', () => {
-    expect(faturamentoSchema.safeParse({ dias: [1, 1, 1, 1, 1, 1, 1], mensal: null, margemPct: 28 }).success).toBe(true);
+    expect(
+      faturamentoSchema.safeParse({ dias: [1, 1, 1, 1, 1, 1, 1], mensal: null, margemPct: 28 })
+        .success,
+    ).toBe(true);
   });
   it('aceita faturamento sem CMV médio', () => {
     expect(faturamentoSchema.safeParse({ dias: [1, 1, 1, 1, 1, 1, 1], mensal: null }).success).toBe(
@@ -58,9 +61,18 @@ describe('faturamentoDaLinha', () => {
   });
   it('lê o CMV médio (%) e, vindo sozinho, marca que só ele veio (os valores de faturamento já guardados ficam)', () => {
     const junto = faturamentoDaLinha(linha({ fat_seg: '100', cmv_pct: '65,5' }));
-    expect(junto.faturamento).toEqual({ dias: [100, null, null, null, null, null, null], mensal: null, cmvPct: 65.5 });
+    expect(junto.faturamento).toEqual({
+      dias: [100, null, null, null, null, null, null],
+      mensal: null,
+      cmvPct: 65.5,
+    });
     const so = faturamentoDaLinha(linha({ cmv_pct: '65' }));
-    expect(so.faturamento).toEqual({ dias: [null, null, null, null, null, null, null], mensal: null, cmvPct: 65, soCmv: true });
+    expect(so.faturamento).toEqual({
+      dias: [null, null, null, null, null, null, null],
+      mensal: null,
+      cmvPct: 65,
+      soCmv: true,
+    });
   });
   it('CMV médio fora de 0 a 100 ou inválido é recusado em português', () => {
     expect(faturamentoDaLinha(linha({ cmv_pct: '120' })).erro).toContain('CMV médio');
@@ -69,7 +81,10 @@ describe('faturamentoDaLinha', () => {
   it('planilha antiga com a coluna de margem (até 150) é aceita e a coluna é ignorada', () => {
     const r = faturamentoDaLinha(linha({ fat_seg: '100', margem_pct: '150' }));
     expect(r.erro).toBeUndefined();
-    expect(r.faturamento).toEqual({ dias: [100, null, null, null, null, null, null], mensal: null });
+    expect(r.faturamento).toEqual({
+      dias: [100, null, null, null, null, null, null],
+      mensal: null,
+    });
     expect(faturamentoDaLinha(linha({ margem_pct: '28' }))).toEqual({});
   });
 });
@@ -80,7 +95,10 @@ describe('mesclarFaturamento', () => {
     expect(mesclarFaturamento(novo, { cmvPct: 60 })).toEqual({ ...novo, cmvPct: 60 });
   });
   it('o CMV do pedido vale; null o limpa', () => {
-    expect(mesclarFaturamento({ ...novo, cmvPct: 70 }, { cmvPct: 60 })).toEqual({ ...novo, cmvPct: 70 });
+    expect(mesclarFaturamento({ ...novo, cmvPct: 70 }, { cmvPct: 60 })).toEqual({
+      ...novo,
+      cmvPct: 70,
+    });
     expect(mesclarFaturamento({ ...novo, cmvPct: null }, { cmvPct: 60 })).toEqual(novo);
   });
   it('a margem antiga nunca é gravada, venha de onde vier', () => {
@@ -88,14 +106,23 @@ describe('mesclarFaturamento', () => {
     expect(mesclarFaturamento(novo, null)).toEqual(novo);
   });
   it('só o CMV vindo da planilha mantém os valores de faturamento já guardados', () => {
-    const planilha = { dias: [null, null, null, null, null, null, null], mensal: null, cmvPct: 65, soCmv: true };
+    const planilha = {
+      dias: [null, null, null, null, null, null, null],
+      mensal: null,
+      cmvPct: 65,
+      soCmv: true,
+    };
     expect(mesclarFaturamento(planilha, { dias: [1, 2, 3, 4, 5, 6, 7], mensal: 50 })).toEqual({
       dias: [1, 2, 3, 4, 5, 6, 7],
       mensal: 50,
       cmvPct: 65,
     });
     // sem faturamento guardado, vira só o CMV
-    expect(mesclarFaturamento(planilha, null)).toEqual({ dias: [null, null, null, null, null, null, null], mensal: null, cmvPct: 65 });
+    expect(mesclarFaturamento(planilha, null)).toEqual({
+      dias: [null, null, null, null, null, null, null],
+      mensal: null,
+      cmvPct: 65,
+    });
   });
   it('limpar o faturamento (null) limpa tudo, inclusive o CMV médio', () => {
     expect(mesclarFaturamento(null, { cmvPct: 65 })).toBeNull();

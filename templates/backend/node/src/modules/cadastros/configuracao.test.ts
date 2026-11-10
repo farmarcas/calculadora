@@ -32,13 +32,13 @@ describe('configuracaoDaLinha', () => {
         rescisao: 'Sim',
       }),
     );
+    // RAT, FAP e rescisão não valem mais: as colunas antigas são ignoradas.
     expect(r.erro).toBeUndefined();
     expect(r.configuracao).toEqual({
       convencao8h24: true,
       minimos: { Farmacêutico: 2, Caixa: 1 },
       custos: {
         salarioMedio: { Farmacêutico: 6000.5, Atendimento: 2100 },
-        encargos: { ratPct: 3, fap: 1.5, rescisaoLigada: true },
       },
     });
   });
@@ -60,11 +60,17 @@ describe('configuracaoDaLinha', () => {
     expect(r.configuracao?.custos).toEqual({ salarioMedio: { Caixa: 1900 }, encargosPct: 66 });
   });
 
-  it('rescisão Não é um valor (desliga); em branco não mexe', () => {
-    expect(configuracaoDaLinha(de({ rescisao: 'Não' })).configuracao?.custos?.encargos).toEqual({
-      rescisaoLigada: false,
-    });
-    expect(configuracaoDaLinha(de({ rescisao: '' })).configuracao).toBeUndefined();
+  it('RAT, FAP e rescisão (mesmo inválidos) são ignorados e não geram erro nem configuração', () => {
+    for (const v of [
+      { rescisao: 'Não' },
+      { rescisao: 'talvez' },
+      { rat_pct: '3,5' },
+      { fap: '2,5' },
+    ] as Record<string, string>[]) {
+      const r = configuracaoDaLinha(de(v));
+      expect(r.erro).toBeUndefined();
+      expect(r.configuracao).toBeUndefined();
+    }
   });
 
   it.each([
@@ -74,11 +80,6 @@ describe('configuracaoDaLinha', () => {
     [{ meta_farmaceutico: '0' }, 'ao menos 1'],
     [{ salario_caixa: '0' }, 'Salário médio de Caixa'],
     [{ salario_atendimento: 'abc' }, 'Salário médio de Atendimento'],
-    [{ rat_pct: '3,5' }, 'RAT'],
-    [{ rat_pct: '-1' }, 'RAT'],
-    [{ fap: '2,5' }, 'FAP'],
-    [{ fap: '0,4' }, 'FAP'],
-    [{ rescisao: 'talvez' }, 'Provisão de rescisão'],
   ])('valor inválido %j recusa a linha citando a coluna', (valores, trecho) => {
     expect(configuracaoDaLinha(de(valores)).erro).toContain(trecho);
   });

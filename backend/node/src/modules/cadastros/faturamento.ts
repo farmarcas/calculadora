@@ -31,13 +31,12 @@ const numero = (texto: string) => {
 
 // Grava o faturamento novo. O CMV médio que já estava guardado fica quando o pedido não fala dele; `null` o limpa. A
 // margem antiga nunca é gravada. `soCmv` (planilha que traz só o CMV médio) mantém os valores de faturamento já guardados.
-// Faturamento limpo (null) com CMV médio guardado vira "sem valores" com o CMV preservado.
+// Faturamento limpo (null) limpa tudo, inclusive o CMV médio (ele agora tem campo na tela).
 export type FaturamentoEntrada = Faturamento & { soCmv?: boolean };
 export const mesclarFaturamento = (novo: FaturamentoEntrada | null, atual: unknown): Faturamento | null => {
   const antes = atual as { dias?: (number | null)[]; mensal?: number | null; cmvPct?: unknown } | null | undefined;
   const cmvAntes = typeof antes?.cmvPct === 'number' ? antes.cmvPct : undefined;
-  const semValores = { dias: [null, null, null, null, null, null, null] as (number | null)[], mensal: null };
-  if (novo === null) return cmvAntes !== undefined ? { ...semValores, cmvPct: cmvAntes } : null;
+  if (novo === null) return null;
   const { margemPct: _antiga, soCmv, cmvPct, ...resto } = novo;
   const cmv = cmvPct === undefined ? cmvAntes : cmvPct;
   const base = soCmv && antes?.dias ? { dias: antes.dias, mensal: antes.mensal ?? null } : resto;

@@ -10,14 +10,14 @@ export const capitalizada = (regua) => {
 };
 
 const MOTIVOS = {
-  sem_margem: "A base comercial não traz margem por hora: o cálculo usa a venda.",
-  margem_parcial: "A margem aparece em poucas horas da base comercial: o cálculo usa a venda.",
-  margem_incoerente: "Há hora com margem maior que a venda na base comercial: o cálculo usa a venda.",
+  sem_margem: "A base comercial não traz o CMV e a loja não tem CMV médio: o cálculo usa a venda.",
+  margem_parcial: "O CMV aparece em poucas horas da base comercial e a loja não tem CMV médio: o cálculo usa a venda.",
+  margem_incoerente: "Há hora com CMV maior que a venda na base comercial: o cálculo usa a venda.",
 };
 
 // Uma frase perto do saldo dizendo em que o cálculo foi feito. Nulo sem régua (sem venda hora a hora).
 export const fraseDaRegua = (regua) => {
   if (!regua) return null;
-  if (ehMargem(regua)) return "Perda, ganho e saldo em margem bruta: o que sobra da venda depois do custo do produto.";
+  if (ehMargem(regua)) return "Perda, ganho e saldo em margem bruta: a venda menos o custo da mercadoria (CMV).";
   return MOTIVOS[regua.motivo] ?? "Perda, ganho e saldo em venda.";
 };

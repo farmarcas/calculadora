@@ -25,9 +25,9 @@ Formato: `- [ ] ID [P] [História] descrição com o arquivo`. Servidor em `back
 
 ## Fatia 4 — Campo no Cadastro (História 1, P1)
 - [x] T016 [US1] `cadastros/faturamento.ts` e `cadastros.*`: o faturamento guarda `cmvPct` (0 a 100 ou vazio); fora da faixa é recusado em português; só o dono grava e recebe; o que vier de `margemPct` é ignorado; faturamento limpo e `cmvPct` guardado seguem a mesma regra de preservação de hoje
-- [ ] T017 [US1] Tela: campo "CMV médio (%)" na aba de faturamento do Cadastro (só dono), com a explicação "Parte da venda líquida que volta ao fornecedor como custo da mercadoria"; validação de 0 a 100 igual ao servidor; nenhuma menção à palavra "margem" no campo
-- [ ] T018 [P] [US1] Testes: o dono grava e reabre 65; 120 e −5 recusados; gestor e consulta não recebem o campo; testes da tela
-- [ ] T019 Rodar os testes (servidor e tela), conferir no navegador e commitar a fatia
+- [x] T017 [US1] Tela: campo "CMV médio (%)" na aba de faturamento do Cadastro (só dono), com a explicação "Parte da venda líquida que volta ao fornecedor como custo da mercadoria"; validação de 0 a 100 igual ao servidor; nenhuma menção à palavra "margem" no campo
+- [x] T018 [P] [US1] Testes: o dono grava e reabre 65; 120 e −5 recusados; gestor e consulta não recebem o campo; testes da tela
+- [x] T019 Rodar os testes (servidor e tela), conferir no navegador e commitar a fatia
 
 ## Fatia 5 — Validação, limpeza no banco local e entrega
 - [ ] T020 Mostrar o backup (T001) e pedir o seu aval; aplicar a migration no banco local e conferir que não há margem em lugar nenhum e que vendas e clientes não mudaram (contagens e somas antes e depois)

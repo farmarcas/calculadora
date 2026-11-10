@@ -32,6 +32,16 @@ export default function ResumoMensal({ horarios, faturamento, editavel, erros, o
           <span className="text-xs text-[var(--text-secondary)]">{brl(semanal)} por semana × 52 semanas ÷ 12 meses</span>
         </div>
       </div>
+      <div className="cl-grid2 mt-4">
+        <label className="flex flex-col gap-1 text-sm text-[var(--text-strong)]">CMV médio (%)
+          <div className="relative">
+            <input data-campo="cmvPct" type="number" min={0} max={100} step="any" className={`${CAMPO} pr-9`} disabled={!editavel} value={faturamento.cmvPct ?? ""} aria-invalid={!!erro("cmvPct")} aria-describedby="ajuda-cmv" onChange={(e) => mudar({ cmvPct: e.target.value })} />
+            <span aria-hidden="true" className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[var(--text-secondary)]">%</span>
+          </div>
+          {erro("cmvPct") && <span role="alert" className="text-xs text-[var(--text-danger)]">{erro("cmvPct")}</span>}
+          <span id="ajuda-cmv" className="text-xs text-[var(--text-secondary)]">Parte da venda líquida que volta ao fornecedor como custo da mercadoria. Vale para as horas em que a base de vendas não traz o CMV.</span>
+        </label>
+      </div>
       {div.diverge && (
         <div role="status" className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-card bg-[var(--func-attention-100)] px-4 py-3 text-sm text-[var(--text-strong)]">
           <span>O mensal informado está mais de 10% {div.direcao === "acima" ? "acima" : "abaixo"} da soma dos dias ({brl(calculado)}). Confira os valores.</span>

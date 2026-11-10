@@ -97,12 +97,8 @@ describe('mesclarFaturamento', () => {
     // sem faturamento guardado, vira só o CMV
     expect(mesclarFaturamento(planilha, null)).toEqual({ dias: [null, null, null, null, null, null, null], mensal: null, cmvPct: 65 });
   });
-  it('limpar o faturamento mantém o CMV médio guardado', () => {
-    expect(mesclarFaturamento(null, { cmvPct: 65 })).toEqual({
-      dias: [null, null, null, null, null, null, null],
-      mensal: null,
-      cmvPct: 65,
-    });
+  it('limpar o faturamento (null) limpa tudo, inclusive o CMV médio', () => {
+    expect(mesclarFaturamento(null, { cmvPct: 65 })).toBeNull();
     expect(mesclarFaturamento(null, { dias: [1] })).toBeNull();
   });
 });

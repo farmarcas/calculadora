@@ -897,4 +897,80 @@ describe('simulações (rotas)', () => {
       expect(JSON.stringify(cmp.body)).not.toContain('"cobertura":{"horas"');
     });
   });
+  describe('régua da simulação: margem ou venda (spec 033)', () => {
+    const gestor = { 'X-Perfil': 'SCHEDULE_MANAGER', 'X-GE': GE_INICIAL_ID };
+    const semana = (fecha: string) => ({
+      versao: 2,
+      dias: [0, 1, 2, 3, 4]
+        .map(() => ({ aberta: true, abre: '08:00', fecha }))
+        .concat([{ aberta: false } as never, { aberta: false } as never]),
+    });
+    const baseComMargem = async (margem: string) => {
+      await reqGe().put(`/api/v1/lojas/${lojaId}/custos`).set(admin).send({ salarioMedio: { Farmacêutico: 8000, Atendimento: 2000 } });
+      const wb = new ExcelJS.Workbook();
+      const linhas = [['Data', 'Hora', 'Código da loja', 'Venda líquida (R$)', 'Margem bruta (R$)']];
+      for (const d of ['07/09/2026', '08/09/2026', '09/09/2026', '10/09/2026', '11/09/2026'])
+        for (let h = 8; h < 20; h++) linhas.push([d, String(h), '001', '500,00', margem]);
+      wb.addWorksheet('Base').addRows(linhas);
+      const up = await reqGe().post('/api/v1/cargas/base').set(admin).attach('arquivo', Buffer.from(await wb.xlsx.writeBuffer()), 'b.xlsx');
+      expect(up.status).toBe(201);
+    };
+    const comHorarioReduzido = async () => {
+      const sim = (await reqGe().post(`/api/v1/lojas/${lojaId}/simulacoes`).set(admin).send({ nome: 'Reduz', regra: 'r40' })).body;
+      await reqGe().put(`/api/v1/simulacoes/${sim.id}`).set(admin).send({ horarios: semana('18:00') });
+      return sim.id as string;
+    };
+
+    it('base com margem: o painel mede a venda que sai em margem; a lista e a comparação mostram o mesmo saldo', async () => {
+      await baseComMargem('150,00');
+      const id = await comHorarioReduzido();
+      const painel = (await reqGe().get(`/api/v1/simulacoes/${id}`).set(admin)).body.resultado;
+      expect(painel.regua).toEqual({ tipo: 'margem' });
+      // Fechar 2 horas por dia, de segunda a sexta: 10 horas × 150 de margem por semana × 52 ÷ 12.
+      expect(painel.vendaQueSai).toBeCloseTo((10 * 150 * 52) / 12, 1);
+      const lista = (await reqGe().get(`/api/v1/lojas/${lojaId}/simulacoes`).set(admin)).body.data as Record<string, any>[];
+      const item = lista.find((x) => x.id === id)!;
+      expect(item.regua).toEqual({ tipo: 'margem' });
+      expect(item.saldoMensal).toBe(painel.saldoMensal);
+      const outro = (await reqGe().post(`/api/v1/lojas/${lojaId}/simulacoes`).set(admin).send({ nome: 'Outra', regra: 'r40' })).body.id;
+      await reqGe().post(`/api/v1/simulacoes/${id}/gravar`).set(admin);
+      await reqGe().post(`/api/v1/simulacoes/${outro}/gravar`).set(admin);
+      const cmp = (await reqGe().get(`/api/v1/lojas/${lojaId}/simulacoes/comparar?ids=${id},${outro}`).set(admin)).body;
+      const doComparado = cmp.simulacoes.find((x: { id: string }) => x.id === id);
+      expect(doComparado.regua).toEqual({ tipo: 'margem' });
+      expect(doComparado.saldoMensal).toBe(painel.saldoMensal);
+    });
+
+    it('base sem margem: venda, com a venda que sai de sempre', async () => {
+      await baseComMargem('0');
+      const id = await comHorarioReduzido();
+      const painel = (await reqGe().get(`/api/v1/simulacoes/${id}`).set(admin)).body.resultado;
+      expect(painel.regua).toEqual({ tipo: 'venda', motivo: 'sem_margem' });
+      expect(painel.vendaQueSai).toBeCloseTo((10 * 500 * 52) / 12, 1);
+    });
+
+    it('o gestor recebe a régua e nenhum valor em reais, nem no painel nem na lista', async () => {
+      await baseComMargem('150,00');
+      const id = await comHorarioReduzido();
+      const painel = (await reqGe().get(`/api/v1/simulacoes/${id}`).set(gestor)).body.resultado;
+      expect(painel.regua).toEqual({ tipo: 'margem' });
+      expect(painel).not.toHaveProperty('vendaQueSai');
+      expect(painel).not.toHaveProperty('saldoMensal');
+      const lista = (await reqGe().get(`/api/v1/lojas/${lojaId}/simulacoes`).set(gestor)).body.data as Record<string, any>[];
+      expect(lista[0]).toHaveProperty('regua');
+      expect(lista[0]).not.toHaveProperty('saldoMensal');
+    });
+
+    it('simulação gravada antes é recalculada na régua atual da loja', async () => {
+      await baseComMargem('0');
+      const id = await comHorarioReduzido();
+      await reqGe().post(`/api/v1/simulacoes/${id}/gravar`).set(admin);
+      const antes = (await reqGe().get(`/api/v1/simulacoes/${id}`).set(admin)).body.resultado;
+      expect(antes.regua?.tipo).toBe('venda');
+      await baseComMargem('150,00');
+      const depois = (await reqGe().get(`/api/v1/simulacoes/${id}`).set(admin)).body.resultado;
+      expect(depois.regua).toEqual({ tipo: 'margem' });
+      expect(depois.vendaQueSai).toBeLessThan(antes.vendaQueSai);
+    });
+  });
 });

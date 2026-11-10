@@ -1349,4 +1349,56 @@ describe('escala (rotas)', () => {
       expect(d).not.toHaveProperty('regras');
     });
   });
+  describe('régua dos cenários: margem ou venda (spec 033)', () => {
+    const gestor = { 'X-Perfil': 'SCHEDULE_MANAGER', 'X-GE': GE_INICIAL_ID };
+    const url = () => `/api/v1/lojas/${lojaId}/diagnostico`;
+    const preparar = async (margem: (venda: number, i: number) => string) => {
+      await reqGe()
+        .post('/api/v1/cargas/escala')
+        .set(admin)
+        .attach('arquivo', await xlsx(escalaCab, [['001', 'F1', 'Ana', 'Farmacêutica', 'Seg a Sáb', '08:00', '', '', '17:00', '44']]), 'e.xlsx');
+      await reqGe().put(`/api/v1/lojas/${lojaId}/configuracao`).set(admin).send({ minimos: { Atendimento: 0, Caixa: 0 } });
+      await reqGe().put(`/api/v1/lojas/${lojaId}/custos`).set(admin).send({ salarioMedio: { Farmacêutico: 8000 }, encargosPct: 40 });
+      const datas = ['07/09/2026', '08/09/2026', '09/09/2026', '10/09/2026', '11/09/2026', '12/09/2026'];
+      const linhas = datas.flatMap((data, d) =>
+        Array.from({ length: d === 5 ? 6 : 12 }, (_, i) => [data, String(8 + i), '001', '100,00', margem(100, i), '10']),
+      );
+      await reqGe()
+        .post('/api/v1/cargas/base')
+        .set(admin)
+        .attach('arquivo', await xlsx(['Data', 'Hora', 'Cod_Loja', 'Venda_Liquida_RS', 'Margem_Bruta_RS', 'Clientes_Atendidos'], linhas), 'b.xlsx');
+    };
+
+    it('base com margem em todas as horas: os cenários e o comparativo vêm na régua de margem', async () => {
+      await preparar((v) => String(v * 0.3).replace('.', ','));
+      const d = (await reqGe().get(url()).set(admin)).body;
+      expect(d.regua).toEqual({ tipo: 'margem' });
+      for (const id of ['r42', 'r40']) {
+        expect(d.cenarios[id].regua).toEqual({ tipo: 'margem' });
+        expect(d.cenarios[id].comparativo.regua).toEqual({ tipo: 'margem' });
+      }
+    });
+
+    it('base sem margem: a régua é venda, com os números de sempre', async () => {
+      await preparar(() => '0');
+      const d = (await reqGe().get(url()).set(admin)).body;
+      expect(d.regua).toEqual({ tipo: 'venda', motivo: 'sem_margem' });
+      expect(d.cenarios.r40.regua).toEqual({ tipo: 'venda', motivo: 'sem_margem' });
+    });
+
+    it('margem maior que a venda numa hora: cai em venda com o motivo', async () => {
+      await preparar((v, i) => (i === 3 ? String(v * 2).replace('.', ',') : String(v * 0.3).replace('.', ',')));
+      const d = (await reqGe().get(url()).set(admin)).body;
+      expect(d.regua).toEqual({ tipo: 'venda', motivo: 'margem_incoerente' });
+    });
+
+    it('o gestor recebe a régua e nenhum valor em reais', async () => {
+      await preparar((v) => String(v * 0.3).replace('.', ','));
+      const g = (await reqGe().get(url()).set(gestor)).body;
+      expect(g.regua).toEqual({ tipo: 'margem' });
+      const texto = JSON.stringify(g.cenarios);
+      for (const chave of ['vendaCortadaMes', 'vendaGanhaMes', 'vendaCortadaRealMes', 'saldoMensal', 'faturamentoPerdidoMensal'])
+        expect(texto).not.toContain(chave);
+    });
+  });
 });

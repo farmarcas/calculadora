@@ -5,6 +5,7 @@ import type {
   HorarioAjustado,
   VendaPerdidaDiaCenario,
 } from './cenarios.js';
+import { palavraDaRegua, type Regua } from './regua.js';
 import { saldoDaOperacao } from './saldo-operacao.js';
 
 // Comparativo dos cenários 1, 2 e 3 lado a lado, para a fase escolhida. Os cenários 4 (abrir um dia) e 5 (reduzir
@@ -69,6 +70,8 @@ export type Comparativo = {
   sugerido?: IdColuna | null;
   // A equipe atual cobre tudo: nada a contratar nem a reduzir, então os cenários não têm o que mostrar.
   lojaCobreTudo: boolean;
+  // O que mede a perda e o ganho de horários: margem ou venda. Os campos "venda…" carregam essa régua.
+  regua: Regua | null;
 };
 
 const arred = (n: number) => Math.round(n * 100) / 100;
@@ -91,6 +94,8 @@ export const montarComparativo = (e: EntradaCenarios, c: CenariosRegra): Compara
     custoAdicional: number | null,
     vendaPerdida: number | null,
     vendaAdicional: number | null = 0,
+    // Base dos % do faturamento: venda real (quando a régua é margem, os valores acima são margem).
+    pctBase?: { perdida: number | null; adicional: number | null },
   ) => {
     if (!e.dono) return {};
     const economia =
@@ -107,7 +112,9 @@ export const montarComparativo = (e: EntradaCenarios, c: CenariosRegra): Compara
       economiaFolhaMensal: economia === null ? null : arred(economia) || 0,
       faturamentoPerdidoMensal: vendaPerdida === null ? null : arred(vendaPerdida) || 0,
       faturamentoPerdidoPct:
-        vendaPerdida !== null && fat !== null && fat > 0 ? pct((vendaPerdida / fat) * 100) : null,
+        (pctBase ? pctBase.perdida : vendaPerdida) != null && fat !== null && fat > 0
+          ? pct((((pctBase ? pctBase.perdida : vendaPerdida) as number) / fat) * 100)
+          : null,
       vendaAdicionalMensal: vendaAdicional === null ? null : arred(vendaAdicional) || 0,
       saldoOperacaoMensal: saldoDaOperacao({
         economiaFolha: custoAdicional === null ? null : 0,
@@ -116,7 +123,9 @@ export const montarComparativo = (e: EntradaCenarios, c: CenariosRegra): Compara
         vendaPerdida,
       }),
       vendaAdicionalPct:
-        vendaAdicional !== null && fat !== null && fat > 0 ? pct((vendaAdicional / fat) * 100) : null,
+        (pctBase ? pctBase.adicional : vendaAdicional) != null && fat !== null && fat > 0
+          ? pct((((pctBase ? pctBase.adicional : vendaAdicional) as number) / fat) * 100)
+          : null,
       saldoMensal: saldo === null ? null : arred(saldo) || 0,
       saldoAnual: saldo === null ? null : arred(saldo * 12) || 0,
       pesoNoFaturamentoPct: saldo !== null && fat !== null && fat > 0 ? pct((saldo / fat) * 100) : null,
@@ -212,7 +221,7 @@ export const montarComparativo = (e: EntradaCenarios, c: CenariosRegra): Compara
     if (equilibrio.estimativaDeVenda)
       alertas(
         alertasEq,
-        'Venda das horas novas é estimada: onde não há venda registrada nessa hora, vale metade da venda da hora vizinha.',
+        `${palavraDaRegua(c.regua)[0]!.toUpperCase()}${palavraDaRegua(c.regua).slice(1)} das horas novas é estimada: onde não há venda registrada nessa hora, vale metade da ${palavraDaRegua(c.regua)} da hora vizinha.`,
       );
   }
   const colEq: ColunaComparativo = {
@@ -244,11 +253,15 @@ export const montarComparativo = (e: EntradaCenarios, c: CenariosRegra): Compara
           equilibrio.custoAdicionalMensal ?? null,
           equilibrio.vendaCortadaMes,
           equilibrio.vendaGanhaMes ?? 0,
+          c.regua?.tipo === 'margem'
+            ? { perdida: equilibrio.vendaCortadaRealMes ?? null, adicional: equilibrio.vendaGanhaRealMes ?? 0 }
+            : undefined,
         )),
   };
 
   const cols = [colManter, colEco, colEq];
   const r: Comparativo = {
+    regua: c.regua,
     cenarios: cols,
     lojaCobreTudo:
       manter.contratacoes.length === 0 &&

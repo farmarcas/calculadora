@@ -2,6 +2,7 @@ import { useId } from "react";
 import { Botao, Ficha } from "../../components/ui/index.jsx";
 import { dataBR } from "../../components/importacao/formato.js";
 import { DICA_DESATUALIZADA, SITUACOES, VAZIO, horasPorSemana, reais, reaisComSinal, tipoTexto } from "./formato.js";
+import { fraseDaRegua } from "../regua.js";
 import { podeMarcar } from "./selecao.js";
 
 const CABECALHO = "bg-[var(--surface-subtle)] px-4 py-3 text-[11px] font-bold uppercase tracking-wide text-[var(--text-secondary)]";
@@ -32,6 +33,7 @@ export default function ListaDeSimulacoes({ lista, marcadas, onAlternar, onAbrir
         <div>
           <h2 id="titulo-lista" className="m-0 text-xl font-bold text-[var(--text-strong)]">Simulações da loja</h2>
           <p className="m-0 mt-1 text-sm text-[var(--text-secondary)]">Cenários que você salvou. Rascunho pode ser ajustado. Simulação gravada só pode ser copiada.</p>
+          {comReais && fraseDaRegua(lista[0]?.regua) && <p className="m-0 mt-1 text-xs text-[var(--text-secondary)]" data-testid="frase-regua">{fraseDaRegua(lista[0]?.regua)}</p>}
         </div>
         <div className="flex items-center gap-4">
           <label className="flex items-center gap-2 text-xs text-[var(--text-secondary)]"><input type="checkbox" checked={descartadas} onChange={(e) => onDescartadas(e.target.checked)} /> Mostrar descartadas</label>

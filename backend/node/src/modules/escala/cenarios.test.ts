@@ -792,3 +792,78 @@ describe('Cenário 2 — premissa, resultado e falta de cobertura', () => {
     expect(r.resultado).not.toBe('Nenhum horário precisa mudar');
   });
 });
+
+describe('régua do cenário: margem ou venda (spec 033)', () => {
+  const seis = [0, 1, 2, 3, 4, 5].map((dia) => ({ dia, abre: 8, fecha: 22 }));
+  const porMes = vendasDoCadastro({ dias: [1000, 1200, 900, 1100, 1500, 2000, null], mensal: null, margemPct: null }, seis)!.linhas;
+  // Margem uniforme de 25% da venda de cada hora.
+  const uniforme = porMes.map((l) => ({ ...l, margem: l.venda * 0.25 }));
+  const cenario = (vendas: typeof porMes, regua: EntradaCenarios['regua'], extra: Partial<EntradaCenarios> = {}) =>
+    montarCenarios(
+      base({
+        minimos: { Farmacêutico: 1 },
+        dias: seis,
+        pessoas: [
+          { funcao: 'Farmacêutico', cargaH: 40 },
+          { funcao: 'Farmacêutico', cargaH: 40 },
+        ],
+        vendas,
+        custos: { salarioMedio: { Farmacêutico: 40000 }, encargosPct: 0 },
+        origemVenda: 'base',
+        estenderHorario: false,
+        regua,
+        ...extra,
+      }),
+    );
+
+  it('sem régua ou na régua de venda, o resultado é o mesmo de antes', () => {
+    const a = cenario(uniforme, null);
+    const b = cenario(uniforme, { tipo: 'venda' });
+    expect(b.equilibrio).toEqual(a.equilibrio);
+    expect(b.economia).toEqual(a.economia);
+    expect(a.regua).toBeNull();
+    expect(b.regua).toEqual({ tipo: 'venda' });
+  });
+
+  it('na régua de margem a perda do Cenário 3 é a margem das horas cortadas; a venda real fica à parte', () => {
+    const m = cenario(uniforme, { tipo: 'margem' }).equilibrio;
+    expect(m.vendaCortadaMes).not.toBeNull();
+    expect(m.vendaCortadaRealMes).toBeGreaterThan(0);
+    // Margem uniforme de 25%: a margem perdida é um quarto da venda perdida, qualquer que seja o horário escolhido.
+    expect(m.vendaCortadaMes!).toBeCloseTo(m.vendaCortadaRealMes! * 0.25, 0);
+  });
+
+  it('a trava de perda segue em venda real: com margem baixa o corte não passa de 10% do faturamento', () => {
+    const m = cenario(uniforme, { tipo: 'margem' }).equilibrio;
+    const v = cenario(uniforme, { tipo: 'venda' }).equilibrio;
+    const fatMes = ((1000 + 1200 + 900 + 1100 + 1500 + 2000) * 52) / 12;
+    expect(m.vendaCortadaRealMes! / fatMes).toBeLessThanOrEqual(0.1 + 1e-9);
+    expect(v.vendaCortadaRealMes! / fatMes).toBeLessThanOrEqual(0.1 + 1e-9);
+  });
+
+  it('hora de venda alta e margem baixa deixa de ser protegida: o Cenário 3 corta mais do que cortaria pela venda', () => {
+    // No sábado, as horas do fim do dia vendem igual às outras mas rendem 5% de margem (as demais, 90%).
+    const contraria = porMes.map((l) => {
+      const dia = (new Date(`${l.data}T00:00:00Z`).getUTCDay() + 6) % 7;
+      const fimDoDia = l.hora >= 16;
+      return { ...l, margem: l.venda * (dia === 5 && fimDoDia ? 0.05 : 0.9) };
+    });
+    const porVenda = cenario(contraria, { tipo: 'venda' }).equilibrio;
+    const porMargem = cenario(contraria, { tipo: 'margem' }).equilibrio;
+    expect(porMargem.horasReduzir).toBeGreaterThanOrEqual(porVenda.horasReduzir);
+    expect(porMargem.vendaCortadaMes!).toBeLessThan(porMargem.vendaCortadaRealMes!);
+  });
+
+  it('o ganho das horas novas também é medido na régua (50% da hora vizinha)', () => {
+    const m = cenario(uniforme, { tipo: 'margem' }, { estenderHorario: true, custos: { salarioMedio: { Farmacêutico: 1000 }, encargosPct: 0 } }).equilibrio;
+    if (m.vendaGanhaMes != null && m.vendaGanhaRealMes != null && m.vendaGanhaRealMes > 0)
+      expect(m.vendaGanhaMes).toBeCloseTo(m.vendaGanhaRealMes * 0.25, 0);
+  });
+
+  it('o texto diz margem quando a régua é margem e venda quando é venda', () => {
+    const m = cenario(uniforme, { tipo: 'margem' }, { custos: { salarioMedio: { Farmacêutico: 40000 }, encargosPct: 0 } });
+    const v = cenario(uniforme, { tipo: 'venda' }, { custos: { salarioMedio: { Farmacêutico: 40000 }, encargosPct: 0 } });
+    expect(m.economia.direcionamento).toMatch(/de margem por mês|margem perdida/);
+    expect(v.economia.direcionamento).not.toMatch(/margem/);
+  });
+});

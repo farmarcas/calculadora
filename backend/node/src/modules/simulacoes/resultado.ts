@@ -6,6 +6,7 @@ import { PARAMETROS_PADRAO, type TabelaParametros } from '../regras/parametros.j
 import type { Regra, RegraId } from '../regras/perfis.js';
 import type { Minimos } from '../regras/requisitos.js';
 import { SEMANAS_NO_MES } from '../escala/cenarios-dias.js';
+import { linhasNaRegua, reguaDaBase, type Regua } from '../escala/regua.js';
 import { diaDaSemana, vendasPorDiaEHora, type VendaLinha } from '../escala/vendas.js';
 import { contratacoesDe, custoDasVagas } from '../escala/cenarios.js';
 import type { PessoaSim } from './avaliar.js';
@@ -62,6 +63,8 @@ export type ResultadoSimulacao = {
   // Saldo ÷ faturamento mensal médio (vendas da base × 52 ÷ 12); nulo sem base.
   pesoNoFaturamentoPct?: number | null;
   temBase: boolean;
+  // O que mede a venda que sai, a venda estimada e o saldo: margem ou venda (nulo sem base). Os campos "venda…" carregam a régua.
+  regua: Regua | null;
   horasAbertas: number;
   horasAbertasAntes: number;
   // `dias` é o horário simulado; `cadastro` o da loja (para restaurar e para saber quais dias abrem).
@@ -141,6 +144,9 @@ export const calcularResultado = (a: {
 
   // Venda das horas que o Cadastro abre e a simulação fecha, por mês (média de um dia × 52 ÷ 12).
   const vb = vendasPorDiaEHora(a.vendas);
+  // A perda e o ganho de horários são medidos na régua da loja (margem ou venda); o que é informação segue em venda real.
+  const regua = reguaDaBase(a.vendas);
+  const vbRegua = vendasPorDiaEHora(linhasNaRegua(a.vendas, regua));
   const fechadas = Array.from({ length: 7 }, (_, d) =>
     Array.from(
       { length: 24 },
@@ -148,10 +154,10 @@ export const calcularResultado = (a: {
     ),
   );
   let venda = 0;
-  if (vb)
+  if (vbRegua)
     for (let d = 0; d < 7; d++)
-      for (let h = 0; h < 24; h++) if (fechadas[d]![h]) venda += vb.venda[d]![h]!;
-  const estimativa = vendaEstimadaDasHorasNovas(a.diasCadastro, a.dias, vb);
+      for (let h = 0; h < 24; h++) if (fechadas[d]![h]) venda += vbRegua.venda[d]![h]!;
+  const estimativa = vendaEstimadaDasHorasNovas(a.diasCadastro, a.dias, vbRegua);
   const clientes = clientesPorDiaEHora(a.vendas);
   const totalVenda = vb ? vb.venda.flat().reduce((s, v) => s + v, 0) : 0;
   const totalClientes = clientes ? clientes.flat().reduce((s, v) => s + v, 0) : 0;
@@ -236,6 +242,7 @@ export const calcularResultado = (a: {
 
   const base: ResultadoSimulacao = {
     temBase: !!vb,
+    regua,
     horasAbertas,
     horasAbertasAntes,
     horario: {
@@ -276,7 +283,7 @@ export const calcularResultado = (a: {
     horaExtra += falta * SEMANAS_DA_FOLHA * (s / tabela[a.regraId].divisor) * ADICIONAL_HORA_EXTRA * fator;
   }
   if (horaExtra !== null) horaExtra = arred(horaExtra);
-  const vendaQueSai = vb ? arred(venda * SEMANAS_NO_MES) : null;
+  const vendaQueSai = vbRegua ? arred(venda * SEMANAS_NO_MES) : null;
   const custoAdicional = folhaExtra == null || horaExtra == null ? null : arred(folhaExtra + horaExtra);
   // "Manter horário": as contratações que cobrem o horário do Cadastro com a equipe de hoje.
   const linhasManter = verificarRegra(a.regra, a.diasCadastro, a.minimos, pessoasDe(atuais), opcoes);

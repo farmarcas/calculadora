@@ -20,13 +20,13 @@ Formato: `- [ ] ID [P] [História] descrição com o arquivo`. Servidor em `back
 - [x] T013 Rodar os testes da tela e commitar a fatia
 
 ## Fatia 3 — A tela: linhas no lugar dos cartões (Histórias 1 a 6)
-- [ ] T014 [US4] `styles/alquimia.css` e `index.css`: tokens que faltarem (texto de sucesso, rosa de redução) usando o mais próximo do Design System; remover as classes `cenarios-*` dos cartões; estilos da tabela de linhas, com empilhamento em tela estreita
-- [ ] T015 [US3] `cartao/PillDeStatus.jsx` (novo): pill compacta (11 px, 18 px de altura, `padding: 1px 8px`, sem quebra de linha) com ícone e texto, nas cores de cada status
-- [ ] T016 [US2] `cartao/FaixaDosDias.jsx` (novo): os sete dias com as horas abertas e as cores de cada tipo; rótulo acessível por dia
-- [ ] T017 [US1] `cartao/LinhaDeCenario.jsx` (novo): selo, nome, subtítulo "Igual a …", pill; Contratar; Horário (total, mudança em horas e faixa dos dias); Venda e Custo de pessoal em %; faixa amarela de causa; botão (preenchido no sugerido, contorno azul na alternativa, neutro no rebaixado, desabilitado com o texto do que falta no indisponível); a linha de custo "—" mostra "Informe os salários para ver a variação do custo." quando faltam salários
-- [ ] T018 [US1] `Comparativo.jsx`: cabeçalho da tabela (CENÁRIO, CONTRATAR, HORÁRIO, VENDA, CUSTO DE PESSOAL) e uma linha por item de `linhas`; selo "CENÁRIO SUGERIDO" só no dono (`comparativo.sugerido`); Personalizar e a mensagem "A equipe atual cobre todos os dias" como hoje; Salvar como cenário intacto
-- [ ] T019 [US6] Garantir na tela que gestor e consulta nunca recebem o selo de sugerido e veem o Equilíbrio indisponível com o texto certo; consulta sem o botão Personalizar
-- [ ] T020 Conferir no navegador (dono, gestor e consulta; Arariba e lojas de teste em cada estado; celular de 375 px) e rodar os testes da tela; commitar a fatia
+- [x] T014 [US4] `styles/alquimia.css` e `index.css`: tokens que faltarem (texto de sucesso, rosa de redução) usando o mais próximo do Design System; remover as classes `cenarios-*` dos cartões; estilos da tabela de linhas, com empilhamento em tela estreita
+- [x] T015 [US3] `cartao/PillDeStatus.jsx` (novo): pill compacta (11 px, 18 px de altura, `padding: 1px 8px`, sem quebra de linha) com ícone e texto, nas cores de cada status
+- [x] T016 [US2] `cartao/FaixaDosDias.jsx` (novo): os sete dias com as horas abertas e as cores de cada tipo; rótulo acessível por dia
+- [x] T017 [US1] `cartao/LinhaDeCenario.jsx` (novo): selo, nome, subtítulo "Igual a …", pill; Contratar; Horário (total, mudança em horas e faixa dos dias); Venda e Custo de pessoal em %; faixa amarela de causa; botão (preenchido no sugerido, contorno azul na alternativa, neutro no rebaixado, desabilitado com o texto do que falta no indisponível); a linha de custo "—" mostra "Informe os salários para ver a variação do custo." quando faltam salários
+- [x] T018 [US1] `Comparativo.jsx`: cabeçalho da tabela (CENÁRIO, CONTRATAR, HORÁRIO, VENDA, CUSTO DE PESSOAL) e uma linha por item de `linhas`; selo "CENÁRIO SUGERIDO" só no dono (`comparativo.sugerido`); Personalizar e a mensagem "A equipe atual cobre todos os dias" como hoje; Salvar como cenário intacto
+- [x] T019 [US6] Garantir na tela que gestor e consulta nunca recebem o selo de sugerido e veem o Equilíbrio indisponível com o texto certo; consulta sem o botão Personalizar
+- [x] T020 Conferir no navegador (dono, gestor e consulta; Arariba e lojas de teste em cada estado; celular de 375 px) e rodar os testes da tela; commitar a fatia
 
 ## Fatia 4 — Limpeza e fechamento
 - [ ] T021 Remover `cartao/CartaoCenario.jsx`, `FaixaDeResultado.jsx`, `BlocoHorario.jsx`, `BlocoContratacoes.jsx`, `PainelDias.jsx` e as funções de `cartao-regras.js` e `comparativo-regras.js` que ficam sem uso (com os testes delas); manter o que a ordem e o número do cenário ainda usam

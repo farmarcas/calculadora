@@ -11,7 +11,7 @@ import { CamposPendentes } from "./campoPendente.jsx";
 import { estadoDosCampos, pendenciasDoRascunho } from "./pendencias.js";
 
 // Detalhe da loja escolhida: cabeçalho com a situação e o motivo, 3 abas e o rodapé com o contador e "Salvar alterações".
-export default function DetalheLoja({ lojaId, aba, onAba, perfil, painel, carregando, erro, rascunho, onVoltar, aoMudarEquipe }) {
+export default function DetalheLoja({ lojaId, aba, onAba, perfil, painel, carregando, erro, rascunho, onVoltar, aoMudarEquipe, onEnviarBase }) {
   const [tentou, setTentou] = useState(false);
   useEffect(() => setTentou(false), [lojaId]);
   // O painel de pendências abre sozinho, menos em tela de celular; "Preencher" o recolhe para o campo aparecer.
@@ -106,7 +106,7 @@ export default function DetalheLoja({ lojaId, aba, onAba, perfil, painel, carreg
       <div className="flex-1 px-6 py-6">
         {aba === "dados" && <AbaDados painel={painel} rascunho={rascunho} dono={dono} operador={operador} podeEditar={podeEditar} mostrarErros={tentou} />}
         {aba === "equipe" && <AbaEquipe lojaId={lojaId} podeEscrever={podeEquipe} aoMudar={aoMudarEquipe} />}
-        {aba === "regras" && <AbaRegras painel={painel} rascunho={rascunho} dono={dono} podeEditar={podeEquipe} mostrarErros={tentou} />}
+        {aba === "regras" && <AbaRegras painel={painel} rascunho={rascunho} dono={dono} podeEditar={podeEquipe} mostrarErros={tentou} onEnviarBase={onEnviarBase} />}
       </div>
       </CamposPendentes>
 

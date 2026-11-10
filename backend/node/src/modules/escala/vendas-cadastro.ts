@@ -61,7 +61,7 @@ export const vendasDoCadastro = (
         data: DATAS_REF[d.dia]!,
         hora: h,
         venda,
-        margem: 0,
+        margem: null,
         clientes: 0,
         unidades: 0,
       });

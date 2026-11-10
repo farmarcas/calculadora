@@ -10,7 +10,9 @@ import { manterAjustesAntigos, type CustosGravados } from '../custos/custos.sche
 import type { configuracaoBody } from '../escala/escala.schemas.js';
 import type { z } from 'zod';
 import type { CadastrosRepository, LojaRegistro } from './cadastros.service.js';
-import { manterMargem, ocultarFaturamento, type Faturamento } from './faturamento.js';
+import { escalaRepository } from '../escala/escala.repository.js';
+import { faturamentoPorHora } from '../escala/faturamento-por-hora.js';
+import { mesclarFaturamento, ocultarFaturamento, type Faturamento } from './faturamento.js';
 import { faixasDaSemana, normalizarHorarios } from './horarios.js';
 import type { LojaBody } from './cadastros.schemas.js';
 import { pendenciasDoCadastro, situacaoDoCadastro } from './situacao.js';
@@ -86,7 +88,7 @@ export const makePainelService = (geId: string, cadastros: CadastrosRepository, 
         if (l[k] !== undefined) (dados as Record<string, unknown>)[k] = l[k];
       if (l.horarios !== undefined) dados.horarios = l.horarios as unknown as Prisma.InputJsonValue;
       if (l.faturamento !== undefined) {
-        const fat = manterMargem(l.faturamento as Faturamento | null, bruto.faturamento);
+        const fat = mesclarFaturamento(l.faturamento as Faturamento | null, bruto.faturamento);
         dados.faturamento = fat === null ? Prisma.JsonNull : (fat as never);
       }
     }
@@ -142,6 +144,15 @@ export const makePainelService = (geId: string, cadastros: CadastrosRepository, 
     ).turnos as unknown as TurnosLoja | null;
     const loja: LojaRegistro = achada.loja;
     const horarios = normalizarHorarios((loja as unknown as { horarios: unknown }).horarios);
+    // Faturamento médio por hora (spec 035): a base ativa da loja; valor em reais só para o dono. Base ilegível ou ausente
+    // nunca derruba o painel.
+    let porHora: ReturnType<typeof faturamentoPorHora> = { temBase: false };
+    try {
+      const base = await escalaRepository(geId).baseAtiva(lojaId);
+      if (base) porHora = faturamentoPorHora(base.vendas, { dono: perfil === DONO });
+    } catch {
+      porHora = { temBase: false };
+    }
     return {
       loja: ocultarFaturamento(loja as LojaRegistro & { faturamento?: unknown }, perfil),
       situacao: {
@@ -163,6 +174,7 @@ export const makePainelService = (geId: string, cadastros: CadastrosRepository, 
         funcoesNaEquipe: achada.cadastro.funcoesNaEquipe,
       },
       avisosDeTurnos: avisosDeTurnos(turnos, faixasDaSemana(horarios)),
+      faturamentoPorHora: porHora,
     };
   },
 });

@@ -1,6 +1,6 @@
 import { podePreencher, tituloDoPainel } from "./pendencias.js";
 
-const ABAS = [["dados", "Dados e funcionamento"], ["equipe", "Equipe"], ["regras", "Regras e custos"]];
+const ABAS = [["dados", "Dados e funcionamento"], ["equipe", "Equipe"], ["regras", "Custos e Turnos"]];
 const BOTAO = "inline-flex min-h-11 w-full items-center justify-center rounded-btn border border-[var(--color-primary)] bg-[var(--surface-card)] px-3 text-sm font-bold text-[var(--color-primary)] cursor-pointer hover:bg-[var(--surface-subtle)] sm:min-h-9 sm:w-auto";
 
 

@@ -12,7 +12,7 @@ import { montarCenarios } from './cenarios.js';
 import { montarExtras, type ExtrasRegra } from './cenarios-extras.js';
 import type { TabelaParametros } from '../regras/parametros.js';
 import { montarQuadroTurnos } from './quadro-turnos.js';
-import { reguaDaBase } from './regua.js';
+import { preencherComCmvMedio, reguaDaBase } from './regua.js';
 import { avisosDeTurnos, exigenciasDaLoja, type TurnosLoja } from '../regras/turnos.js';
 import type { Faturamento } from '../cadastros/faturamento.js';
 import { montarComparativo, type Comparativo } from './comparativo.js';
@@ -402,7 +402,9 @@ export const montarDiagnostico = (a: {
   const faturamentoRef = faturamentoMensalDe({ faturamento: loja.faturamento, vendasBase: vendas });
 
   // A régua da loja (margem ou venda) vale igual para todos os cenários; só a base de vendas de verdade a define.
-  const regua = origemVendas === 'base' ? reguaDaBase(vendas) : null;
+  // Com o CMV médio da loja, as horas sem CMV recebem o lucro bruto dele; a venda real não muda.
+  const vendasComCmv = origemVendas === 'base' ? preencherComCmvMedio(vendas, loja.faturamento?.cmvPct) : vendas;
+  const regua = origemVendas === 'base' ? reguaDaBase(vendasComCmv) : null;
 
   const cenariosPorRegra = Object.fromEntries(
     (['r42', 'r40'] as const).map((regraId) => {
@@ -412,7 +414,7 @@ export const montarDiagnostico = (a: {
         dias,
         minimos: exigencias,
         pessoas,
-        vendas: vendasUsadas,
+        vendas: origemVendas === 'base' ? vendasComCmv : vendasUsadas,
         regua,
         vendasDoCadastro: origemVendas === 'cadastro',
         custos: loja.custos ?? null,

@@ -18,6 +18,8 @@ const entrada = (extra: Partial<EntradaCenarios> = {}): EntradaCenarios => ({
   custos: { salarioMedio: { Farmacêutico: 10000 }, encargosPct: 0 },
   dono: true,
   faturamentoMensalRef: 50000,
+  // Estes testes são das contas do comparativo, escritos com o limite de 10%; o padrão de 3% tem testes próprios.
+  limitePerdaCenario2Pct: 10,
   ...extra,
 });
 const comparar = (extra: Partial<EntradaCenarios> = {}) => {

@@ -13,6 +13,7 @@ const horariosParaTela = (h) => ({ versao: 2, dias: Array.from({ length: 7 }, (_
 const faturamentoParaTela = (f) => ({
   dias: Array.from({ length: 7 }, (_, i) => (f?.dias?.[i] == null ? "" : String(f.dias[i]))),
   mensal: f?.mensal == null ? "" : String(f.mensal),
+  cmvPct: f?.cmvPct == null ? "" : String(f.cmvPct),
 });
 
 // O que a aba edita, no formato da tela (textos). O rascunho compara com isto para contar as alterações.

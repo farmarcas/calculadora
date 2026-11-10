@@ -159,6 +159,19 @@ describe('cadastros (rotas)', () => {
     ).toBe(400);
   });
 
+  it('loja nova nasce com a convenção coletiva (8h24 por dia) permitida; dá para desligar por loja', async () => {
+    const c = await postLoja({ codigo: '014', nome: 'Loja Catorze' });
+    expect(c.status).toBe(201);
+    const nasceu = await prisma.loja.findUnique({ where: { id: c.body.id } });
+    expect(nasceu?.convencao8h24).toBe(true);
+    const off = await reqGe()
+      .put(`/api/v1/lojas/${c.body.id}/configuracao`)
+      .set({ 'X-Perfil': 'TENANT_ADMIN', 'X-GE': GE_INICIAL_ID })
+      .send({ convencao8h24: false });
+    expect(off.status).toBe(200);
+    expect((await prisma.loja.findUnique({ where: { id: c.body.id } }))?.convencao8h24).toBe(false);
+  });
+
   describe('horário da loja por dia da semana', () => {
     const dia = (abre: string, fecha: string) => ({ aberta: true, abre, fecha });
     const semanaCompleta = {
@@ -512,48 +525,52 @@ describe('cadastros (rotas)', () => {
       ).toEqual({ dias: [10000, null, null, null, null, null, null], mensal: 300000 });
     });
 
-    it('a margem que já estava guardada na loja continua a mesma ao salvar o faturamento e ao importar planilha antiga', async () => {
+    it('CMV médio: o dono grava e reabre; fora de 0 a 100 é recusado; a margem antiga nunca é gravada (spec 034)', async () => {
       const c = await postLoja({ codigo: '060', nome: 'Loja M' });
       expect(c.status).toBe(201);
-      // O dono grava o faturamento: a margem enviada é ignorada (loja sem margem guardada não ganha uma).
-      await reqGe()
-        .patch(`/api/v1/lojas/${c.body.id}`)
-        .set(admin)
-        .send({ faturamento: { ...fat, margemPct: 28 } });
-      expect(
-        (await prisma.loja.findFirst({ where: { codigo: '060' } }))?.faturamento,
-      ).not.toHaveProperty('margemPct');
-      // Valor antigo guardado direto no banco (como em lojas que já tinham margem).
-      const antigo = { ...fat, margemPct: 30 };
-      await prisma.loja.update({ where: { id: c.body.id }, data: { faturamento: antigo } });
-      // Salvar pela tela (sem margem, ou com outra) não a muda.
-      await reqGe()
-        .patch(`/api/v1/lojas/${c.body.id}`)
-        .set(admin)
-        .send({ faturamento: { dias: [1, 1, 1, 1, 1, 1, 1], mensal: 5 } });
-      await reqGe()
-        .patch(`/api/v1/lojas/${c.body.id}`)
-        .set(admin)
-        .send({ faturamento: { dias: [2, 2, 2, 2, 2, 2, 2], mensal: 6, margemPct: 99 } });
-      expect(
-        (await prisma.loja.findFirst({ where: { codigo: '060' } }))?.faturamento,
-      ).toMatchObject({ mensal: 6, margemPct: 30 });
-      // Planilha antiga com a coluna de margem (até 150) importa sem erro e não mexe nela.
-      const cab = ['Cód_Loja', 'Nome_Loja', 'Fat_Seg', 'Fat_Mensal', 'Margem_Pct'];
-      const buf = await planilha([['060', 'Loja M', '7000', '70000', '150']], [], cab);
-      const up = await reqGe()
-        .post('/api/v1/importacoes/cadastro')
-        .set(admin)
-        .attach('arquivo', buf, 'f.xlsx');
-      const ok = await reqGe()
-        .post(`/api/v1/importacoes/cadastro/${up.body.id}/confirmar`)
-        .set(admin)
-        .send({ mapeamento: up.body.mapeamento });
-      expect(ok.status).toBe(200);
-      expect(ok.body.erros ?? []).toEqual([]);
-      expect(
-        (await prisma.loja.findFirst({ where: { codigo: '060' } }))?.faturamento,
-      ).toMatchObject({ mensal: 70000, margemPct: 30 });
+      const lerFat = async () => (await prisma.loja.findFirst({ where: { codigo: '060' } }))?.faturamento;
+      const salvar = (corpo: object) =>
+        reqGe().patch(`/api/v1/lojas/${c.body.id}`).set(admin).send({ faturamento: corpo });
+      // loja nova nasce sem CMV médio; a margem enviada é ignorada
+      expect((await salvar({ ...fat, margemPct: 28 })).status).toBe(200);
+      expect(await lerFat()).not.toHaveProperty('margemPct');
+      expect(await lerFat()).not.toHaveProperty('cmvPct');
+      // o dono grava o CMV médio e ele volta igual
+      expect((await salvar({ ...fat, cmvPct: 65 })).status).toBe(200);
+      expect(await lerFat()).toMatchObject({ cmvPct: 65 });
+      // salvar o faturamento sem falar do CMV não o apaga; null o limpa
+      await salvar({ dias: [1, 1, 1, 1, 1, 1, 1], mensal: 5 });
+      expect(await lerFat()).toMatchObject({ mensal: 5, cmvPct: 65 });
+      await salvar({ dias: [1, 1, 1, 1, 1, 1, 1], mensal: 5, cmvPct: null });
+      expect(await lerFat()).not.toHaveProperty('cmvPct');
+      // fora da faixa
+      expect((await salvar({ ...fat, cmvPct: 120 })).status).toBe(400);
+      expect((await salvar({ ...fat, cmvPct: -5 })).status).toBe(400);
+      // gestor não grava faturamento (nem CMV)
+      const g = await reqGe().patch(`/api/v1/lojas/${c.body.id}`).set(gestor).send({ faturamento: { ...fat, cmvPct: 10 } });
+      expect(g.status).toBe(403);
+    });
+
+    it('planilha de Cadastro: a coluna CMV médio (%) preenche o campo e mantém o faturamento; a margem antiga é ignorada', async () => {
+      const c = await postLoja({ codigo: '061', nome: 'Loja N' });
+      await reqGe().patch(`/api/v1/lojas/${c.body.id}`).set(admin).send({ faturamento: { dias: [3, 3, 3, 3, 3, 3, 3], mensal: 90 } });
+      const importar = async (cab: string[], linha: string[]) => {
+        const up = await reqGe().post('/api/v1/importacoes/cadastro').set(admin).attach('arquivo', await planilha([linha], [], cab), 'f.xlsx');
+        const ok = await reqGe().post(`/api/v1/importacoes/cadastro/${up.body.id}/confirmar`).set(admin).send({ mapeamento: up.body.mapeamento });
+        expect(ok.status).toBe(200);
+        expect(ok.body.erros ?? []).toEqual([]);
+      };
+      const lerFat = async () => (await prisma.loja.findFirst({ where: { codigo: '061' } }))?.faturamento;
+      // só o CMV médio: o faturamento já guardado fica
+      await importar(['Cód_Loja', 'Nome_Loja', 'CMV_Medio_Pct'], ['061', 'Loja N', '65']);
+      expect(await lerFat()).toMatchObject({ dias: [3, 3, 3, 3, 3, 3, 3], mensal: 90, cmvPct: 65 });
+      // faturamento novo sem a coluna de CMV: o CMV guardado fica
+      await importar(['Cód_Loja', 'Nome_Loja', 'Fat_Seg', 'Fat_Mensal'], ['061', 'Loja N', '7000', '70000']);
+      expect(await lerFat()).toMatchObject({ mensal: 70000, cmvPct: 65 });
+      // planilha antiga com a coluna de margem (até 150): importa sem erro e a margem não é gravada
+      await importar(['Cód_Loja', 'Nome_Loja', 'Fat_Seg', 'Fat_Mensal', 'Margem_Pct'], ['061', 'Loja N', '8000', '80000', '150']);
+      expect(await lerFat()).toMatchObject({ mensal: 80000, cmvPct: 65 });
+      expect(await lerFat()).not.toHaveProperty('margemPct');
     });
   });
   describe('importação em massa: configuração da loja e horário fixo (spec 014)', () => {
@@ -733,7 +750,8 @@ describe('cadastros (rotas)', () => {
       expect(ok.body.lojas).toEqual({ novos: 0, atualizados: 0 });
       expect(ok.body.avisos.join(' ')).toContain('A aba Lojas foi ignorada');
       const l = await loja('070');
-      expect(l?.convencao8h24).toBe(false);
+      // A loja não foi alterada: segue com o padrão (convenção permitida).
+      expect(l?.convencao8h24).toBe(true);
       expect(l?.custos).toBeNull();
       expect(l?.faturamento).toBeNull();
     });

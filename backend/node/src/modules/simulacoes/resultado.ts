@@ -6,7 +6,7 @@ import { PARAMETROS_PADRAO, type TabelaParametros } from '../regras/parametros.j
 import type { Regra, RegraId } from '../regras/perfis.js';
 import type { Minimos } from '../regras/requisitos.js';
 import { SEMANAS_NO_MES } from '../escala/cenarios-dias.js';
-import { linhasNaRegua, reguaDaBase, type Regua } from '../escala/regua.js';
+import { linhasNaRegua, preencherComCmvMedio, reguaDaBase, type Regua } from '../escala/regua.js';
 import { diaDaSemana, vendasPorDiaEHora, type VendaLinha } from '../escala/vendas.js';
 import { contratacoesDe, custoDasVagas } from '../escala/cenarios.js';
 import type { PessoaSim } from './avaliar.js';
@@ -117,6 +117,8 @@ export const calcularResultado = (a: {
   minimos: Minimos;
   quadro: PessoaSim[];
   vendas: VendaLinha[];
+  // CMV médio da loja (%): lucro bruto das horas sem CMV na base; sem ele, essas horas ficam sem lucro bruto.
+  cmvMedioPct?: number | null;
   custos: Custos | null;
   parametros?: TabelaParametros;
   dono: boolean;
@@ -145,8 +147,9 @@ export const calcularResultado = (a: {
   // Venda das horas que o Cadastro abre e a simulação fecha, por mês (média de um dia × 52 ÷ 12).
   const vb = vendasPorDiaEHora(a.vendas);
   // A perda e o ganho de horários são medidos na régua da loja (margem ou venda); o que é informação segue em venda real.
-  const regua = reguaDaBase(a.vendas);
-  const vbRegua = vendasPorDiaEHora(linhasNaRegua(a.vendas, regua));
+  const vendasComCmv = preencherComCmvMedio(a.vendas, a.cmvMedioPct);
+  const regua = reguaDaBase(vendasComCmv);
+  const vbRegua = vendasPorDiaEHora(linhasNaRegua(vendasComCmv, regua));
   const fechadas = Array.from({ length: 7 }, (_, d) =>
     Array.from(
       { length: 24 },

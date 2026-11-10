@@ -84,8 +84,10 @@ export const lojaEh24h = (horarios) => !!horarios?.dias?.length && horarios.dias
 export const faturamentoParaApi = (f, horarios) => {
   if (!f) return null;
   const dias = f.dias.map((v, i) => (horarios.dias[i]?.aberta && v !== "" && v != null ? Number(v) : null));
-  const vazio = dias.every((v) => v === null) && (f.mensal === "" || f.mensal == null);
-  return vazio ? null : { dias, mensal: f.mensal === "" || f.mensal == null ? null : Number(f.mensal) };
+  const cmv = f.cmvPct === "" || f.cmvPct == null ? null : Number(f.cmvPct);
+  const vazio = dias.every((v) => v === null) && (f.mensal === "" || f.mensal == null) && cmv === null;
+  // `cmvPct: null` limpa o CMV médio guardado; sem a chave o servidor o mantém.
+  return vazio ? null : { dias, mensal: f.mensal === "" || f.mensal == null ? null : Number(f.mensal), cmvPct: cmv };
 };
 
 // Erros dos dados da aba, com o campo, para focar o primeiro. `dono` liga as validações de faturamento.
@@ -101,6 +103,8 @@ export const errosDaLoja = (l, { dono }) => {
       if (v !== "" && v != null && !(Number(v) >= 0)) erros.push({ campo: `fat-${i}`, texto: `${NOMES_DIA[i]}: o faturamento precisa ser zero ou maior.` });
     });
     if (l.faturamento.mensal !== "" && l.faturamento.mensal != null && !(Number(l.faturamento.mensal) >= 0)) erros.push({ campo: "mensal", texto: "O faturamento mensal precisa ser zero ou maior." });
+    const cmv = l.faturamento.cmvPct;
+    if (cmv !== "" && cmv != null && !(Number(cmv) >= 0 && Number(cmv) <= 100)) erros.push({ campo: "cmvPct", texto: "O CMV médio precisa estar entre 0 e 100." });
   }
   return erros;
 };

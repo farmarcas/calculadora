@@ -90,8 +90,21 @@ describe("copiar horário da segunda e validação", () => {
   });
   it("faturamento de dia fechado é descartado ao gravar; tudo vazio vira null", () => {
     const f = { dias: [100, "", "", "", "", "", 999], mensal: "" };
-    expect(faturamentoParaApi(f, semana)).toEqual({ dias: [100, null, null, null, null, null, null], mensal: null });
-    expect(faturamentoParaApi({ dias: ["", "", "", "", "", "", ""], mensal: "" }, semana)).toBeNull();
+    expect(faturamentoParaApi(f, semana)).toEqual({ dias: [100, null, null, null, null, null, null], mensal: null, cmvPct: null });
+    expect(faturamentoParaApi({ dias: ["", "", "", "", "", "", ""], mensal: "", cmvPct: "" }, semana)).toBeNull();
+  });
+  it("CMV médio: vai como número, vazio vira null (limpa) e sozinho já basta para gravar", () => {
+    const vazio = ["", "", "", "", "", "", ""];
+    expect(faturamentoParaApi({ dias: vazio, mensal: "", cmvPct: "65" }, semana)).toEqual({ dias: [null, null, null, null, null, null, null], mensal: null, cmvPct: 65 });
+    expect(faturamentoParaApi({ dias: [100, ...vazio.slice(1)], mensal: "", cmvPct: "" }, semana)?.cmvPct).toBeNull();
+  });
+  it("erro de CMV médio fora de 0 a 100, só para o dono", () => {
+    const l = (cmvPct) => ({ nome: "Loja", horarios: { versao: 2, dias: semana.dias }, faturamento: { dias: ["", "", "", "", "", "", ""], mensal: "", cmvPct } });
+    expect(errosDaLoja(l("120"), { dono: true }).map((e) => e.campo)).toContain("cmvPct");
+    expect(errosDaLoja(l("-1"), { dono: true }).map((e) => e.campo)).toContain("cmvPct");
+    expect(errosDaLoja(l("65"), { dono: true }).map((e) => e.campo)).not.toContain("cmvPct");
+    expect(errosDaLoja(l(""), { dono: true }).map((e) => e.campo)).not.toContain("cmvPct");
+    expect(errosDaLoja(l("120"), { dono: false }).map((e) => e.campo)).not.toContain("cmvPct");
   });
   it("erros: nome curto, fechamento antes da abertura, faturamento negativo", () => {
     const l = { nome: "A", horarios: { versao: 2, dias: [aberto("20:00", "08:00"), ...semana.dias.slice(1)] }, faturamento: { dias: [-1, 0, 0, 0, 0, 0, null], mensal: "" } };

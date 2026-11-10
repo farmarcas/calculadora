@@ -32,6 +32,8 @@ export default function App({ sessao, onSair }) {
   // Qual importação está aberta: "cadastro" (lojas e funcionários) ou "base" (vendas hora a hora).
   const [importando, setImportando] = useState(null);
   const [versaoDados, setVersaoDados] = useState(0);
+  // Muda só quando a importação de Cadastro termina (recria a tela de Cadastro); a base comercial só recarrega o painel aberto.
+  const [versaoCadastro, setVersaoCadastro] = useState(0);
   // Login do Radar ativo? Quando sim, perfil e GEs vêm do /session, não do menu de demonstração.
   const [radar, setRadar] = useState(false);
 
@@ -167,7 +169,7 @@ export default function App({ sessao, onSair }) {
       >
         {folha.tela === "grupos" && ehOperador(perfil) && <GruposPage geAtual={ge} onAbrir={(id) => { escolherGe(id); irPara(folhas(perfil).find((f) => f.tela === "cadastros")); }} onMudou={carregarGes} />}
         {/* Trocar de grupo recarrega a tela inteira: nada do grupo anterior fica. */}
-        {folha.tela === "cadastros" && <CadastrosPage key={ge} perfil={perfil} acessoTotal={acessoTotal} secao={folha.secao} versaoDados={versaoDados} onImportar={setImportando} />}
+        {folha.tela === "cadastros" && <CadastrosPage key={ge} perfil={perfil} acessoTotal={acessoTotal} secao={folha.secao} versaoCadastro={versaoCadastro} versaoDados={versaoDados} onImportar={setImportando} />}
         {folha.tela === "escala" && (
           <EscalaPage
             key={ge}
@@ -183,7 +185,7 @@ export default function App({ sessao, onSair }) {
         )}
       </AppShell>
       {importando === "base" && <ModalEnviarBase onClose={() => setImportando(null)} onConcluido={() => setVersaoDados((v) => v + 1)} />}
-      {importando === "cadastro" && <ModalImportarCadastro podeLojas={ehOperador(perfil) || perfil === "TENANT_ADMIN"} onClose={() => setImportando(null)} onConcluido={() => setVersaoDados((v) => v + 1)} />}
+      {importando === "cadastro" && <ModalImportarCadastro podeLojas={ehOperador(perfil) || perfil === "TENANT_ADMIN"} onClose={() => setImportando(null)} onConcluido={() => { setVersaoDados((v) => v + 1); setVersaoCadastro((v) => v + 1); }} />}
     </>
   );
 }

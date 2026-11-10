@@ -22,6 +22,7 @@ import {
   vendaPerdidaHoraria,
   type VendaPerdidaDia,
   sequenciaFimDeSemana,
+  PERDA_MAX_CENARIO_2_PCT,
   TRAVAS,
   type MotivoParada,
   type Passo,
@@ -201,6 +202,8 @@ export type EntradaCenarios = {
   minimos: Minimos;
   pessoas: { funcao: string; cargaH: number }[];
   vendas: VendaLinha[];
+  // Limite de perda de faturamento do Cenário 2, em % (padrão 3).
+  limitePerdaCenario2Pct?: number;
   // Régua da loja (margem ou venda); sem ela vale a venda, como sempre.
   regua?: Regua | null;
   // Venda estimada pelo faturamento do cadastro (não é base de dias reais): sem aviso de "poucos dias".
@@ -408,11 +411,14 @@ const fraseDoPasso = (p: PassoCenario) => {
   }
   return `${nome} fecha`;
 };
-const MOTIVO_PARADA: Record<MotivoParada, string> = {
-  perda: `a perda chegaria ao limite de ${TRAVAS.perdaMaxPct}% do faturamento`,
-  horas: `a loja ficaria com menos de ${TRAVAS.horasMinPct}% das horas abertas de hoje`,
-  fim_de_semana: 'não há mais o que reduzir ou fechar no fim de semana',
-};
+// Por que o Cenário 2 parou de cortar; o limite de perda é o do cenário (3% por padrão).
+const motivoDeParada = (e: EntradaCenarios, parou: MotivoParada): string =>
+  ({
+    perda: `a perda chegaria ao limite de ${limiteDePerdaDoCenario2(e)}% do faturamento`,
+    horas: `a loja ficaria com menos de ${TRAVAS.horasMinPct}% das horas abertas de hoje`,
+    fim_de_semana: 'não há mais o que reduzir ou fechar no fim de semana',
+  })[parou];
+const limiteDePerdaDoCenario2 = (e: EntradaCenarios) => e.limitePerdaCenario2Pct ?? PERDA_MAX_CENARIO_2_PCT;
 
 // Com a equipe atual e os horários do cenário: quanto cada função fica abaixo da meta e quantas horas
 // semanais o farmacêutico deixa de cobrir.
@@ -508,6 +514,7 @@ const montarEconomia = (
     dias: e.dias,
     porDia,
     tabela,
+    perdaMaxPct: limiteDePerdaDoCenario2(e),
     cobre: (dias) =>
       passa(verificarRegra(regra, dias, e.minimos, e.pessoas, opcoesDoMotor(e, regra))),
     faltaH: (dias) =>
@@ -555,7 +562,7 @@ const montarEconomia = (
     : ' a equipe ainda não cobre o horário';
   const frase = seq.cobre
     ? `${acoes}. Assim a equipe atual cobre o horário sem contratar${evitadas > 0 ? ` (você deixa de contratar ${evitadas} pessoa${evitadas === 1 ? '' : 's'})` : ''}.`
-    : `${passos.length ? `${acoes}, mas` : 'Mesmo reduzindo o fim de semana,'} ${MOTIVO_PARADA[seq.parou!]}:${horasMsg}. Só mexer no fim de semana não resolve: veja o Equilíbrio.`;
+    : `${passos.length ? `${acoes}, mas` : 'Mesmo reduzindo o fim de semana,'} ${motivoDeParada(e, seq.parou!)}:${horasMsg}. Só mexer no fim de semana não resolve: veja o Equilíbrio.`;
   const avisos = [
     e.origemVenda === 'estimativa'
       ? 'Venda estimada: só o faturamento mensal foi informado e ele foi dividido igualmente entre os dias abertos. Informe o faturamento por dia da semana para estimar melhor cada corte.'
@@ -585,7 +592,7 @@ const montarEconomia = (
     return {
       ...comum,
       viavel: false,
-      motivoInviavel: `Só reduzir ou fechar o fim de semana não cobre o horário: ${MOTIVO_PARADA[seq.parou!]}.`,
+      motivoInviavel: `Só reduzir ou fechar o fim de semana não cobre o horário: ${motivoDeParada(e, seq.parou!)}.`,
       naoResolveSozinho: true,
       travou: seq.parou,
       faltaH: seq.faltaH,

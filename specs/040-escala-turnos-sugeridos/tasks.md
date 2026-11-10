@@ -28,7 +28,7 @@ Formato: `- [ ] ID [P] [História] descrição com o arquivo`. Tudo na tela, em 
 - [x] T017 Conferir no navegador (abrir "+ Contratar", arrastar a barra, cancelar, adicionar) e rodar os testes; commitar a fatia
 
 ## Fatia 5 — Fechamento
-- [ ] T018 Rodar todos os testes e `vite build`; conferir no navegador (computador e celular: a lista mostra os turnos sugeridos em texto); atualizar o README onde descreve a Escala por hora; atualizar o `local/ver-tudo`; enviar a branch `feat/escala-turnos-sugeridos`
+- [x] T018 Rodar todos os testes e `vite build`; conferir no navegador (computador e celular: a lista mostra os turnos sugeridos em texto); atualizar o README onde descreve a Escala por hora; atualizar o `local/ver-tudo`; enviar a branch `feat/escala-turnos-sugeridos`
 
 ## Dependências
 - Fatia 1 antes de todas. Fatias 2 e 3 dependem da 1 e são independentes entre si.

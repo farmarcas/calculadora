@@ -68,7 +68,7 @@ export default function SimulacaoPage({ id, perfil, podeEscrever, aviso, onVolta
         <PainelResultado sim={sim} calculando={calculando} dono={dono} podeEscrever={podeEscrever} salvando={salvando} onSalvar={salvarComoCenario} onClonar={clonar} />
       </div>
 
-      <EscalaPorHora sim={sim} editavel={editavel} dono={dono} calculando={calculando} onSalvar={salvar} />
+      <EscalaPorHora sim={sim} editavel={editavel} dono={dono} calculando={calculando} erro={erro} onLimparErro={() => setErro(null)} onSalvar={salvar} />
     </div>
   );
 }

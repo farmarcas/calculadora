@@ -2,6 +2,7 @@ import { useState } from "react";
 import { api } from "../../api/client.js";
 import { Aviso } from "../../components/ui/index.jsx";
 import LinhaDeCenario from "./cartao/LinhaDeCenario.jsx";
+import { diasDasAbas, sugerirTurnosDasVagas, turnosParaGravar } from "../simulacao/escala/escala-regras.js";
 import { palavraDaRegua } from "../regua.js";
 
 // As vagas do cenário para o simulador: inteiras na jornada cheia e o parcial com as horas dele (a vaga pede 4 a 44 h inteiras).
@@ -54,7 +55,17 @@ export default function Comparativo({ comparativo, cenarios, lojaId, podeEscreve
             return h.aberta ? { aberta: true, abre: h.abre, fecha: h.fecha } : { aberta: false };
           }) }
         : null;
-      if (vagas.length || horarios) await api(`/simulacoes/${s.id}`, { method: "PUT", body: { ...(vagas.length ? { vagas } : {}), ...(horarios ? { horarios } : {}) } });
+      const gravada = vagas.length || horarios ? await api(`/simulacoes/${s.id}`, { method: "PUT", body: { ...(vagas.length ? { vagas } : {}), ...(horarios ? { horarios } : {}) } }) : s;
+      // As contratações já chegam com turnos sobre as horas sem cobertura (spec 040), calculados com o horário do cenário.
+      // Se esta segunda gravação falhar, a simulação abre mesmo assim: "Sugerir turno" faz o mesmo na escala.
+      if (vagas.length) {
+        try {
+          const novos = sugerirTurnosDasVagas({ quadro: gravada.quadro, turnos: gravada.turnos, cobertura: gravada.avaliacao?.cobertura, abas: diasDasAbas(gravada.diasAbertos), regra: gravada.regraInfo });
+          if (novos.length) await api(`/simulacoes/${s.id}`, { method: "PUT", body: { turnos: turnosParaGravar([...gravada.turnos, ...novos]) } });
+        } catch {
+          /* segue sem os turnos sugeridos */
+        }
+      }
       onSimular?.(s.id, aviso);
     } catch (e) {
       setErro(e.message);

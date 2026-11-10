@@ -295,3 +295,124 @@ export const opcoesDeHora = (min, max) => {
   }
   return opcoes;
 };
+
+// ---- Turnos sugeridos para as vagas, folga e avisos da pessoa (spec 040) ---------------------------------------------
+
+const sobeQuarto = (h) => Math.ceil(h * 4 - EPS) / 4;
+const comIntervalo = (entrada, saida) => {
+  const longo = saida - entrada > HORAS_SEM_INTERVALO + EPS;
+  const ini = longo ? entrada + Math.floor((saida - entrada) / 2) : null;
+  return { iniIntervalo: ini, fimIntervalo: ini === null ? null : ini + 1 };
+};
+
+// Os turnos de UMA vaga, já com a necessidade: o número de dias (parcial: o menor com até 6 h por dia, sem intervalo; integral:
+// o que a regra permite, com 1 h de intervalo acima de 6 h), a janela que cobre mais horas sem cobertura da função e os dias
+// que mais ganham com ela. `coberturaPorDia` é { dia: cobertura da função com os turnos de agora }.
+export const turnosParaVaga = ({ cargaH, coberturaPorDia, abas, regra }) => {
+  if (!abas.length) return [];
+  const integral = cargaH > LIMITE_PARCIAL_H;
+  let n = Math.max(1, integral ? Math.min(regra.dias, abas.length) : Math.min(Math.ceil(cargaH / HORAS_SEM_INTERVALO), abas.length));
+  let liquida = cargaH / n;
+  while (liquida > regra.maxDia + EPS && n < abas.length) {
+    n += 1;
+    liquida = cargaH / n;
+  }
+  liquida = Math.min(sobeQuarto(liquida), regra.maxDia);
+  const bruta = liquida + (liquida > HORAS_SEM_INTERVALO + EPS ? 1 : 0);
+
+  const faltas = abas.map((aba) => ({ aba, horas: (coberturaPorDia[aba.dia]?.porHora ?? []).filter((c) => !c.ok).map((c) => c.hora) }));
+  const cabe = (aba, s) => s >= aba.abre - EPS && s + bruta <= aba.fecha + EPS;
+  const cobre = (f, s) => (cabe(f.aba, s) ? f.horas.filter((h) => h >= s && h < s + bruta).length : 0);
+
+  const minAbre = Math.floor(Math.min(...abas.map((a) => a.abre)));
+  const maxFecha = Math.ceil(Math.max(...abas.map((a) => a.fecha)));
+  const candidatos = new Set(abas.map((a) => a.abre));
+  for (let s = minAbre; s + bruta <= maxFecha + EPS; s++) candidatos.add(s);
+  let inicio = null;
+  let melhor = 0;
+  for (const s of [...candidatos].sort((a, b) => a - b)) {
+    const pontos = faltas.reduce((acc, f) => acc + cobre(f, s), 0);
+    if (pontos > 0 && pontos >= melhor) {
+      melhor = pontos;
+      inicio = s;
+    }
+  }
+  if (inicio === null) inicio = abas[0].abre;
+
+  const escolhidos = [...faltas]
+    .sort((a, b) => cobre(b, inicio) - cobre(a, inicio) || Number(cabe(b.aba, inicio)) - Number(cabe(a.aba, inicio)) || a.aba.dia - b.aba.dia)
+    .slice(0, n);
+  return escolhidos
+    .map((f) => {
+      const entrada = Math.max(inicio, f.aba.abre);
+      const saida = Math.min(inicio + bruta, f.aba.fecha);
+      return { dia: f.aba.dia, entrada, saida, ...comIntervalo(entrada, saida) };
+    })
+    .filter((t) => t.saida - t.entrada >= 1)
+    .sort((a, b) => a.dia - b.dia);
+};
+
+// As vagas simuladas que ainda não têm nenhum turno.
+export const vagaSemTurnos = (quadro, turnos) => quadro.filter((p) => p.vaga && !p.desligado && p.funcao && !turnos.some((t) => t.matricula === p.matricula));
+
+// Os turnos novos de todas as vagas sem turno, uma depois da outra: cada vaga parte da cobertura já com as anteriores.
+// `cobertura` é `avaliacao.cobertura` ({ dia: [{ funcao, porHora }] }).
+export const sugerirTurnosDasVagas = ({ quadro, turnos, cobertura, abas, regra, somente = null }) => {
+  const funcaoDe = new Map(quadro.filter((p) => !p.desligado && p.funcao).map((p) => [p.matricula, p.funcao]));
+  let atuais = [...turnos];
+  const novos = [];
+  for (const v of vagaSemTurnos(quadro, turnos).filter((x) => !somente || x.matricula === somente)) {
+    const coberturaPorDia = Object.fromEntries(
+      abas.flatMap((a) => {
+        const base = cobertura?.[a.dia]?.find((c) => c.funcao === v.funcao);
+        if (!base) return [];
+        return [[a.dia, recalcularCobertura(base, atuais.filter((t) => t.dia === a.dia && funcaoDe.get(t.matricula) === v.funcao))]];
+      }),
+    );
+    const ts = turnosParaVaga({ cargaH: v.cargaH, coberturaPorDia, abas, regra }).map((t) => ({ matricula: v.matricula, ...t }));
+    novos.push(...ts);
+    atuais = [...atuais, ...ts];
+  }
+  return novos;
+};
+
+// O turno que a pessoa mais repete nos outros dias da semana (entrada, saída e intervalo); nulo sem histórico.
+export const turnoHabitual = (turnos, matricula, dia) => {
+  const outros = turnos.filter((t) => t.matricula === matricula && t.dia !== dia);
+  if (!outros.length) return null;
+  const contagem = new Map();
+  for (const t of outros) {
+    const k = `${t.entrada}|${t.saida}|${t.iniIntervalo ?? ""}|${t.fimIntervalo ?? ""}`;
+    contagem.set(k, { t, n: (contagem.get(k)?.n ?? 0) + 1 });
+  }
+  return [...contagem.values()].sort((a, b) => b.n - a.n)[0].t;
+};
+
+// O turno que nasce ao clicar numa "Folga": o habitual da pessoa (cortado nas horas do dia) ou, sem histórico, a abertura do dia
+// com a jornada diária da regra.
+export const novoTurnoNaFolga = ({ turnos, matricula, dia, aba, regra }) => {
+  const h = turnoHabitual(turnos, matricula, dia);
+  if (h) {
+    const entrada = Math.max(h.entrada, aba.abre);
+    const saida = Math.min(h.saida, aba.fecha);
+    const dentro = h.iniIntervalo != null && h.fimIntervalo != null && h.iniIntervalo >= entrada && h.fimIntervalo <= saida;
+    return { matricula, dia, entrada, saida, iniIntervalo: dentro ? h.iniIntervalo : null, fimIntervalo: dentro ? h.fimIntervalo : null };
+  }
+  const diaria = sobeQuarto(Math.min(regra.maxDia, tetoEfetivo(regra) / regra.dias));
+  const entrada = aba.abre;
+  const saida = Math.min(aba.fecha, entrada + diaria + (diaria > HORAS_SEM_INTERVALO + EPS ? 1 : 0));
+  return { matricula, dia, entrada, saida, ...comIntervalo(entrada, saida) };
+};
+
+// Os turnos sem o da pessoa naquele dia (vira folga).
+export const semTurnoNoDia = (turnos, matricula, dia) => turnos.filter((t) => !(t.matricula === matricula && t.dia === dia));
+
+// Os avisos de regra da pessoa (jornada, intervalo, folga), sem os de cobertura.
+export const avisosDaPessoa = (avaliacao, matricula) =>
+  [...(avaliacao?.erros ?? []), ...(avaliacao?.avisos ?? [])]
+    .filter((a) => a.matricula === matricula && !["cobertura", "farmaceutico"].includes(a.regra))
+    .map((a) => a.texto);
+
+// Os turnos no formato que o servidor aceita ao gravar (só os campos conhecidos, intervalo nulo quando não há).
+export const turnosParaGravar = (turnos) =>
+  turnos.map(({ matricula, dia, entrada, saida, iniIntervalo, fimIntervalo }) => ({ matricula, dia, entrada, saida, iniIntervalo: iniIntervalo ?? null, fimIntervalo: fimIntervalo ?? null }));

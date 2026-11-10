@@ -1,15 +1,8 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { api } from "../../api/client.js";
 import { Aviso } from "../../components/ui/index.jsx";
-import CartaoCenario, { avisosDoCartao, temAvisos } from "./cartao/CartaoCenario.jsx";
-import PainelDias from "./cartao/PainelDias.jsx";
+import LinhaDeCenario from "./cartao/LinhaDeCenario.jsx";
 import { palavraDaRegua } from "../regua.js";
-import { numeroDoCenario, ordenarCenarios } from "./comparativo-regras.js";
-import { linhasDoHorario, totaisDaSemana } from "./cartao/cartao-regras.js";
-
-// Quantas linhas o cartão tem na grade compartilhada: título (com a frase do cenário), resultado, status, contratações,
-// horas ociosas, horário e botão; e, só quando algum cartão tem avisos, a linha de avisos.
-const FAIXAS = 7;
 
 // As vagas do cenário para o simulador: inteiras na jornada cheia e o parcial com as horas dele (a vaga pede 4 a 44 h inteiras).
 const vagasDeCenario = (c) =>
@@ -23,29 +16,20 @@ const vagasDeCenario = (c) =>
     ];
   });
 
-// Os cenários 1, 2 e 3 lado a lado para a regra escolhida (sempre três, na ordem e com os nomes de sempre). Cada linha do
-// cartão fica na mesma altura nos três (grade com subgrid). Só o dono recebe os valores em reais e o cenário sugerido.
+// Os três cenários em linhas (Equilíbrio, Manter horários, Sem contratações) para a regra escolhida, sem valores em reais:
+// o horário, o que contratar e a variação de venda e de custo de pessoal em %. As linhas vêm prontas do servidor, iguais
+// para dono, gestor e consulta; só o dono recebe o selo de cenário sugerido.
 export default function Comparativo({ comparativo, cenarios, lojaId, podeEscrever, onSimular }) {
   const [ocupado, setOcupado] = useState(false);
   const [erro, setErro] = useState(null);
-  const [painel, setPainel] = useState(null); // { c, posicao, linhas, totais, gatilho }
-  const comparativoRef = useRef(null);
   if (!comparativo) return null;
-  const { destaque } = comparativo;
-  // Equilíbrio, Manter horários e Sem contratações, nesta ordem (o número de cada cenário não muda).
-  // A régua (margem ou venda) vai em cada coluna para os textos do cartão a lerem de um lugar só.
-  const colunas = ordenarCenarios(comparativo.cenarios).map((c) => ({ ...c, regua: comparativo.regua ?? null }));
-  // O selo "Cenário sugerido" pode ir a outro cenário que não o de menor custo (quando este deixa falta de cobertura).
-  const sugeridoId = comparativo.sugerido !== undefined ? comparativo.sugerido : destaque;
-  const dono = colunas[0].custoFolhaMensal !== undefined;
+  const linhas = cenarios?.linhas ?? [];
+  // O selo "Cenário sugerido" só vai ao dono (o servidor só devolve `sugerido` para ele).
+  const sugeridoId = comparativo.sugerido !== undefined ? comparativo.sugerido : comparativo.destaque;
+  const dono = comparativo.cenarios?.[0]?.custoFolhaMensal !== undefined;
   const antes = cenarios?.manter?.horarioSemana ?? [];
-  const novosDe = (c) => cenarios?.[c.id]?.horarioSemana ?? antes;
 
-  const avisos = colunas.map((c) => avisosDoCartao(c, { dono }));
-  const algumAviso = avisos.some(temAvisos);
-  const faixas = FAIXAS + (algumAviso ? 1 : 0);
-
-  const personalizar = async (c, n) => {
+  const personalizar = async (c) => {
     setErro(null);
     setOcupado(true);
     try {
@@ -71,7 +55,6 @@ export default function Comparativo({ comparativo, cenarios, lojaId, podeEscreve
           }) }
         : null;
       if (vagas.length || horarios) await api(`/simulacoes/${s.id}`, { method: "PUT", body: { ...(vagas.length ? { vagas } : {}), ...(horarios ? { horarios } : {}) } });
-      setPainel(null);
       onSimular?.(s.id, aviso);
     } catch (e) {
       setErro(e.message);
@@ -80,15 +63,14 @@ export default function Comparativo({ comparativo, cenarios, lojaId, podeEscreve
     }
   };
 
-  const abrirPainel = (c, posicao, gatilho) => setPainel({ c, posicao, linhas: linhasDoHorario(novosDe(c), antes), totais: totaisDaSemana(novosDe(c), antes), gatilho });
   const podePersonalizar = podeEscrever && !!lojaId && !!cenarios?.regra;
 
   return (
-    <section ref={comparativoRef} aria-label="Cenários sugeridos" className="cenarios-conteiner flex flex-col gap-4">
+    <section aria-label="Cenários sugeridos" className="linhas-conteiner flex flex-col gap-4">
       <div>
         <h2 className="m-0 text-xl leading-[26px] font-bold text-[var(--text-strong)]">Cenários sugeridos</h2>
         <p className="mt-1 mb-0 text-sm leading-5 text-[var(--text-secondary)]">
-          Estimativas para a regra de {cenarios?.regra?.nome ?? "referência"}, com o quadro{dono ? ", os salários" : ""} e a base comercial importados. Cada hora nova de funcionamento vale, por estimativa, 50% da {palavraDaRegua(comparativo.regua)} da hora vizinha. Nada altera o cadastro.
+          Estimativas para a regra de {cenarios?.regra?.nome ?? "referência"}, com o quadro{dono ? ", os salários" : ""} e a base comercial importados. Cada hora nova de funcionamento vale, por estimativa, 50% da {palavraDaRegua(comparativo.regua)} da hora vizinha. As variações são em relação ao horário e ao custo de pessoal de hoje. Nada altera o cadastro.
         </p>
       </div>
       {erro && <Aviso>{erro}</Aviso>}
@@ -97,29 +79,29 @@ export default function Comparativo({ comparativo, cenarios, lojaId, podeEscreve
           A equipe atual cobre todos os dias. Não há o que contratar nem reduzir.
         </p>
       ) : (
-        <div className="cenarios-grade" style={{ "--colunas": colunas.length }}>
-          {colunas.map((c, i) => (
-            <CartaoCenario
-              key={c.id}
-              posicao={numeroDoCenario(c.id)}
-              c={c}
+        <div role="group" aria-label="Cenários" className="overflow-hidden rounded-card border border-[var(--border-subtle)] shadow-card">
+          <div aria-hidden="true" className="linha-cabecalho bg-[var(--surface-subtle)] py-3 text-[11px] leading-4 font-bold tracking-wide text-[var(--neutral-mid-300)]">
+            <span>CENÁRIO</span>
+            <span>CONTRATAR</span>
+            <span>HORÁRIO</span>
+            <span>VENDA</span>
+            <span>CUSTO DE PESSOAL</span>
+            <span />
+          </div>
+          {linhas.map((l) => (
+            <LinhaDeCenario
+              key={l.id}
+              linha={l}
               antes={antes}
-              novos={novosDe(c)}
-              sugerido={sugeridoId === c.id}
+              sugerido={sugeridoId === l.id}
               dono={dono}
-              ehReferencia={c.id === "manter"}
-              faixas={faixas}
-              avisos={avisos[i]}
-              mostrarAvisos={algumAviso}
               podeEscrever={podePersonalizar}
               ocupado={ocupado}
-              onPersonalizar={() => personalizar(c, numeroDoCenario(c.id))}
-              onAbrirPainel={(e) => abrirPainel(c, numeroDoCenario(c.id), e.currentTarget)}
+              onPersonalizar={() => personalizar(l)}
             />
           ))}
         </div>
       )}
-      {painel && <PainelDias painel={painel} onFechar={() => setPainel(null)} onPersonalizar={() => personalizar(painel.c, painel.posicao)} podePersonalizar={podePersonalizar} ocupado={ocupado} />}
     </section>
   );
 }

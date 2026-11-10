@@ -884,6 +884,60 @@ describe('simulações (rotas)', () => {
       expect(depois.emHoras.horasAbertas.hoje).toBe(antes.emHoras.horasAbertas.hoje);
     });
   });
+  describe('escala por hora (spec 039)', () => {
+    const gestor = { 'X-Perfil': 'SCHEDULE_MANAGER', 'X-GE': GE_INICIAL_ID };
+    const consulta = { 'X-Perfil': 'SCHEDULE_VIEWER', 'X-GE': GE_INICIAL_ID };
+    const obter = async (id: string, h: Record<string, string> = admin) =>
+      (await reqGe().get(`/api/v1/simulacoes/${id}`).set(h)).body;
+    const pessoasFarmaceuticoNaHora = (sim: any, dia: number, hora: number) =>
+      sim.avaliacao.cobertura[dia]
+        .find((f: { funcao: string }) => f.funcao === 'Farmacêutico')
+        .porHora.find((c: { hora: number }) => c.hora === hora);
+
+    it('a cobertura de cada hora traz o mínimo exigido, para todos os perfis', async () => {
+      const sim = (await criar()).body;
+      for (const h of [admin, gestor, consulta]) {
+        const d = await obter(sim.id, h);
+        const cel = pessoasFarmaceuticoNaHora(d, d.diasAbertos[0].dia, d.diasAbertos[0].abre);
+        expect(cel).toMatchObject({ exigido: 1 });
+        expect(typeof cel.pessoas).toBe('number');
+      }
+    });
+
+    it('vaga nova com turnos soma uma pessoa na hora e os turnos ficam na vaga', async () => {
+      const sim = (await criar()).body;
+      const d0 = (sim.diasAbertos as { dia: number; abre: number }[])[0]!;
+      const antes = pessoasFarmaceuticoNaHora(sim, d0.dia, d0.abre).pessoas;
+      const vaga = { funcao: 'Farmacêutico', cargaH: 8, turnos: [{ dia: d0.dia, entrada: d0.abre, saida: d0.abre + 6 }] };
+      const r = await reqGe().put(`/api/v1/simulacoes/${sim.id}`).set(admin).send({ vagas: [vaga] });
+      expect(r.status).toBe(200);
+      expect(r.body.quadro.filter((p: { vaga?: boolean }) => p.vaga)).toHaveLength(1);
+      expect(r.body.turnos.filter((t: { matricula: string }) => t.matricula === 'VAGA-1')).toHaveLength(1);
+      expect(pessoasFarmaceuticoNaHora(r.body, d0.dia, d0.abre).pessoas).toBe(antes + 1);
+      // quem só consulta não contrata
+      expect((await reqGe().put(`/api/v1/simulacoes/${sim.id}`).set(consulta).send({ vagas: [vaga] })).status).toBe(403);
+    });
+
+    it('a prévia do custo só devolve o número ao dono e não grava nada', async () => {
+      const sim = (await criar()).body;
+      const corpo = { funcao: 'Atendimento', cargaH: 20 };
+      const dono = await reqGe().post(`/api/v1/simulacoes/${sim.id}/efeito-contratacao`).set(admin).send(corpo);
+      expect(dono.status).toBe(200);
+      expect(dono.body).toHaveProperty('custoEstado');
+      const ges = await reqGe().post(`/api/v1/simulacoes/${sim.id}/efeito-contratacao`).set(gestor).send(corpo);
+      expect(ges.body).toEqual({});
+      expect(JSON.stringify(ges.body)).not.toMatch(/custo/);
+      const depois = await obter(sim.id);
+      expect(depois.quadro).toHaveLength(2);
+      expect(depois.turnos).toHaveLength(10);
+    });
+
+    it('a prévia recusa vaga inválida', async () => {
+      const sim = (await criar()).body;
+      const r = await reqGe().post(`/api/v1/simulacoes/${sim.id}/efeito-contratacao`).set(admin).send({ funcao: 'Atendimento', cargaH: 2 });
+      expect(r.status).toBe(400);
+    });
+  });
   describe('número do cenário (spec 016)', () => {
     const gravarComo = (id: string, h: Record<string, string> = admin) =>
       reqGe().post(`/api/v1/simulacoes/${id}/gravar`).set(h).send({ comoCenario: true });

@@ -431,6 +431,30 @@ export const makeSimulacoesService = (
       return detalhe(await simulacao(id), perfil);
     },
 
+    // Prévia do custo de pessoal de uma contratação (spec 039): o mesmo resultado da simulação com e sem a vaga, sem gravar
+    // nada. Só o dono recebe o número (depende de salário); os outros perfis recebem um objeto vazio.
+    async efeitoContratacao(id: string, perfil: string, b: { funcao: string; cargaH: number }) {
+      if (perfil !== 'TENANT_ADMIN') return {};
+      const s = await simulacao(id);
+      const l = await loja(s.lojaId);
+      const base = await lojas.baseAtiva(s.lojaId);
+      const vendas = base?.vendas ?? [];
+      const antes = resultadoDe(s, l, vendas, true).emHoras;
+      const vaga: PessoaSim = {
+        matricula: 'VAGA-PREVIA',
+        nome: 'Vaga prévia',
+        funcao: b.funcao,
+        cargaH: b.cargaH,
+        vaga: true,
+      };
+      const depois = resultadoDe({ ...s, quadro: [...s.quadro, vaga] }, l, vendas, true).emHoras;
+      const custoPct =
+        antes.custoPct === null || depois.custoPct === null
+          ? null
+          : Math.round((depois.custoPct - antes.custoPct) * 10) / 10;
+      return { custoPct, custoEstado: custoPct !== null ? 'ok' : depois.custoEstado };
+    },
+
     async gravar(id: string, perfil: string, comoCenario = false) {
       const s = await simulacao(id);
       if (s.status !== 'rascunho')

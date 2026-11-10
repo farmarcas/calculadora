@@ -119,6 +119,8 @@ export const makeSimulacoesService = (
   const resumoDoResultado = (resultado: ReturnType<typeof calcularResultado>, dono: boolean) => ({
     tipo: tipoDoCenario(resultado.horasAbertas, resultado.horasAbertasAntes),
     horasAbertas: resultado.horasAbertas,
+    // Margem ou venda: o que mediu a perda, o ganho e o saldo desta simulação (igual para toda a loja).
+    regua: resultado.regua,
     ...(dono
       ? {
           saldoMensal: resultado.saldoMensal ?? null,

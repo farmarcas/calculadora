@@ -16,11 +16,11 @@ Formato: `- [ ] ID [P] [História] descrição com o arquivo`. Servidor em `back
 - [x] T009 Rodar os testes do servidor (unidade e integração), reiniciar a API e commitar a fatia
 
 ## Fatia 3 — Simulação, lista e comparação na régua (História 4 e 5, P1/P2)
-- [ ] T010 [US4] `simulacoes/resultado.ts`: venda que deixa de entrar, venda estimada das horas novas e saldo usam as linhas na régua; venda por hora, clientes, ticket médio e peso no faturamento seguem com a venda real; `regua` em `resultado`
-- [ ] T011 [US4] `simulacoes/simulacoes.service.ts`: escolher a régua uma vez por loja e passá-la ao resultado do painel, da lista e da comparação; a lista e a comparação levam `regua` junto do saldo
-- [ ] T012 [P] [US4] Testes de unidade do resultado (`resultado.test.ts`, `venda-estimada.test.ts`, `saldo-simulacao.test.ts`): saldo em margem, base sem margem idêntica a hoje, folha e hora extra inalteradas
-- [ ] T013 [US4] Testes de integração (`simulacoes.routes.integration.test.ts`): o saldo do painel, o da lista e o da comparação são iguais e na mesma régua; simulação gravada antes é recalculada na régua atual; o gestor não recebe nenhum valor em reais; o saldo dos cartões de cenário e da Simulação usam a mesma régua para a mesma loja
-- [ ] T014 Rodar os testes do servidor (unidade e integração), reiniciar a API e commitar a fatia
+- [x] T010 [US4] `simulacoes/resultado.ts`: venda que deixa de entrar, venda estimada das horas novas e saldo usam as linhas na régua; venda por hora, clientes, ticket médio e peso no faturamento seguem com a venda real; `regua` em `resultado`
+- [x] T011 [US4] `simulacoes/simulacoes.service.ts`: escolher a régua uma vez por loja e passá-la ao resultado do painel, da lista e da comparação; a lista e a comparação levam `regua` junto do saldo
+- [x] T012 [P] [US4] Testes de unidade do resultado (`resultado.test.ts`, `venda-estimada.test.ts`, `saldo-simulacao.test.ts`): saldo em margem, base sem margem idêntica a hoje, folha e hora extra inalteradas
+- [x] T013 [US4] Testes de integração (`simulacoes.routes.integration.test.ts`): o saldo do painel, o da lista e o da comparação são iguais e na mesma régua; simulação gravada antes é recalculada na régua atual; o gestor não recebe nenhum valor em reais; o saldo dos cartões de cenário e da Simulação usam a mesma régua para a mesma loja
+- [x] T014 Rodar os testes do servidor (unidade e integração), reiniciar a API e commitar a fatia
 
 ## Fatia 4 — Tela: rótulos por régua (Histórias 1, 2, 3 e 4)
 - [ ] T015 [P] [US2] `features/regua.js` (novo, puro): palavra e texto de apoio por régua ("margem" ou "venda", e o aviso do motivo quando cai em venda); `regua.test.js`

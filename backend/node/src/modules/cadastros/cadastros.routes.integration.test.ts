@@ -159,6 +159,19 @@ describe('cadastros (rotas)', () => {
     ).toBe(400);
   });
 
+  it('loja nova nasce com a convenção coletiva (8h24 por dia) permitida; dá para desligar por loja', async () => {
+    const c = await postLoja({ codigo: '014', nome: 'Loja Catorze' });
+    expect(c.status).toBe(201);
+    const nasceu = await prisma.loja.findUnique({ where: { id: c.body.id } });
+    expect(nasceu?.convencao8h24).toBe(true);
+    const off = await reqGe()
+      .put(`/api/v1/lojas/${c.body.id}/configuracao`)
+      .set({ 'X-Perfil': 'TENANT_ADMIN', 'X-GE': GE_INICIAL_ID })
+      .send({ convencao8h24: false });
+    expect(off.status).toBe(200);
+    expect((await prisma.loja.findUnique({ where: { id: c.body.id } }))?.convencao8h24).toBe(false);
+  });
+
   describe('horário da loja por dia da semana', () => {
     const dia = (abre: string, fecha: string) => ({ aberta: true, abre, fecha });
     const semanaCompleta = {
@@ -733,7 +746,8 @@ describe('cadastros (rotas)', () => {
       expect(ok.body.lojas).toEqual({ novos: 0, atualizados: 0 });
       expect(ok.body.avisos.join(' ')).toContain('A aba Lojas foi ignorada');
       const l = await loja('070');
-      expect(l?.convencao8h24).toBe(false);
+      // A loja não foi alterada: segue com o padrão (convenção permitida).
+      expect(l?.convencao8h24).toBe(true);
       expect(l?.custos).toBeNull();
       expect(l?.faturamento).toBeNull();
     });

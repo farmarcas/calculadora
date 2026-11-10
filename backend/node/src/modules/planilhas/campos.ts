@@ -114,7 +114,7 @@ const CAMPOS_CONFIGURACAO: CampoDef[] = [
     chave: 'convencao_8h24',
     rotulo: 'Convenção permite 8h24 (Sim/Não)',
     obrigatorio: false,
-    exemplo: 'Não',
+    exemplo: 'Sim',
     sinonimos: [
       'convencao 8h24',
       'convencao permite 8h24',

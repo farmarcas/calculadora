@@ -1300,9 +1300,13 @@ describe('escala (rotas)', () => {
     };
     const diag = async (h: Record<string, string> = admin) =>
       (await reqGe().get(`/api/v1/lojas/${lojaId}/diagnostico`).set(h)).body;
+    // O padrão agora é a convenção permitida; estes testes são da loja que desligou a convenção.
+    const semConvencao = () =>
+      reqGe().put(`/api/v1/lojas/${lojaId}/configuracao`).set(admin).send({ convencao8h24: false });
 
     it('convenção desligada: a regra de 42h traz com8h24; as outras regras não', async () => {
       await enviar();
+      await semConvencao();
       const d = await diag();
       const r42 = d.regras.find((r: { id: string }) => r.id === 'r42');
       const r40 = d.regras.find((r: { id: string }) => r.id === 'r40');
@@ -1329,6 +1333,7 @@ describe('escala (rotas)', () => {
 
     it('é só horas (sem R$): gestor e consulta recebem igual; nenhum outro campo da regra muda', async () => {
       await enviar();
+      await semConvencao();
       const gestor = { 'X-Perfil': 'SCHEDULE_MANAGER', 'X-GE': GE_INICIAL_ID };
       const consulta = { 'X-Perfil': 'SCHEDULE_VIEWER', 'X-GE': GE_INICIAL_ID };
       const dono = (await diag()).regras.find((r: { id: string }) => r.id === 'r42');

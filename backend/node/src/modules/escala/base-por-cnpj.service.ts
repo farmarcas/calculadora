@@ -11,6 +11,7 @@ import {
   soDigitos,
 } from './base-por-cnpj.js';
 import type { EscalaRepository } from './escala.repository.js';
+import type { VendaLinha } from './vendas.js';
 
 // Revisão e importação da base comercial por CNPJ e dia da semana (spec 036). Só contagens e listas de CNPJ saem daqui:
 // nenhum valor em reais vai na resposta.
@@ -38,6 +39,24 @@ const NOMES_AVISO = {
 
 const LIMITE_LISTA = 100;
 const EM_PARALELO = 8;
+
+// Grava a base de UMA loja: a ativa vira inativa e a nova entra; o faturamento do Cadastro é preenchido só onde está vazio.
+// Usada pela importação da tela (um grupo econômico) e pelo comando que carrega o arquivo de todos os grupos de uma vez.
+export const gravarBaseDaLoja = async (
+  repo: EscalaRepository,
+  a: {
+    loja: { id: string; faturamento: unknown };
+    linhas: VendaLinha[];
+    arquivo: string;
+    rejeitadas: number;
+    periodo: { inicio: string; fim: string };
+  },
+) => {
+  await repo.substituirBaseEmLote(a.loja.id, a.arquivo, a.linhas, a.rejeitadas, a.periodo);
+  const m = mesclarCadastro(a.loja.faturamento, faturamentoDaBase(a.linhas));
+  if (m.novo) await repo.gravarFaturamento(a.loja.id, m.novo as Prisma.InputJsonValue);
+  return { preencheuCadastro: m.novo !== null, jaTinhaValor: m.jaTinha };
+};
 
 export const makeBasePorCnpj = (repo: EscalaRepository, auditar: Auditor) => {
   const preparar = async (
@@ -125,13 +144,9 @@ export const makeBasePorCnpj = (repo: EscalaRepository, auditar: Auditor) => {
         const rejeitadas = errosPorCnpj.get(cnpj) ?? 0;
         const base = { cnpj, codigo: loja.codigo, nome: loja.nome, aceitas: linhas.length, rejeitadas };
         try {
-          await repo.substituirBaseEmLote(loja.id, arquivo, linhas, rejeitadas, p.periodo);
-          const m = mesclarCadastro(loja.faturamento, faturamentoDaBase(linhas));
-          if (m.novo) {
-            await repo.gravarFaturamento(loja.id, m.novo as Prisma.InputJsonValue);
-            cadastroPreenchido++;
-          }
-          if (m.jaTinha) jaTinhamValor++;
+          const g = await gravarBaseDaLoja(repo, { loja, linhas, arquivo, rejeitadas, periodo: p.periodo });
+          if (g.preencheuCadastro) cadastroPreenchido++;
+          if (g.jaTinhaValor) jaTinhamValor++;
           resultado.push({ ...base, situacao: 'Importada' });
         } catch {
           // Uma loja com problema não desfaz as outras: ela aparece no resultado e o resto segue.

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { api, baixarArquivo } from "../../api/client.js";
-import { Botao } from "../../components/ui/index.jsx";
+import { Botao, entrada } from "../../components/ui/index.jsx";
 import AreaDeEnvio from "../../components/importacao/AreaDeEnvio.jsx";
 import AvisoCaixa from "../../components/importacao/AvisoCaixa.jsx";
 import JanelaDeImportacao from "../../components/importacao/JanelaDeImportacao.jsx";
@@ -10,7 +10,7 @@ import QuadroDoArquivo from "../../components/importacao/QuadroDoArquivo.jsx";
 import { IconeDownload } from "../../components/importacao/icones.jsx";
 import { apoioDaBase, erroDoArquivo, linhaDeErro, plural, sucessoDaBase, textoDeSubstituicao } from "../../components/importacao/formato.js";
 import { useAviso } from "../../shell/AvisoGlobal.jsx";
-import { podeEnviar, resumoDoEnvio, textoLojasNaoCadastradas } from "./base.js";
+import { ehPorCnpj, periodoPreenchido, podeEnviar, resumoDaConferenciaPorCnpj, resumoDoEnvio, textoCadastroPorCnpj, textoCnpjsSemLoja, textoDoAviso, textoDoPeriodoPorCnpj, textoLojasNaoCadastradas } from "./base.js";
 
 const MENSAGEM_CONEXAO = "Não conseguimos enviar agora. Confira a conexão e tente de novo.";
 const mensagemDe = (e) => (e instanceof TypeError ? MENSAGEM_CONEXAO : e?.message || MENSAGEM_CONEXAO);
@@ -22,13 +22,21 @@ export default function ModalEnviarBase({ onClose, onConcluido }) {
   const [arquivo, setArquivo] = useState(null);
   const [revisao, setRevisao] = useState(null);
   const [erro, setErro] = useState(null);
-  const [ocupado, setOcupado] = useState(null); // null | "lendo" | "enviando"
+  const [ocupado, setOcupado] = useState(null); // null | "lendo" | "conferindo" | "enviando"
+  // Arquivo por CNPJ e dia da semana: os valores são totais de um período, que a pessoa informa.
+  const [periodo, setPeriodo] = useState({ inicio: "", fim: "" });
 
-  const form = (a) => { const f = new FormData(); f.append("arquivo", a); return f; };
+  const form = (a, p = periodo) => {
+    const f = new FormData();
+    f.append("arquivo", a);
+    if (periodoPreenchido(p.inicio, p.fim)) { f.append("periodoInicio", p.inicio); f.append("periodoFim", p.fim); }
+    return f;
+  };
 
   const escolher = async (a) => {
     setRevisao(null);
     setArquivo(null);
+    setPeriodo({ inicio: "", fim: "" });
     const e = erroDoArquivo(a);
     setErro(e);
     if (e) return;
@@ -59,10 +67,29 @@ export default function ModalEnviarBase({ onClose, onConcluido }) {
     }
   };
 
-  const trocar = () => { setArquivo(null); setRevisao(null); setErro(null); };
-  const subst = revisao ? textoDeSubstituicao(revisao.substitui) : null;
-  const naoCadastradas = revisao ? textoLojasNaoCadastradas(revisao.lojasNaoCadastradas) : null;
-  const semLojas = revisao && !podeEnviar(revisao);
+  // Mudou uma das datas: com as duas preenchidas, o servidor confere de novo já com o período.
+  const mudarPeriodo = async (novo) => {
+    setPeriodo(novo);
+    if (!periodoPreenchido(novo.inicio, novo.fim)) return;
+    setErro(null);
+    setOcupado("conferindo");
+    try {
+      setRevisao(await api("/cargas/base/revisar", { method: "POST", form: form(arquivo, novo) }));
+    } catch (err) {
+      setErro(mensagemDe(err));
+    } finally {
+      setOcupado(null);
+    }
+  };
+
+  const trocar = () => { setArquivo(null); setRevisao(null); setErro(null); setPeriodo({ inicio: "", fim: "" }); };
+  const porCnpj = ehPorCnpj(revisao);
+  const resumo = porCnpj ? resumoDaConferenciaPorCnpj(revisao) : null;
+  const semLojaCnpj = porCnpj ? textoCnpjsSemLoja(revisao) : null;
+  const cadastro = porCnpj ? textoCadastroPorCnpj(revisao) : null;
+  const subst = revisao && !porCnpj ? textoDeSubstituicao(revisao.substitui) : null;
+  const naoCadastradas = revisao && !porCnpj ? textoLojasNaoCadastradas(revisao.lojasNaoCadastradas) : null;
+  const semLojas = revisao && revisao.lojas === 0;
 
   return (
     <JanelaDeImportacao
@@ -70,7 +97,7 @@ export default function ModalEnviarBase({ onClose, onConcluido }) {
       etiqueta="Opcional"
       onFechar={onClose}
       ocupado={!!ocupado}
-      anuncio={ocupado === "lendo" ? "Lendo a planilha…" : ocupado === "enviando" ? "Enviando…" : arquivo ? `Arquivo escolhido: ${arquivo.name}` : ""}
+      anuncio={ocupado === "lendo" ? "Lendo a planilha…" : ocupado === "conferindo" ? "Conferindo o período…" : ocupado === "enviando" ? "Enviando…" : arquivo ? `Arquivo escolhido: ${arquivo.name}` : ""}
       textoPrincipal="Enviar base comercial"
       onPrincipal={enviar}
       principalDesabilitado={!arquivo || !podeEnviar(revisao)}
@@ -90,8 +117,33 @@ export default function ModalEnviarBase({ onClose, onConcluido }) {
           <Progresso texto="Lendo a planilha…" />
         ) : arquivo && revisao ? (
           <div className="flex flex-col gap-3">
-            <QuadroDoArquivo nome={arquivo.name} apoio={apoioDaBase({ bytes: arquivo.size, lojas: revisao.lojas, periodo: revisao.periodo })} onTrocar={trocar} desabilitado={ocupado === "enviando"} />
+            <QuadroDoArquivo nome={arquivo.name} apoio={apoioDaBase({ bytes: arquivo.size, lojas: revisao.lojas, periodo: revisao.periodo })} onTrocar={trocar} desabilitado={ocupado === "enviando" || ocupado === "conferindo"} />
             {ocupado === "enviando" && <Progresso texto="Enviando…" />}
+            {porCnpj && (
+              <div className="flex flex-col gap-3">
+                <div className="flex flex-wrap items-end gap-3">
+                  <label className="flex flex-col gap-1 text-sm font-bold text-[var(--text-strong)]">
+                    Período do arquivo: de
+                    <input type="date" value={periodo.inicio} onChange={(e) => mudarPeriodo({ ...periodo, inicio: e.target.value })} disabled={!!ocupado} className={`${entrada} font-normal`} />
+                  </label>
+                  <label className="flex flex-col gap-1 text-sm font-bold text-[var(--text-strong)]">
+                    até
+                    <input type="date" value={periodo.fim} onChange={(e) => mudarPeriodo({ ...periodo, fim: e.target.value })} disabled={!!ocupado} className={`${entrada} font-normal`} />
+                  </label>
+                </div>
+                {ocupado === "conferindo" && <Progresso texto="Conferindo o período…" />}
+                {revisao.erroPeriodo && <AvisoCaixa tom="erro">{revisao.erroPeriodo}</AvisoCaixa>}
+                <AvisoCaixa tom="info">{textoDoPeriodoPorCnpj(revisao)}</AvisoCaixa>
+                {!revisao.precisaPeriodo && resumo && <AvisoCaixa tom="info" titulo={resumo.titulo}>{resumo.apoio}</AvisoCaixa>}
+                {semLojaCnpj && <AvisoCaixa tom="atencao">{semLojaCnpj}</AvisoCaixa>}
+                {!revisao.precisaPeriodo && cadastro && <AvisoCaixa tom="info">{cadastro}</AvisoCaixa>}
+                {!revisao.precisaPeriodo && revisao.avisos?.length > 0 && (
+                  <AvisoCaixa tom="atencao" titulo="Para conferir. Nada disso impede o envio.">
+                    <ul className="m-0 mt-1 list-disc pl-5">{revisao.avisos.map((a) => <li key={a.tipo}>{textoDoAviso(a)}</li>)}</ul>
+                  </AvisoCaixa>
+                )}
+              </div>
+            )}
             {subst && <AvisoCaixa tom="atencao" titulo={subst.titulo}>{subst.apoio}</AvisoCaixa>}
             {naoCadastradas && <AvisoCaixa tom="atencao">{naoCadastradas}</AvisoCaixa>}
             {revisao.totalErros > 0 && (
@@ -99,7 +151,7 @@ export default function ModalEnviarBase({ onClose, onConcluido }) {
                 <ul className="m-0 mt-1 list-disc pl-5">{revisao.erros.slice(0, 3).map((e, i) => <li key={i}>{linhaDeErro({ aba: "", linha: e.linha, motivo: e.motivo }).replace(/^linha/, "Linha")}</li>)}</ul>
               </AvisoCaixa>
             )}
-            {semLojas && <AvisoCaixa tom="erro">Nenhuma loja do arquivo está cadastrada. Confira o código da loja na planilha.</AvisoCaixa>}
+            {semLojas && <AvisoCaixa tom="erro">{porCnpj ? "Nenhum CNPJ do arquivo tem loja cadastrada. Confira os CNPJs na planilha." : "Nenhuma loja do arquivo está cadastrada. Confira o código da loja na planilha."}</AvisoCaixa>}
           </div>
         ) : (
           <AreaDeEnvio onArquivo={escolher} desabilitado={!!ocupado} />

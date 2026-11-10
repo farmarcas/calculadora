@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildObservacaoPico, isHoraPico, janelaDaLoja, lerTurno, montarCobertura, montarEquipe, montarOito24, montarRegras, montarSecao, segmentosDoTurno, turnosDaGrade } from "./montar.js";
+import { buildObservacaoPico, diagDaSimulacao, isHoraPico, janelaDaLoja, lerTurno, montarCobertura, montarEquipe, montarOito24, montarRegras, montarSecao, segmentosDoTurno, turnosDaGrade } from "./montar.js";
 
 // ---- Fixture com os números do desenho (Sumaré - Centro) --------------------------------------------------------------
 const dia = { aberta: true, abre: "08:00", fecha: "21:00" };
@@ -240,5 +240,26 @@ describe("montarSecao", () => {
     expect(s.regras.colunas).toHaveLength(3);
     expect(s.equipe.total).toBe(4);
     expect(montarSecao(diag({ regras: [] }), "r42").regras).toBeNull();
+  });
+});
+
+describe("cobertura da simulação no formato do Diagnóstico", () => {
+  const d = diag();
+  const daSimulacao = { horas: d.cobertura.horas, funcoes: d.cobertura.funcoes, vendas: d.vendas, horarios, vagasSemTurnos: 0, turnosDaLoja: { modoMinimo: "turnos", turnos: d.config.turnos } };
+  it("monta a mesma grade que o Diagnóstico monta com os mesmos dados", () => {
+    const igual = montarCobertura(diagDaSimulacao(daSimulacao));
+    const original = montarCobertura(diag({ fontes: undefined }));
+    expect(igual.eixo).toEqual(original.eixo);
+    expect(igual.funcoes).toEqual(original.funcoes);
+    expect(igual.vendas).toEqual(original.vendas);
+    expect(igual.turnos.lanes.length).toBe(original.turnos.lanes.length);
+  });
+  it("sem turnos da loja a linha de turnos some; sem vendas some a linha de vendas", () => {
+    const m = montarCobertura(diagDaSimulacao({ ...daSimulacao, vendas: null, turnosDaLoja: null }));
+    expect(m.turnos).toBeNull();
+    expect(m.vendas).toBeNull();
+  });
+  it("sem horas de funcionamento não há grade", () => {
+    expect(montarCobertura(diagDaSimulacao({ horas: [], funcoes: [] }))).toBeNull();
   });
 });

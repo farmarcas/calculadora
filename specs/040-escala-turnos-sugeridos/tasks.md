@@ -15,11 +15,11 @@ Formato: `- [ ] ID [P] [História] descrição com o arquivo`. Tudo na tela, em 
 - [x] T008 Conferir no navegador com um cenário que contrata (a falta fecha e a faixa amarela mostra só o que sobrou) e commitar a fatia
 
 ## Fatia 3 — Sugerir turno, folga, tirar do dia, erro e avisos (Histórias 1, 3, 4 e 5)
-- [ ] T009 [US1] `escala/LinhaDaPessoa.jsx` e `EscalaPorHora.jsx`: botão "Sugerir turno" na contratação simulada sem turno (só `editavel`); calcula com a cobertura de agora e grava os turnos
-- [ ] T010 [US3] `LinhaDaPessoa.jsx` e `EscalaPorHora.jsx`: "Folga" vira botão (só `editavel`) que cria o turno do dia (`novoTurnoNaFolga`); "Tirar do dia" na faixa de contexto remove o turno selecionado e limpa a seleção
-- [ ] T011 [US4] `EscalaPorHora.jsx` e `SimulacaoPage.jsx`: a seção recebe o erro da simulação e o mostra no topo dela depois de uma gravação de turno que falhou; a faixa de contexto do turno selecionado mostra o horário, o total da semana e os avisos da pessoa (`avisosDaPessoa`)
-- [ ] T012 [US5] Garantir que visualizador, gestor e simulação gravada não ganham "Sugerir turno", "Folga" clicável nem "Tirar do dia"; o gestor segue sem venda e custo
-- [ ] T013 Conferir no navegador (dono, gestor e visualizador) e rodar os testes; commitar a fatia
+- [x] T009 [US1] `escala/LinhaDaPessoa.jsx` e `EscalaPorHora.jsx`: botão "Sugerir turno" na contratação simulada sem turno (só `editavel`); calcula com a cobertura de agora e grava os turnos
+- [x] T010 [US3] `LinhaDaPessoa.jsx` e `EscalaPorHora.jsx`: "Folga" vira botão (só `editavel`) que cria o turno do dia (`novoTurnoNaFolga`); "Tirar do dia" na faixa de contexto remove o turno selecionado e limpa a seleção
+- [x] T011 [US4] `EscalaPorHora.jsx` e `SimulacaoPage.jsx`: a seção recebe o erro da simulação e o mostra no topo dela depois de uma gravação de turno que falhou; a faixa de contexto do turno selecionado mostra o horário, o total da semana e os avisos da pessoa (`avisosDaPessoa`)
+- [x] T012 [US5] Garantir que visualizador, gestor e simulação gravada não ganham "Sugerir turno", "Folga" clicável nem "Tirar do dia"; o gestor segue sem venda e custo
+- [x] T013 Conferir no navegador (dono, gestor e visualizador) e rodar os testes; commitar a fatia
 
 ## Fatia 4 — Prévia do turno e arrastar mais fácil (Histórias 2 e 3)
 - [ ] T014 [US2] `EscalaPorHora.jsx`: o estado do formulário (`funcao`, `tipo`, `dias`, `entra`, `sai`) sobe para a seção, que o inicia com a sugestão ao abrir "+ Contratar" e o apaga ao adicionar ou cancelar; `FormularioContratar.jsx` passa a ser controlado (`valor` e `onMudar`), com a mesma sugestão, o mesmo efeito e a mesma prévia de custo

@@ -357,11 +357,11 @@ export const vagaSemTurnos = (quadro, turnos) => quadro.filter((p) => p.vaga && 
 
 // Os turnos novos de todas as vagas sem turno, uma depois da outra: cada vaga parte da cobertura já com as anteriores.
 // `cobertura` é `avaliacao.cobertura` ({ dia: [{ funcao, porHora }] }).
-export const sugerirTurnosDasVagas = ({ quadro, turnos, cobertura, abas, regra }) => {
+export const sugerirTurnosDasVagas = ({ quadro, turnos, cobertura, abas, regra, somente = null }) => {
   const funcaoDe = new Map(quadro.filter((p) => !p.desligado && p.funcao).map((p) => [p.matricula, p.funcao]));
   let atuais = [...turnos];
   const novos = [];
-  for (const v of vagaSemTurnos(quadro, turnos)) {
+  for (const v of vagaSemTurnos(quadro, turnos).filter((x) => !somente || x.matricula === somente)) {
     const coberturaPorDia = Object.fromEntries(
       abas.flatMap((a) => {
         const base = cobertura?.[a.dia]?.find((c) => c.funcao === v.funcao);

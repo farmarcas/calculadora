@@ -255,6 +255,13 @@ describe("turnos sugeridos para as vagas (spec 040)", () => {
   it("vagas sem turno: só as simuladas e ativas que não têm nenhum", () => {
     expect(vagaSemTurnos(quadro, [{ matricula: "VAGA-1", dia: 0 }]).map((v) => v.matricula)).toEqual(["VAGA-2"]);
   });
+  it("`somente` sugere só para uma vaga, contando os turnos que já existem", () => {
+    const cobertura = Object.fromEntries(abas.map((a) => [a.dia, [{ funcao: "Farmacêutico", minimo: 1, porHora: horas(8, 21, (h) => (h >= 16 ? 0 : 1)).map(([hora, p]) => cel(hora, p, 1)) }]]));
+    const turnosDaAna = abas.map((x) => ({ matricula: "A", dia: x.dia, entrada: 8, saida: 16, iniIntervalo: null, fimIntervalo: null }));
+    const so2 = sugerirTurnosDasVagas({ quadro, turnos: turnosDaAna, cobertura, abas, regra: REGRA, somente: "VAGA-2" });
+    expect(so2.length).toBeGreaterThan(0);
+    expect(so2.every((t) => t.matricula === "VAGA-2")).toBe(true);
+  });
   it("duas vagas da mesma função: a segunda cobre o que a primeira deixou", () => {
     const cobertura = Object.fromEntries(abas.map((a) => [a.dia, [{ funcao: "Farmacêutico", minimo: 1, porHora: horas(8, 21, (h) => (h >= 16 ? 0 : 1)).map(([hora, p]) => cel(hora, p, 1)) }]]));
     // Ana cobre das 8h às 16h em todos os dias; sobram 16h–22h por cobrir

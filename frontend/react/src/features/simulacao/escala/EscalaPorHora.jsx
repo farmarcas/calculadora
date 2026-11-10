@@ -4,19 +4,20 @@ import FormularioContratar from "./FormularioContratar.jsx";
 import GradeDeHoras from "./GradeDeHoras.jsx";
 import LinhaDaFuncao from "./LinhaDaFuncao.jsx";
 import LinhaDaPessoa from "./LinhaDaPessoa.jsx";
-import { contratacoesSimuladas, diasDasAbas, faixaDeAviso, horasDoDia, horasReforcadas, recalcularCobertura, textoDoTurno, turnosParaGravar } from "./escala-regras.js";
+import { avisosDaPessoa, contratacoesSimuladas, diasDasAbas, faixaDeAviso, horasDoDia, horasReforcadas, novoTurnoNaFolga, recalcularCobertura, semTurnoNoDia, sugerirTurnosDasVagas, textoDoTurno, totalDaSemana, turnosParaGravar } from "./escala-regras.js";
 
 const ORDEM = ["Farmacêutico", "Atendimento", "Caixa"];
 const NOMES_LONGOS = ["segunda", "terça", "quarta", "quinta", "sexta", "sábado", "domingo"];
 
 // "Escala por hora" (spec 039), dentro da Simulação: a grade do dia com venda e clientes por hora, a cobertura por função e
 // os turnos de cada pessoa. A contratação e os turnos valem só para esta simulação; nada vai ao Cadastro.
-export default function EscalaPorHora({ sim, editavel, dono, calculando = false, onSalvar }) {
+export default function EscalaPorHora({ sim, editavel, dono, calculando = false, erro = null, onLimparErro, onSalvar }) {
   const abas = useMemo(() => diasDasAbas(sim.diasAbertos), [sim.diasAbertos]);
   const [dia, setDia] = useState(abas[0]?.dia ?? 0);
   const [selecionado, setSelecionado] = useState(null);
   const [recolhidas, setRecolhidas] = useState(() => new Set());
   // Turnos com o ajuste em andamento (arrastar): a cobertura responde na hora; volta ao do servidor quando a simulação muda.
+  const [tentou, setTentou] = useState(false); // houve uma gravação de turno: o erro, se vier, aparece aqui
   const [contratando, setContratando] = useState(null); // função com o formulário aberto (um por vez)
   const [ajuste, setAjuste] = useState(null);
   useEffect(() => setAjuste(null), [sim]);
@@ -80,13 +81,31 @@ export default function EscalaPorHora({ sim, editavel, dono, calculando = false,
       }),
     );
 
+  // Grava os turnos de agora (a tela já mostra o resultado e o servidor confirma); um erro volta o turno ao anterior.
+  const gravarTurnos = (novos) => {
+    setAjuste(novos);
+    setTentou(true);
+    onLimparErro?.();
+    onSalvar({ turnos: turnosParaGravar(novos) });
+  };
   // Muda o turno de uma pessoa neste dia: durante o gesto só a tela (a cobertura responde na hora); ao soltar, grava.
   const mudarTurno = (matricula, novo, definitivo) => {
     const base = ajuste ?? sim.turnos;
     const novos = base.map((t) => (t.matricula === matricula && t.dia === novo.dia ? { ...t, ...novo } : t));
-    setAjuste(novos);
-    if (definitivo)
-      onSalvar({ turnos: turnosParaGravar(novos) });
+    if (definitivo) gravarTurnos(novos);
+    else setAjuste(novos);
+  };
+  // "Folga" clicável: a pessoa passa a trabalhar neste dia, no horário que ela mais repete.
+  const criarTurno = (matricula) => gravarTurnos([...turnos, novoTurnoNaFolga({ turnos, matricula, dia, aba, regra: sim.regraInfo })]);
+  // "Tirar do dia": o turno selecionado vira folga.
+  const tirarDoDia = (matricula) => {
+    gravarTurnos(semTurnoNoDia(turnos, matricula, dia));
+    setSelecionado(null);
+  };
+  // "Sugerir turno": os dias e o horário que cobrem as horas sem cobertura, para uma contratação sem turno.
+  const sugerirTurno = (matricula) => {
+    const novos = sugerirTurnosDasVagas({ quadro: sim.quadro, turnos, cobertura: sim.avaliacao?.cobertura, abas, regra: sim.regraInfo, somente: matricula });
+    if (novos.length) gravarTurnos([...turnos, ...novos]);
   };
   // As regras de jornada, intervalo e folga que a avaliação aponta; avisam e não impedem salvar o cenário.
   const regrasDeTurno = [...(sim.avaliacao?.erros ?? []), ...(sim.avaliacao?.avisos ?? [])].filter((a) => !["cobertura", "farmaceutico"].includes(a.regra));
@@ -114,11 +133,27 @@ export default function EscalaPorHora({ sim, editavel, dono, calculando = false,
 
       <div className="px-6 pb-3 text-xs">
         {turnoSelecionado && pessoaSelecionada ? (
-          <div className="rounded-btn bg-[var(--color-primary-soft)] px-3 py-2 text-[var(--color-primary)]">{pessoaSelecionada.vaga ? "Contratação simulada" : pessoaSelecionada.nome} · {pessoaSelecionada.funcao}, {textoDoTurno(turnoSelecionado)}</div>
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-btn bg-[var(--color-primary-soft)] px-3 py-2 text-[var(--color-primary)]">
+            <span>
+              {pessoaSelecionada.vaga ? "Contratação simulada" : pessoaSelecionada.nome} · {pessoaSelecionada.funcao}, {textoDoTurno(turnoSelecionado)} · semana: {totalDaSemana(turnos, pessoaSelecionada.matricula).texto}
+            </span>
+            {editavel && <button type="button" onClick={() => tirarDoDia(pessoaSelecionada.matricula)} className="cursor-pointer border-0 bg-transparent p-0 text-xs font-bold text-[var(--text-danger)] hover:underline">Tirar do dia</button>}
+          </div>
         ) : !aviso ? (
           <div className="rounded-btn bg-[var(--surface-subtle)] px-3 py-2 text-[var(--text-secondary)]">Nenhum turno selecionado</div>
         ) : null}
+        {turnoSelecionado && pessoaSelecionada && avisosDaPessoa(sim.avaliacao, pessoaSelecionada.matricula).length > 0 && (
+          <ul className="m-0 mt-1 list-disc pl-5 text-[var(--text-secondary)]" data-testid="avisos-da-pessoa">
+            {avisosDaPessoa(sim.avaliacao, pessoaSelecionada.matricula).slice(0, 3).map((t, i) => <li key={i}>{t}</li>)}
+          </ul>
+        )}
       </div>
+      {tentou && erro && (
+        <div role="alert" className="mx-6 mb-3 flex items-start justify-between gap-3 rounded-btn bg-[var(--func-warning-50)] px-4 py-2.5 text-sm leading-5 text-[#8b0020]" data-testid="erro-da-escala">
+          <span>{erro} O turno voltou ao que estava.</span>
+          <button type="button" onClick={() => { setTentou(false); onLimparErro?.(); }} className="shrink-0 cursor-pointer border-0 bg-transparent p-0 text-xs font-bold text-[#8b0020] hover:underline">Fechar</button>
+        </div>
+      )}
       {aviso && <div role="status" className="mx-6 mb-3 rounded-btn bg-[var(--func-attention-100)] px-4 py-2.5 text-sm leading-5 font-bold text-[var(--neutral-dark-900)]" data-testid="faixa-de-aviso">{aviso}</div>}
 
       <div className="escala-conteiner">
@@ -132,11 +167,11 @@ export default function EscalaPorHora({ sim, editavel, dono, calculando = false,
                 {!recolhidas.has(f) && (
                   <>
                     {pessoas.map((p) => (
-                      <LinhaDaPessoa key={p.matricula} pessoa={p} turno={turnoDoDiaDe(turnos, p.matricula, dia)} turnosDaPessoa={turnos.filter((t) => t.matricula === p.matricula)} ini={ini} fim={fim} colunas={colunas} selecionado={selecionado === p.matricula} onSelecionar={() => setSelecionado(p.matricula)} editavel={editavel} onMudar={(t, fim2) => mudarTurno(p.matricula, t, fim2)} />
+                      <LinhaDaPessoa key={p.matricula} pessoa={p} turno={turnoDoDiaDe(turnos, p.matricula, dia)} turnosDaPessoa={turnos.filter((t) => t.matricula === p.matricula)} ini={ini} fim={fim} colunas={colunas} selecionado={selecionado === p.matricula} onSelecionar={() => setSelecionado(p.matricula)} editavel={editavel} onMudar={(t, fim2) => mudarTurno(p.matricula, t, fim2)} onCriarTurno={() => criarTurno(p.matricula)} />
                     ))}
                     {simuladas.map((s) => {
                       const p = quadro.find((x) => x.matricula === s.matricula);
-                      return <LinhaDaPessoa key={s.matricula} pessoa={p} turno={turnoDoDiaDe(turnos, s.matricula, dia)} turnosDaPessoa={s.turnos} ini={ini} fim={fim} colunas={colunas} simulada selecionado={selecionado === s.matricula} onSelecionar={() => setSelecionado(s.matricula)} rotuloSimulada={s.texto} onRemover={editavel ? () => remover(s.matricula) : undefined} editavel={editavel} onMudar={(t, fim2) => mudarTurno(s.matricula, t, fim2)} />;
+                      return <LinhaDaPessoa key={s.matricula} pessoa={p} turno={turnoDoDiaDe(turnos, s.matricula, dia)} turnosDaPessoa={s.turnos} ini={ini} fim={fim} colunas={colunas} simulada selecionado={selecionado === s.matricula} onSelecionar={() => setSelecionado(s.matricula)} rotuloSimulada={s.texto} onRemover={editavel ? () => remover(s.matricula) : undefined} editavel={editavel} onMudar={(t, fim2) => mudarTurno(s.matricula, t, fim2)} onCriarTurno={() => criarTurno(s.matricula)} onSugerir={() => sugerirTurno(s.matricula)} />;
                     })}
                   </>
                 )}

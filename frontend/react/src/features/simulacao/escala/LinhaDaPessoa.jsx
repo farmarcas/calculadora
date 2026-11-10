@@ -5,7 +5,7 @@ import { aplicarMovimento, movimentoPorTecla } from "./movimento-regras.js";
 
 // Uma pessoa no dia: o turno em barra sobre as colunas das horas, "Função · 44h" e o total da semana. Folga mostra a barra
 // tracejada. A contratação simulada é a linha azul, com "Remover" em vermelho.
-export default function LinhaDaPessoa({ pessoa, turno, turnosDaPessoa, ini, fim, colunas, simulada = false, selecionado = false, onSelecionar, onRemover, rotuloSimulada, editavel = false, onMudar }) {
+export default function LinhaDaPessoa({ pessoa, turno, turnosDaPessoa, ini, fim, colunas, simulada = false, selecionado = false, onSelecionar, onRemover, rotuloSimulada, editavel = false, onMudar, onCriarTurno, onSugerir }) {
   const trilha = useRef(null);
   const janela = { min: ini, max: fim };
 
@@ -79,7 +79,13 @@ export default function LinhaDaPessoa({ pessoa, turno, turnosDaPessoa, ini, fim,
             <span className="truncate">{textoDoTurno(turno)} · {Math.round((turno.saida - turno.entrada - ((turno.fimIntervalo ?? 0) - (turno.iniIntervalo ?? 0))) * 10) / 10}h</span>
           </button>
         ) : (
-          <div className="absolute inset-0 flex items-center justify-center rounded-btn border border-dashed border-[var(--border-default)] text-xs text-[var(--text-secondary)]">{simulada && total.dias === 0 ? "Sem turnos" : "Folga"}</div>
+          <div className="absolute inset-0 flex items-center justify-center rounded-btn border border-dashed border-[var(--border-default)] text-xs text-[var(--text-secondary)]">
+            {simulada && total.dias === 0 ? (
+              editavel && onSugerir ? <button type="button" onClick={onSugerir} className="h-full w-full cursor-pointer border-0 bg-transparent text-xs font-bold text-[var(--color-primary)] hover:underline">Sugerir turno</button> : "Sem turnos"
+            ) : editavel && onCriarTurno ? (
+              <button type="button" onClick={onCriarTurno} title="Escalar neste dia" aria-label={`${pessoa.nome}: folga. Clique para escalar neste dia`} className="h-full w-full cursor-pointer border-0 bg-transparent text-xs text-[var(--text-secondary)] hover:bg-[var(--surface-subtle)] hover:text-[var(--color-primary)]">Folga</button>
+            ) : "Folga"}
+          </div>
         )}
       </div>
       <div role="cell" className="pr-2 text-right text-xs leading-4 font-bold text-[var(--text-strong)]">{total.texto}</div>

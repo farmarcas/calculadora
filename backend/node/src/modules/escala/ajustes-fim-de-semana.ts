@@ -415,6 +415,8 @@ export const melhorEstado = <T extends { custo: number; pessoas: number }>(a: {
   dias: DiaAberto[];
   porDia: EntradaSequencia['porDia'];
   tabela?: VendaDiaHora | null;
+  // Tabela na régua do cenário (margem ou venda) que mede a perda do impacto; as travas seguem em venda real (`tabela`).
+  tabelaImpacto?: VendaDiaHora | null;
   // Parte da venda de um dia fechado que fica (1 − recaptura); só vale com `tabela`.
   fica?: number;
   avaliar: (dias: DiaAberto[]) => T;
@@ -426,7 +428,7 @@ export const melhorEstado = <T extends { custo: number; pessoas: number }>(a: {
   for (const dias of estadosPermitidos({ ...a, estender: a.ganhoMes !== undefined })) {
     const avaliacao = a.avaliar(dias);
     const perdida = a.tabela
-      ? vendaPerdidaHoraria(hoje, dias, a.tabela).vendaMes * (a.fica ?? 1)
+      ? vendaPerdidaHoraria(hoje, dias, a.tabelaImpacto ?? a.tabela).vendaMes * (a.fica ?? 1)
       : 0;
     const ganho = a.ganhoMes ? a.ganhoMes(dias) : 0;
     const atual: EstadoEscolhido<T> = {

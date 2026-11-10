@@ -8,12 +8,12 @@ Formato: `- [ ] ID [P] [História] descrição com o arquivo`. Servidor em `back
 - [x] T003 Rodar os testes do servidor e commitar a fatia
 
 ## Fatia 2 — Cenários na régua (Histórias 1, 2 e 3, P1)
-- [ ] T004 [US1] `escala/diagnostico.ts`: escolher a régua uma vez a partir da base ativa e passar aos cenários as linhas na régua para a tabela de perda e ganho; o faturamento de referência continua lendo as linhas originais
-- [ ] T005 [US1] `escala/cenarios.ts`: a tabela dos Cenários 2 e 3 (perda, ganho das horas novas, impacto, impacto robusto) usa as linhas na régua; os textos dos cartões dizem "margem" ou "venda" conforme a régua; `regua` vai em cada cenário
-- [ ] T006 [US2] `escala/comparativo.ts` e `escala/saldo-operacao.ts`: saldo, perda e ganho dos três cartões na régua; o cenário sugerido compara impactos na mesma régua, com as mesmas salvaguardas; o Cenário 1 segue sem perda nem ganho; `regua` no resumo do sugerido; percentuais sobre o faturamento seguem em venda real
-- [ ] T007 [P] [US1] Testes de unidade dos cenários: duas horas de venda parecida e margens diferentes (o Cenário 3 corta a de menor margem), duas horas em que a margem contradiz a venda, ganho das horas novas em 50% da margem da hora vizinha, base sem margem com resultado idêntico ao de antes
-- [ ] T008 [US2] Testes de integração do diagnóstico: os três cartões e o sugerido na mesma régua; `regua` presente; dono recebe valores e gestor não (o campo nem existe); base sem margem com os mesmos números de antes
-- [ ] T009 Rodar os testes do servidor (unidade e integração), reiniciar a API e commitar a fatia
+- [x] T004 [US1] `escala/diagnostico.ts`: escolher a régua uma vez a partir da base ativa e passar aos cenários as linhas na régua para a tabela de perda e ganho; o faturamento de referência continua lendo as linhas originais
+- [x] T005 [US1] `escala/cenarios.ts`: a tabela dos Cenários 2 e 3 (perda, ganho das horas novas, impacto, impacto robusto) usa as linhas na régua; os textos dos cartões dizem "margem" ou "venda" conforme a régua; `regua` vai em cada cenário
+- [x] T006 [US2] `escala/comparativo.ts` e `escala/saldo-operacao.ts`: saldo, perda e ganho dos três cartões na régua; o cenário sugerido compara impactos na mesma régua, com as mesmas salvaguardas; o Cenário 1 segue sem perda nem ganho; `regua` no resumo do sugerido; percentuais sobre o faturamento seguem em venda real
+- [x] T007 [P] [US1] Testes de unidade dos cenários: duas horas de venda parecida e margens diferentes (o Cenário 3 corta a de menor margem), duas horas em que a margem contradiz a venda, ganho das horas novas em 50% da margem da hora vizinha, base sem margem com resultado idêntico ao de antes
+- [x] T008 [US2] Testes de integração do diagnóstico: os três cartões e o sugerido na mesma régua; `regua` presente; dono recebe valores e gestor não (o campo nem existe); base sem margem com os mesmos números de antes
+- [x] T009 Rodar os testes do servidor (unidade e integração), reiniciar a API e commitar a fatia
 
 ## Fatia 3 — Simulação, lista e comparação na régua (História 4 e 5, P1/P2)
 - [ ] T010 [US4] `simulacoes/resultado.ts`: venda que deixa de entrar, venda estimada das horas novas e saldo usam as linhas na régua; venda por hora, clientes, ticket médio e peso no faturamento seguem com a venda real; `regua` em `resultado`

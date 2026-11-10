@@ -109,6 +109,7 @@ export const makeSimulacoesService = (
       minimos: c.premissas.minimos,
       quadro: s.quadro,
       vendas,
+      cmvMedioPct: l.faturamento?.cmvPct ?? null,
       custos: custosDaSimulacao(c.premissas.custos, l),
       parametros: tabela,
       dono,

@@ -6,7 +6,7 @@ const semana = (abre: number, fecha: number, ate = 7) =>
   Array.from({ length: ate }, (_, dia) => ({ dia, abre, fecha }));
 
 describe('vendasDoCadastro', () => {
-  it('divide cada dia igualmente entre as horas abertas (a margem não entra)', () => {
+  it('divide cada dia igualmente entre as horas abertas (sem CMV: o lucro bruto fica nulo)', () => {
     const r = vendasDoCadastro(
       { dias: [1000, 1000, 1000, 1000, 1000, 1000, 1000], mensal: null, margemPct: 20 },
       semana(8, 18),
@@ -15,7 +15,7 @@ describe('vendasDoCadastro', () => {
     expect(vb.venda[0]![8]).toBe(100);
     expect(vb.venda[0]![17]).toBe(100);
     expect(vb.venda[0]![18]).toBe(0);
-    expect(r.linhas.every((l) => l.margem === 0)).toBe(true);
+    expect(r.linhas.every((l) => l.margem === null)).toBe(true);
     expect(r.linhas).toHaveLength(70);
   });
 

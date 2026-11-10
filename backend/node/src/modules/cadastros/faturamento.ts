@@ -4,13 +4,14 @@ const valor = z.number().min(0).max(1_000_000_000);
 
 // Faturamento médio da loja: um valor por dia da semana (segunda … domingo) e o mensal.
 // Tudo opcional: dia fechado ou sem informação fica nulo.
-// `margemPct` é um valor antigo: continua guardado, mas não tem tela, não vem de planilha, não entra em conta nenhuma
-// e nenhuma gravação o altera (ver `manterMargem`).
+// `cmvPct` é o CMV médio da loja (% da venda líquida que volta ao fornecedor): padrão das horas sem CMV na base comercial.
+// `margemPct` é um valor antigo, apagado pela migration da spec 034: se ainda vier num pedido, é ignorado.
 export const faturamentoSchema = z
   .object({
     dias: z.array(valor.nullable()).length(7),
     mensal: valor.nullable(),
-    margemPct: z.number().min(0).max(100).nullable().optional(),
+    cmvPct: z.number().min(0).max(100).nullable().optional(),
+    margemPct: z.unknown().optional(),
   })
   .strict();
 export type Faturamento = z.infer<typeof faturamentoSchema>;
@@ -28,35 +29,42 @@ const numero = (texto: string) => {
   return Number.isFinite(n) && n >= 0 ? n : Number.NaN;
 };
 
-// Grava o faturamento novo mantendo a margem que já estava guardada: o que vier de margem no pedido é ignorado.
-// Faturamento limpo (null) com margem guardada vira "sem valores" com a margem preservada, para não perdê-la.
-export const manterMargem = (novo: Faturamento | null, atual: unknown): Faturamento | null => {
-  const guardada = (atual as { margemPct?: unknown } | null | undefined)?.margemPct;
-  const margem = typeof guardada === 'number' ? { margemPct: guardada } : {};
-  if (novo === null)
-    return 'margemPct' in margem
-      ? { dias: [null, null, null, null, null, null, null], mensal: null, ...margem }
-      : null;
-  const { margemPct: _ignorada, ...resto } = novo;
-  return { ...resto, ...margem };
+// Grava o faturamento novo. O CMV médio que já estava guardado fica quando o pedido não fala dele; `null` o limpa. A
+// margem antiga nunca é gravada. `soCmv` (planilha que traz só o CMV médio) mantém os valores de faturamento já guardados.
+// Faturamento limpo (null) com CMV médio guardado vira "sem valores" com o CMV preservado.
+export type FaturamentoEntrada = Faturamento & { soCmv?: boolean };
+export const mesclarFaturamento = (novo: FaturamentoEntrada | null, atual: unknown): Faturamento | null => {
+  const antes = atual as { dias?: (number | null)[]; mensal?: number | null; cmvPct?: unknown } | null | undefined;
+  const cmvAntes = typeof antes?.cmvPct === 'number' ? antes.cmvPct : undefined;
+  const semValores = { dias: [null, null, null, null, null, null, null] as (number | null)[], mensal: null };
+  if (novo === null) return cmvAntes !== undefined ? { ...semValores, cmvPct: cmvAntes } : null;
+  const { margemPct: _antiga, soCmv, cmvPct, ...resto } = novo;
+  const cmv = cmvPct === undefined ? cmvAntes : cmvPct;
+  const base = soCmv && antes?.dias ? { dias: antes.dias, mensal: antes.mensal ?? null } : resto;
+  return { ...base, ...(typeof cmv === 'number' ? { cmvPct: cmv } : {}) };
 };
 
-// Lê as colunas Fat_Seg…Fat_Dom e Fat_Mensal de uma linha (a coluna de margem das planilhas antigas é ignorada).
-// Nulo quando a linha não traz nada.
+// Lê as colunas Fat_Seg…Fat_Dom, Fat_Mensal e CMV médio (%) de uma linha (a coluna de margem das planilhas antigas é
+// ignorada). Vazio quando a linha não traz nada.
 export const faturamentoDaLinha = (
   celula: (chave: string) => string,
-): { faturamento?: Faturamento; erro?: string } => {
+): { faturamento?: FaturamentoEntrada; erro?: string } => {
   const lidos = [
     ...DIAS_SIGLA.map((d) => numero(celula(`fat_${d}`))),
     numero(celula('fat_mensal')),
   ];
-  if (lidos.every((n) => n === null)) return {};
+  const cmv = numero(celula('cmv_pct'));
+  if (lidos.every((n) => n === null) && cmv === null) return {};
   if (lidos.some((n) => Number.isNaN(n)))
     return { erro: 'faturamento com valor inválido' };
+  if (cmv !== null && (Number.isNaN(cmv) || cmv > 100)) return { erro: 'CMV médio fora de 0 a 100' };
+  const semFaturamento = lidos.every((n) => n === null);
   return {
     faturamento: {
       dias: lidos.slice(0, 7) as (number | null)[],
       mensal: lidos[7]!,
+      ...(cmv !== null ? { cmvPct: cmv } : {}),
+      ...(semFaturamento ? { soCmv: true } : {}),
     },
   };
 };

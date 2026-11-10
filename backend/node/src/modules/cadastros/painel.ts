@@ -10,7 +10,7 @@ import { manterAjustesAntigos, type CustosGravados } from '../custos/custos.sche
 import type { configuracaoBody } from '../escala/escala.schemas.js';
 import type { z } from 'zod';
 import type { CadastrosRepository, LojaRegistro } from './cadastros.service.js';
-import { manterMargem, ocultarFaturamento, type Faturamento } from './faturamento.js';
+import { mesclarFaturamento, ocultarFaturamento, type Faturamento } from './faturamento.js';
 import { faixasDaSemana, normalizarHorarios } from './horarios.js';
 import type { LojaBody } from './cadastros.schemas.js';
 import { pendenciasDoCadastro, situacaoDoCadastro } from './situacao.js';
@@ -86,7 +86,7 @@ export const makePainelService = (geId: string, cadastros: CadastrosRepository, 
         if (l[k] !== undefined) (dados as Record<string, unknown>)[k] = l[k];
       if (l.horarios !== undefined) dados.horarios = l.horarios as unknown as Prisma.InputJsonValue;
       if (l.faturamento !== undefined) {
-        const fat = manterMargem(l.faturamento as Faturamento | null, bruto.faturamento);
+        const fat = mesclarFaturamento(l.faturamento as Faturamento | null, bruto.faturamento);
         dados.faturamento = fat === null ? Prisma.JsonNull : (fat as never);
       }
     }

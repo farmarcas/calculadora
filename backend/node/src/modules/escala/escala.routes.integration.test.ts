@@ -1349,10 +1349,11 @@ describe('escala (rotas)', () => {
       expect(d).not.toHaveProperty('regras');
     });
   });
-  describe('régua dos cenários: margem ou venda (spec 033)', () => {
+  describe('régua dos cenários: CMV, CMV médio ou venda (specs 033 e 034)', () => {
     const gestor = { 'X-Perfil': 'SCHEDULE_MANAGER', 'X-GE': GE_INICIAL_ID };
     const url = () => `/api/v1/lojas/${lojaId}/diagnostico`;
-    const preparar = async (margem: (venda: number, i: number) => string) => {
+    // `cmv` devolve o CMV (em reais) de cada hora; null = base sem a coluna de CMV.
+    const preparar = async (cmv: ((venda: number, i: number) => string) | null) => {
       await reqGe()
         .post('/api/v1/cargas/escala')
         .set(admin)
@@ -1361,16 +1362,17 @@ describe('escala (rotas)', () => {
       await reqGe().put(`/api/v1/lojas/${lojaId}/custos`).set(admin).send({ salarioMedio: { Farmacêutico: 8000 }, encargosPct: 40 });
       const datas = ['07/09/2026', '08/09/2026', '09/09/2026', '10/09/2026', '11/09/2026', '12/09/2026'];
       const linhas = datas.flatMap((data, d) =>
-        Array.from({ length: d === 5 ? 6 : 12 }, (_, i) => [data, String(8 + i), '001', '100,00', margem(100, i), '10']),
+        Array.from({ length: d === 5 ? 6 : 12 }, (_, i) => [data, String(8 + i), '001', '100,00', ...(cmv ? [cmv(100, i)] : []), '10']),
       );
-      await reqGe()
-        .post('/api/v1/cargas/base')
-        .set(admin)
-        .attach('arquivo', await xlsx(['Data', 'Hora', 'Cod_Loja', 'Venda_Liquida_RS', 'Margem_Bruta_RS', 'Clientes_Atendidos'], linhas), 'b.xlsx');
+      const cab = ['Data', 'Hora', 'Cod_Loja', 'Venda_Liquida_RS', ...(cmv ? ['CMV_RS'] : []), 'Clientes_Atendidos'];
+      await reqGe().post('/api/v1/cargas/base').set(admin).attach('arquivo', await xlsx(cab, linhas), 'b.xlsx');
     };
+    const comCmvMedio = (pct: number | null) =>
+      reqGe().patch(`/api/v1/lojas/${lojaId}`).set(admin).send({ faturamento: { dias: [1000, 1100, 900, 1200, 1500, 800, null], mensal: null, cmvPct: pct } });
+    const cmvDe = (pct: number) => (v: number) => String((v * pct) / 100).replace('.', ',');
 
-    it('base com margem em todas as horas: os cenários e o comparativo vêm na régua de margem', async () => {
-      await preparar((v) => String(v * 0.3).replace('.', ','));
+    it('base com CMV em todas as horas: os cenários e o comparativo vêm na régua de margem (lucro bruto)', async () => {
+      await preparar(cmvDe(70));
       const d = (await reqGe().get(url()).set(admin)).body;
       expect(d.regua).toEqual({ tipo: 'margem' });
       for (const id of ['r42', 'r40']) {
@@ -1379,25 +1381,34 @@ describe('escala (rotas)', () => {
       }
     });
 
-    it('base sem margem: a régua é venda, com os números de sempre', async () => {
-      await preparar(() => '0');
+    it('base sem a coluna de CMV e sem CMV médio: a régua é venda, com o motivo', async () => {
+      await preparar(null);
       const d = (await reqGe().get(url()).set(admin)).body;
       expect(d.regua).toEqual({ tipo: 'venda', motivo: 'sem_margem' });
       expect(d.cenarios.r40.regua).toEqual({ tipo: 'venda', motivo: 'sem_margem' });
     });
 
-    it('margem maior que a venda numa hora: cai em venda com o motivo', async () => {
-      await preparar((v, i) => (i === 3 ? String(v * 2).replace('.', ',') : String(v * 0.3).replace('.', ',')));
+    it('base sem a coluna de CMV mas com o CMV médio da loja: a régua é margem', async () => {
+      await preparar(null);
+      await comCmvMedio(65);
+      const d = (await reqGe().get(url()).set(admin)).body;
+      expect(d.regua).toEqual({ tipo: 'margem' });
+      expect(d.cenarios.r40.regua).toEqual({ tipo: 'margem' });
+    });
+
+    it('CMV maior que a venda numa hora: cai em venda com o motivo, mesmo com CMV médio', async () => {
+      await preparar((v, i) => (i === 3 ? String(v * 2).replace('.', ',') : cmvDe(70)(v)));
+      await comCmvMedio(65);
       const d = (await reqGe().get(url()).set(admin)).body;
       expect(d.regua).toEqual({ tipo: 'venda', motivo: 'margem_incoerente' });
     });
 
     it('o gestor recebe a régua e nenhum valor em reais', async () => {
-      await preparar((v) => String(v * 0.3).replace('.', ','));
+      await preparar(cmvDe(70));
       const g = (await reqGe().get(url()).set(gestor)).body;
       expect(g.regua).toEqual({ tipo: 'margem' });
       const texto = JSON.stringify(g.cenarios);
-      for (const chave of ['vendaCortadaMes', 'vendaGanhaMes', 'vendaCortadaRealMes', 'saldoMensal', 'faturamentoPerdidoMensal'])
+      for (const chave of ['vendaCortadaMes', 'vendaGanhaMes', 'vendaCortadaRealMes', 'saldoMensal', 'faturamentoPerdidoMensal', 'cmvPct'])
         expect(texto).not.toContain(chave);
     });
   });

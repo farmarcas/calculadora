@@ -57,7 +57,7 @@ model Loja {
   cidade    String?
   // simples | presumido | real. Informativo: não entra em nenhum cálculo.
   regimeTributario String? @map("regime_tributario")
-  // Faturamento médio: { dias: [seg…dom], mensal, margemPct }. Só o dono vê.
+  // Faturamento médio: { dias: [seg…dom], mensal, cmvPct }. Só o dono vê.
   faturamento   Json?
   // Horário de funcionamento: { semana: {abre, fecha}, sabado: {...}, domingo: {...} }
   horarios  Json?
@@ -245,7 +245,8 @@ model VendaHora {
   data     DateTime @db.Date
   hora     Int
   venda    Float
-  margem   Float
+  // CMV (custo da mercadoria) da hora, em reais; nulo quando a base não trouxe (spec 034). O lucro bruto é venda − cmv.
+  cmv      Float?
   clientes Int
   unidades Int
 

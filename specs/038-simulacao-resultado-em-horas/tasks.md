@@ -12,10 +12,10 @@ Formato: `- [ ] ID [P] [História] descrição com o arquivo`. Servidor em `back
 - [x] T007 Rodar os testes do servidor (unidade e integração) e commitar a fatia
 
 ## Fatia 2 — Regras puras do card na tela (Histórias 1 a 4)
-- [ ] T008 [US2] `features/simulacao/resultado-regras.js` (novo, puro): `diasDaSimulacao(horario)` adapta `horario.dias` e `horario.cadastro` ao formato de `faixaDosDias` (`aberta` → `aberto`); `linhaDaTabela(rotulo, hoje, simulacao, unidade)` devolve hoje, simulação e a mudança com o sinal "−" tipográfico e o tom (verde para mais pessoas ou horas contratadas, vermelho para menos horas abertas)
-- [ ] T009 [US4] Em `resultado-regras.js`: `textoContratarSimulacao(contratar)` ("1 atendente", "2 caixas", "1 farmacêutico · parcial de 20h", "Nenhuma contratação"); `textoHoraExtra(h)` ("0h" com "não precisa", ou "6h por semana")
-- [ ] T010 [P] [US1] `resultado-regras.test.js`: adaptação do horário; mudança (zero, mais, menos, meia hora); contratar (inteiras, parcial com horas, nenhuma); hora extra; reaproveita `textoDaVariacao`, `textoDoTotal` e `faixaDosDias` da spec 037 sem repetir os testes deles
-- [ ] T011 Rodar os testes da tela e commitar a fatia
+- [x] T008 [US2] `features/simulacao/resultado-regras.js` (novo, puro): `diasDaSimulacao(horario)` adapta `horario.dias` e `horario.cadastro` ao formato de `faixaDosDias` (`aberta` → `aberto`); `linhaDaTabela(rotulo, hoje, simulacao, unidade)` devolve hoje, simulação e a mudança com o sinal "−" tipográfico e o tom (verde para mais pessoas ou horas contratadas, vermelho para menos horas abertas)
+- [x] T009 [US4] Em `resultado-regras.js`: `textoContratarSimulacao(contratar)` ("1 atendente", "2 caixas", "1 farmacêutico · parcial de 20h", "Nenhuma contratação"); `textoHoraExtra(h)` ("0h" com "não precisa", ou "6h por semana")
+- [x] T010 [P] [US1] `resultado-regras.test.js`: adaptação do horário; mudança (zero, mais, menos, meia hora); contratar (inteiras, parcial com horas, nenhuma); hora extra; reaproveita `textoDaVariacao`, `textoDoTotal` e `faixaDosDias` da spec 037 sem repetir os testes deles
+- [x] T011 Rodar os testes da tela e commitar a fatia
 
 ## Fatia 3 — A tela: o card novo (Histórias 1 a 6)
 - [ ] T012 [US1] `features/simulacao/ResultadoEmHoras.jsx` (novo): pill de status; dois números grandes (Venda e Custo de pessoal em %, com o apoio "em relação a hoje" e "N contratações"); total de horas e faixa dos 7 dias (`FaixaDosDias`); tabela Hoje × Simulação × Mudança; "Contratar" por função; faixa amarela de causa; carregamento de hoje enquanto calcula; "Informe os salários para ver a variação do custo." quando faltam salários

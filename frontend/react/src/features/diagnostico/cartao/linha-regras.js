@@ -70,8 +70,8 @@ export const faixaDosDias = (novos = [], antes = []) =>
 
 // ---- Contratar -------------------------------------------------------------------------------------------------------
 
-const NOME_DA_FUNCAO = { Farmacêutico: "farmacêutico", Atendimento: "atendente", Caixa: "caixa", Apoio: "apoio" };
-const nomeDaFuncao = (f) => NOME_DA_FUNCAO[f] ?? String(f).toLowerCase();
+export const NOME_DA_FUNCAO = { Farmacêutico: "farmacêutico", Atendimento: "atendente", Caixa: "caixa", Apoio: "apoio" };
+export const nomeDaFuncao = (f) => NOME_DA_FUNCAO[f] ?? String(f).toLowerCase();
 
 // Uma linha por contratação: "1 atendente", "2 caixas", "1 farmacêutico · parcial". Sem contratação: "Nenhuma contratação".
 export const textoContratar = (contratar = []) => {

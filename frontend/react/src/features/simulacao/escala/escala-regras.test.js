@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  turnosParaGravar, avisosDaPessoa, novoTurnoNaFolga, semTurnoNoDia, sugerirTurnosDasVagas, turnoHabitual, turnosParaVaga, vagaSemTurnos,
   cargaDaContratacao, celulasDaFuncao, contratacoesSimuladas, diasDasAbas, efeitoDaContratacao, erroDoFormulario, faixaDeAviso,
   faltasDaFuncao, horasDoDia, horasReforcadas, mediaDoDia, minimoDaFuncao, quartis, recalcularCobertura, sugerirContratacao,
   diasPorExtenso, faixaDasFaltas, opcoesDeHora, textoDaSugestao, textoDoEfeito, textoDoTurno, tomDoQuartil, totalDaSemana, turnosDoFormulario,
@@ -207,5 +208,103 @@ describe("texto da sugestão e opções de hora", () => {
     const o = opcoesDeHora(7, 9);
     expect(o.map((x) => x.texto)).toEqual(["07:00", "07:15", "07:30", "07:45", "08:00", "08:15", "08:30", "08:45", "09:00"]);
     expect(o[1].valor).toBe(7.25);
+  });
+});
+
+describe("turnos sugeridos para as vagas (spec 040)", () => {
+  const abas = [0, 1, 2, 3, 4, 5].map((dia) => ({ dia, abre: 8, fecha: 22 }));
+  const faltaTarde = (de) => cob("Farmacêutico", horas(8, 21, (h) => (h >= de ? 0 : 1)));
+  const todasAsFaltas = (cobDia) => Object.fromEntries(abas.map((a) => [a.dia, cobDia]));
+
+  it("parcial: o menor número de dias com até 6 h por dia, sobre as horas sem cobertura", () => {
+    // 12 h por semana = 2 dias de 6 h; falta das 16h às 21h na sexta e no sábado
+    const porDia = { ...todasAsFaltas(cob("Farmacêutico", horas(8, 21, 1))), 4: faltaTarde(16), 5: faltaTarde(16) };
+    const t = turnosParaVaga({ cargaH: 12, coberturaPorDia: porDia, abas, regra: REGRA });
+    expect(t.map((x) => x.dia)).toEqual([4, 5]);
+    expect(t.every((x) => x.entrada === 16 && x.saida === 22 && x.iniIntervalo === null)).toBe(true);
+  });
+  it("as horas semanais dos turnos batem com as da vaga (15 h = 3 dias de 5 h)", () => {
+    const t = turnosParaVaga({ cargaH: 15, coberturaPorDia: todasAsFaltas(faltaTarde(14)), abas, regra: REGRA });
+    expect(t).toHaveLength(3);
+    expect(t.reduce((s, x) => s + (x.saida - x.entrada), 0)).toBe(15);
+  });
+  it("integral: a jornada cheia da regra nos dias que ela permite, com intervalo", () => {
+    const t = turnosParaVaga({ cargaH: 40, coberturaPorDia: todasAsFaltas(faltaTarde(10)), abas, regra: REGRA });
+    expect(t).toHaveLength(5);
+    expect(t[0].saida - t[0].entrada).toBe(9); // 8 h líquidas + 1 h de intervalo
+    expect(t[0].fimIntervalo - t[0].iniIntervalo).toBe(1);
+  });
+  it("sem falta alguma, começa na abertura do primeiro dia", () => {
+    const t = turnosParaVaga({ cargaH: 6, coberturaPorDia: todasAsFaltas(cob("Farmacêutico", horas(8, 21, 1))), abas, regra: REGRA });
+    expect(t).toHaveLength(1);
+    expect(t[0]).toMatchObject({ dia: 0, entrada: 8, saida: 14 });
+  });
+  it("vaga que não cabe nos dias abertos usa os dias que existem e sobe as horas por dia até o máximo", () => {
+    const poucos = [{ dia: 5, abre: 8, fecha: 20 }, { dia: 6, abre: 8, fecha: 14 }];
+    const t = turnosParaVaga({ cargaH: 28, coberturaPorDia: {}, abas: poucos, regra: REGRA });
+    expect(t.length).toBeLessThanOrEqual(2);
+    for (const x of t) expect(x.saida - x.entrada).toBeLessThanOrEqual(9);
+  });
+
+  const quadro = [
+    { matricula: "A", nome: "Ana", funcao: "Farmacêutico", cargaH: 40 },
+    { matricula: "VAGA-1", nome: "Vaga 1", funcao: "Farmacêutico", cargaH: 12, vaga: true },
+    { matricula: "VAGA-2", nome: "Vaga 2", funcao: "Farmacêutico", cargaH: 12, vaga: true },
+    { matricula: "VAGA-3", nome: "Vaga 3", funcao: "Caixa", cargaH: 12, vaga: true, desligado: true },
+  ];
+  it("vagas sem turno: só as simuladas e ativas que não têm nenhum", () => {
+    expect(vagaSemTurnos(quadro, [{ matricula: "VAGA-1", dia: 0 }]).map((v) => v.matricula)).toEqual(["VAGA-2"]);
+  });
+  it("duas vagas da mesma função: a segunda cobre o que a primeira deixou", () => {
+    const cobertura = Object.fromEntries(abas.map((a) => [a.dia, [{ funcao: "Farmacêutico", minimo: 1, porHora: horas(8, 21, (h) => (h >= 16 ? 0 : 1)).map(([hora, p]) => cel(hora, p, 1)) }]]));
+    // Ana cobre das 8h às 16h em todos os dias; sobram 16h–22h por cobrir
+    const turnosDaAna = abas.map((x) => ({ matricula: "A", dia: x.dia, entrada: 8, saida: 16, iniIntervalo: null, fimIntervalo: null }));
+    const novos = sugerirTurnosDasVagas({ quadro, turnos: turnosDaAna, cobertura, abas, regra: REGRA });
+    const v1 = novos.filter((t) => t.matricula === "VAGA-1");
+    const v2 = novos.filter((t) => t.matricula === "VAGA-2");
+    expect(v1.length).toBeGreaterThan(0);
+    expect(v2.length).toBeGreaterThan(0);
+    // a primeira cobre 16h–22h em 2 dias; a segunda vai para outros dias que ainda faltam
+    const diasV1 = new Set(v1.map((t) => t.dia));
+    expect(v2.some((t) => !diasV1.has(t.dia))).toBe(true);
+    expect(novos.every((t) => t.matricula !== "VAGA-3")).toBe(true);
+  });
+});
+
+describe("folga, tirar do dia e avisos (spec 040)", () => {
+  const T = (matricula, dia, entrada = 8, saida = 16, ini = null, fim = null) => ({ matricula, dia, entrada, saida, iniIntervalo: ini, fimIntervalo: fim });
+  const aba = { dia: 5, abre: 8, fecha: 20 };
+  it("turno habitual: o mais repetido nos outros dias; sem histórico, nulo", () => {
+    const turnos = [T("A", 0, 8, 16), T("A", 1, 8, 16), T("A", 2, 10, 18), T("A", 5, 7, 11)];
+    expect(turnoHabitual(turnos, "A", 5)).toMatchObject({ entrada: 8, saida: 16 });
+    expect(turnoHabitual([T("A", 5)], "A", 5)).toBeNull();
+    expect(turnoHabitual(turnos, "B", 5)).toBeNull();
+  });
+  it("folga clicável: o habitual cortado nas horas do dia", () => {
+    const turnos = [T("A", 0, 7, 19, 12, 13)];
+    expect(novoTurnoNaFolga({ turnos, matricula: "A", dia: 5, aba, regra: REGRA })).toEqual({ matricula: "A", dia: 5, entrada: 8, saida: 19, iniIntervalo: 12, fimIntervalo: 13 });
+    expect(novoTurnoNaFolga({ turnos: [T("A", 0, 8, 19, 9, 10)], matricula: "A", dia: 5, aba: { dia: 5, abre: 11, fecha: 20 }, regra: REGRA }).iniIntervalo).toBeNull();
+  });
+  it("folga sem histórico: a abertura do dia com a jornada diária da regra", () => {
+    expect(novoTurnoNaFolga({ turnos: [], matricula: "A", dia: 5, aba, regra: REGRA })).toMatchObject({ entrada: 8, saida: 17, iniIntervalo: 12, fimIntervalo: 13 });
+    expect(novoTurnoNaFolga({ turnos: [], matricula: "A", dia: 5, aba: { dia: 5, abre: 8, fecha: 12 }, regra: REGRA }).saida).toBe(12);
+  });
+  it("tirar do dia remove só o turno daquele dia", () => {
+    const turnos = [T("A", 0), T("A", 1), T("B", 1)];
+    expect(semTurnoNoDia(turnos, "A", 1).map((t) => [t.matricula, t.dia])).toEqual([["A", 0], ["B", 1]]);
+  });
+  it("avisos da pessoa: só os dela e sem cobertura", () => {
+    const av = {
+      erros: [{ matricula: "A", regra: "jornada-semanal", texto: "A: 56h na semana" }, { matricula: "A", regra: "cobertura", texto: "x" }, { matricula: "B", regra: "folgas", texto: "B: 7 dias" }],
+      avisos: [{ matricula: "A", regra: "intervalo-descoberto", texto: "A sozinho" }],
+    };
+    expect(avisosDaPessoa(av, "A")).toEqual(["A: 56h na semana", "A sozinho"]);
+    expect(avisosDaPessoa(undefined, "A")).toEqual([]);
+  });
+});
+
+describe("turnos para gravar", () => {
+  it("mantém só os campos que o servidor aceita, com intervalo nulo quando não há", () => {
+    expect(turnosParaGravar([{ id: "x", matricula: "A", dia: 1, entrada: 8, saida: 16, extra: 1 }])).toEqual([{ matricula: "A", dia: 1, entrada: 8, saida: 16, iniIntervalo: null, fimIntervalo: null }]);
   });
 });

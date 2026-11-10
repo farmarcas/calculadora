@@ -4,7 +4,7 @@ import FormularioContratar from "./FormularioContratar.jsx";
 import GradeDeHoras from "./GradeDeHoras.jsx";
 import LinhaDaFuncao from "./LinhaDaFuncao.jsx";
 import LinhaDaPessoa from "./LinhaDaPessoa.jsx";
-import { contratacoesSimuladas, diasDasAbas, faixaDeAviso, horasDoDia, horasReforcadas, recalcularCobertura, textoDoTurno } from "./escala-regras.js";
+import { contratacoesSimuladas, diasDasAbas, faixaDeAviso, horasDoDia, horasReforcadas, recalcularCobertura, textoDoTurno, turnosParaGravar } from "./escala-regras.js";
 
 const ORDEM = ["Farmacêutico", "Atendimento", "Caixa"];
 const NOMES_LONGOS = ["segunda", "terça", "quarta", "quinta", "sexta", "sábado", "domingo"];
@@ -86,7 +86,7 @@ export default function EscalaPorHora({ sim, editavel, dono, calculando = false,
     const novos = base.map((t) => (t.matricula === matricula && t.dia === novo.dia ? { ...t, ...novo } : t));
     setAjuste(novos);
     if (definitivo)
-      onSalvar({ turnos: novos.map(({ matricula: m, dia: d, entrada, saida, iniIntervalo, fimIntervalo }) => ({ matricula: m, dia: d, entrada, saida, iniIntervalo: iniIntervalo ?? null, fimIntervalo: fimIntervalo ?? null })) });
+      onSalvar({ turnos: turnosParaGravar(novos) });
   };
   // As regras de jornada, intervalo e folga que a avaliação aponta; avisam e não impedem salvar o cenário.
   const regrasDeTurno = [...(sim.avaliacao?.erros ?? []), ...(sim.avaliacao?.avisos ?? [])].filter((a) => !["cobertura", "farmaceutico"].includes(a.regra));

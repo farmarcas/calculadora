@@ -55,7 +55,10 @@ describe('faturamentoDaLinha', () => {
   it('planilha antiga com a coluna de margem (até 150) é aceita e a coluna é ignorada', () => {
     const r = faturamentoDaLinha(linha({ fat_seg: '100', margem_pct: '150' }));
     expect(r.erro).toBeUndefined();
-    expect(r.faturamento).toEqual({ dias: [100, null, null, null, null, null, null], mensal: null });
+    expect(r.faturamento).toEqual({
+      dias: [100, null, null, null, null, null, null],
+      mensal: null,
+    });
     expect(faturamentoDaLinha(linha({ margem_pct: '28' }))).toEqual({});
   });
 });

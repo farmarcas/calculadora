@@ -128,7 +128,10 @@ describe('custos da loja (rotas)', () => {
   });
 
   it('RAT, FAP e rescisão por loja não valem mais: o custo é o do regime e o que já estava guardado fica como está', async () => {
-    await reqGe().patch(`/api/v1/lojas/${lojaId}`).set(admin).send({ regimeTributario: 'presumido' });
+    await reqGe()
+      .patch(`/api/v1/lojas/${lojaId}`)
+      .set(admin)
+      .send({ regimeTributario: 'presumido' });
     // enviar ajustes (formato antigo) é aceito, mas não muda o encargo: 62,2% do Presumido
     const enviado = await reqGe()
       .put(`/api/v1/lojas/${lojaId}/custos`)
@@ -136,7 +139,9 @@ describe('custos da loja (rotas)', () => {
       .send({ ...valores, encargos: { ratPct: 3, fap: 1.5, rescisaoLigada: true } });
     expect(enviado.status).toBe(200);
     expect(enviado.body.encargos).toMatchObject({ totalPct: 62.2, rescisaoLigada: false });
-    expect((await prisma.loja.findUniqueOrThrow({ where: { id: lojaId } })).custos).toEqual(valores);
+    expect((await prisma.loja.findUniqueOrThrow({ where: { id: lojaId } })).custos).toEqual(
+      valores,
+    );
 
     // um ajuste que já estava guardado no banco (loja antiga) continua lá depois de salvar, mas não entra na conta
     await prisma.loja.update({

@@ -58,14 +58,26 @@ describe('planejarMigracao', () => {
       fimIntervalo: 14,
       dias: [0, 1],
     });
-    const r = planejarMigracao([turno('B', { funcao: 'Farmacêutico', entrada: 7, saida: 16 })], [cheio]);
+    const r = planejarMigracao(
+      [turno('B', { funcao: 'Farmacêutico', entrada: 7, saida: 16 })],
+      [cheio],
+    );
     expect(r.preenchimentos).toEqual([]);
     expect(r.relatorio).toEqual({ preenchidos: 0, jaTinhamDados: 1, semCorrespondente: [] });
   });
 
   it('completa só o que falta (horário vazio, resto preenchido)', () => {
-    const r = planejarMigracao([turno('C')], [func('C', { funcaoEscala: 'Caixa', cargaSemanalH: 40 })]);
-    expect(Object.keys(r.preenchimentos[0]!.dados).sort()).toEqual(['dias', 'entrada', 'fimIntervalo', 'iniIntervalo', 'saida']);
+    const r = planejarMigracao(
+      [turno('C')],
+      [func('C', { funcaoEscala: 'Caixa', cargaSemanalH: 40 })],
+    );
+    expect(Object.keys(r.preenchimentos[0]!.dados).sort()).toEqual([
+      'dias',
+      'entrada',
+      'fimIntervalo',
+      'iniIntervalo',
+      'saida',
+    ]);
   });
 
   it('pessoa da escala sem funcionário no Cadastro vai para o relatório e não é criada', () => {
@@ -97,7 +109,10 @@ describe('planejarMigracao', () => {
   });
 
   it('matrícula repetida na escala vale a primeira linha', () => {
-    const r = planejarMigracao([turno('A', { entrada: 8 }), turno('A', { entrada: 10 })], [func('A')]);
+    const r = planejarMigracao(
+      [turno('A', { entrada: 8 }), turno('A', { entrada: 10 })],
+      [func('A')],
+    );
     expect(r.preenchimentos).toHaveLength(1);
     expect(r.preenchimentos[0]!.dados.entrada).toBe(8);
   });
@@ -105,8 +120,21 @@ describe('planejarMigracao', () => {
   it('pessoa sem correspondente gera uma criação (só usada com --criar-ausentes), com o intervalo válido', () => {
     const r = planejarMigracao([turno('Z')], []);
     expect(r.criacoes).toEqual([
-      { matricula: 'Z', nome: 'Pessoa Z', funcaoEscala: 'Farmacêutico', cargaSemanalH: 44, entrada: 8, saida: 17, iniIntervalo: 12, fimIntervalo: 13, dias: [0, 1, 2, 3, 4] },
+      {
+        matricula: 'Z',
+        nome: 'Pessoa Z',
+        funcaoEscala: 'Farmacêutico',
+        cargaSemanalH: 44,
+        entrada: 8,
+        saida: 17,
+        iniIntervalo: 12,
+        fimIntervalo: 13,
+        dias: [0, 1, 2, 3, 4],
+      },
     ]);
-    expect(planejarMigracao([turno('Y', { fimIntervalo: null })], []).criacoes[0]).toMatchObject({ iniIntervalo: null, fimIntervalo: null });
+    expect(planejarMigracao([turno('Y', { fimIntervalo: null })], []).criacoes[0]).toMatchObject({
+      iniIntervalo: null,
+      fimIntervalo: null,
+    });
   });
 });

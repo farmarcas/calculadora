@@ -1,11 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  interpretarBase,
-  lerDias,
-  lerHora,
-  lerNumero,
-  somarPorHora,
-} from './interpretar.js';
+import { interpretarBase, lerDias, lerHora, lerNumero, somarPorHora } from './interpretar.js';
 
 describe('leitura de valores', () => {
   it('horas em vários formatos', () => {
@@ -25,7 +19,6 @@ describe('leitura de valores', () => {
     expect(lerNumero('R$ 310,00')).toBe(310);
   });
 });
-
 
 describe('interpretarBase', () => {
   it('lê e soma por data e hora', () => {

@@ -12,7 +12,8 @@ export const validarIntervalo = (a: {
   const temIni = !!a.ini;
   const temFim = !!a.fim;
   if (!temIni && !temFim) return null;
-  if (temIni !== temFim) return 'Informe o início e o fim do intervalo (ou deixe os dois em branco)';
+  if (temIni !== temFim)
+    return 'Informe o início e o fim do intervalo (ou deixe os dois em branco)';
   if (!a.entrada || !a.saida) return 'Informe a entrada e a saída antes do intervalo';
   const ini = horaParaDecimal(a.ini!);
   const fim = horaParaDecimal(a.fim!);

@@ -18,7 +18,12 @@ export type EntradaSaldoOperacao = {
 // Nulo quando falta qualquer parte (sem salários ou sem venda hora a hora): nunca zero por engano.
 export const saldoDaOperacao = (e: EntradaSaldoOperacao): number | null => {
   const { economiaFolha, custoFolha, vendaEstimada, vendaPerdida } = e;
-  if (economiaFolha === null || custoFolha === null || vendaEstimada === null || vendaPerdida === null)
+  if (
+    economiaFolha === null ||
+    custoFolha === null ||
+    vendaEstimada === null ||
+    vendaPerdida === null
+  )
     return null;
   const saldo = economiaFolha - custoFolha + (vendaEstimada - vendaPerdida);
   return Math.round(saldo * 100) / 100 || 0; // `|| 0` evita o zero negativo

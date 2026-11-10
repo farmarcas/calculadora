@@ -154,7 +154,8 @@ export const cadastrosRepository = (geId: string): CadastrosRepository => ({
       funcoes.set(g.lojaId, [...(funcoes.get(g.lojaId) ?? []), g.funcaoEscala!]);
     }
     return rows.map(({ custos, ...resto }) => {
-      const salarios = (custos as { salarioMedio?: Record<string, number> } | null)?.salarioMedio ?? {};
+      const salarios =
+        (custos as { salarioMedio?: Record<string, number> } | null)?.salarioMedio ?? {};
       return {
         // Os salários não saem daqui (só o dono os vê): a lista leva só quais funções têm salário informado.
         loja: comoLoja(resto),
@@ -203,7 +204,10 @@ export const cadastrosRepository = (geId: string): CadastrosRepository => ({
     const dados = limpa(i) as Record<string, unknown>;
     // A margem que já estava guardada no faturamento nunca muda por aqui.
     if (dados.faturamento !== undefined) {
-      const atual = await prisma.loja.findFirst({ where: { id, geId }, select: { faturamento: true } });
+      const atual = await prisma.loja.findFirst({
+        where: { id, geId },
+        select: { faturamento: true },
+      });
       const fat = manterMargem(dados.faturamento as Faturamento | null, atual?.faturamento);
       dados.faturamento = fat === null ? Prisma.JsonNull : fat;
     }

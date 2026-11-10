@@ -28,8 +28,7 @@ const arred = (n: number) => Math.round(n * 100) / 100;
 
 export const somarGrupo = (lojas: ImpactoDaLoja[]): ImpactoDoGrupo => {
   const completas = lojas.filter((l) => l.saldoMensal !== null);
-  const soma = (campo: keyof ImpactoDaLoja) =>
-    completas.reduce((s, l) => s + (l[campo] ?? 0), 0);
+  const soma = (campo: keyof ImpactoDaLoja) => completas.reduce((s, l) => s + (l[campo] ?? 0), 0);
   const saldo = soma('saldoMensal');
   const faturamento = lojas.reduce((s, l) => s + (l.faturamentoMensal ?? 0), 0);
   return {

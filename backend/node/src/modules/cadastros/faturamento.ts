@@ -51,8 +51,7 @@ export const faturamentoDaLinha = (
     numero(celula('fat_mensal')),
   ];
   if (lidos.every((n) => n === null)) return {};
-  if (lidos.some((n) => Number.isNaN(n)))
-    return { erro: 'faturamento com valor inválido' };
+  if (lidos.some((n) => Number.isNaN(n))) return { erro: 'faturamento com valor inválido' };
   return {
     faturamento: {
       dias: lidos.slice(0, 7) as (number | null)[],

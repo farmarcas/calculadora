@@ -90,11 +90,11 @@ export const perdaMensal = (
   tabela
     ? vendaPerdidaHoraria(hoje, atual, tabela).vendaMes
     : hoje.reduce((s, d) => {
-    const agora = atual.find((x) => x.dia === d.dia);
-    // Horário maior que o de hoje não é perda (o ganho das horas novas é calculado à parte).
-    const fracao = Math.max(0, 1 - (agora ? horasDoDia(agora) : 0) / horasDoDia(d));
-    return s + (porDia.find((v) => v.dia === d.dia)?.vendaMes ?? 0) * fracao;
-  }, 0);
+        const agora = atual.find((x) => x.dia === d.dia);
+        // Horário maior que o de hoje não é perda (o ganho das horas novas é calculado à parte).
+        const fracao = Math.max(0, 1 - (agora ? horasDoDia(agora) : 0) / horasDoDia(d));
+        return s + (porDia.find((v) => v.dia === d.dia)?.vendaMes ?? 0) * fracao;
+      }, 0);
 
 // Fração da hora `h` (de h a h+1) que o dia `d` fica aberto.
 const abertaNaHora = (d: DiaAberto | undefined, h: number) =>
@@ -224,7 +224,11 @@ export const passosDe = (hoje: DiaAberto[], final: DiaAberto[]): Passo[] => {
   }
   // Ordem em que o cenário aplica: reduções, depois fechar o domingo e por fim o sábado.
   fechados.sort((a, b) => b.dia - a.dia);
-  return [...reduzidos.sort((a, b) => b.dia - a.dia), ...fechados, ...estendidos.sort((a, b) => a.dia - b.dia)];
+  return [
+    ...reduzidos.sort((a, b) => b.dia - a.dia),
+    ...fechados,
+    ...estendidos.sort((a, b) => a.dia - b.dia),
+  ];
 };
 
 // Sequência do Cenário 2. Fases, cada uma a partir do horário de hoje:
@@ -369,7 +373,11 @@ export const ganhoDasHorasNovas = (
         dia: d.dia,
         horasNovas: horasNovas.length,
         origem:
-          registradas === horasNovas.length ? 'registrada' : registradas === 0 ? 'vizinha' : 'mista',
+          registradas === horasNovas.length
+            ? 'registrada'
+            : registradas === 0
+              ? 'vizinha'
+              : 'mista',
         vendaMes: arred2(venda * SEMANAS_NO_MES),
       });
     }

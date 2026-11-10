@@ -228,11 +228,17 @@ export const montarDiagnostico = (a: {
     const com8h24 =
       id === 'r42' && !loja.convencao8h24
         ? {
-            funcoes: verificarRegra(regraPara('r42', true, a.parametros), dias, exigencias, pessoas, {
-              limiteParcial: prem.limiteParcial,
-              regraAtual: regraPara('atual', loja.convencao8h24, a.parametros),
-              divisor: (a.parametros ?? PARAMETROS_PADRAO)[id].divisor,
-            }).map((f) => ({
+            funcoes: verificarRegra(
+              regraPara('r42', true, a.parametros),
+              dias,
+              exigencias,
+              pessoas,
+              {
+                limiteParcial: prem.limiteParcial,
+                regraAtual: regraPara('atual', loja.convencao8h24, a.parametros),
+                divisor: (a.parametros ?? PARAMETROS_PADRAO)[id].divisor,
+              },
+            ).map((f) => ({
               funcao: f.funcao,
               capacidadeH: f.capacidadeH,
               necessidadeH: f.necessidadeH,

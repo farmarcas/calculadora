@@ -116,10 +116,13 @@ export const montarComparativo = (e: EntradaCenarios, c: CenariosRegra): Compara
         vendaPerdida,
       }),
       vendaAdicionalPct:
-        vendaAdicional !== null && fat !== null && fat > 0 ? pct((vendaAdicional / fat) * 100) : null,
+        vendaAdicional !== null && fat !== null && fat > 0
+          ? pct((vendaAdicional / fat) * 100)
+          : null,
       saldoMensal: saldo === null ? null : arred(saldo) || 0,
       saldoAnual: saldo === null ? null : arred(saldo * 12) || 0,
-      pesoNoFaturamentoPct: saldo !== null && fat !== null && fat > 0 ? pct((saldo / fat) * 100) : null,
+      pesoNoFaturamentoPct:
+        saldo !== null && fat !== null && fat > 0 ? pct((saldo / fat) * 100) : null,
     };
   };
 

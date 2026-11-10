@@ -453,7 +453,14 @@ export const CAMPOS_FUNCIONARIO: CampoDef[] = [
     rotulo: 'Início do intervalo',
     obrigatorio: false,
     exemplo: '12:00',
-    sinonimos: ['inicio intervalo', 'inicio do intervalo', 'ini intervalo', 'saida almoco', 'saida para almoco', 'intervalo inicio'],
+    sinonimos: [
+      'inicio intervalo',
+      'inicio do intervalo',
+      'ini intervalo',
+      'saida almoco',
+      'saida para almoco',
+      'intervalo inicio',
+    ],
     conteudo: (v) => /^\d{1,2}(:\d{2})?(:\d{2})?$/.test(v),
   },
   {
@@ -461,7 +468,14 @@ export const CAMPOS_FUNCIONARIO: CampoDef[] = [
     rotulo: 'Fim do intervalo',
     obrigatorio: false,
     exemplo: '13:00',
-    sinonimos: ['fim intervalo', 'fim do intervalo', 'volta almoco', 'volta do almoco', 'retorno almoco', 'intervalo fim'],
+    sinonimos: [
+      'fim intervalo',
+      'fim do intervalo',
+      'volta almoco',
+      'volta do almoco',
+      'retorno almoco',
+      'intervalo fim',
+    ],
     conteudo: (v) => /^\d{1,2}(:\d{2})?(:\d{2})?$/.test(v),
   },
   {
@@ -488,11 +502,7 @@ export const CAMPOS_FUNCIONARIO: CampoDef[] = [
   },
 ];
 
-export const FUNCOES_ESCALA = [
-  'Farmacêutico',
-  'Atendimento',
-  'Caixa',
-] as const;
+export const FUNCOES_ESCALA = ['Farmacêutico', 'Atendimento', 'Caixa'] as const;
 
 export const CAMPOS_BASE: CampoDef[] = [
   {

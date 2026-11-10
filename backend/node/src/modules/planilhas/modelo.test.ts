@@ -47,7 +47,8 @@ describe('planilha modelo', () => {
     ];
     for (const col of esperadas) expect(lojas, col).toContain(col);
     // RAT, FAP e rescisão por loja não existem mais: os encargos vêm só do regime tributário.
-    for (const col of ['RAT (%)', 'FAP', 'Provisão de rescisão (Sim/Não)']) expect(lojas, col).not.toContain(col);
+    for (const col of ['RAT (%)', 'FAP', 'Provisão de rescisão (Sim/Não)'])
+      expect(lojas, col).not.toContain(col);
   });
 
   it('cada campo da equipe existe como coluna da aba Funcionários, inclusive o horário fixo', async () => {
@@ -95,8 +96,7 @@ describe('planilha modelo', () => {
     for (const col of ['Código da loja de lotação', 'Cargo (texto livre)', 'Função de escala'])
       expect(funcionarios, col).not.toContain(col);
     expect(funcionarios.filter((c) => c === 'Cargo')).toHaveLength(1);
-    const bruto = (nome: string) =>
-      (wb.getWorksheet(nome)!.getRow(1).values as string[]).slice(1);
+    const bruto = (nome: string) => (wb.getWorksheet(nome)!.getRow(1).values as string[]).slice(1);
     expect(bruto('Lojas')[0]).toBe('CNPJ *');
     expect(bruto('Funcionários')).toContain('CNPJ da loja *');
   });

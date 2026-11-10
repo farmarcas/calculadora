@@ -31,10 +31,14 @@ export const painelRouter = () => {
   const s = (res: Response) =>
     makePainelService(geDe(res), cadastrosRepository(geDe(res)), auditorDoGe(geDe(res)));
 
-  r.get('/lojas/:id/painel', validate(z.object({ body: vazio.default({}), params: id, query: vazio.default({}) })), async (_req, res) => {
-    const { params } = readValidated<{ params: { id: string } }>(res);
-    res.json(await s(res).ler(params.id, res.locals.perfil as string));
-  });
+  r.get(
+    '/lojas/:id/painel',
+    validate(z.object({ body: vazio.default({}), params: id, query: vazio.default({}) })),
+    async (_req, res) => {
+      const { params } = readValidated<{ params: { id: string } }>(res);
+      res.json(await s(res).ler(params.id, res.locals.perfil as string));
+    },
+  );
   r.put('/lojas/:id/painel', validate(painelReq), async (_req, res) => {
     const { params, body } = readValidated<{ params: { id: string }; body: PainelBody }>(res);
     res.json(await s(res).salvar(params.id, body, res.locals.perfil as string));

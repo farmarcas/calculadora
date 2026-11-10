@@ -1,11 +1,22 @@
 import type { PrismaClient } from '../../generated/prisma/client.js';
 import { planejarMigracao, type RelatorioLoja } from './migrar-escala.js';
 
-export type LinhaDoRelatorio = RelatorioLoja & { loja: string; nomeLoja: string; geId: string; criados: number };
+export type LinhaDoRelatorio = RelatorioLoja & {
+  loja: string;
+  nomeLoja: string;
+  geId: string;
+  criados: number;
+};
 export type ResultadoMigracao = {
   aplicado: boolean;
   lojas: LinhaDoRelatorio[];
-  totais: { lojas: number; preenchidos: number; jaTinhamDados: number; semCorrespondente: number; criados: number };
+  totais: {
+    lojas: number;
+    preenchidos: number;
+    jaTinhamDados: number;
+    semCorrespondente: number;
+    criados: number;
+  };
 };
 
 // Lê as escalas importadas ativas, monta o plano por loja e, só com `aplicar`, grava (uma transação por loja). Sem `aplicar`

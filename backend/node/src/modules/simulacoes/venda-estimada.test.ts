@@ -22,7 +22,11 @@ describe('horas novas', () => {
     expect(n[0]!.map((v, h) => (v ? h : -1)).filter((h) => h >= 0)).toEqual([6, 7, 20, 21]);
   });
   it('reduzir ou manter não cria hora nova', () => {
-    expect(horasNovas(CAD, [dia(0, 9, 18)]).flat().some(Boolean)).toBe(false);
+    expect(
+      horasNovas(CAD, [dia(0, 9, 18)])
+        .flat()
+        .some(Boolean),
+    ).toBe(false);
     expect(horasNovas(CAD, CAD).flat().some(Boolean)).toBe(false);
   });
 });

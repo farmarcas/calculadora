@@ -507,9 +507,10 @@ describe('cadastros (rotas)', () => {
         .set(admin)
         .send({ mapeamento: up2.body.mapeamento });
       expect(ok2.body.lojas).toEqual({ novos: 0, atualizados: 1 });
-      expect(
-        (await prisma.loja.findFirst({ where: { codigo: '050' } }))?.faturamento,
-      ).toEqual({ dias: [10000, null, null, null, null, null, null], mensal: 300000 });
+      expect((await prisma.loja.findFirst({ where: { codigo: '050' } }))?.faturamento).toEqual({
+        dias: [10000, null, null, null, null, null, null],
+        mensal: 300000,
+      });
     });
 
     it('a margem que já estava guardada na loja continua a mesma ao salvar o faturamento e ao importar planilha antiga', async () => {
@@ -819,21 +820,36 @@ describe('cadastros (rotas)', () => {
     });
 
     it('intervalo: guarda, devolve, edita, limpa e recusa os erros em português', async () => {
-      const r = await novo({ entrada: '08:00', saida: '17:00', iniIntervalo: '12:00', fimIntervalo: '13:00', dias: [0, 1] });
+      const r = await novo({
+        entrada: '08:00',
+        saida: '17:00',
+        iniIntervalo: '12:00',
+        fimIntervalo: '13:00',
+        dias: [0, 1],
+      });
       expect(r.status).toBe(201);
       expect(r.body).toMatchObject({ iniIntervalo: '12:00', fimIntervalo: '13:00' });
-      const lista = (await reqGe().get(`/api/v1/funcionarios?lojaId=${lojaId}`).set(admin)).body.data;
+      const lista = (await reqGe().get(`/api/v1/funcionarios?lojaId=${lojaId}`).set(admin)).body
+        .data;
       expect(lista[0]).toMatchObject({ iniIntervalo: '12:00', fimIntervalo: '13:00' });
       const id = r.body.id;
-      const edita = (corpo: object) => reqGe().patch(`/api/v1/funcionarios/${id}`).set(admin).send(corpo);
-      expect((await edita({ iniIntervalo: '12:30', fimIntervalo: '13:30' })).body).toMatchObject({ iniIntervalo: '12:30', fimIntervalo: '13:30' });
+      const edita = (corpo: object) =>
+        reqGe().patch(`/api/v1/funcionarios/${id}`).set(admin).send(corpo);
+      expect((await edita({ iniIntervalo: '12:30', fimIntervalo: '13:30' })).body).toMatchObject({
+        iniIntervalo: '12:30',
+        fimIntervalo: '13:30',
+      });
       // só um dos dois
       const so = await edita({ fimIntervalo: null });
       expect(so.status).toBe(400);
       expect(so.body.error.message).toContain('início e o fim do intervalo');
       // fim antes do início, e fora do turno (a saída que fica é a de 17:00)
-      expect((await edita({ iniIntervalo: '13:00', fimIntervalo: '12:00' })).body.error.message).toContain('depois do início');
-      expect((await edita({ iniIntervalo: '16:30', fimIntervalo: '17:30' })).body.error.message).toContain('dentro do horário');
+      expect(
+        (await edita({ iniIntervalo: '13:00', fimIntervalo: '12:00' })).body.error.message,
+      ).toContain('depois do início');
+      expect(
+        (await edita({ iniIntervalo: '16:30', fimIntervalo: '17:30' })).body.error.message,
+      ).toContain('dentro do horário');
       // encurtar o turno para antes do intervalo também é recusado
       expect((await edita({ saida: '12:15' })).status).toBe(400);
       // limpar os dois
@@ -926,14 +942,21 @@ describe('cadastros (rotas)', () => {
         .map(() => ({ aberta: true, abre: '08:00', fecha: '20:00' }))
         .concat([{ aberta: false } as never]),
     };
-    const fatCompleto = { dias: [1000, 1000, 1000, 1000, 1000, 1000, null], mensal: null, margemPct: 30 };
+    const fatCompleto = {
+      dias: [1000, 1000, 1000, 1000, 1000, 1000, null],
+      mensal: null,
+      margemPct: 30,
+    };
     const dadosOk = { cidade: 'Sumaré', uf: 'SP', regimeTributario: 'real', horarios: semanaToda };
 
     // Loja completa: dados, horário, faturamento dos dias abertos, margem, salário do farmacêutico e um farmacêutico.
     const completa = async (codigo: string, nome: string, extra: Record<string, unknown> = {}) => {
       const c = await postLoja({ codigo, nome, ...dadosOk, ...extra });
       expect(c.status).toBe(201);
-      await reqGe().patch(`/api/v1/lojas/${c.body.id}`).set(admin).send({ faturamento: fatCompleto });
+      await reqGe()
+        .patch(`/api/v1/lojas/${c.body.id}`)
+        .set(admin)
+        .send({ faturamento: fatCompleto });
       await reqGe()
         .put(`/api/v1/lojas/${c.body.id}/custos`)
         .set(admin)
@@ -941,7 +964,12 @@ describe('cadastros (rotas)', () => {
       await reqGe()
         .post('/api/v1/funcionarios')
         .set(admin)
-        .send({ matricula: `F-${codigo}`, nome: `Farma ${codigo}`, lojaId: c.body.id, funcaoEscala: 'Farmacêutico' });
+        .send({
+          matricula: `F-${codigo}`,
+          nome: `Farma ${codigo}`,
+          lojaId: c.body.id,
+          funcaoEscala: 'Farmacêutico',
+        });
       return c.body as { id: string; cnpj: string };
     };
     const lista = (q = '', h: Record<string, string> = admin) =>
@@ -976,20 +1004,33 @@ describe('cadastros (rotas)', () => {
 
     it('sem salário médio a loja fica em Revisar (a margem é opcional), e a lista nunca traz os custos', async () => {
       const c = await postLoja({ codigo: '010', nome: 'Sem custos', ...dadosOk });
-      await reqGe().patch(`/api/v1/lojas/${c.body.id}`).set(admin).send({ faturamento: fatCompleto });
       await reqGe()
-        .post('/api/v1/funcionarios')
+        .patch(`/api/v1/lojas/${c.body.id}`)
         .set(admin)
-        .send({ matricula: 'F-010', nome: 'Farma 010', lojaId: c.body.id, funcaoEscala: 'Farmacêutico' });
+        .send({ faturamento: fatCompleto });
+      await reqGe().post('/api/v1/funcionarios').set(admin).send({
+        matricula: 'F-010',
+        nome: 'Farma 010',
+        lojaId: c.body.id,
+        funcaoEscala: 'Farmacêutico',
+      });
       const sem = (await lista('?busca=010')).body.data[0];
       expect(sem.situacao).toEqual({
         status: 'revisar',
         motivo: 'Falta o salário médio de Farmacêutico',
         quantidade: 1,
       });
-      await reqGe().patch(`/api/v1/lojas/${c.body.id}`).set(admin).send({ faturamento: { ...fatCompleto, margemPct: null } });
-      expect((await lista('?busca=010')).body.data[0].situacao.motivo).toBe('Falta o salário médio de Farmacêutico');
-      await reqGe().put(`/api/v1/lojas/${c.body.id}/custos`).set(admin).send({ salarioMedio: { Farmacêutico: 9000 } });
+      await reqGe()
+        .patch(`/api/v1/lojas/${c.body.id}`)
+        .set(admin)
+        .send({ faturamento: { ...fatCompleto, margemPct: null } });
+      expect((await lista('?busca=010')).body.data[0].situacao.motivo).toBe(
+        'Falta o salário médio de Farmacêutico',
+      );
+      await reqGe()
+        .put(`/api/v1/lojas/${c.body.id}/custos`)
+        .set(admin)
+        .send({ salarioMedio: { Farmacêutico: 9000 } });
       for (const h of [admin, gestor]) {
         const l = (await lista('?busca=010', h)).body.data[0];
         expect('custos' in l).toBe(false);
@@ -1006,7 +1047,11 @@ describe('cadastros (rotas)', () => {
       expect(painel.equipe).toEqual({ farmaceuticos: 0, funcoesNaEquipe: [] });
       expect(JSON.stringify(painel.situacao.pendencias)).not.toMatch(/R\$|\d{4}/);
       const linha = (await lista('?busca=011')).body.data[0];
-      expect(linha.situacao).toEqual({ status: 'revisar', motivo: 'Falta cadastrar um farmacêutico na equipe', quantidade: 3 });
+      expect(linha.situacao).toEqual({
+        status: 'revisar',
+        motivo: 'Falta cadastrar um farmacêutico na equipe',
+        quantidade: 3,
+      });
       expect('pendencias' in linha.situacao).toBe(false);
     });
 
@@ -1017,7 +1062,9 @@ describe('cadastros (rotas)', () => {
       const pontuado = `${f.slice(0, 2)}.${f.slice(2, 5)}.${f.slice(5, 8)}/${f.slice(8, 12)}-${f.slice(12)}`;
       for (const q of [f, pontuado, f.slice(0, 8)])
         expect((await lista(`?busca=${encodeURIComponent(q)}`)).body.data[0].codigo).toBe('001');
-      expect((await lista('?busca=002')).body.data.map((l: { codigo: string }) => l.codigo)).toEqual(['002']);
+      expect(
+        (await lista('?busca=002')).body.data.map((l: { codigo: string }) => l.codigo),
+      ).toEqual(['002']);
     });
 
     it('pagina em cima do resultado filtrado, na ordem do código', async () => {
@@ -1037,7 +1084,9 @@ describe('cadastros (rotas)', () => {
         .set(admin)
         .send({ faturamento: { ...fatCompleto, mensal: 900000 } });
       const rev = (await lista('', gestor)).body.data[0];
-      expect(rev.situacao.motivo).toBe('O faturamento mensal informado difere mais de 10% da soma dos dias');
+      expect(rev.situacao.motivo).toBe(
+        'O faturamento mensal informado difere mais de 10% da soma dos dias',
+      );
       expect(JSON.stringify(rev)).not.toMatch(/900000/);
     });
 

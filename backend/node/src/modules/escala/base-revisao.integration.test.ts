@@ -78,7 +78,9 @@ describe('revisão da base comercial (spec 029)', () => {
   });
 
   it('coluna faltando, planilha vazia, formato errado e arquivo acima do limite: mensagem de como corrigir', async () => {
-    const semHora = await revisar(await xlsx([['01/10/2026', '001', '1']], ['Data', 'Código da loja', 'Venda líquida (R$)']));
+    const semHora = await revisar(
+      await xlsx([['01/10/2026', '001', '1']], ['Data', 'Código da loja', 'Venda líquida (R$)']),
+    );
     expect(semHora.status).toBe(400);
     expect(semHora.body.error.message).toBe(
       'Não encontramos a coluna Hora. Baixe o modelo e confira os nomes das colunas.',

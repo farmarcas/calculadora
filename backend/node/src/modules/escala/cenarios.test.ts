@@ -753,7 +753,9 @@ describe('Cenário 2 — premissa, resultado e falta de cobertura', () => {
     expect(eco.passos).toEqual([]);
     expect(eco.semFarmaceuticoH).toBe(0);
     expect(eco.faltaPorFuncao.length).toBeGreaterThan(0);
-    expect(eco.faltaPorFuncao.every((f) => f.funcao !== 'Farmacêutico' && f.horasSemana > 0)).toBe(true);
+    expect(eco.faltaPorFuncao.every((f) => f.funcao !== 'Farmacêutico' && f.horasSemana > 0)).toBe(
+      true,
+    );
   });
 
   it('sem falta de nenhuma função: lista vazia', () => {

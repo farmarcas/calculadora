@@ -44,7 +44,12 @@ const errosPorLoja = (erros: ErroLinha[]) => {
 };
 
 export const makeEscalaService = (repo: EscalaRepository, auditar: Auditor) => {
-  const abrir = async (arquivo: string, buffer: Buffer, campos: CampoDef[], _nomeModelo: string) => {
+  const abrir = async (
+    arquivo: string,
+    buffer: Buffer,
+    campos: CampoDef[],
+    _nomeModelo: string,
+  ) => {
     const abas = await lerPlanilha(buffer, arquivo);
     if (abas.filter((a) => !/como preencher/i.test(a.nome)).every((a) => a.linhas.length === 0))
       throw new ValidationError(
@@ -71,7 +76,10 @@ export const makeEscalaService = (repo: EscalaRepository, auditar: Auditor) => {
       const porCodigo = new Map(lojas.map((l) => [l.codigo, l]));
       const anteriores = lojas.length ? await repo.basesAtivasDasLojas(lojas.map((l) => l.id)) : [];
       const desde = new Map(anteriores.map((c) => [c.lojaId, c.recebidaEm]));
-      const datas = vendas.filter((v) => porCodigo.has(v.loja)).map((v) => v.data).sort();
+      const datas = vendas
+        .filter((v) => porCodigo.has(v.loja))
+        .map((v) => v.data)
+        .sort();
       return {
         arquivo,
         linhas: vendas.length,

@@ -88,11 +88,17 @@ describe('calcularResultado', () => {
   it('saldo = −folha extra − hora extra + venda estimada − venda que deixa de entrar; anual = mensal × 12; peso sobre o faturamento', () => {
     // Duas farmacêuticas de 40h para 90h abertas: o "manter horário" contrata o que falta; a simulação fecha a segunda às 20h
     // (venda de 2 horas = 2000 × 52 ÷ 12 = 8666,67) e não contrata ninguém: a economia é o custo do manter horário.
-    const r = base({ dias: segundaAte20, vendas: [venda(10, 1000), venda(20, 1000), venda(21, 1000)] });
+    const r = base({
+      dias: segundaAte20,
+      vendas: [venda(10, 1000), venda(20, 1000), venda(21, 1000)],
+    });
     expect(r.custoAdicional).toBe(r.folhaExtra! + r.horaExtra!);
     // A economia de folha (contra manter o horário e contratar) é só informativa; o saldo é contra a folha atual.
     expect(typeof r.economiaFolha).toBe('number');
-    expect(r.saldoMensal).toBeCloseTo(-r.folhaExtra! - r.horaExtra! + r.vendaEstimada! - r.vendaQueSai!, 1);
+    expect(r.saldoMensal).toBeCloseTo(
+      -r.folhaExtra! - r.horaExtra! + r.vendaEstimada! - r.vendaQueSai!,
+      1,
+    );
     expect(r.saldoAnual).toBeCloseTo(r.saldoMensal! * 12, 0);
     const faturamento = 3000 * (52 / 12);
     expect(r.pesoNoFaturamentoPct).toBeCloseTo((r.saldoMensal! / faturamento) * 100, 0);
@@ -109,7 +115,10 @@ describe('calcularResultado', () => {
     expect(sem.horaExtra).toBeGreaterThan(0);
 
     const com = base({
-      quadro: [...sozinha, { matricula: 'VAGA-1', nome: 'Vaga 1', funcao: 'Farmacêutico', cargaH: 40, vaga: true }],
+      quadro: [
+        ...sozinha,
+        { matricula: 'VAGA-1', nome: 'Vaga 1', funcao: 'Farmacêutico', cargaH: 40, vaga: true },
+      ],
     });
     const f1 = com.funcoes.find((f) => f.funcao === 'Farmacêutico')!;
     expect(f1.contratacoes).toHaveLength(1);
@@ -134,7 +143,15 @@ describe('calcularResultado', () => {
 
   it('quem não é dono não recebe nenhum valor em reais', () => {
     const r = base({ dias: segundaAte20, dono: false });
-    for (const k of ['custoAdicional', 'economiaFolha', 'saldoMensal', 'saldoAnual', 'folhaExtra', 'horaExtra', 'vendaQueSai'])
+    for (const k of [
+      'custoAdicional',
+      'economiaFolha',
+      'saldoMensal',
+      'saldoAnual',
+      'folhaExtra',
+      'horaExtra',
+      'vendaQueSai',
+    ])
       expect(r).not.toHaveProperty(k);
     expect(r.vendaPorHora.venda).toBeNull();
     expect(r.horasAbertas).toBe(88);
@@ -142,7 +159,12 @@ describe('calcularResultado', () => {
   });
   it('nível de hoje: uma vaga que cobre o buraco deixa a função coberta ', async () => {
     // Duas atendentes de 44h mantêm 88h hoje; na regra de 40h cada uma faz 40h: faltam 8h, e uma vaga de 8h fecha.
-    const atend = (m: string): PessoaSim => ({ matricula: m, nome: m, funcao: 'Atendimento', cargaH: 44 });
+    const atend = (m: string): PessoaSim => ({
+      matricula: m,
+      nome: m,
+      funcao: 'Atendimento',
+      cargaH: 44,
+    });
     const q: PessoaSim[] = [
       ...quadro,
       atend('C'),

@@ -7,6 +7,7 @@ import {
   erroDoPeriodo,
   faturamentoDaBase,
   interpretarPorCnpj,
+  mesclarCadastro,
   vezesPorDia,
 } from './base-por-cnpj.js';
 
@@ -151,5 +152,27 @@ describe('faturamentoDaBase', () => {
   });
   it('sem nenhum CMV o CMV médio fica nulo', () => {
     expect(faturamentoDaBase([l('2026-07-06', 8, 1000, null)]).cmvPct).toBeNull();
+  });
+});
+
+describe('mesclarCadastro (só onde está vazio)', () => {
+  const calc = { dias: [1500, 300, null, null, null, null, null] as (number | null)[], cmvPct: 58.7 };
+  it('loja sem faturamento recebe tudo', () => {
+    const r = mesclarCadastro(null, calc);
+    expect(r.novo).toEqual({ dias: [1500, 300, null, null, null, null, null], mensal: null, cmvPct: 58.7 });
+    expect(r).toMatchObject({ preencheuDias: 2, preencheuCmv: true, jaTinha: false });
+  });
+  it('o que já estava digitado fica; só o vazio é preenchido', () => {
+    const r = mesclarCadastro({ dias: [999, null, null, null, null, null, null], mensal: 50000, cmvPct: 65 }, calc);
+    expect(r.novo).toEqual({ dias: [999, 300, null, null, null, null, null], mensal: 50000, cmvPct: 65 });
+    expect(r).toMatchObject({ preencheuDias: 1, preencheuCmv: false, jaTinha: true });
+  });
+  it('nada a preencher devolve nulo (a loja não é alterada)', () => {
+    const r = mesclarCadastro({ dias: [1, 2, null, null, null, null, null], mensal: null, cmvPct: 60 }, calc);
+    expect(r.novo).toBeNull();
+    expect(r.jaTinha).toBe(true);
+  });
+  it('sem CMV calculado não inventa CMV médio', () => {
+    expect(mesclarCadastro(null, { dias: calc.dias, cmvPct: null }).novo).toEqual({ dias: calc.dias, mensal: null });
   });
 });

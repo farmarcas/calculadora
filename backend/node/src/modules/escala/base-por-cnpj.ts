@@ -8,7 +8,7 @@ import { diaDaSemana, type VendaLinha } from './vendas.js';
 
 export type Periodo = { inicio: string; fim: string };
 
-const COLUNAS: Record<string, string[]> = {
+const COLUNAS = {
   cnpj: ['cnpj'],
   dia: ['dia semana', 'dia da semana'],
   hora: ['hora'],
@@ -16,9 +16,9 @@ const COLUNAS: Record<string, string[]> = {
   cmv: ['cmv valor', 'cmv', 'cmv rs'],
   tickets: ['tickets vendidos', 'tickets', 'clientes atendidos', 'clientes'],
   unidades: ['unidades vendidas', 'unidades', 'qtd unidades vendidas'],
-};
+} satisfies Record<string, string[]>;
 
-export type ColunasPorCnpj = Record<keyof typeof COLUNAS, number | null>;
+export type ColunasPorCnpj = { [K in keyof typeof COLUNAS]: number | null };
 
 // Acha as colunas pelo cabeçalho (sem acento, sem diferença de maiúsculas e com `_` ou espaço). Nulo se não for este formato:
 // precisa de CNPJ, dia da semana e faturamento.
@@ -189,5 +189,38 @@ export const faturamentoDaBase = (linhas: VendaLinha[]) => {
   return {
     dias: dias.map((v) => (v === null || v <= 0 ? null : arred(v, 2))),
     cmvPct: vendaComCmv > 0 ? arred((cmv / vendaComCmv) * 100, 1) : null,
+  };
+};
+
+// Preenche o faturamento do Cadastro com o que veio da base, SÓ onde está vazio: o que alguém digitou nunca muda.
+// `novo` é nulo quando nada precisa mudar. `jaTinha` diz se a loja já tinha algum valor próprio (faturamento do dia ou CMV médio).
+export const mesclarCadastro = (
+  atual: unknown,
+  calculado: { dias: (number | null)[]; cmvPct: number | null },
+) => {
+  const a = atual as { dias?: (number | null)[]; mensal?: number | null; cmvPct?: unknown } | null | undefined;
+  const diasAtuais = Array.isArray(a?.dias) ? a.dias : new Array<number | null>(7).fill(null);
+  const cmvAtual = typeof a?.cmvPct === 'number' ? a.cmvPct : null;
+  const jaTinha = diasAtuais.some((v) => typeof v === 'number') || cmvAtual !== null;
+  let preencheuDias = 0;
+  const dias = Array.from({ length: 7 }, (_, i) => {
+    const antes = diasAtuais[i] ?? null;
+    const novo = calculado.dias[i] ?? null;
+    if (antes === null && novo !== null) {
+      preencheuDias++;
+      return novo;
+    }
+    return antes;
+  });
+  const preencheuCmv = cmvAtual === null && calculado.cmvPct !== null;
+  const cmvPct = preencheuCmv ? calculado.cmvPct : cmvAtual;
+  const mudou = preencheuDias > 0 || preencheuCmv;
+  return {
+    novo: mudou
+      ? { dias, mensal: a?.mensal ?? null, ...(cmvPct !== null ? { cmvPct } : {}) }
+      : null,
+    preencheuDias,
+    preencheuCmv,
+    jaTinha,
   };
 };

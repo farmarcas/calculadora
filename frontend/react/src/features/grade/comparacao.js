@@ -1,5 +1,6 @@
 // Regras puras da comparação de simulações: métricas, diferença frente à base, cor pelo efeito no resultado,
 // contagem "N de M itens mudaram", "só o que mudou" e troca de base. A base é sempre a primeira simulação.
+import { palavraDaRegua } from "../regua.js";
 import { horas, reais, reaisComSinal, VAZIO } from "./formato.js";
 
 // sentido: "maior" = aumento é bom (verde); "menor" = aumento é ruim (vermelho); "neutro" = sem cor.
@@ -113,3 +114,10 @@ export const trocarBase = (ids, id) => (ids.includes(id) ? [id, ...ids.filter((x
 export const remover = (ids, id) => ids.filter((x) => x !== id);
 export const MAX_COMPARACAO = 4;
 export const MIN_COMPARACAO = 2;
+
+// O rótulo da métrica na régua da loja: "Venda estimada" vira "Margem estimada" quando o cálculo é em margem.
+export const rotuloDaMetrica = (m, regua) => {
+  if (m.chave === "venda") return `${palavraDaRegua(regua) === "margem" ? "Margem" : "Venda"} estimada`;
+  if (m.chave === "vendaSai") return `${palavraDaRegua(regua) === "margem" ? "Margem" : "Venda"} que deixa de entrar`;
+  return m.rotulo;
+};

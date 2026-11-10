@@ -23,15 +23,15 @@ Formato: `- [ ] ID [P] [História] descrição com o arquivo`. Servidor em `back
 - [x] T014 Rodar os testes do servidor (unidade e integração), reiniciar a API e commitar a fatia
 
 ## Fatia 4 — Tela: rótulos por régua (Histórias 1, 2, 3 e 4)
-- [ ] T015 [P] [US2] `features/regua.js` (novo, puro): palavra e texto de apoio por régua ("margem" ou "venda", e o aviso do motivo quando cai em venda); `regua.test.js`
-- [ ] T016 [US1] `diagnostico/cartao/cartao-regras.js`, `diagnostico/comparativo-regras.js`: rótulos "MARGEM QUE DEIXA DE ENTRAR" / "MARGEM ESTIMADA" ou "VENDA…" conforme a régua; uma frase perto do saldo diz a régua usada (FR-012); o aviso do motivo quando cai em venda; testes existentes ajustados
-- [ ] T017 [US4] `simulacao/PainelResultado.jsx`: rótulos, fórmula do saldo e subtítulos por régua; informação de venda real e ticket médio seguem como estão
-- [ ] T018 [US4] `grade/comparacao.js`, `grade/ComparacaoDeSimulacoes.jsx`, `grade/ListaDeSimulacoes.jsx`: rótulos das métricas, nota de rodapé e título da coluna de saldo por régua; `comparacao.test.js` ajustado
-- [ ] T019 Rodar os testes da tela, conferir no navegador local (dono e gestor; loja com margem, sem margem e com margem incoerente; cenários, Simulação, lista e comparação) e commitar a fatia
+- [x] T015 [P] [US2] `features/regua.js` (novo, puro): palavra e texto de apoio por régua ("margem" ou "venda", e o aviso do motivo quando cai em venda); `regua.test.js`
+- [x] T016 [US1] `diagnostico/cartao/cartao-regras.js`, `diagnostico/comparativo-regras.js`: rótulos "MARGEM QUE DEIXA DE ENTRAR" / "MARGEM ESTIMADA" ou "VENDA…" conforme a régua; uma frase perto do saldo diz a régua usada (FR-012); o aviso do motivo quando cai em venda; testes existentes ajustados
+- [x] T017 [US4] `simulacao/PainelResultado.jsx`: rótulos, fórmula do saldo e subtítulos por régua; informação de venda real e ticket médio seguem como estão
+- [x] T018 [US4] `grade/comparacao.js`, `grade/ComparacaoDeSimulacoes.jsx`, `grade/ListaDeSimulacoes.jsx`: rótulos das métricas, nota de rodapé e título da coluna de saldo por régua; `comparacao.test.js` ajustado
+- [x] T019 Rodar os testes da tela, conferir no navegador local (dono e gestor; loja com margem, sem margem e com margem incoerente; cenários, Simulação, lista e comparação) e commitar a fatia
 
 ## Fatia 5 — Validação e entrega
-- [ ] T020 Percorrer o `quickstart.md` no navegador local, conferindo que o saldo é o mesmo nos cartões, no painel, na lista e na comparação, e que numa base sem margem nada mudou
-- [ ] T021 Reiniciar a API, rodar tudo (servidor, integração, tela e type-check), commitar e subir a branch `feat/margem-nos-cenarios`
+- [x] T020 Percorrer o `quickstart.md` no navegador local, conferindo que o saldo é o mesmo nos cartões, no painel, na lista e na comparação, e que numa base sem margem nada mudou
+- [x] T021 Reiniciar a API, rodar tudo (servidor, integração, tela e type-check), commitar e subir a branch `feat/margem-nos-cenarios`
 
 ## Dependências e ordem
 - T001 antes de T004; T004 antes de T005 e T006; T005 e T006 antes de T007 e T008.

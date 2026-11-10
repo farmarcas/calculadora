@@ -1,8 +1,9 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { api } from "../../api/client.js";
 import { Aviso, Botao, Ficha } from "../../components/ui/index.jsx";
+import { fraseDaRegua, palavraDaRegua } from "../regua.js";
 import { DICA_DESATUALIZADA, SITUACOES, VAZIO, tipoTexto } from "./formato.js";
-import { MAX_COMPARACAO, MIN_COMPARACAO, contarMudancas, diferenca, gruposDisponiveis, gruposVisiveis, mudou, remover, textoDoValor, trocarBase, valorDe } from "./comparacao.js";
+import { MAX_COMPARACAO, MIN_COMPARACAO, contarMudancas, diferenca, gruposDisponiveis, gruposVisiveis, mudou, remover, rotuloDaMetrica, textoDoValor, trocarBase, valorDe } from "./comparacao.js";
 
 const COR = { bom: "text-[var(--text-success-strong)]", ruim: "text-[var(--text-danger)]", neutro: "text-[var(--text-secondary)]" };
 const DESTAQUE_LINHA = { background: "color-mix(in srgb, var(--color-primary-soft) 55%, transparent)" };
@@ -147,18 +148,18 @@ export default function ComparacaoDeSimulacoes({ lojaId, ids, lista, onVoltar })
                 <tr><td colSpan={colunasTotal} className="px-6 py-8 text-center text-[var(--text-secondary)]">Nada mudou frente à base. Desligue "Mostrar só o que mudou" para ver todos os itens.</td></tr>
               )}
               {visiveis.map((g) => (
-                <GrupoLinhas key={g.chave} grupo={g} simulacoes={simulacoes} base={base} naoBase={naoBase} colunasTotal={colunasTotal} />
+                <GrupoLinhas key={g.chave} grupo={g} simulacoes={simulacoes} base={base} naoBase={naoBase} colunasTotal={colunasTotal} regua={base.regua} />
               ))}
             </tbody>
           </table>
         </div>
-        <p className="m-0 border-t border-[var(--border-subtle)] px-6 py-3 text-xs text-[var(--text-secondary)]">Venda e folha são estimativas gerenciais; o saldo é venda estimada menos folha extra, hora extra e venda que deixa de entrar. Valores em reais só para o dono do grupo.</p>
+        <p className="m-0 border-t border-[var(--border-subtle)] px-6 py-3 text-xs text-[var(--text-secondary)]">{`Venda e folha são estimativas gerenciais; o saldo é ${palavraDaRegua(base.regua)} estimada menos folha extra, hora extra e ${palavraDaRegua(base.regua)} que deixa de entrar. ${fraseDaRegua(base.regua) ?? ""} Valores em reais só para o dono do grupo.`}</p>
       </section>
     </div>
   );
 }
 
-function GrupoLinhas({ grupo, simulacoes, base, naoBase, colunasTotal }) {
+function GrupoLinhas({ grupo, simulacoes, base, naoBase, colunasTotal, regua }) {
   return (
     <>
       <tr>
@@ -168,7 +169,7 @@ function GrupoLinhas({ grupo, simulacoes, base, naoBase, colunasTotal }) {
         const mudouAqui = mudou(m, simulacoes);
         return (
           <tr key={m.chave} className="border-t border-[var(--border-subtle)]" style={mudouAqui ? DESTAQUE_LINHA : undefined}>
-            <th scope="row" className={`sticky left-0 z-10 px-3 py-3 text-left md:px-6 ${mudouAqui ? "font-bold" : "font-normal"} text-[var(--text-strong)] ${m.destaque ? "text-base" : ""}`} style={{ background: mudouAqui ? "color-mix(in srgb, var(--color-primary-soft) 100%, var(--surface-card))" : "var(--surface-card)" }}>{m.rotulo}</th>
+            <th scope="row" className={`sticky left-0 z-10 px-3 py-3 text-left md:px-6 ${mudouAqui ? "font-bold" : "font-normal"} text-[var(--text-strong)] ${m.destaque ? "text-base" : ""}`} style={{ background: mudouAqui ? "color-mix(in srgb, var(--color-primary-soft) 100%, var(--surface-card))" : "var(--surface-card)" }}>{rotuloDaMetrica(m, regua)}</th>
             {simulacoes.map((s) => (
               <td key={s.id} className="px-4 py-3 text-[var(--text-strong)]">
                 {m.chave === "saldo" ? <ValorSaldo valor={valorDe(s, m)} metrica={m} /> : textoDoValor(m, valorDe(s, m))}

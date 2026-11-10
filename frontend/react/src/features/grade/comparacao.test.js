@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { GRUPOS, contarMudancas, diferenca, gruposDisponiveis, gruposVisiveis, mudou, remover, textoDoValor, totalDeMetricas, trocarBase } from "./comparacao.js";
+import { GRUPOS, contarMudancas, diferenca, gruposDisponiveis, gruposVisiveis, mudou, remover, rotuloDaMetrica, textoDoValor, totalDeMetricas, trocarBase } from "./comparacao.js";
 
 const m = (chave) => GRUPOS.flatMap((g) => g.metricas).find((x) => x.chave === chave);
 const sim = (o = {}) => ({
@@ -94,5 +94,19 @@ describe("base e colunas", () => {
   });
   it("remover tira a coluna", () => {
     expect(remover(["a", "b", "c"], "b")).toEqual(["a", "c"]);
+  });
+});
+
+describe("rótulos por régua (spec 033)", () => {
+  const todas = GRUPOS.flatMap((g) => g.metricas);
+  const venda = todas.find((m) => m.chave === "venda");
+  const sai = todas.find((m) => m.chave === "vendaSai");
+  it("margem troca só as duas métricas de venda; as outras ficam como estão", () => {
+    expect(rotuloDaMetrica(venda, { tipo: "margem" })).toBe("Margem estimada");
+    expect(rotuloDaMetrica(sai, { tipo: "margem" })).toBe("Margem que deixa de entrar");
+    expect(rotuloDaMetrica(venda, { tipo: "venda" })).toBe("Venda estimada");
+    expect(rotuloDaMetrica(sai, null)).toBe("Venda que deixa de entrar");
+    const folha = todas.find((m) => m.chave === "folha");
+    expect(rotuloDaMetrica(folha, { tipo: "margem" })).toBe("Folha extra");
   });
 });

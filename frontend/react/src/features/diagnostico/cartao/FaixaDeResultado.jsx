@@ -1,5 +1,6 @@
 import { useId } from "react";
 import DicaDeCampo from "../../../components/ui/DicaDeCampo.jsx";
+import { fraseDaRegua, palavraDaRegua } from "../../regua.js";
 import { estadoDaFolha, estadoDaVenda, estadoDoSaldo } from "./cartao-regras.js";
 import { COR_DO_TOM } from "./tom.js";
 
@@ -28,8 +29,9 @@ export default function FaixaDeResultado({ c, dono }) {
         <>
           <div className="mt-1 text-[40px] leading-[52px] font-bold" style={{ color: COR_DO_TOM[saldo?.tom ?? "neutro"] }} data-testid="saldo-operacao">{saldo ? saldo.texto : "—"}</div>
           <div className="text-xs leading-4 text-[var(--text-secondary)]">
-            {saldo ? "folha e venda somadas" : c.semVendaHoraria ? "sem venda hora a hora, não dá para somar" : "informe os custos para somar"}
+            {saldo ? `folha e ${palavraDaRegua(c.regua)} somadas` : c.semVendaHoraria ? "sem venda hora a hora, não dá para somar" : "informe os custos para somar"}
           </div>
+          {fraseDaRegua(c.regua) && <div className="mt-1 text-xs leading-4 text-[var(--text-secondary)]" data-testid="frase-regua">{fraseDaRegua(c.regua)}</div>}
           <div className="mt-3 grid grid-cols-2 gap-4 border-t border-[var(--border-default)] pt-3">
             <Coluna e={estadoDaFolha(c)} />
             <Coluna e={estadoDaVenda(c)} />

@@ -309,8 +309,12 @@ export const calcularResultado = (a: {
       simulacao: ativos.reduce((s, p) => s + p.cargaH, 0),
     },
     horasAbertas: { hoje: horasAbertasAntes, simulacao: horasAbertas },
-    faltas: depois.map((l) => ({ funcao: l.funcao, horas: faltaDepois(l.funcao) })).filter((f) => f.horas > 0),
-    vagas: funcoes.flatMap((f) => f.contratacoes.map((c) => ({ funcao: f.funcao, cargaH: c.cargaH, tipo: c.tipo }))),
+    faltas: depois
+      .map((l) => ({ funcao: l.funcao, horas: faltaDepois(l.funcao) }))
+      .filter((f) => f.horas > 0),
+    vagas: funcoes.flatMap((f) =>
+      f.contratacoes.map((c) => ({ funcao: f.funcao, cargaH: c.cargaH, tipo: c.tipo })),
+    ),
   });
 
   const base: ResultadoSimulacao = {

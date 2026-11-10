@@ -1485,7 +1485,11 @@ describe('escala (rotas)', () => {
       );
       for (const id of ['r42', 'r40']) {
         const linhas = dono.cenarios[id].linhas;
-        expect(linhas.map((l: { id: string }) => l.id)).toEqual(['equilibrio', 'manter', 'economia']);
+        expect(linhas.map((l: { id: string }) => l.id)).toEqual([
+          'equilibrio',
+          'manter',
+          'economia',
+        ]);
         expect(ges.cenarios[id].linhas).toEqual(linhas);
         expect(con.cenarios[id].linhas).toEqual(linhas);
         // com os custos informados pelo dono, o Equilíbrio é calculado para todos (nada em reais sai)
@@ -1493,8 +1497,23 @@ describe('escala (rotas)', () => {
         for (const l of linhas) {
           expect(Object.keys(l).sort()).toEqual(
             [
-              'ajustes', 'causa', 'contratacoes', 'contratar', 'custoEstado', 'custoPct', 'diasFechar', 'horarioSemana',
-              'horasDiferenca', 'horasSemana', 'id', 'igualA', 'indisponivel', 'nome', 'status', 'vendaEstado', 'vendaPct',
+              'ajustes',
+              'causa',
+              'contratacoes',
+              'contratar',
+              'custoEstado',
+              'custoPct',
+              'diasFechar',
+              'horarioSemana',
+              'horasDiferenca',
+              'horasSemana',
+              'id',
+              'igualA',
+              'indisponivel',
+              'nome',
+              'status',
+              'vendaEstado',
+              'vendaPct',
             ].sort(),
           );
         }

@@ -1477,6 +1477,55 @@ describe('escala (rotas)', () => {
       }
     });
 
+    it('linhas dos cenários (spec 037): iguais para dono, gestor e consulta, só com % e sem reais nem salário', async () => {
+      await preparar(cmvDe(70));
+      const consulta = { 'X-Perfil': 'SCHEDULE_VIEWER', 'X-GE': GE_INICIAL_ID };
+      const [dono, ges, con] = await Promise.all(
+        [admin, gestor, consulta].map(async (h) => (await reqGe().get(url()).set(h)).body),
+      );
+      for (const id of ['r42', 'r40']) {
+        const linhas = dono.cenarios[id].linhas;
+        expect(linhas.map((l: { id: string }) => l.id)).toEqual([
+          'equilibrio',
+          'manter',
+          'economia',
+        ]);
+        expect(ges.cenarios[id].linhas).toEqual(linhas);
+        expect(con.cenarios[id].linhas).toEqual(linhas);
+        // com os custos informados pelo dono, o Equilíbrio é calculado para todos (nada em reais sai)
+        expect(linhas[0].indisponivel).toBeNull();
+        for (const l of linhas) {
+          expect(Object.keys(l).sort()).toEqual(
+            [
+              'ajustes',
+              'causa',
+              'contratacoes',
+              'contratar',
+              'custoEstado',
+              'custoPct',
+              'diasFechar',
+              'horarioSemana',
+              'horasDiferenca',
+              'horasSemana',
+              'id',
+              'igualA',
+              'indisponivel',
+              'nome',
+              'status',
+              'vendaEstado',
+              'vendaPct',
+            ].sort(),
+          );
+        }
+        // o selo de sugerido continua só do dono
+        expect(ges.cenarios[id].comparativo.sugerido).toBeUndefined();
+        expect(con.cenarios[id].comparativo.sugerido).toBeUndefined();
+      }
+      // nenhum salário nem valor em reais nas linhas do gestor
+      const json = JSON.stringify(ges.cenarios.r42.linhas);
+      expect(json).not.toMatch(/8000|folha|saldo|salario|Mensal/);
+    });
+
     it('base sem a coluna de CMV e sem CMV médio: a régua é venda, com o motivo', async () => {
       await preparar(null);
       const d = (await reqGe().get(url()).set(admin)).body;

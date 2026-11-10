@@ -445,7 +445,9 @@ export const montarDiagnostico = (a: {
       const comparativo = montarComparativo(entrada, cenarios);
       // Linhas dos cenários (spec 037): iguais para todos os perfis e só com porcentagens, horas e textos. Para quem não é
       // dono, o cálculo das linhas parte dos números completos (com os custos da loja); nada em reais sai.
-      const completo = a.dono ? { cenarios, comparativo } : calcularCompleto({ ...entrada, dono: true });
+      const completo = a.dono
+        ? { cenarios, comparativo }
+        : calcularCompleto({ ...entrada, dono: true });
       return [
         regraId,
         {

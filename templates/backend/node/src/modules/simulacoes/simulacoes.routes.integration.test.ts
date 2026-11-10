@@ -847,6 +847,65 @@ describe('simulações (rotas)', () => {
       expect(dono.body.resultado).toHaveProperty('saldoMensal');
     });
   });
+  describe('resultado em horas e porcentagem (spec 038)', () => {
+    const gestor = { 'X-Perfil': 'SCHEDULE_MANAGER', 'X-GE': GE_INICIAL_ID };
+    const consulta = { 'X-Perfil': 'SCHEDULE_VIEWER', 'X-GE': GE_INICIAL_ID };
+    const detalhe = async (id: string, h: Record<string, string>) =>
+      (await reqGe().get(`/api/v1/simulacoes/${id}`).set(h)).body.resultado;
+
+    it('igual para dono, gestor e consulta, sem valor em reais nem salário', async () => {
+      const sim = (await criar()).body;
+      const [dono, ges, con] = await Promise.all([
+        detalhe(sim.id, admin),
+        detalhe(sim.id, gestor),
+        detalhe(sim.id, consulta),
+      ]);
+      expect(dono.emHoras).toBeDefined();
+      expect(ges.emHoras).toEqual(dono.emHoras);
+      expect(con.emHoras).toEqual(dono.emHoras);
+      expect(Object.keys(dono.emHoras).sort()).toEqual(
+        [
+          'causa',
+          'contratar',
+          'custoEstado',
+          'custoPct',
+          'horaExtraH',
+          'horasAbertas',
+          'horasContratadas',
+          'pessoas',
+          'status',
+          'vendaEstado',
+          'vendaPct',
+        ].sort(),
+      );
+      // nenhuma chave de valor em reais (o estado "sem_salarios" é só um texto de estado)
+      expect(JSON.stringify(ges.emHoras)).not.toMatch(
+        /"(saldo|folha|salario|margem|cmv|[a-zA-Z]*Mensal)[a-zA-Z]*":/,
+      );
+      // os campos em reais continuam só para o dono
+      expect(dono).toHaveProperty('saldoMensal');
+      expect(ges).not.toHaveProperty('saldoMensal');
+    });
+
+    it('uma vaga simulada aparece em pessoas, horas contratadas e contratar', async () => {
+      const sim = (await criar()).body;
+      const antes = await detalhe(sim.id, gestor);
+      expect(antes.emHoras.pessoas).toEqual({ hoje: 2, simulacao: 2 });
+      await reqGe()
+        .put(`/api/v1/simulacoes/${sim.id}`)
+        .set(admin)
+        .send({ vagas: [{ funcao: 'Atendimento', cargaH: 20 }] });
+      const depois = await detalhe(sim.id, gestor);
+      expect(depois.emHoras.pessoas).toEqual({ hoje: 2, simulacao: 3 });
+      expect(depois.emHoras.horasContratadas.simulacao - depois.emHoras.horasContratadas.hoje).toBe(
+        20,
+      );
+      expect(depois.emHoras.contratar).toEqual([
+        { funcao: 'Atendimento', inteiras: 0, parciaisHoras: [20] },
+      ]);
+      expect(depois.emHoras.horasAbertas.hoje).toBe(antes.emHoras.horasAbertas.hoje);
+    });
+  });
   describe('número do cenário (spec 016)', () => {
     const gravarComo = (id: string, h: Record<string, string> = admin) =>
       reqGe().post(`/api/v1/simulacoes/${id}/gravar`).set(h).send({ comoCenario: true });

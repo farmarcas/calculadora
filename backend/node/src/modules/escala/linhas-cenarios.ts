@@ -70,7 +70,8 @@ export const causaDaLinha = (c: ColunaComparativo, status: StatusLinha | null): 
   const faltas = c.faltaPorFuncao ?? [];
   if (status === 'inviavel') return 'Sem farmacêutico no quadro.';
   if (status === 'nao_resolve') {
-    if ((c.semFarmaceuticoH ?? 0) > 0) return `Faltam ${horasTxt(c.semFarmaceuticoH!)} de farmacêutico.`;
+    if ((c.semFarmaceuticoH ?? 0) > 0)
+      return `Faltam ${horasTxt(c.semFarmaceuticoH!)} de farmacêutico.`;
     if (faltas.length > 0) {
       const horas = faltas.reduce((s, f) => s + f.horasSemana, 0);
       return `Faltam ${horasTxt(horas)} de ${faltas.length === 1 ? minusculo(nomeDaFuncao(faltas[0]!.funcao)) : 'equipe'}.`;
@@ -85,14 +86,19 @@ export const causaDaLinha = (c: ColunaComparativo, status: StatusLinha | null): 
       ? `${nomeDaFuncao(f.funcao)}: ${pessoas} ${pessoas === 1 ? 'pessoa' : 'pessoas'} a menos que hoje.`
       : `${nomeDaFuncao(f.funcao)}: ${horasTxt(f.horasSemana)} por semana a menos que hoje.`;
   }
-  if (status === 'equipe_menor' && (c.semFarmaceuticoH ?? 0) > 0) return `Farmacêutico: ${horasTxt(c.semFarmaceuticoH!)} por semana a menos que hoje.`;
+  if (status === 'equipe_menor' && (c.semFarmaceuticoH ?? 0) > 0)
+    return `Farmacêutico: ${horasTxt(c.semFarmaceuticoH!)} por semana a menos que hoje.`;
   if (c.semVendaHoraria) return 'Sem venda por hora: perda não estimada.';
   if (c.estimativaDeVenda) return 'Venda das horas novas é estimada.';
   return null;
 };
 
 const igualA = (c: ColunaComparativo) =>
-  c.recolher === 'manter' ? 'Manter horários' : c.recolher === 'economia' ? 'Sem contratações' : null;
+  c.recolher === 'manter'
+    ? 'Manter horários'
+    : c.recolher === 'economia'
+      ? 'Sem contratações'
+      : null;
 
 // Monta as três linhas a partir do comparativo e dos cenários CALCULADOS COM OS CUSTOS (qualquer perfil).
 export const montarLinhas = (comp: Comparativo, cen: CenariosRegra): LinhaDeCenario[] => {
@@ -103,19 +109,24 @@ export const montarLinhas = (comp: Comparativo, cen: CenariosRegra): LinhaDeCena
   return ORDEM_DAS_LINHAS.flatMap((id) => {
     const c = porId.get(id);
     if (!c) return [];
-    const indisponivel = id === 'equilibrio' && motivoIndisponivel ? { motivo: motivoIndisponivel } : null;
+    const indisponivel =
+      id === 'equilibrio' && motivoIndisponivel ? { motivo: motivoIndisponivel } : null;
     const status = indisponivel ? null : statusDaLinha(c);
 
     // Venda: (ganho estimado − perda) ÷ faturamento mensal real. Sem venda por hora não se estima.
     const perdidaPct = c.faturamentoPerdidoPct;
     const ganhaPct = c.vendaAdicionalPct;
     const vendaOk = !indisponivel && !c.semVendaHoraria && perdidaPct != null && ganhaPct != null;
-    const vendaPct = vendaOk ? semZeroNegativo((ganhaPct as number) - (perdidaPct as number)) : null;
+    const vendaPct = vendaOk
+      ? semZeroNegativo((ganhaPct as number) - (perdidaPct as number))
+      : null;
 
     // Custo de pessoal: custo adicional de folha ÷ folha atual.
     const adicional = c.folhaAdicionalMensal;
     const custoOk = !indisponivel && adicional != null && folha !== null && folha > 0;
-    const custoPct = custoOk ? semZeroNegativo(((adicional as number) / (folha as number)) * 100) : null;
+    const custoPct = custoOk
+      ? semZeroNegativo(((adicional as number) / (folha as number)) * 100)
+      : null;
 
     const colunaDoCenario = cen[id];
     return [
@@ -126,14 +137,23 @@ export const montarLinhas = (comp: Comparativo, cen: CenariosRegra): LinhaDeCena
         status,
         causa: indisponivel ? null : causaDaLinha(c, status),
         indisponivel,
-        contratar: c.contratacoes.map((x) => ({ funcao: x.funcao, inteiras: x.inteiras, parcialHoras: x.parcial?.horas ?? 0 })),
+        contratar: c.contratacoes.map((x) => ({
+          funcao: x.funcao,
+          inteiras: x.inteiras,
+          parcialHoras: x.parcial?.horas ?? 0,
+        })),
         horasSemana: c.horasSemana,
         horasDiferenca: Math.round((c.horasSemana - horasHoje) * 100) / 100,
         horarioSemana: colunaDoCenario.horarioSemana,
         vendaPct,
         vendaEstado: vendaPct !== null ? 'ok' : c.semVendaHoraria ? 'nao_estimada' : 'sem_calculo',
         custoPct,
-        custoEstado: custoPct !== null ? 'ok' : adicional == null || folha === null ? 'sem_salarios' : 'sem_calculo',
+        custoEstado:
+          custoPct !== null
+            ? 'ok'
+            : adicional == null || folha === null
+              ? 'sem_salarios'
+              : 'sem_calculo',
         contratacoes: c.contratacoes,
         ajustes: c.ajustes,
         diasFechar: c.diasFechar,

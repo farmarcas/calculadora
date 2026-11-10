@@ -8,7 +8,8 @@ import { faixasDaSemana, normalizarHorarios, type HorariosSemana } from '../cada
 import type { Custos } from '../custos/custos.schemas.js';
 import type { ResultadoEncargos } from '../regras/encargos.js';
 import { cobertura, type TurnoPessoa } from './cobertura.js';
-import { montarCenarios } from './cenarios.js';
+import { montarCenarios, type EntradaCenarios } from './cenarios.js';
+import { montarLinhas, type LinhaDeCenario } from './linhas-cenarios.js';
 import { montarExtras, type ExtrasRegra } from './cenarios-extras.js';
 import type { TabelaParametros } from '../regras/parametros.js';
 import { montarQuadroTurnos } from './quadro-turnos.js';
@@ -67,6 +68,11 @@ const CHAVES_DE_VENDA = new Set([
   'saldoMensal',
   'vendaCortadaMes',
 ]);
+const calcularCompleto = (entrada: EntradaCenarios) => {
+  const cenarios = montarCenarios(entrada);
+  return { cenarios, comparativo: montarComparativo(entrada, cenarios) };
+};
+
 const semValoresDeVenda = (v: unknown): unknown =>
   Array.isArray(v)
     ? v.map(semValoresDeVenda)
@@ -436,18 +442,26 @@ export const montarDiagnostico = (a: {
         limiteParcial: prem.limiteParcial,
       };
       const cenarios = montarCenarios(entrada);
+      const comparativo = montarComparativo(entrada, cenarios);
+      // Linhas dos cenários (spec 037): iguais para todos os perfis e só com porcentagens, horas e textos. Para quem não é
+      // dono, o cálculo das linhas parte dos números completos (com os custos da loja); nada em reais sai.
+      const completo = a.dono
+        ? { cenarios, comparativo }
+        : calcularCompleto({ ...entrada, dono: true });
       return [
         regraId,
         {
           ...cenarios,
           ...montarExtras(entrada, cenarios),
-          comparativo: montarComparativo(entrada, cenarios),
+          comparativo,
+          linhas: montarLinhas(completo.comparativo, completo.cenarios),
         },
       ];
     }),
   ) as Record<
     'r42' | 'r40',
-    ReturnType<typeof montarCenarios> & ExtrasRegra & { comparativo: Comparativo }
+    ReturnType<typeof montarCenarios> &
+      ExtrasRegra & { comparativo: Comparativo; linhas: LinhaDeCenario[] }
   >;
   // A venda é valor em reais: só o dono vê, venha a venda da base comercial ou do cadastro.
   const cenariosSaida = (

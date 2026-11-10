@@ -855,15 +855,33 @@ describe('simulações (rotas)', () => {
 
     it('igual para dono, gestor e consulta, sem valor em reais nem salário', async () => {
       const sim = (await criar()).body;
-      const [dono, ges, con] = await Promise.all([detalhe(sim.id, admin), detalhe(sim.id, gestor), detalhe(sim.id, consulta)]);
+      const [dono, ges, con] = await Promise.all([
+        detalhe(sim.id, admin),
+        detalhe(sim.id, gestor),
+        detalhe(sim.id, consulta),
+      ]);
       expect(dono.emHoras).toBeDefined();
       expect(ges.emHoras).toEqual(dono.emHoras);
       expect(con.emHoras).toEqual(dono.emHoras);
       expect(Object.keys(dono.emHoras).sort()).toEqual(
-        ['causa', 'contratar', 'custoEstado', 'custoPct', 'horaExtraH', 'horasAbertas', 'horasContratadas', 'pessoas', 'status', 'vendaEstado', 'vendaPct'].sort(),
+        [
+          'causa',
+          'contratar',
+          'custoEstado',
+          'custoPct',
+          'horaExtraH',
+          'horasAbertas',
+          'horasContratadas',
+          'pessoas',
+          'status',
+          'vendaEstado',
+          'vendaPct',
+        ].sort(),
       );
       // nenhuma chave de valor em reais (o estado "sem_salarios" é só um texto de estado)
-      expect(JSON.stringify(ges.emHoras)).not.toMatch(/"(saldo|folha|salario|margem|cmv|[a-zA-Z]*Mensal)[a-zA-Z]*":/);
+      expect(JSON.stringify(ges.emHoras)).not.toMatch(
+        /"(saldo|folha|salario|margem|cmv|[a-zA-Z]*Mensal)[a-zA-Z]*":/,
+      );
       // os campos em reais continuam só para o dono
       expect(dono).toHaveProperty('saldoMensal');
       expect(ges).not.toHaveProperty('saldoMensal');
@@ -879,8 +897,12 @@ describe('simulações (rotas)', () => {
         .send({ vagas: [{ funcao: 'Atendimento', cargaH: 20 }] });
       const depois = await detalhe(sim.id, gestor);
       expect(depois.emHoras.pessoas).toEqual({ hoje: 2, simulacao: 3 });
-      expect(depois.emHoras.horasContratadas.simulacao - depois.emHoras.horasContratadas.hoje).toBe(20);
-      expect(depois.emHoras.contratar).toEqual([{ funcao: 'Atendimento', inteiras: 0, parciaisHoras: [20] }]);
+      expect(depois.emHoras.horasContratadas.simulacao - depois.emHoras.horasContratadas.hoje).toBe(
+        20,
+      );
+      expect(depois.emHoras.contratar).toEqual([
+        { funcao: 'Atendimento', inteiras: 0, parciaisHoras: [20] },
+      ]);
       expect(depois.emHoras.horasAbertas.hoje).toBe(antes.emHoras.horasAbertas.hoje);
     });
   });

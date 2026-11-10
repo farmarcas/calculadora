@@ -62,9 +62,9 @@ describe("status e comparação", () => {
   });
   it("comparação com o Cenário 1", () => {
     expect(comparacaoComCenario1({}, { ehReferencia: true, dono: true })).toBe("Referência para comparar os outros");
-    expect(n(comparacaoComCenario1({ economiaFolhaMensal: 5467 }, { ehReferencia: false, dono: true }))).toBe("R$ 5.467 a menos de folha que o Cenário 1");
-    expect(n(comparacaoComCenario1({ economiaFolhaMensal: -2440 }, { ehReferencia: false, dono: true }))).toBe("R$ 2.440 a mais de folha que o Cenário 1");
-    expect(comparacaoComCenario1({ economiaFolhaMensal: 0 }, { ehReferencia: false, dono: true })).toBe("Mesma folha do Cenário 1");
+    expect(n(comparacaoComCenario1({ economiaFolhaMensal: 5467 }, { ehReferencia: false, dono: true }))).toBe("R$ 5.467 a menos de folha que Manter horários");
+    expect(n(comparacaoComCenario1({ economiaFolhaMensal: -2440 }, { ehReferencia: false, dono: true }))).toBe("R$ 2.440 a mais de folha que Manter horários");
+    expect(comparacaoComCenario1({ economiaFolhaMensal: 0 }, { ehReferencia: false, dono: true })).toBe("Mesma folha de Manter horários");
     expect(comparacaoComCenario1({ economiaFolhaMensal: 5467 }, { ehReferencia: false, dono: false })).toBe("");
   });
   it("moeda em reais sem centavos", () => {
@@ -157,7 +157,7 @@ describe("textos que não se repetem", () => {
   });
   it("a linha de resultado fica quando explica algo que o cartão não mostra", () => {
     expect(linhaDeResultado({ resultado: "Nenhum horário pode mudar", ajustes: [], diasFechar: [] })).toBe("Nenhum horário pode mudar");
-    expect(linhaDeResultado({ resultado: "Igual ao Cenário 1", ajustes: [] })).toBe("Igual ao Cenário 1");
+    expect(linhaDeResultado({ resultado: "Igual a Manter horários", ajustes: [] })).toBe("Igual a Manter horários");
     expect(linhaDeResultado({ resultado: "Faltam as vendas por dia da semana para calcular os cortes", ajustes: [] })).toBe("Faltam as vendas por dia da semana para calcular os cortes");
     expect(linhaDeResultado({ resultado: "Não é possível sem contratar", ajustes: [] })).toBe("Não é possível sem contratar");
   });
@@ -169,9 +169,9 @@ describe("textos que não se repetem", () => {
     const r = alertasParaExibir([
       "Usa contrato parcial para cobrir o que sobra.",
       "Venda das horas novas é estimada: onde não há venda registrada nessa hora, vale metade da venda da hora vizinha.",
-      "Só mexer no fim de semana não resolve: ainda faltam 3 h de cobertura. Veja o Cenário 3.",
+      "Só mexer no fim de semana não resolve: ainda faltam 3 h de cobertura. Veja o Equilíbrio.",
     ]);
-    expect(r).toEqual(["Só mexer no fim de semana não resolve: ainda faltam 3 h de cobertura. Veja o Cenário 3."]);
+    expect(r).toEqual(["Só mexer no fim de semana não resolve: ainda faltam 3 h de cobertura. Veja o Equilíbrio."]);
     expect(alertasParaExibir(undefined)).toEqual([]);
   });
   it("a coluna VENDA ESTIMADA traz a nota para o ⓘ; as outras não", () => {
@@ -179,5 +179,24 @@ describe("textos que não se repetem", () => {
     expect(NOTA_VENDA_ESTIMADA).toBe("Venda das horas novas estimada: onde não há venda registrada, vale metade da hora vizinha.");
     expect(estadoDaVenda({ faturamentoPerdidoMensal: 100 }).dica).toBeUndefined();
     expect(estadoDaVenda({}).dica).toBeUndefined();
+  });
+});
+
+describe("régua de margem no cartão (spec 033)", () => {
+  const regua = { tipo: "margem" };
+  it("os rótulos da coluna dizem margem quando a régua é margem e venda quando é venda", () => {
+    expect(estadoDaVenda({ regua, faturamentoPerdidoMensal: 1000, faturamentoPerdidoPct: 3 }).rotulo).toBe("MARGEM QUE DEIXA DE ENTRAR");
+    expect(estadoDaVenda({ regua, vendaAdicionalMensal: 500 }).rotulo).toBe("MARGEM ESTIMADA");
+    expect(estadoDaVenda({ regua: { tipo: "venda", motivo: "sem_margem" }, faturamentoPerdidoMensal: 1000 }).rotulo).toBe("VENDA QUE DEIXA DE ENTRAR");
+    expect(estadoDaVenda({ faturamentoPerdidoMensal: 1000 }).rotulo).toBe("VENDA QUE DEIXA DE ENTRAR");
+  });
+  it("a nota das horas novas e o 'sem perda' acompanham a régua", () => {
+    expect(estadoDaVenda({ regua, vendaAdicionalMensal: 500 }).dica).toMatch(/^Margem das horas novas/);
+    expect(estadoDaVenda({ regua }).apoio).toBe("sem perda de margem");
+    expect(estadoDaVenda({}).apoio).toBe("sem perda de venda");
+  });
+  it("o percentual da perda diz que é da venda cortada quando a régua é margem", () => {
+    expect(estadoDaVenda({ regua, faturamentoPerdidoMensal: 1000, faturamentoPerdidoPct: 3 }).apoio).toMatch(/venda cortada/);
+    expect(estadoDaVenda({ faturamentoPerdidoMensal: 1000, faturamentoPerdidoPct: 3 }).apoio).toBe("3% por mês");
   });
 });

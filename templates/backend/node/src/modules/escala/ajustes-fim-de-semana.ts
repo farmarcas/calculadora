@@ -5,6 +5,8 @@ import type { VendaDiaHora } from './vendas.js';
 // Regras do Cenário 2 (e, depois, do 3) para reduzir custo sem destruir a loja: só sábado e domingo mudam, nesta ordem:
 // reduzir o fechamento → fechar o domingo → fechar o sábado. Cada fase parte do horário de hoje e vale o primeiro que
 // faz a equipe atual caber sem violar nenhuma trava. Funções puras, sem banco.
+// Limite de perda do Cenário 2 (Sem contratações): ele protege mais o faturamento que o Cenário 3, que segue em `TRAVAS`.
+export const PERDA_MAX_CENARIO_2_PCT = 3;
 export const TRAVAS = {
   // Quanto do faturamento mensal da loja o cenário pode deixar de faturar, no máximo (%).
   perdaMaxPct: 10,
@@ -71,6 +73,8 @@ export type EntradaSequencia = {
   // Venda média por dia da semana e hora: com ela a perda é a soma da venda das horas que fecham; sem ela, a venda do dia é
   // dividida igualmente entre as horas abertas.
   tabela?: VendaDiaHora | null;
+  // Limite de perda de faturamento (%) desta sequência; sem ele vale o de `TRAVAS`.
+  perdaMaxPct?: number;
 };
 
 const arred1 = (n: number) => Math.round(n * 10) / 10;
@@ -148,10 +152,11 @@ const violacao = (
   atual: DiaAberto[],
   porDia: EntradaSequencia['porDia'],
   tabela?: VendaDiaHora | null,
+  perdaMaxPct: number = TRAVAS.perdaMaxPct,
 ): 'perda' | 'horas' | null => {
   const fat = faturamentoDeHoje(hoje, porDia);
   const perdaPct = fat > 0 ? (perdaMensal(hoje, atual, porDia, tabela) / fat) * 100 : 0;
-  if (perdaPct > TRAVAS.perdaMaxPct + 1e-9) return 'perda';
+  if (perdaPct > perdaMaxPct + 1e-9) return 'perda';
   if (horasDe(atual) < (horasDe(hoje) * TRAVAS.horasMinPct) / 100 - 1e-9) return 'horas';
   return null;
 };
@@ -164,6 +169,7 @@ const reduzir = (
   porDia: EntradaSequencia['porDia'],
   cobre: EntradaSequencia['cobre'],
   tabela?: VendaDiaHora | null,
+  perdaMaxPct?: number,
 ) => {
   let atual = [...inicio];
   let parou: MotivoParada | null = null;
@@ -186,7 +192,7 @@ const reduzir = (
       break;
     }
     const proximo = atual.map((d) => (d.dia === escolhido.dia ? { ...d, fecha: d.fecha - 1 } : d));
-    const v = violacao(hoje, proximo, porDia, tabela);
+    const v = violacao(hoje, proximo, porDia, tabela, perdaMaxPct);
     if (v) {
       parou = v;
       break;
@@ -274,12 +280,12 @@ export const sequenciaFimDeSemana = (a: EntradaSequencia): ResultadoSequencia =>
       continue;
     const inicio = hoje.filter((d) => !fechaveis.includes(d.dia));
     if (inicio.length === 0) continue;
-    const base = violacao(hoje, inicio, a.porDia, a.tabela);
+    const base = violacao(hoje, inicio, a.porDia, a.tabela, a.perdaMaxPct);
     if (base) {
       paradas.push(base);
       continue;
     }
-    const r = reduzir(hoje, inicio, a.porDia, a.cobre, a.tabela);
+    const r = reduzir(hoje, inicio, a.porDia, a.cobre, a.tabela, a.perdaMaxPct);
     if (fase.fechar.length === 0) corteMaximo = r.dias;
     if (r.cobre) return resultado(r.dias, true, null);
     paradas.push(r.parou);
@@ -417,6 +423,8 @@ export const melhorEstado = <T extends { custo: number; pessoas: number }>(a: {
   dias: DiaAberto[];
   porDia: EntradaSequencia['porDia'];
   tabela?: VendaDiaHora | null;
+  // Tabela na régua do cenário (margem ou venda) que mede a perda do impacto; as travas seguem em venda real (`tabela`).
+  tabelaImpacto?: VendaDiaHora | null;
   // Parte da venda de um dia fechado que fica (1 − recaptura); só vale com `tabela`.
   fica?: number;
   avaliar: (dias: DiaAberto[]) => T;
@@ -428,7 +436,7 @@ export const melhorEstado = <T extends { custo: number; pessoas: number }>(a: {
   for (const dias of estadosPermitidos({ ...a, estender: a.ganhoMes !== undefined })) {
     const avaliacao = a.avaliar(dias);
     const perdida = a.tabela
-      ? vendaPerdidaHoraria(hoje, dias, a.tabela).vendaMes * (a.fica ?? 1)
+      ? vendaPerdidaHoraria(hoje, dias, a.tabelaImpacto ?? a.tabela).vendaMes * (a.fica ?? 1)
       : 0;
     const ganho = a.ganhoMes ? a.ganhoMes(dias) : 0;
     const atual: EstadoEscolhido<T> = {

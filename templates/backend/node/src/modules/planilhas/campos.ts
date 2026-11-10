@@ -88,6 +88,14 @@ const CAMPOS_FATURAMENTO: CampoDef[] = [
     exemplo: '420000',
     sinonimos: ['fat mensal', 'faturamento mensal', 'faturamento medio mensal'],
   },
+  // CMV médio da loja (%): parte da venda líquida que volta ao fornecedor. Padrão das horas sem CMV (spec 034).
+  {
+    chave: 'cmv_pct',
+    rotulo: 'CMV médio (%)',
+    obrigatorio: false,
+    exemplo: '65',
+    sinonimos: ['cmv medio', 'cmv medio %', 'cmv %', 'cmv pct', 'cmv', 'cmv medio pct'],
+  },
   // Formato antigo: margem bruta média. Ainda é entendida na importação (para não cair em outra coluna), mas é ignorada.
   {
     chave: 'margem_pct',
@@ -114,7 +122,7 @@ const CAMPOS_CONFIGURACAO: CampoDef[] = [
     chave: 'convencao_8h24',
     rotulo: 'Convenção permite 8h24 (Sim/Não)',
     obrigatorio: false,
-    exemplo: 'Não',
+    exemplo: 'Sim',
     sinonimos: [
       'convencao 8h24',
       'convencao permite 8h24',
@@ -540,10 +548,28 @@ export const CAMPOS_BASE: CampoDef[] = [
       'valor',
     ],
   },
+  // CMV da hora, em reais: o lucro bruto é a venda menos ele. Coluna opcional (sem ela a hora fica sem CMV).
+  {
+    chave: 'cmv',
+    rotulo: 'CMV (R$)',
+    obrigatorio: false,
+    exemplo: '190,00',
+    sinonimos: [
+      'cmv rs',
+      'cmv_rs',
+      'cmv',
+      'cmv bruto',
+      'custo da mercadoria',
+      'custo mercadoria vendida',
+      'custo da mercadoria vendida',
+    ],
+  },
+  // Formato antigo: margem bruta por hora. Ainda é entendida (para não cair em outra coluna), mas é ignorada.
   {
     chave: 'margem',
     rotulo: 'Margem bruta (R$)',
     obrigatorio: false,
+    legado: true,
     exemplo: '310,00',
     sinonimos: ['margem bruta rs', 'margem_bruta_rs', 'margem bruta', 'margem', 'lucro bruto'],
   },

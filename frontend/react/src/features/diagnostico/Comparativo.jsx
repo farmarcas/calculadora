@@ -3,6 +3,8 @@ import { api } from "../../api/client.js";
 import { Aviso } from "../../components/ui/index.jsx";
 import CartaoCenario, { avisosDoCartao, temAvisos } from "./cartao/CartaoCenario.jsx";
 import PainelDias from "./cartao/PainelDias.jsx";
+import { palavraDaRegua } from "../regua.js";
+import { numeroDoCenario, ordenarCenarios } from "./comparativo-regras.js";
 import { linhasDoHorario, totaisDaSemana } from "./cartao/cartao-regras.js";
 
 // Quantas linhas o cartão tem na grade compartilhada: título (com a frase do cenário), resultado, status, contratações,
@@ -29,7 +31,10 @@ export default function Comparativo({ comparativo, cenarios, lojaId, podeEscreve
   const [painel, setPainel] = useState(null); // { c, posicao, linhas, totais, gatilho }
   const comparativoRef = useRef(null);
   if (!comparativo) return null;
-  const { cenarios: colunas, destaque } = comparativo;
+  const { destaque } = comparativo;
+  // Equilíbrio, Manter horários e Sem contratações, nesta ordem (o número de cada cenário não muda).
+  // A régua (margem ou venda) vai em cada coluna para os textos do cartão a lerem de um lugar só.
+  const colunas = ordenarCenarios(comparativo.cenarios).map((c) => ({ ...c, regua: comparativo.regua ?? null }));
   // O selo "Cenário sugerido" pode ir a outro cenário que não o de menor custo (quando este deixa falta de cobertura).
   const sugeridoId = comparativo.sugerido !== undefined ? comparativo.sugerido : destaque;
   const dono = colunas[0].custoFolhaMensal !== undefined;
@@ -44,7 +49,7 @@ export default function Comparativo({ comparativo, cenarios, lojaId, podeEscreve
     setErro(null);
     setOcupado(true);
     try {
-      const corpo = { nome: `Cenário ${n}: ${c.nome}`.slice(0, 80), regra: cenarios.regra.id };
+      const corpo = { nome: c.nome.slice(0, 80), regra: cenarios.regra.id };
       let s;
       let aviso = null;
       try {
@@ -83,7 +88,7 @@ export default function Comparativo({ comparativo, cenarios, lojaId, podeEscreve
       <div>
         <h2 className="m-0 text-xl leading-[26px] font-bold text-[var(--text-strong)]">Cenários sugeridos</h2>
         <p className="mt-1 mb-0 text-sm leading-5 text-[var(--text-secondary)]">
-          Estimativas para a regra de {cenarios?.regra?.nome ?? "referência"}, com o quadro{dono ? ", os salários" : ""} e a base comercial importados. Cada hora nova de funcionamento vale, por estimativa, 50% da venda da hora vizinha. Nada altera o cadastro.
+          Estimativas para a regra de {cenarios?.regra?.nome ?? "referência"}, com o quadro{dono ? ", os salários" : ""} e a base comercial importados. Cada hora nova de funcionamento vale, por estimativa, 50% da {palavraDaRegua(comparativo.regua)} da hora vizinha. Nada altera o cadastro.
         </p>
       </div>
       {erro && <Aviso>{erro}</Aviso>}
@@ -96,7 +101,7 @@ export default function Comparativo({ comparativo, cenarios, lojaId, podeEscreve
           {colunas.map((c, i) => (
             <CartaoCenario
               key={c.id}
-              posicao={i + 1}
+              posicao={numeroDoCenario(c.id)}
               c={c}
               antes={antes}
               novos={novosDe(c)}
@@ -108,8 +113,8 @@ export default function Comparativo({ comparativo, cenarios, lojaId, podeEscreve
               mostrarAvisos={algumAviso}
               podeEscrever={podePersonalizar}
               ocupado={ocupado}
-              onPersonalizar={() => personalizar(c, i + 1)}
-              onAbrirPainel={(e) => abrirPainel(c, i + 1, e.currentTarget)}
+              onPersonalizar={() => personalizar(c, numeroDoCenario(c.id))}
+              onAbrirPainel={(e) => abrirPainel(c, numeroDoCenario(c.id), e.currentTarget)}
             />
           ))}
         </div>

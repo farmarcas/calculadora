@@ -65,7 +65,8 @@ export const escalaRepository = (geId: string) => {
                 data: dia(v.data),
                 hora: v.hora,
                 venda: v.venda,
-                margem: v.margem,
+                // O banco guarda o CMV; o lucro bruto é venda − CMV.
+                cmv: v.margem === null ? null : v.venda - v.margem,
                 clientes: v.clientes,
                 unidades: v.unidades,
               })),
@@ -178,7 +179,7 @@ export const escalaRepository = (geId: string) => {
           data: v.data.toISOString().slice(0, 10),
           hora: v.hora,
           venda: v.venda,
-          margem: v.margem,
+          margem: v.cmv === null ? null : v.venda - v.cmv,
           clientes: v.clientes,
           unidades: v.unidades,
         })),

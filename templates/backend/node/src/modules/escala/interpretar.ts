@@ -93,12 +93,14 @@ export const interpretarBase = (aba: Aba, c: Colunas) => {
     if (hora === null) return erro('Hora inválida');
     const venda = lerNumero(cel(l, c, 'venda'));
     if (venda === null) return erro('Venda líquida vazia ou inválida');
+    const cmvDaLinha = lerNumero(cel(l, c, 'cmv'));
     vendas.push({
       loja,
       data,
       hora: Math.floor(hora),
       venda,
-      margem: lerNumero(cel(l, c, 'margem')) ?? 0,
+      // O CMV é opcional: sem ele a hora fica sem lucro bruto (nulo), nunca zero.
+      margem: cmvDaLinha === null ? null : venda - cmvDaLinha,
       clientes: Math.round(lerNumero(cel(l, c, 'clientes')) ?? 0),
       unidades: Math.round(lerNumero(cel(l, c, 'unidades')) ?? 0),
     });
@@ -114,7 +116,8 @@ export const somarPorHora = (vendas: VendaLinha[]): VendaLinha[] => {
     const a = m.get(k);
     if (a) {
       a.venda += v.venda;
-      a.margem += v.margem;
+      // Uma hora com CMV conhecido em parte das linhas fica sem lucro bruto: nunca soma o que se sabe com o que falta.
+      a.margem = a.margem === null || v.margem === null ? null : a.margem + v.margem;
       a.clientes += v.clientes;
       a.unidades += v.unidades;
     } else m.set(k, { ...v });

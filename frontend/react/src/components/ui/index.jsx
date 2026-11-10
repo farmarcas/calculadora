@@ -6,6 +6,8 @@ const botoes = {
   primario: "bg-system-500 text-white border border-transparent hover:bg-system-600 active:bg-system-700 disabled:bg-system-200",
   secundario: "bg-transparent text-system-500 border border-system-500 hover:bg-system-50 hover:text-system-500 active:text-system-700 active:border-system-700 disabled:text-system-200 disabled:border-system-200",
   perigo: "bg-transparent text-error-500 border border-error-500 hover:bg-error-50",
+  // Neutro: ação que existe mas não é o caminho indicado (cartão de cenário que "não resolve sozinho").
+  neutro: "bg-transparent text-[var(--text-secondary)] border border-[var(--border-strong)] hover:bg-[var(--surface-muted)] hover:text-[var(--text-strong)] active:bg-[var(--surface-muted)] disabled:opacity-50",
   texto: "bg-transparent text-system-500 border border-transparent hover:bg-system-50 active:text-system-700 disabled:text-system-200",
 };
 const tamanhos = { normal: "h-10 px-4 text-sm", pequeno: "h-8 px-3 text-xs" };

@@ -18,7 +18,7 @@ import { decimalParaHora, semanalDeMensal } from './carga.js';
 import { validarIntervalo } from './intervalo.js';
 import { cnpjDaPlanilha } from './documentos.js';
 import { formatarCnpj } from '../ge/cnpj.js';
-import { faturamentoDaLinha, type Faturamento } from './faturamento.js';
+import { faturamentoDaLinha, type FaturamentoEntrada } from './faturamento.js';
 import { configuracaoDaLinha, lerSimNao, type ConfiguracaoLinha } from './configuracao.js';
 
 // Aceita "Simples Nacional", "Lucro Presumido", "Lucro Real" (e variações); qualquer outra coisa fica em branco.
@@ -40,7 +40,7 @@ export type LojaInput = {
   uf?: string;
   marca?: string;
   regimeTributario?: 'simples' | 'presumido' | 'real';
-  faturamento?: Faturamento;
+  faturamento?: FaturamentoEntrada;
   horarios?: HorariosSemana;
   // Convenção, metas e custos (a gravação decide o que o perfil de quem importa pode gravar).
   configuracao?: ConfiguracaoLinha;

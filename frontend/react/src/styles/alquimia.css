@@ -90,6 +90,14 @@
 --color-primary-soft-strong:var(--system-50);
 --color-primary-disabled:var(--system-100);
 --color-primary-accent:var(--system-400);
+/* Gráfico de turnos com faturamento por hora (spec 035) */
+--chart-bar:#8FBAF3;
+--chart-band-border:#7FB2F2;
+--chart-band-selected:#BCD6FB;
+--chart-turn-tint-a:#EEF4FE;
+--chart-turn-tint-b:#F7FAFE;
+--chart-detail-border:#A9C8F5;
+--chart-band-text:#0B3A8C;
 
 --text-default:var(--text-primary-black);
 --text-strong:var(--neutral-dark-900);

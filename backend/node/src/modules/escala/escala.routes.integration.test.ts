@@ -343,31 +343,31 @@ describe('escala (rotas)', () => {
         },
       });
     const dono = await eco();
-    // Só o sábado pode mudar (não há domingo): reduz até o piso de 4 h (corta 2 h: 8h–14h → 8h–12h). Não cobre
-    // (11 turnos exigidos, 5 de capacidade) e fechar o sábado perderia 3466,67 (12,3% > 10%): para na trava de perda.
+    // Só o sábado pode mudar (não há domingo). O Cenário 2 perde no máximo 3% do faturamento: corta 1 h (8h–14h → 8h–13h,
+    // 2,1%); a 2.ª hora levaria a 4,1% e para na trava de perda. Não cobre (11 turnos exigidos, 5 de capacidade).
     // Só o faturamento por dia do Cadastro (sem base comercial): o corte é montado, mas a venda perdida não é estimada.
     expect(dono.viavel).toBe(false);
     expect(dono.naoResolveSozinho).toBe(true);
     expect(dono.travou).toBe('perda');
     expect(dono.diasFechar).toEqual([]);
-    expect(dono.horarioSemana[5]).toEqual({ dia: 5, aberto: true, abre: '08:00', fecha: '12:00' });
+    expect(dono.horarioSemana[5]).toEqual({ dia: 5, aberto: true, abre: '08:00', fecha: '13:00' });
     for (const d of [0, 1, 2, 3, 4])
       expect(dono.horarioSemana[d]).toMatchObject({ aberto: true, abre: '08:00', fecha: '20:00' });
-    expect(dono.horasSemana).toBe(64);
-    expect(dono.horasReduzir).toBe(2);
+    expect(dono.horasSemana).toBe(65);
+    expect(dono.horasReduzir).toBe(1);
     expect(dono.semVendaHoraria).toBe(true);
     expect(dono.vendaCortadaMes).toBeNull();
     expect(dono.vendaCortadaPorDia).toEqual([]);
     expect(dono.aviso).toContain('Sem venda hora a hora');
-    expect(dono.perdaFaturamentoPct).toBe(4.1);
+    expect(dono.perdaFaturamentoPct).toBe(2.1);
     expect(dono.faltaH).toBeGreaterThan(0);
     expect(dono.passos).toEqual([
       {
         tipo: 'reduzir',
         dia: 5,
-        horas: 2,
+        horas: 1,
         de: { abre: '08:00', fecha: '14:00' },
-        para: { abre: '08:00', fecha: '12:00' },
+        para: { abre: '08:00', fecha: '13:00' },
       },
     ]);
     expect(dono.impactoMensal).toBeNull(); // não resolve sozinho: fora da escolha do selo
@@ -409,14 +409,14 @@ describe('escala (rotas)', () => {
         {
           dia: 5,
           antes: { abre: '08:00', fecha: '14:00' },
-          depois: { abre: '08:00', fecha: '12:00' },
+          depois: { abre: '08:00', fecha: '13:00' },
         },
       ]);
       expect('vendaCortadaMes' in r).toBe(false);
       for (const d of r.vendaCortadaPorDia) expect('vendaMes' in d).toBe(false);
       expect('perdaFaturamentoPct' in r).toBe(false);
       const texto = JSON.stringify(r);
-      for (const valor of ['1155', '288', '4.1', 'R$']) expect(texto).not.toContain(valor);
+      for (const valor of ['577', '288', '2.1', 'R$']) expect(texto).not.toContain(valor);
     }
   });
 
@@ -512,16 +512,16 @@ describe('escala (rotas)', () => {
       saldoAnual: 0,
       pesoNoFaturamentoPct: 0,
     });
-    // Cenário 2 (só o sábado, até 4 h): perde as 2 últimas horas do sábado (133,33 por hora × 52 ÷ 12 = 577,78 cada)
+    // Cenário 2 (só o sábado, até 3% de perda): perde a última hora do sábado (133,33 por hora × 52 ÷ 12 = 577,78)
     expect(por.economia).toMatchObject({
       status: 'nao_resolve',
       diasFechar: [],
       custoFolhaMensal: 12976,
       economiaFolhaMensal: 8434.4,
     });
-    expect(por.economia.faturamentoPerdidoMensal).toBeCloseTo(1155.56, 0);
-    expect(por.economia.saldoMensal).toBeCloseTo(8434.4 - 1155.56, 0);
-    expect(por.economia.vendaPerdidaPorDia).toMatchObject([{ dia: 5, horasFechadas: 2, ate: 12 }]);
+    expect(por.economia.faturamentoPerdidoMensal).toBeCloseTo(577.78, 0);
+    expect(por.economia.saldoMensal).toBeCloseTo(8434.4 - 577.78, 0);
+    expect(por.economia.vendaPerdidaPorDia).toMatchObject([{ dia: 5, horasFechadas: 1, ate: 13 }]);
     // Cenário 3: o saldo fecha com a conta aberta
     const eq3 = por.equilibrio;
     expect(eq3.status).toBe('viavel');
@@ -531,7 +531,7 @@ describe('escala (rotas)', () => {
     );
     expect(eq3.saldoAnual).toBeCloseTo(eq3.saldoMensal * 12, 0);
     expect(['manter', 'equilibrio']).toContain(dono.comparativo.destaque);
-    expect(por.economia.alertas.join(' ')).toContain('Cenário 3');
+    expect(por.economia.alertas.join(' ')).toContain('Equilíbrio');
     const textoDono = JSON.stringify(dono);
     for (const chave of [
       'margemCortadaMes',
@@ -1332,9 +1332,13 @@ describe('escala (rotas)', () => {
     };
     const diag = async (h: Record<string, string> = admin) =>
       (await reqGe().get(`/api/v1/lojas/${lojaId}/diagnostico`).set(h)).body;
+    // O padrão agora é a convenção permitida; estes testes são da loja que desligou a convenção.
+    const semConvencao = () =>
+      reqGe().put(`/api/v1/lojas/${lojaId}/configuracao`).set(admin).send({ convencao8h24: false });
 
     it('convenção desligada: a regra de 42h traz com8h24; as outras regras não', async () => {
       await enviar();
+      await semConvencao();
       const d = await diag();
       const r42 = d.regras.find((r: { id: string }) => r.id === 'r42');
       const r40 = d.regras.find((r: { id: string }) => r.id === 'r40');
@@ -1364,6 +1368,7 @@ describe('escala (rotas)', () => {
 
     it('é só horas (sem R$): gestor e consulta recebem igual; nenhum outro campo da regra muda', async () => {
       await enviar();
+      await semConvencao();
       const gestor = { 'X-Perfil': 'SCHEDULE_MANAGER', 'X-GE': GE_INICIAL_ID };
       const consulta = { 'X-Perfil': 'SCHEDULE_VIEWER', 'X-GE': GE_INICIAL_ID };
       const dono = (await diag()).regras.find((r: { id: string }) => r.id === 'r42');
@@ -1393,6 +1398,121 @@ describe('escala (rotas)', () => {
       const d = await diag();
       expect(d.status).toBe('pendente');
       expect(d).not.toHaveProperty('regras');
+    });
+  });
+  describe('régua dos cenários: CMV, CMV médio ou venda (specs 033 e 034)', () => {
+    const gestor = { 'X-Perfil': 'SCHEDULE_MANAGER', 'X-GE': GE_INICIAL_ID };
+    const url = () => `/api/v1/lojas/${lojaId}/diagnostico`;
+    // `cmv` devolve o CMV (em reais) de cada hora; null = base sem a coluna de CMV.
+    const preparar = async (cmv: ((venda: number, i: number) => string) | null) => {
+      await reqGe()
+        .post('/api/v1/cargas/escala')
+        .set(admin)
+        .attach(
+          'arquivo',
+          await xlsx(escalaCab, [
+            ['001', 'F1', 'Ana', 'Farmacêutica', 'Seg a Sáb', '08:00', '', '', '17:00', '44'],
+          ]),
+          'e.xlsx',
+        );
+      await reqGe()
+        .put(`/api/v1/lojas/${lojaId}/configuracao`)
+        .set(admin)
+        .send({ minimos: { Atendimento: 0, Caixa: 0 } });
+      await reqGe()
+        .put(`/api/v1/lojas/${lojaId}/custos`)
+        .set(admin)
+        .send({ salarioMedio: { Farmacêutico: 8000 }, encargosPct: 40 });
+      const datas = [
+        '07/09/2026',
+        '08/09/2026',
+        '09/09/2026',
+        '10/09/2026',
+        '11/09/2026',
+        '12/09/2026',
+      ];
+      const linhas = datas.flatMap((data, d) =>
+        Array.from({ length: d === 5 ? 6 : 12 }, (_, i) => [
+          data,
+          String(8 + i),
+          '001',
+          '100,00',
+          ...(cmv ? [cmv(100, i)] : []),
+          '10',
+        ]),
+      );
+      const cab = [
+        'Data',
+        'Hora',
+        'Cod_Loja',
+        'Venda_Liquida_RS',
+        ...(cmv ? ['CMV_RS'] : []),
+        'Clientes_Atendidos',
+      ];
+      await reqGe()
+        .post('/api/v1/cargas/base')
+        .set(admin)
+        .attach('arquivo', await xlsx(cab, linhas), 'b.xlsx');
+    };
+    const comCmvMedio = (pct: number | null) =>
+      reqGe()
+        .patch(`/api/v1/lojas/${lojaId}`)
+        .set(admin)
+        .send({
+          faturamento: {
+            dias: [1000, 1100, 900, 1200, 1500, 800, null],
+            mensal: null,
+            cmvPct: pct,
+          },
+        });
+    const cmvDe = (pct: number) => (v: number) => String((v * pct) / 100).replace('.', ',');
+
+    it('base com CMV em todas as horas: os cenários e o comparativo vêm na régua de margem (lucro bruto)', async () => {
+      await preparar(cmvDe(70));
+      const d = (await reqGe().get(url()).set(admin)).body;
+      expect(d.regua).toEqual({ tipo: 'margem' });
+      for (const id of ['r42', 'r40']) {
+        expect(d.cenarios[id].regua).toEqual({ tipo: 'margem' });
+        expect(d.cenarios[id].comparativo.regua).toEqual({ tipo: 'margem' });
+      }
+    });
+
+    it('base sem a coluna de CMV e sem CMV médio: a régua é venda, com o motivo', async () => {
+      await preparar(null);
+      const d = (await reqGe().get(url()).set(admin)).body;
+      expect(d.regua).toEqual({ tipo: 'venda', motivo: 'sem_margem' });
+      expect(d.cenarios.r40.regua).toEqual({ tipo: 'venda', motivo: 'sem_margem' });
+    });
+
+    it('base sem a coluna de CMV mas com o CMV médio da loja: a régua é margem', async () => {
+      await preparar(null);
+      await comCmvMedio(65);
+      const d = (await reqGe().get(url()).set(admin)).body;
+      expect(d.regua).toEqual({ tipo: 'margem' });
+      expect(d.cenarios.r40.regua).toEqual({ tipo: 'margem' });
+    });
+
+    it('CMV maior que a venda numa hora: cai em venda com o motivo, mesmo com CMV médio', async () => {
+      await preparar((v, i) => (i === 3 ? String(v * 2).replace('.', ',') : cmvDe(70)(v)));
+      await comCmvMedio(65);
+      const d = (await reqGe().get(url()).set(admin)).body;
+      expect(d.regua).toEqual({ tipo: 'venda', motivo: 'margem_incoerente' });
+    });
+
+    it('o gestor recebe a régua e nenhum valor em reais', async () => {
+      await preparar(cmvDe(70));
+      const g = (await reqGe().get(url()).set(gestor)).body;
+      expect(g.regua).toEqual({ tipo: 'margem' });
+      const texto = JSON.stringify(g.cenarios);
+      for (const chave of [
+        'vendaCortadaMes',
+        'vendaGanhaMes',
+        'vendaCortadaRealMes',
+        'saldoMensal',
+        'faturamentoPerdidoMensal',
+        'cmvPct',
+      ])
+        expect(texto).not.toContain(chave);
     });
   });
 });

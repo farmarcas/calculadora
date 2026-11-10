@@ -2,7 +2,8 @@ export type VendaLinha = {
   data: string;
   hora: number;
   venda: number;
-  margem: number;
+  // Lucro bruto da hora (venda − CMV), ou nulo quando a base não trouxe o CMV dela (spec 034). O banco guarda o CMV.
+  margem: number | null;
   clientes: number;
   unidades: number;
 };

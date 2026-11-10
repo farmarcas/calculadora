@@ -1,4 +1,5 @@
 // Contas e textos do cartão de cenário (spec 024), puros e sem React. A tela só desenha o que sai daqui.
+import { capitalizada, maiusculas, palavraDaRegua } from "../../regua.js";
 
 export const MENOS = "−"; // sinal de menos tipográfico (U+2212)
 const NOMES_DIA = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
@@ -34,22 +35,26 @@ export const estadoDaFolha = (c) => {
   return { rotulo: "CUSTO DE FOLHA", valor: brl(0), apoio: "sem custo extra", tom: "neutro" };
 };
 
-// Coluna da venda: o que deixa de entrar (vermelho), a venda estimada das horas novas (verde) ou nada (preto).
+// Coluna da venda (ou da margem, conforme a régua): o que deixa de entrar (vermelho), o estimado das horas novas (verde) ou nada (preto).
 export const estadoDaVenda = (c) => {
-  if (c.semVendaHoraria) return { rotulo: "VENDA QUE DEIXA DE ENTRAR", valor: "Não estimada", apoio: "sem venda hora a hora", tom: "neutro" };
+  const P = maiusculas(c.regua);
+  const p = palavraDaRegua(c.regua);
+  const margem = p === "margem";
+  const nota = notaDaVendaEstimada(c.regua);
+  if (c.semVendaHoraria) return { rotulo: `${P} QUE DEIXA DE ENTRAR`, valor: "Não estimada", apoio: "sem venda hora a hora", tom: "neutro" };
   const perdida = c.faturamentoPerdidoMensal ?? 0;
   const ganha = c.vendaAdicionalMensal ?? 0;
   if (ganha > ZERO && perdida > ZERO) {
     const liquida = ganha - perdida;
     return liquida >= 0
-      ? { rotulo: "VENDA ESTIMADA", valor: brl(liquida), apoio: "por mês, já descontada a perda", tom: "sucesso", dica: NOTA_VENDA_ESTIMADA }
-      : { rotulo: "VENDA QUE DEIXA DE ENTRAR", valor: brl(-liquida), apoio: "por mês, já com a venda estimada", tom: "perigo" };
+      ? { rotulo: `${P} ESTIMADA`, valor: brl(liquida), apoio: "por mês, já descontada a perda", tom: "sucesso", dica: nota }
+      : { rotulo: `${P} QUE DEIXA DE ENTRAR`, valor: brl(-liquida), apoio: `por mês, já com a ${p} estimada`, tom: "perigo" };
   }
   if (ganha > ZERO)
-    return { rotulo: "VENDA ESTIMADA", valor: brl(ganha), apoio: c.vendaAdicionalPct != null ? `+${pctTxt(c.vendaAdicionalPct)} por mês` : "a mais por mês", tom: "sucesso", dica: NOTA_VENDA_ESTIMADA };
+    return { rotulo: `${P} ESTIMADA`, valor: brl(ganha), apoio: c.vendaAdicionalPct != null ? `+${pctTxt(c.vendaAdicionalPct)}${margem ? " de venda" : ""} por mês` : "a mais por mês", tom: "sucesso", dica: nota };
   if (perdida > ZERO)
-    return { rotulo: "VENDA QUE DEIXA DE ENTRAR", valor: brl(perdida), apoio: c.faturamentoPerdidoPct != null ? `${pctTxt(c.faturamentoPerdidoPct)} por mês` : "por mês", tom: "perigo" };
-  return { rotulo: "VENDA QUE DEIXA DE ENTRAR", valor: "Nenhuma", apoio: "sem perda de venda", tom: "neutro" };
+    return { rotulo: `${P} QUE DEIXA DE ENTRAR`, valor: brl(perdida), apoio: c.faturamentoPerdidoPct != null ? (margem ? `venda cortada: ${pctTxt(c.faturamentoPerdidoPct)} por mês` : `${pctTxt(c.faturamentoPerdidoPct)} por mês`) : "por mês", tom: "perigo" };
+  return { rotulo: `${P} QUE DEIXA DE ENTRAR`, valor: "Nenhuma", apoio: `sem perda de ${p}`, tom: "neutro" };
 };
 
 // ---- Status e comparação ---------------------------------------------------------------------------------------------
@@ -65,13 +70,13 @@ export const statusDoCartao = (c) => {
   return { tom: "ok", texto: "Cobre o horário sem perder venda" };
 };
 
-// "R$ 5.467 a menos de folha que o Cenário 1" (dono). No Cenário 1: a referência.
+// "R$ 5.467 a menos de folha que Manter horários" (dono). No Cenário 1: a referência.
 export const comparacaoComCenario1 = (c, { ehReferencia, dono }) => {
   if (ehReferencia) return "Referência para comparar os outros";
   if (!dono || c.economiaFolhaMensal == null) return "";
   const e = c.economiaFolhaMensal;
-  if (Math.abs(e) < ZERO) return "Mesma folha do Cenário 1";
-  return e > 0 ? `${brl(e)} a menos de folha que o Cenário 1` : `${brl(-e)} a mais de folha que o Cenário 1`;
+  if (Math.abs(e) < ZERO) return "Mesma folha de Manter horários";
+  return e > 0 ? `${brl(e)} a menos de folha que Manter horários` : `${brl(-e)} a mais de folha que Manter horários`;
 };
 
 // ---- Contratações ----------------------------------------------------------------------------------------------------
@@ -156,8 +161,9 @@ export const linhaDeResultado = (c) => {
 };
 
 // A nota da venda estimada vai no ⓘ ao lado de "VENDA ESTIMADA" (não repete na lista de avisos).
-export const NOTA_VENDA_ESTIMADA = "Venda das horas novas estimada: onde não há venda registrada, vale metade da hora vizinha.";
-const REPETIDOS = new Set(["Usa contrato parcial para cobrir o que sobra.", "Venda das horas novas é estimada: onde não há venda registrada nessa hora, vale metade da venda da hora vizinha."]);
+export const notaDaVendaEstimada = (regua) => `${capitalizada(regua)} das horas novas estimada: onde não há venda registrada, vale metade da hora vizinha.`;
+export const NOTA_VENDA_ESTIMADA = notaDaVendaEstimada(null);
+const REPETIDOS = new Set(["Usa contrato parcial para cobrir o que sobra.", "Venda das horas novas é estimada: onde não há venda registrada nessa hora, vale metade da venda da hora vizinha.", "Margem das horas novas é estimada: onde não há venda registrada nessa hora, vale metade da margem da hora vizinha."]);
 
 // Alertas do cenário sem o que o cartão já mostra: "parcial" está em cada linha de contratação e a nota da venda estimada fica no ⓘ.
 export const alertasParaExibir = (alertas = []) => alertas.filter((a) => !REPETIDOS.has(a));

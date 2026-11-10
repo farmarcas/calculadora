@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { consequencias, faltaCurta, textoDaFalta } from "./comparativo-regras.js";
+import { consequencias, faltaCurta, textoDaFalta, numeroDoCenario, ordenarCenarios } from "./comparativo-regras.js";
 
 const brl = (n) => `R$ ${n}`;
 const faltas = [{ funcao: "Atendimento", horasSemana: 32 }, { funcao: "Apoio", horasSemana: 4 }];
@@ -33,5 +33,22 @@ describe("faixa amarela", () => {
   });
   it("sem falta nenhuma, não mostra nada", () => {
     expect(consequencias({ faltaPorFuncao: [], semFarmaceuticoH: 0 }, { dono: true, brl, horasAMenos: 0 })).toEqual([]);
+  });
+});
+
+describe("ordem dos cartões na tela", () => {
+  const colunas = [{ id: "manter" }, { id: "economia" }, { id: "equilibrio" }];
+  it("Equilíbrio, Manter horários e Sem contratações, nesta ordem", () => {
+    expect(ordenarCenarios(colunas).map((c) => c.id)).toEqual(["equilibrio", "manter", "economia"]);
+  });
+  it("não altera a lista original e mantém a ordem de um id desconhecido no fim", () => {
+    const antes = JSON.stringify(colunas);
+    ordenarCenarios(colunas);
+    expect(JSON.stringify(colunas)).toBe(antes);
+    expect(ordenarCenarios([{ id: "x" }, ...colunas]).map((c) => c.id)).toEqual(["equilibrio", "manter", "economia", "x"]);
+    expect(ordenarCenarios()).toEqual([]);
+  });
+  it("o número do cenário não muda com a ordem: 1 Manter, 2 Sem contratações, 3 Equilíbrio", () => {
+    expect([numeroDoCenario("manter"), numeroDoCenario("economia"), numeroDoCenario("equilibrio")]).toEqual([1, 2, 3]);
   });
 });

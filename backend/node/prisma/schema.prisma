@@ -57,12 +57,12 @@ model Loja {
   cidade    String?
   // simples | presumido | real. Informativo: não entra em nenhum cálculo.
   regimeTributario String? @map("regime_tributario")
-  // Faturamento médio: { dias: [seg…dom], mensal, margemPct }. Só o dono vê.
+  // Faturamento médio: { dias: [seg…dom], mensal, cmvPct }. Só o dono vê.
   faturamento   Json?
   // Horário de funcionamento: { semana: {abre, fecha}, sabado: {...}, domingo: {...} }
   horarios  Json?
   // Configuração do diagnóstico: convenção que permite 8h24/dia e mínimo de pessoas por função.
-  convencao8h24 Boolean   @default(false) @map("convencao_8h24")
+  convencao8h24 Boolean   @default(true) @map("convencao_8h24")
   minimos       Json?
   // Turnos da loja e o mínimo por cargo em cada um: { versao: 1, turnos: [{ nome, inicio, fim, minimos }] }. Nulo = só o mínimo único acima.
   turnos        Json?
@@ -245,7 +245,8 @@ model VendaHora {
   data     DateTime @db.Date
   hora     Int
   venda    Float
-  margem   Float
+  // CMV (custo da mercadoria) da hora, em reais; nulo quando a base não trouxe (spec 034). O lucro bruto é venda − cmv.
+  cmv      Float?
   clientes Int
   unidades Int
 

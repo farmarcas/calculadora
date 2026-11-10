@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { api } from "../../api/client.js";
 import { Aviso, Botao } from "../../components/ui/index.jsx";
+import CoberturaDaSimulacao from "./CoberturaDaSimulacao.jsx";
 import BarraParametros from "./BarraParametros.jsx";
 import PainelResultado from "./PainelResultado.jsx";
 import PassoContratacoes from "./PassoContratacoes.jsx";
@@ -63,6 +64,7 @@ export default function SimulacaoPage({ id, perfil, podeEscrever, aviso, onVolta
       <div className="sim-grade">
         <div className="sim-esq flex flex-col gap-4 min-w-0">
           <PassoHorario sim={sim} editavel={editavel} onSalvarHorarios={(horarios) => salvar({ horarios })} />
+          <CoberturaDaSimulacao cobertura={sim.cobertura} />
           <PassoContratacoes sim={sim} editavel={editavel} dono={dono} onSalvar={salvar} />
         </div>
         <PainelResultado sim={sim} calculando={calculando} dono={dono} podeEscrever={podeEscrever} salvando={salvando} onSalvar={salvarComoCenario} onClonar={clonar} />

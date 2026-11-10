@@ -111,6 +111,14 @@ export const turnosDaGrade = (config, dentro) => {
 
 const rotuloMinimo = (minimoMax) => (minimoMax > 0 ? `mínimo ${minimoMax} ${minimoMax === 1 ? "pessoa" : "pessoas"}` : "sem mínimo por hora");
 
+// A cobertura que a Simulação devolve no detalhe, no formato que o montador do Diagnóstico lê (nenhuma regra nova).
+export const diagDaSimulacao = (c) => ({
+  cobertura: { horas: c?.horas ?? [], funcoes: c?.funcoes ?? [] },
+  vendas: c?.vendas ?? null,
+  loja: { horarios: c?.horarios ?? null },
+  config: { modoMinimo: c?.turnosDaLoja?.modoMinimo ?? "unico", turnos: c?.turnosDaLoja?.turnos ?? [] },
+});
+
 // Aba 1: tudo o que a grade desenha.
 export const montarCobertura = (diag) => {
   const cob = diag.cobertura;
@@ -127,7 +135,7 @@ export const montarCobertura = (diag) => {
       const celulas = eixo.map((hora) => {
         const c = porHora.get(hora);
         if (!c || c.pessoas == null || !dentro.has(hora)) return { hora, pessoas: null, exigido: 0, estado: "fora" };
-        return { hora, pessoas: c.pessoas, exigido: c.exigido ?? 0, estado: c.ok === false ? "abaixo" : "atende" };
+        return { hora, pessoas: c.pessoas, exigido: c.exigido ?? f.minimo ?? 0, estado: c.ok === false ? "abaixo" : "atende" };
       });
       const maxExigido = Math.max(0, ...celulas.map((c) => c.exigido));
       return { funcao: f.funcao, rotuloMinimo: rotuloMinimo(maxExigido), celulas };

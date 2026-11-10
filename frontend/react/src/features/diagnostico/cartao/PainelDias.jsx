@@ -52,7 +52,7 @@ export default function PainelDias({ painel, onFechar, onPersonalizar, podePerso
         <div className="flex items-start justify-between gap-3">
           <div>
             <h2 id={idTitulo} className="m-0 text-xl leading-[26px] font-bold text-[var(--text-strong)]">Dias e horários</h2>
-            <p className="mt-1 mb-0 text-sm leading-5 text-[var(--text-secondary)]">Cenário {posicao} · {c.nome} · {sentidoDoHorario(totais)} horários</p>
+            <p className="mt-1 mb-0 text-sm leading-5 text-[var(--text-secondary)]">{c.nome} · {sentidoDoHorario(totais)} horários</p>
           </div>
           <button type="button" data-foco-inicial aria-label="Fechar painel" onClick={onFechar} className="inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-btn border-0 bg-transparent text-[var(--icon-default)] hover:bg-[var(--surface-subtle)] focus-visible:outline-2 focus-visible:outline-[var(--border-focus)]">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg>

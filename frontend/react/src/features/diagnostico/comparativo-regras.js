@@ -23,7 +23,7 @@ export const consequencias = (c, { dono, brl, horasAMenos }) => {
   if (horasAMenos > 0) {
     linhas.push(
       dono && c.faturamentoPerdidoMensal > 0
-        ? `Reduz ${horasTxt(horasAMenos)} por semana abertas: deixam de entrar ${brl(c.faturamentoPerdidoMensal)} por mês em vendas.`
+        ? `Reduz ${horasTxt(horasAMenos)} por semana abertas: deixam de entrar ${brl(c.faturamentoPerdidoMensal)} por mês em ${c.regua?.tipo === "margem" ? "margem" : "vendas"}.`
         : `Reduz ${horasTxt(horasAMenos)} por semana abertas.`,
     );
   }
@@ -33,4 +33,14 @@ export const consequencias = (c, { dono, brl, horasAMenos }) => {
   }
   if (c.semFarmaceuticoH > 0) linhas.push(`A loja fica ${horasTxt(c.semFarmaceuticoH)} por semana aberta sem farmacêutico: risco para a venda.`);
   return linhas;
+};
+
+// Ordem dos cartões na tela: Equilíbrio, Manter horários, Sem contratações. O número de cada cenário não muda com a ordem
+// (Cenário 1 = Manter horários, 2 = Sem contratações, 3 = Equilíbrio), pois os textos e os nomes das simulações o citam.
+export const ORDEM_DE_EXIBICAO = ["equilibrio", "manter", "economia"];
+export const NUMERO_DO_CENARIO = { manter: 1, economia: 2, equilibrio: 3 };
+export const numeroDoCenario = (id) => NUMERO_DO_CENARIO[id] ?? 0;
+export const ordenarCenarios = (colunas = []) => {
+  const lugar = (id) => { const i = ORDEM_DE_EXIBICAO.indexOf(id); return i < 0 ? ORDEM_DE_EXIBICAO.length : i; };
+  return colunas.map((c, i) => ({ c, i })).sort((a, b) => lugar(a.c.id) - lugar(b.c.id) || a.i - b.i).map(({ c }) => c);
 };

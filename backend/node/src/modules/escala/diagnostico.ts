@@ -12,6 +12,7 @@ import { montarCenarios } from './cenarios.js';
 import { montarExtras, type ExtrasRegra } from './cenarios-extras.js';
 import type { TabelaParametros } from '../regras/parametros.js';
 import { montarQuadroTurnos } from './quadro-turnos.js';
+import { preencherComCmvMedio, reguaDaBase } from './regua.js';
 import { avisosDeTurnos, exigenciasDaLoja, type TurnosLoja } from '../regras/turnos.js';
 import type { Faturamento } from '../cadastros/faturamento.js';
 import { montarComparativo, type Comparativo } from './comparativo.js';
@@ -77,7 +78,7 @@ const semValoresDeVenda = (v: unknown): unknown =>
         )
       : v;
 
-const semValorPorHora = <
+export const semValorPorHora = <
   T extends { horas: { vendaMedia: number }[]; top: { vendaMedia: number }[] },
 >(
   v: T,
@@ -406,6 +407,12 @@ export const montarDiagnostico = (a: {
   // Faturamento mensal de referência (só o dono vê o que dele sai): cadastro ou base comercial.
   const faturamentoRef = faturamentoMensalDe({ faturamento: loja.faturamento, vendasBase: vendas });
 
+  // A régua da loja (margem ou venda) vale igual para todos os cenários; só a base de vendas de verdade a define.
+  // Com o CMV médio da loja, as horas sem CMV recebem o lucro bruto dele; a venda real não muda.
+  const vendasComCmv =
+    origemVendas === 'base' ? preencherComCmvMedio(vendas, loja.faturamento?.cmvPct) : vendas;
+  const regua = origemVendas === 'base' ? reguaDaBase(vendasComCmv) : null;
+
   const cenariosPorRegra = Object.fromEntries(
     (['r42', 'r40'] as const).map((regraId) => {
       const entrada = {
@@ -414,7 +421,8 @@ export const montarDiagnostico = (a: {
         dias,
         minimos: exigencias,
         pessoas,
-        vendas: vendasUsadas,
+        vendas: origemVendas === 'base' ? vendasComCmv : vendasUsadas,
+        regua,
         vendasDoCadastro: origemVendas === 'cadastro',
         custos: loja.custos ?? null,
         dono: a.dono === true,
@@ -482,6 +490,7 @@ export const montarDiagnostico = (a: {
     // Venda média por hora é valor em reais: só o dono; os demais veem a participação de cada hora no total.
     vendas: a.dono || !resumoVendas ? resumoVendas : semValorPorHora(resumoVendas),
     origemVendas,
+    regua,
     cenarios: cenariosSaida,
     etapas,
     premissas: {

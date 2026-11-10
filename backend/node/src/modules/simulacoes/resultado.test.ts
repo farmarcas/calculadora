@@ -15,7 +15,8 @@ const quadro: PessoaSim[] = [
   { matricula: 'B', nome: 'Bia', funcao: 'Farmacêutico', cargaH: 40 },
 ];
 // 2026-01-05 é uma segunda: uma data por dia da semana, então a média é o próprio valor.
-const venda = (hora: number, v: number, m = v * 0.26): VendaLinha => ({
+// Sem CMV na base (m = null) a régua é a venda, como sempre foi. Os testes de CMV (spec 034) passam o lucro bruto `m` (venda − CMV).
+const venda = (hora: number, v: number, m: number | null = null): VendaLinha => ({
   data: '2026-01-05',
   hora,
   venda: v,
@@ -76,13 +77,73 @@ describe('calcularResultado', () => {
     expect(r.vendaPorHora.venda).toBeNull();
   });
 
-  it('a margem não importa: sem ela a venda que sai e o saldo são os mesmos', () => {
-    const com = base({ dias: segundaAte20, vendas: [venda(20, 1000), venda(21, 1000)] });
-    const sem = base({ dias: segundaAte20, vendas: [venda(20, 1000, 0), venda(21, 1000, 0)] });
-    expect(sem.vendaQueSai).toBeCloseTo((2000 * 52) / 12, 1);
-    expect(sem.vendaQueSai).toBe(com.vendaQueSai);
-    expect(sem.saldoMensal).toBe(com.saldoMensal);
-    expect('margemPerdida' in sem).toBe(false);
+  it('base sem CMV: a régua é venda e a venda que sai e o saldo são os de sempre', () => {
+    const r = base({ dias: segundaAte20, vendas: [venda(20, 1000), venda(21, 1000)] });
+    expect(r.regua).toEqual({ tipo: 'venda', motivo: 'sem_margem' });
+    expect(r.vendaQueSai).toBeCloseTo((2000 * 52) / 12, 1);
+  });
+
+  it('base com CMV: a venda que sai, a estimada e o saldo são em margem; a venda real segue como informação', () => {
+    const vendas = [venda(20, 1000, 300), venda(21, 1000, 300), venda(10, 1000, 300)];
+    const comMargem = base({ dias: segundaAte20, vendas });
+    const comVenda = base({
+      dias: segundaAte20,
+      vendas: vendas.map((l) => ({ ...l, margem: null })),
+    });
+    expect(comMargem.regua).toEqual({ tipo: 'margem' });
+    expect(comMargem.vendaQueSai).toBeCloseTo((600 * 52) / 12, 1);
+    expect(comMargem.vendaQueSai!).toBeLessThan(comVenda.vendaQueSai!);
+    // Custos não mudam; só a medida da perda: o saldo sobe exatamente o que a perda cai.
+    expect(comMargem.folhaExtra).toBe(comVenda.folhaExtra);
+    expect(comMargem.horaExtra).toBe(comVenda.horaExtra);
+    expect(comMargem.saldoMensal! - comVenda.saldoMensal!).toBeCloseTo(
+      comVenda.vendaQueSai! - comMargem.vendaQueSai!,
+      1,
+    );
+    // O faturamento de referência e o ticket médio seguem em venda real.
+    expect(comMargem.pesoNoFaturamentoPct).not.toBeNull();
+    expect(comMargem.vendaPorHora.venda![0]![20]).toBe(1000);
+  });
+
+  it('CMV maior que a venda: volta à venda e avisa o motivo', () => {
+    const r = base({ dias: segundaAte20, vendas: [venda(20, 1000, 300), venda(21, 1000, -200)] });
+    expect(r.regua).toEqual({ tipo: 'venda', motivo: 'margem_incoerente' });
+    expect(r.vendaQueSai).toBeCloseTo((2000 * 52) / 12, 1);
+  });
+
+  it('CMV médio da loja: as horas sem CMV recebem venda × (1 − CMV médio); a perda de R$ 1.000 vira R$ 350 com CMV de 65%', () => {
+    const vendas = [venda(20, 1000), venda(21, 1000), venda(10, 1000)];
+    const r = base({ dias: segundaAte20, vendas, cmvMedioPct: 65 });
+    expect(r.regua).toEqual({ tipo: 'margem' });
+    expect(r.vendaQueSai).toBeCloseTo((700 * 52) / 12, 1);
+    // CMV da hora vale mais que o médio: a hora 21 com lucro bruto de 200 usa o 200.
+    const misto = base({
+      dias: segundaAte20,
+      vendas: [venda(20, 1000), venda(21, 1000, 200), venda(10, 1000)],
+      cmvMedioPct: 65,
+    });
+    expect(misto.vendaQueSai).toBeCloseTo(((350 + 200) * 52) / 12, 1);
+  });
+
+  it('sem CMV na base e sem CMV médio: mede em venda, como antes', () => {
+    const r = base({
+      dias: segundaAte20,
+      vendas: [venda(20, 1000), venda(21, 1000)],
+      cmvMedioPct: null,
+    });
+    expect(r.regua).toEqual({ tipo: 'venda', motivo: 'sem_margem' });
+    expect(r.vendaQueSai).toBeCloseTo((2000 * 52) / 12, 1);
+  });
+
+  it('o gestor recebe a régua e nenhum valor em reais', () => {
+    const r = base({
+      dias: segundaAte20,
+      dono: false,
+      vendas: [venda(20, 1000, 300), venda(21, 1000, 300)],
+    });
+    expect(r.regua).toEqual({ tipo: 'margem' });
+    expect(r).not.toHaveProperty('vendaQueSai');
+    expect(r).not.toHaveProperty('saldoMensal');
   });
 
   it('saldo = −folha extra − hora extra + venda estimada − venda que deixa de entrar; anual = mensal × 12; peso sobre o faturamento', () => {

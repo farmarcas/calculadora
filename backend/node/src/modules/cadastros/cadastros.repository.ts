@@ -1,7 +1,7 @@
 import { Prisma } from '../../generated/prisma/client.js';
 import { prisma } from '../../shared/database/prisma.js';
 import { decimalParaHora, horaParaDecimal, mensalDeSemanal } from './carga.js';
-import { manterMargem, type Faturamento } from './faturamento.js';
+import { mesclarFaturamento, type Faturamento } from './faturamento.js';
 import { FUNCOES_NO_CALCULO, funcaoNoCalculo } from './funcoes.js';
 import { normalizarHorarios, resumoHorarios } from './horarios.js';
 import type { Aba } from '../planilhas/leitor.js';
@@ -191,8 +191,9 @@ export const cadastrosRepository = (geId: string): CadastrosRepository => ({
   },
   async criarLoja(i) {
     const dados = limpa(i) as Record<string, unknown>;
-    // Loja nova nasce sem margem: ela só existe nas lojas que já a tinham guardada.
-    if (dados.faturamento) dados.faturamento = manterMargem(dados.faturamento as Faturamento, null);
+    // Loja nova nasce sem CMV médio; ele só existe quando o dono (ou a planilha) o informa.
+    if (dados.faturamento)
+      dados.faturamento = mesclarFaturamento(dados.faturamento as Faturamento, null);
     return comoLoja(
       await prisma.loja.create({
         data: { ...dados, geId } as never,
@@ -202,13 +203,13 @@ export const cadastrosRepository = (geId: string): CadastrosRepository => ({
   },
   async atualizarLoja(id, i) {
     const dados = limpa(i) as Record<string, unknown>;
-    // A margem que já estava guardada no faturamento nunca muda por aqui.
+    // O CMV médio já guardado fica quando o pedido não fala dele.
     if (dados.faturamento !== undefined) {
       const atual = await prisma.loja.findFirst({
         where: { id, geId },
         select: { faturamento: true },
       });
-      const fat = manterMargem(dados.faturamento as Faturamento | null, atual?.faturamento);
+      const fat = mesclarFaturamento(dados.faturamento as Faturamento | null, atual?.faturamento);
       dados.faturamento = fat === null ? Prisma.JsonNull : fat;
     }
     return comoLoja(
@@ -226,7 +227,7 @@ export const cadastrosRepository = (geId: string): CadastrosRepository => ({
       select: { convencao8h24: true, minimos: true, custos: true },
     });
     return {
-      convencao8h24: l?.convencao8h24 ?? false,
+      convencao8h24: l?.convencao8h24 ?? true,
       minimos: (l?.minimos as Record<string, number> | null) ?? {},
       custos:
         (l?.custos as { salarioMedio: Record<string, number>; encargos?: object } | null) ?? null,

@@ -19,7 +19,7 @@ export default function BlocoOito24({ oito24, lojaId, irCadastros }) {
       </div>
       <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1 text-sm text-[var(--text-strong)]">
         <span>Hoje: <strong>Não permite</strong></span>
-        <button type="button" className="border-0 bg-transparent p-0 text-sm font-bold text-[var(--text-link)] cursor-pointer" onClick={() => abrirNoCadastro({ lojaId, aba: "regras", irCadastros })}>Alterar em Regras e custos</button>
+        <button type="button" className="border-0 bg-transparent p-0 text-sm font-bold text-[var(--text-link)] cursor-pointer" onClick={() => abrirNoCadastro({ lojaId, aba: "regras", irCadastros })}>Alterar em Custos e Turnos</button>
       </div>
     </div>
   );

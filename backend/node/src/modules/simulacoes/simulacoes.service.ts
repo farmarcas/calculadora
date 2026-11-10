@@ -16,6 +16,7 @@ import { calcularIndicadores, sintese } from './comparar.js';
 import { motivosDeDesatualizacao } from './desatualizada.js';
 import { nomeDeQuemCriou, tipoDoCenario } from './resumo.js';
 import { gerarExcelEscala } from './exportar.js';
+import { coberturaDaSimulacao } from './cobertura-simulacao.js';
 import { avaliarSimulacao, type PessoaSim, type TurnoSim } from './avaliar.js';
 import { aplicarVagasEDesligados, vagasSugeridas, type VagaEntrada } from './vagas.js';
 import { calcularCusto } from '../custos/custo.js';
@@ -119,6 +120,8 @@ export const makeSimulacoesService = (
   const resumoDoResultado = (resultado: ReturnType<typeof calcularResultado>, dono: boolean) => ({
     tipo: tipoDoCenario(resultado.horasAbertas, resultado.horasAbertasAntes),
     horasAbertas: resultado.horasAbertas,
+    // Margem ou venda: o que mediu a perda, o ganho e o saldo desta simulação (igual para toda a loja).
+    regua: resultado.regua,
     ...(dono
       ? {
           saldoMensal: resultado.saldoMensal ?? null,
@@ -190,6 +193,17 @@ export const makeSimulacoesService = (
       turnos: s.turnos,
       avaliacao,
       resultado,
+      // A grade "Cobertura e vendas" com o horário e o quadro desta simulação (a conta do Diagnóstico).
+      cobertura: coberturaDaSimulacao({
+        dias: c.dias,
+        horarios: c.premissas.horarios as Parameters<typeof coberturaDaSimulacao>[0]['horarios'],
+        quadro: s.quadro,
+        turnos: s.turnos,
+        minimos: c.premissas.minimos,
+        vendas: base?.vendas ?? [],
+        turnosDaLoja: l.turnos,
+        dono,
+      }),
       // Custo só sai para o dono do grupo: para os outros o campo nem existe.
       ...(perfil === 'TENANT_ADMIN'
         ? {

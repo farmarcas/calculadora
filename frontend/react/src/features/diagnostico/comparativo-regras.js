@@ -23,7 +23,7 @@ export const consequencias = (c, { dono, brl, horasAMenos }) => {
   if (horasAMenos > 0) {
     linhas.push(
       dono && c.faturamentoPerdidoMensal > 0
-        ? `Reduz ${horasTxt(horasAMenos)} por semana abertas: deixam de entrar ${brl(c.faturamentoPerdidoMensal)} por mês em vendas.`
+        ? `Reduz ${horasTxt(horasAMenos)} por semana abertas: deixam de entrar ${brl(c.faturamentoPerdidoMensal)} por mês em ${c.regua?.tipo === "margem" ? "margem" : "vendas"}.`
         : `Reduz ${horasTxt(horasAMenos)} por semana abertas.`,
     );
   }

@@ -181,3 +181,22 @@ describe("textos que não se repetem", () => {
     expect(estadoDaVenda({}).dica).toBeUndefined();
   });
 });
+
+describe("régua de margem no cartão (spec 033)", () => {
+  const regua = { tipo: "margem" };
+  it("os rótulos da coluna dizem margem quando a régua é margem e venda quando é venda", () => {
+    expect(estadoDaVenda({ regua, faturamentoPerdidoMensal: 1000, faturamentoPerdidoPct: 3 }).rotulo).toBe("MARGEM QUE DEIXA DE ENTRAR");
+    expect(estadoDaVenda({ regua, vendaAdicionalMensal: 500 }).rotulo).toBe("MARGEM ESTIMADA");
+    expect(estadoDaVenda({ regua: { tipo: "venda", motivo: "sem_margem" }, faturamentoPerdidoMensal: 1000 }).rotulo).toBe("VENDA QUE DEIXA DE ENTRAR");
+    expect(estadoDaVenda({ faturamentoPerdidoMensal: 1000 }).rotulo).toBe("VENDA QUE DEIXA DE ENTRAR");
+  });
+  it("a nota das horas novas e o 'sem perda' acompanham a régua", () => {
+    expect(estadoDaVenda({ regua, vendaAdicionalMensal: 500 }).dica).toMatch(/^Margem das horas novas/);
+    expect(estadoDaVenda({ regua }).apoio).toBe("sem perda de margem");
+    expect(estadoDaVenda({}).apoio).toBe("sem perda de venda");
+  });
+  it("o percentual da perda diz que é da venda cortada quando a régua é margem", () => {
+    expect(estadoDaVenda({ regua, faturamentoPerdidoMensal: 1000, faturamentoPerdidoPct: 3 }).apoio).toMatch(/venda cortada/);
+    expect(estadoDaVenda({ faturamentoPerdidoMensal: 1000, faturamentoPerdidoPct: 3 }).apoio).toBe("3% por mês");
+  });
+});

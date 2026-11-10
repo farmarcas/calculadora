@@ -39,10 +39,10 @@ Formato: `- [ ] ID [P] [História] descrição com o arquivo`. Servidor em `back
 - [x] T026 Conferir no navegador e rodar os testes; commitar a fatia
 
 ## Fatia 6 — Celular, estados e fechamento
-- [ ] T027 [US6] `escala/EscalaMobile.jsx` (novo): abaixo de ~700 px, lista por função com o turno de cada pessoa em texto ("07h–15h"), cobertura por hora numa faixa com rolagem horizontal e "+ Contratar" por função; sem rolagem lateral da página
-- [ ] T028 [US6] Estados: sem base, sem turno selecionado, dia fechado, dia sem dados, função sem ninguém; conferir cada um
-- [ ] T029 Remover o que ficou sem uso (a grade antiga `features/grade/Grade.jsx` só se ninguém mais a usar, e as funções de `tempo.js` que sobrarem sem uso); rodar `tsc`, todos os testes e `vite build`; conferir no navegador (computador e celular de 375 px)
-- [ ] T030 Atualizar o README onde descreve a Simulação; atualizar o `local/ver-tudo`; enviar a branch `feat/escala-por-hora`
+- [x] T027 [US6] `escala/EscalaMobile.jsx` (novo): abaixo de ~700 px, lista por função com o turno de cada pessoa em texto ("07h–15h"), cobertura por hora numa faixa com rolagem horizontal e "+ Contratar" por função; sem rolagem lateral da página
+- [x] T028 [US6] Estados: sem base, sem turno selecionado, dia fechado, dia sem dados, função sem ninguém; conferir cada um
+- [x] T029 Remover o que ficou sem uso (a grade antiga `features/grade/Grade.jsx` só se ninguém mais a usar, e as funções de `tempo.js` que sobrarem sem uso); rodar `tsc`, todos os testes e `vite build`; conferir no navegador (computador e celular de 375 px)
+- [x] T030 Atualizar o README onde descreve a Simulação; atualizar o `local/ver-tudo`; enviar a branch `feat/escala-por-hora`
 
 ## Dependências
 - Fatia 1 antes das fatias 4 e 5 (vaga com turnos, prévia). Fatia 2 antes da 3. Fatias 1 e 2 são independentes entre si.

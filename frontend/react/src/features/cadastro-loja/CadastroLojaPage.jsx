@@ -15,7 +15,7 @@ import useRascunhoLoja from "./useRascunhoLoja.js";
 const PARA_API = { loja: lojaParaApi, configuracao: configuracaoParaApi, custos: custosParaApi };
 
 // Lista de lojas (esquerda) e a loja escolhida (direita) no mesmo cartão. Abaixo de ~1100 px de largura viram duas telas.
-export default function CadastroLojaPage({ perfil }) {
+export default function CadastroLojaPage({ perfil, versaoBase = 0, onEnviarBase }) {
   const [nova, setNova] = useState(false);
   const inicial = useRef(lerUrl());
   const [lojaId, setLojaId] = useState(inicial.current.loja ?? null);
@@ -66,6 +66,14 @@ export default function CadastroLojaPage({ perfil }) {
     if (lojaId) carregarPainel(lojaId);
   }, [lojaId, carregarPainel]);
 
+  // Base comercial enviada (ou outra importação): recarrega o painel em segundo plano, sem perder o rascunho da pessoa.
+  const versaoBaseVista = useRef(versaoBase);
+  useEffect(() => {
+    if (versaoBaseVista.current === versaoBase) return;
+    versaoBaseVista.current = versaoBase;
+    if (lojaId) carregarPainel(lojaId, true);
+  }, [versaoBase, lojaId, carregarPainel]);
+
   const aoSalvar = useCallback((r) => {
     setPainel(r);
     setVersao((v) => v + 1);
@@ -101,7 +109,7 @@ export default function CadastroLojaPage({ perfil }) {
               <NovaLoja onCancelar={() => { if (confirmarSaida()) { setNova(false); setVista("lista"); } }} onVoltar={() => { if (confirmarSaida()) { setNova(false); setVista("lista"); } }}
                 onCriada={(l) => { setNova(false); setLojaId(l.id); setAba("dados"); setVista("detalhe"); setVersao((v) => v + 1); }} />
             ) : (
-            <DetalheLoja lojaId={lojaId} aba={aba} onAba={setAba} perfil={perfil} painel={painel} carregando={carregando} erro={erro} rascunho={rascunho}
+            <DetalheLoja lojaId={lojaId} aba={aba} onAba={setAba} perfil={perfil} painel={painel} carregando={carregando} erro={erro} rascunho={rascunho} onEnviarBase={onEnviarBase}
               aoMudarEquipe={() => { setVersao((v) => v + 1); if (lojaId) carregarPainel(lojaId, true); }}
               onVoltar={() => { if (confirmarSaida()) setVista("lista"); }} />
             )}

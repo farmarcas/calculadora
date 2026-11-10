@@ -6,10 +6,12 @@ import ParametrosLegais from "../parametros/ParametrosLegais.jsx";
 import { cuidaDoGrupo, ehOperador } from "../../api/perfis.js";
 
 // A seção ("lojas" ou "parametros") vem do menu lateral. Parâmetros legais e encargos valem para toda a plataforma: só o operador vê.
-// `versaoDados` muda quando uma importação termina (o App dono dos modais de importação), para recarregar a lista.
-export default function CadastrosPage({ perfil, acessoTotal = true, secao = "lojas", versaoDados = 0, onImportar }) {
+// `versaoCadastro` muda quando a importação de Cadastro termina (o App dono dos modais): recria a tela. `versaoDados` muda em
+// qualquer importação (inclusive a base comercial): a tela aberta só recarrega o painel, sem perder o que a pessoa editou.
+export default function CadastrosPage({ perfil, acessoTotal = true, secao = "lojas", versaoCadastro = 0, versaoDados = 0, onImportar }) {
   // A loja vem da plataforma (o operador cria e remove); o empresário corrige a loja e cuida da equipe.
   const operador = ehOperador(perfil);
+  const podeEnviarBase = itensDoMenuImportar(perfil, acessoTotal).some((i) => i.id === "base");
 
   return (
     <>
@@ -24,7 +26,7 @@ export default function CadastrosPage({ perfil, acessoTotal = true, secao = "loj
       {perfil === "SCHEDULE_VIEWER" && <Aviso tom="neutro">Você está como "Somente consulta": não pode criar, editar nem importar.</Aviso>}
 
       {secao === "parametros" && operador && <ParametrosLegais perfil={perfil} />}
-      {secao === "lojas" && <CadastroLojaPage key={versaoDados} perfil={perfil} />}
+      {secao === "lojas" && <CadastroLojaPage key={versaoCadastro} perfil={perfil} versaoBase={versaoDados} onEnviarBase={podeEnviarBase ? () => onImportar?.("base") : undefined} />}
     </>
   );
 }

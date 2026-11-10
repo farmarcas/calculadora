@@ -1,12 +1,13 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { COR_DA_FUNCAO } from "./LinhaDaFuncao.jsx";
 import { textoDoTurno, totalDaSemana } from "./escala-regras.js";
 import { aplicarMovimento, movimentoPorTecla } from "./movimento-regras.js";
 
 // Uma pessoa no dia: o turno em barra sobre as colunas das horas, "Função · 44h" e o total da semana. Folga mostra a barra
 // tracejada. A contratação simulada é a linha azul, com "Remover" em vermelho.
-export default function LinhaDaPessoa({ pessoa, turno, turnosDaPessoa, ini, fim, colunas, simulada = false, selecionado = false, onSelecionar, onRemover, rotuloSimulada, editavel = false, onMudar, onCriarTurno, onSugerir }) {
+export default function LinhaDaPessoa({ pessoa, turno, turnosDaPessoa, ini, fim, colunas, simulada = false, selecionado = false, onSelecionar, onRemover, rotuloSimulada, editavel = false, onMudar, onCriarTurno, onSugerir, previa = false }) {
   const trilha = useRef(null);
+  const [emGesto, setEmGesto] = useState(false); // durante o arrasto o turno ganha destaque e mostra o horário novo
   const janela = { min: ini, max: fim };
 
   // Arrastar a barra move o turno; as bordas mudam o início e o fim (de 15 em 15 minutos). A cobertura responde durante o
@@ -20,6 +21,7 @@ export default function LinhaDaPessoa({ pessoa, turno, turnosDaPessoa, ini, fim,
     const x0 = e.clientX;
     const base = { ...turno };
     let atual = base;
+    setEmGesto(true);
     try {
       e.currentTarget.setPointerCapture?.(e.pointerId);
     } catch {
@@ -34,6 +36,7 @@ export default function LinhaDaPessoa({ pessoa, turno, turnosDaPessoa, ini, fim,
       window.removeEventListener("pointermove", mover);
       window.removeEventListener("pointerup", soltar);
       window.removeEventListener("pointercancel", soltar);
+      setEmGesto(false);
       if (atual.entrada !== base.entrada || atual.saida !== base.saida) onMudar(atual, true);
       else onMudar(base, false);
     };
@@ -58,7 +61,7 @@ export default function LinhaDaPessoa({ pessoa, turno, turnosDaPessoa, ini, fim,
   return (
     <div role="row" className={`grid items-center gap-x-1 border-t border-[var(--border-subtle)] py-1.5 ${simulada ? "bg-[var(--color-primary-soft)]" : ""}`} style={{ gridTemplateColumns: colunas }}>
       <div className="min-w-0 pl-9">
-        <div className={`truncate text-[13px] leading-4 font-bold ${simulada ? "text-[var(--color-primary)]" : "text-[var(--text-strong)]"}`}>{simulada ? "Contratação simulada" : pessoa.nome}</div>
+        <div className={`truncate text-[13px] leading-4 font-bold ${simulada ? "text-[var(--color-primary)]" : "text-[var(--text-strong)]"}`}>{simulada ? (previa ? "Turno sugerido" : "Contratação simulada") : pessoa.nome}</div>
         <div className="truncate text-[11px] leading-4 text-[var(--text-secondary)]">{simulada ? rotuloSimulada : `${pessoa.funcao} · ${pessoa.cargaH}h`}</div>
         {simulada && onRemover && <button type="button" onClick={onRemover} className="cursor-pointer border-0 bg-transparent p-0 text-[11px] leading-4 font-bold text-[var(--text-danger)] hover:underline">Remover</button>}
       </div>
@@ -71,12 +74,12 @@ export default function LinhaDaPessoa({ pessoa, turno, turnosDaPessoa, ini, fim,
             onKeyDown={tecla}
             aria-label={`${pessoa.nome}: turno ${textoDoTurno(turno)}${editavel ? ". Setas movem 15 minutos; com Shift, mudam a saída" : ""}`}
             aria-pressed={selecionado}
-            className={`absolute top-0 flex h-7 min-w-0 items-center overflow-hidden rounded-btn px-2 text-left text-xs font-bold ${simulada ? "border-2 border-dashed border-[var(--system-500)] bg-[var(--color-primary-soft)] text-[var(--color-primary)]" : escuro ? "border-0 text-white" : "border-0 text-[var(--system-900)]"} ${selecionado ? "outline outline-2 outline-[var(--system-500)]" : ""} ${editavel ? "cursor-grab touch-none" : ""}`}
+            className={`absolute top-0 flex h-7 min-w-0 items-center overflow-hidden rounded-btn px-2 text-left text-xs font-bold ${simulada ? `border-2 border-dashed border-[var(--system-500)] bg-[var(--color-primary-soft)] text-[var(--color-primary)] ${previa ? "opacity-90" : ""}` : escuro ? "border-0 text-white" : "border-0 text-[var(--system-900)]"} ${selecionado ? "outline outline-2 outline-[var(--system-500)]" : ""} ${editavel ? "cursor-grab touch-none" : ""} ${emGesto ? "z-10 cursor-grabbing shadow-card outline outline-2 outline-[var(--system-500)]" : ""}`}
             style={{ left: `${esq}%`, width: `${larg}%`, ...(simulada ? {} : { background: cor }) }}
           >
-            {editavel && <span aria-hidden="true" onPointerDown={(e) => comecar(e, "esq")} className="absolute inset-y-0 left-0 w-2 cursor-ew-resize" />}
-            {editavel && <span aria-hidden="true" onPointerDown={(e) => comecar(e, "dir")} className="absolute inset-y-0 right-0 w-2 cursor-ew-resize" />}
-            <span className="truncate">{textoDoTurno(turno)} · {Math.round((turno.saida - turno.entrada - ((turno.fimIntervalo ?? 0) - (turno.iniIntervalo ?? 0))) * 10) / 10}h</span>
+            {editavel && <span aria-hidden="true" onPointerDown={(e) => comecar(e, "esq")} className="absolute inset-y-0 left-0 flex w-3 cursor-ew-resize items-center justify-center"><span className="h-3.5 w-0.5 rounded bg-current opacity-60" /></span>}
+            {editavel && <span aria-hidden="true" onPointerDown={(e) => comecar(e, "dir")} className="absolute inset-y-0 right-0 flex w-3 cursor-ew-resize items-center justify-center"><span className="h-3.5 w-0.5 rounded bg-current opacity-60" /></span>}
+            <span className={`truncate ${editavel ? "px-1" : ""}`}>{textoDoTurno(turno)} · {Math.round((turno.saida - turno.entrada - ((turno.fimIntervalo ?? 0) - (turno.iniIntervalo ?? 0))) * 10) / 10}h</span>
           </button>
         ) : (
           <div className="absolute inset-0 flex items-center justify-center rounded-btn border border-dashed border-[var(--border-default)] text-xs text-[var(--text-secondary)]">

@@ -12,27 +12,23 @@ const COR = { ...COR_DO_TOM, mudo: "var(--text-secondary)" };
 
 // "Contratar <função>": um formulário sob a linha da função. A contratação entra só na simulação e o Cadastro não muda.
 // Já vem preenchido com a sugestão que cobre as horas sem cobertura; o efeito na semana é recalculado a cada mudança.
-export default function FormularioContratar({ simId, funcao, abas, coberturaPorDia, regra, dono, diaPreferido, onCancelar, onAdicionar }) {
+export default function FormularioContratar({ simId, funcao, abas, coberturaPorDia, regra, dono, diaPreferido, valor, onMudar, onCancelar, onAdicionar }) {
   const sugerir = (tipo) => sugerirContratacao({ funcao, coberturaPorDia, abas, tipo, regra, diaPreferido });
-  const [tipo, setTipo] = useState("parcial");
-  const [inicial] = useState(() => sugerir("parcial"));
-  const [dias, setDias] = useState(inicial?.dias ?? []);
-  const [entra, setEntra] = useState(inicial?.entra ?? 8);
-  const [sai, setSai] = useState(inicial?.sai ?? 14);
+  // O estado (tipo, dias, entra e sai) mora na seção: a barra de prévia da grade nasce dele e arrastá-la muda Entra e Sai.
+  const { tipo, dias, entra, sai } = valor;
+  const setEntra = (v) => onMudar({ entra: v });
+  const setSai = (v) => onMudar({ sai: v });
   const [custo, setCusto] = useState(null);
 
   const minAbre = Math.min(...abas.map((a) => a.abre));
   const maxFecha = Math.max(...abas.map((a) => a.fecha));
   const opcoes = useMemo(() => opcoesDeHora(minAbre, maxFecha), [minAbre, maxFecha]);
-  const sugestaoDoTipo = useMemo(() => sugerir(tipo), [tipo]); // eslint-disable-line react-hooks/exhaustive-deps
+  const sugestaoDoTipo = useMemo(() => sugerir(tipo), [tipo, coberturaPorDia]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const aplicarSugestao = (t) => {
-    const s = sugerir(t);
-    if (!s) return;
-    setTipo(t);
-    setDias(s.dias);
-    setEntra(s.entra);
-    setSai(s.sai);
+    const sug = sugerir(t);
+    if (!sug) return;
+    onMudar({ tipo: t, dias: sug.dias, entra: sug.entra, sai: sug.sai });
   };
 
   const turnos = turnosDoFormulario({ dias, entra, sai });
@@ -56,7 +52,7 @@ export default function FormularioContratar({ simId, funcao, abas, coberturaPorD
     };
   }, [dono, erro, cargaH, funcao, simId]);
 
-  const alternarDia = (d) => setDias((x) => (x.includes(d) ? x.filter((y) => y !== d) : [...x, d].sort((a, b) => a - b)));
+  const alternarDia = (d) => onMudar({ dias: dias.includes(d) ? dias.filter((y) => y !== d) : [...dias, d].sort((a, b) => a - b) });
   const custoTxt = custo ? textoDaVariacao(custo.custoPct, custo.custoEstado, "custo") : null;
 
   const adicionar = (e) => {

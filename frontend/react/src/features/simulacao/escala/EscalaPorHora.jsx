@@ -4,7 +4,7 @@ import FormularioContratar from "./FormularioContratar.jsx";
 import GradeDeHoras from "./GradeDeHoras.jsx";
 import LinhaDaFuncao from "./LinhaDaFuncao.jsx";
 import LinhaDaPessoa from "./LinhaDaPessoa.jsx";
-import { avisosDaPessoa, contratacoesSimuladas, diasDasAbas, faixaDeAviso, horasDoDia, horasReforcadas, novoTurnoNaFolga, recalcularCobertura, semTurnoNoDia, sugerirTurnosDasVagas, textoDoTurno, totalDaSemana, turnosParaGravar } from "./escala-regras.js";
+import { avisosDaPessoa, contratacoesSimuladas, erroDoFormulario, sugerirContratacao, turnosDoFormulario, diasDasAbas, faixaDeAviso, horasDoDia, horasReforcadas, novoTurnoNaFolga, recalcularCobertura, semTurnoNoDia, sugerirTurnosDasVagas, textoDoTurno, totalDaSemana, turnosParaGravar } from "./escala-regras.js";
 
 const ORDEM = ["Farmacêutico", "Atendimento", "Caixa"];
 const NOMES_LONGOS = ["segunda", "terça", "quarta", "quinta", "sexta", "sábado", "domingo"];
@@ -18,7 +18,8 @@ export default function EscalaPorHora({ sim, editavel, dono, calculando = false,
   const [recolhidas, setRecolhidas] = useState(() => new Set());
   // Turnos com o ajuste em andamento (arrastar): a cobertura responde na hora; volta ao do servidor quando a simulação muda.
   const [tentou, setTentou] = useState(false); // houve uma gravação de turno: o erro, se vier, aparece aqui
-  const [contratando, setContratando] = useState(null); // função com o formulário aberto (um por vez)
+  // O rascunho do formulário aberto (um por vez): { funcao, tipo, dias, entra, sai }. A barra de prévia da grade nasce dele.
+  const [rascunho, setRascunho] = useState(null);
   const [ajuste, setAjuste] = useState(null);
   useEffect(() => setAjuste(null), [sim]);
   // Se a gravação terminou (ou falhou), o turno volta a ser o do servidor.
@@ -46,11 +47,17 @@ export default function EscalaPorHora({ sim, editavel, dono, calculando = false,
   const turnosDoDia = turnos.filter((t) => t.dia === dia);
   const funcaoDe = new Map(quadro.map((p) => [p.matricula, p.funcao]));
 
+  // A prévia do turno da contratação que está sendo montada: entra na cobertura que a grade mostra (marcada em tracejado azul),
+  // mas só vale depois de "Adicionar à simulação". Rascunho inválido não gera prévia.
+  const rascunhoValido = rascunho && !erroDoFormulario({ tipo: rascunho.tipo, dias: rascunho.dias, entra: rascunho.entra, sai: rascunho.sai, regra: sim.regraInfo });
+  const turnosPrevia = rascunhoValido ? turnosDoFormulario(rascunho).map((t) => ({ ...t, matricula: "PREVIA" })) : [];
+
   // A cobertura de cada função, recalculada com os turnos de agora (mesma conta da avaliação do servidor).
   const coberturas = funcoes.map((f) => {
     const base = cobDoDia.find((c) => c.funcao === f);
     if (!base) return null;
-    return recalcularCobertura(base, turnosDoDia.filter((t) => funcaoDe.get(t.matricula) === f));
+    const daPrevia = rascunho?.funcao === f ? turnosPrevia.filter((t) => t.dia === dia) : [];
+    return recalcularCobertura(base, [...turnosDoDia.filter((t) => funcaoDe.get(t.matricula) === f), ...daPrevia]);
   });
   const aviso = faixaDeAviso(coberturas.filter(Boolean), dia);
   // Os blocos por função (cobertura, pessoas e contratações simuladas), usados pela grade do computador e pela lista do celular.
@@ -58,7 +65,8 @@ export default function EscalaPorHora({ sim, editavel, dono, calculando = false,
     const cob = coberturas[i];
     if (!cob) return [];
     const simuladas = contratacoesSimuladas(sim.quadro, turnos, f);
-    const reforcadas = horasReforcadas(turnos.filter((t) => simuladas.some((s) => s.matricula === t.matricula)), dia);
+    const daPrevia = rascunho?.funcao === f ? turnosPrevia : [];
+    const reforcadas = horasReforcadas([...turnos.filter((t) => simuladas.some((s) => s.matricula === t.matricula)), ...daPrevia], dia);
     return [{ f, cob, pessoas: quadro.filter((p) => p.funcao === f && !p.vaga), simuladas, reforcadas }];
   });
   const turnoSelecionado = turnos.find((t) => t.matricula === selecionado && t.dia === dia);
@@ -68,7 +76,7 @@ export default function EscalaPorHora({ sim, editavel, dono, calculando = false,
   const vagasAtuais = sim.quadro.filter((p) => p.vaga && !p.desligado).map((v) => ({ matricula: v.matricula, funcao: v.funcao, cargaH: v.cargaH }));
   const adicionar = (f, vaga) => {
     onSalvar({ vagas: [...vagasAtuais, vaga] });
-    setContratando(null);
+    setRascunho(null);
   };
   const remover = (matricula) => onSalvar({ vagas: vagasAtuais.filter((v) => v.matricula !== matricula) });
   // A cobertura da função em cada dia aberto (com os turnos de agora): o formulário sugere e mede o efeito com ela.
@@ -110,8 +118,25 @@ export default function EscalaPorHora({ sim, editavel, dono, calculando = false,
   // As regras de jornada, intervalo e folga que a avaliação aponta; avisam e não impedem salvar o cenário.
   const regrasDeTurno = [...(sim.avaliacao?.erros ?? []), ...(sim.avaliacao?.avisos ?? [])].filter((a) => !["cobertura", "farmaceutico"].includes(a.regra));
 
+  // Abre (ou fecha) o formulário de uma função, já com a sugestão que cobre as horas sem cobertura.
+  const abrirContratar = (f) => {
+    if (rascunho?.funcao === f) return setRascunho(null);
+    const sug = sugerirContratacao({ funcao: f, coberturaPorDia: coberturaPorDia(f), abas, tipo: "parcial", regra: sim.regraInfo, diaPreferido: dia });
+    return setRascunho({ funcao: f, tipo: "parcial", dias: sug?.dias ?? [dia], entra: sug?.entra ?? aba.abre, sai: sug?.sai ?? Math.min(aba.fecha, aba.abre + 6) });
+  };
   const formularioDe = (f) =>
-    contratando === f ? <FormularioContratar simId={sim.id} funcao={f} abas={abas} coberturaPorDia={coberturaPorDia(f)} regra={sim.regraInfo} dono={dono} diaPreferido={dia} onCancelar={() => setContratando(null)} onAdicionar={(vaga) => adicionar(f, vaga)} /> : null;
+    rascunho?.funcao === f ? (
+      <FormularioContratar simId={sim.id} funcao={f} abas={abas} coberturaPorDia={coberturaPorDia(f)} regra={sim.regraInfo} dono={dono} diaPreferido={dia} valor={rascunho} onMudar={(parcial) => setRascunho((r) => ({ ...r, ...parcial }))} onCancelar={() => setRascunho(null)} onAdicionar={(vaga) => adicionar(f, vaga)} />
+    ) : null;
+  // A linha da prévia: a barra tracejada do turno sugerido (arrastar muda Entra e Sai do formulário, sem gravar nada).
+  const linhaDaPrevia = (f) => {
+    if (rascunho?.funcao !== f) return null;
+    const turno = rascunho.dias.includes(dia) ? { matricula: "PREVIA", dia, entrada: rascunho.entra, saida: rascunho.sai, iniIntervalo: null, fimIntervalo: null } : null;
+    return (
+      <LinhaDaPessoa key="previa" pessoa={{ matricula: "PREVIA", nome: "Turno sugerido", funcao: f, cargaH: 0 }} turno={turno} turnosDaPessoa={turnosPrevia} ini={ini} fim={fim} colunas={colunas} simulada previa editavel
+        rotuloSimulada={`${f} · prévia, ainda não adicionada`} onMudar={(t) => setRascunho((r) => ({ ...r, entra: t.entrada, sai: t.saida }))} />
+    );
+  };
 
   const alternar = (f) => setRecolhidas((r) => { const n = new Set(r); if (n.has(f)) n.delete(f); else n.add(f); return n; });
 
@@ -162,8 +187,9 @@ export default function EscalaPorHora({ sim, editavel, dono, calculando = false,
             <GradeDeHoras horas={horas} dono={dono} venda={vendaPorHora?.venda?.[dia]} clientes={vendaPorHora?.clientes?.[dia]} temBase={!!sim.resultado?.temBase} colunas={colunas} />
             {blocos.map(({ f, cob, pessoas, simuladas, reforcadas }) => (
               <div key={f}>
-                <LinhaDaFuncao funcao={f} pessoas={pessoas.length} cobertura={cob} reforcadas={reforcadas} recolhida={recolhidas.has(f)} onAlternar={() => alternar(f)} onContratar={editavel ? () => setContratando(contratando === f ? null : f) : undefined} colunas={colunas} />
+                <LinhaDaFuncao funcao={f} pessoas={pessoas.length} cobertura={cob} reforcadas={reforcadas} recolhida={recolhidas.has(f)} onAlternar={() => alternar(f)} onContratar={editavel ? () => abrirContratar(f) : undefined} colunas={colunas} />
                 {formularioDe(f)}
+                {linhaDaPrevia(f)}
                 {!recolhidas.has(f) && (
                   <>
                     {pessoas.map((p) => (
@@ -179,7 +205,7 @@ export default function EscalaPorHora({ sim, editavel, dono, calculando = false,
             ))}
           </div>
         </div>
-        <EscalaMobile horas={horas} dono={dono} vendaDia={vendaPorHora?.venda?.[dia]} clientesDia={vendaPorHora?.clientes?.[dia]} temBase={!!sim.resultado?.temBase} blocos={blocos} turnos={turnos} dia={dia} editavel={editavel} recolhidas={recolhidas} onAlternar={alternar} onContratar={(f) => setContratando(contratando === f ? null : f)} formulario={formularioDe} onRemover={remover} />
+        <EscalaMobile horas={horas} dono={dono} vendaDia={vendaPorHora?.venda?.[dia]} clientesDia={vendaPorHora?.clientes?.[dia]} temBase={!!sim.resultado?.temBase} blocos={blocos} turnos={turnos} dia={dia} editavel={editavel} recolhidas={recolhidas} onAlternar={alternar} onContratar={abrirContratar} formulario={formularioDe} onRemover={remover} />
       </div>
       {regrasDeTurno.length > 0 && (
         <div className="mx-6 mb-6 rounded-btn bg-[var(--surface-subtle)] px-4 py-3 text-xs leading-4 text-[var(--text-secondary)]" data-testid="avisos-de-regra">

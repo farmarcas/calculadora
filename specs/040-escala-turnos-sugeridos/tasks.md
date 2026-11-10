@@ -22,10 +22,10 @@ Formato: `- [ ] ID [P] [História] descrição com o arquivo`. Tudo na tela, em 
 - [x] T013 Conferir no navegador (dono, gestor e visualizador) e rodar os testes; commitar a fatia
 
 ## Fatia 4 — Prévia do turno e arrastar mais fácil (Histórias 2 e 3)
-- [ ] T014 [US2] `EscalaPorHora.jsx`: o estado do formulário (`funcao`, `tipo`, `dias`, `entra`, `sai`) sobe para a seção, que o inicia com a sugestão ao abrir "+ Contratar" e o apaga ao adicionar ou cancelar; `FormularioContratar.jsx` passa a ser controlado (`valor` e `onMudar`), com a mesma sugestão, o mesmo efeito e a mesma prévia de custo
-- [ ] T015 [US2] A grade mostra a linha "Turno sugerido" da função (barra tracejada nos dias escolhidos, "Folga" nos outros) e marca como reforçadas as horas que ela cobre; arrastar e redimensionar a barra muda Entra e Sai do formulário (de 15 em 15 minutos), sem gravar nada
-- [ ] T016 [US3] `LinhaDaPessoa.jsx`: alças das bordas de 12 px com marca visível e cursor próprio; o horário novo da barra em destaque durante o gesto; a mesma barra serve à prévia e aos turnos reais
-- [ ] T017 Conferir no navegador (abrir "+ Contratar", arrastar a barra, cancelar, adicionar) e rodar os testes; commitar a fatia
+- [x] T014 [US2] `EscalaPorHora.jsx`: o estado do formulário (`funcao`, `tipo`, `dias`, `entra`, `sai`) sobe para a seção, que o inicia com a sugestão ao abrir "+ Contratar" e o apaga ao adicionar ou cancelar; `FormularioContratar.jsx` passa a ser controlado (`valor` e `onMudar`), com a mesma sugestão, o mesmo efeito e a mesma prévia de custo
+- [x] T015 [US2] A grade mostra a linha "Turno sugerido" da função (barra tracejada nos dias escolhidos, "Folga" nos outros) e marca como reforçadas as horas que ela cobre; arrastar e redimensionar a barra muda Entra e Sai do formulário (de 15 em 15 minutos), sem gravar nada
+- [x] T016 [US3] `LinhaDaPessoa.jsx`: alças das bordas de 12 px com marca visível e cursor próprio; o horário novo da barra em destaque durante o gesto; a mesma barra serve à prévia e aos turnos reais
+- [x] T017 Conferir no navegador (abrir "+ Contratar", arrastar a barra, cancelar, adicionar) e rodar os testes; commitar a fatia
 
 ## Fatia 5 — Fechamento
 - [ ] T018 Rodar todos os testes e `vite build`; conferir no navegador (computador e celular: a lista mostra os turnos sugeridos em texto); atualizar o README onde descreve a Escala por hora; atualizar o `local/ver-tudo`; enviar a branch `feat/escala-turnos-sugeridos`

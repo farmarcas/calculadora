@@ -77,6 +77,68 @@ export const escalaRepository = (geId: string) => {
       });
     },
 
+    // Lojas do GE com CNPJ e faturamento, para casar a base por CNPJ em memória (uma ida ao banco só).
+    async lojasDoGeComCnpj() {
+      return prisma.loja.findMany({
+        where: { geId, ...ativo },
+        select: { id: true, codigo: true, nome: true, cnpj: true, faturamento: true },
+      });
+    },
+
+    // Troca a base ativa da loja pela nova, em lote (a base por CNPJ tem ~100 linhas por loja). A anterior fica guardada
+    // como inativa: nada é apagado. O período declarado do arquivo vai na carga.
+    async substituirBaseEmLote(
+      lojaId: string,
+      arquivo: string,
+      vendas: VendaLinha[],
+      rejeitadas: number,
+      periodo: { inicio: string; fim: string },
+    ) {
+      return prisma.$transaction(
+        async (tx) => {
+          await garantirLoja(tx, lojaId);
+          await tx.carga.updateMany({
+            where: { lojaId, tipo: 'BASE', ativa: true },
+            data: { ativa: false },
+          });
+          const carga = await tx.carga.create({
+            data: {
+              lojaId,
+              tipo: 'BASE',
+              arquivo,
+              linhasAceitas: vendas.length,
+              linhasRejeitadas: rejeitadas,
+              periodoInicio: dia(periodo.inicio),
+              periodoFim: dia(periodo.fim),
+            },
+            select: { id: true },
+          });
+          await tx.vendaHora.createMany({
+            data: vendas.map((v) => ({
+              cargaId: carga.id,
+              data: dia(v.data),
+              hora: v.hora,
+              venda: v.venda,
+              // O banco guarda o CMV; o lucro bruto é venda − CMV.
+              cmv: v.margem === null ? null : v.venda - v.margem,
+              clientes: v.clientes,
+              unidades: v.unidades,
+            })),
+          });
+          return carga;
+        },
+        { timeout: 60_000 },
+      );
+    },
+
+    // Grava o faturamento do Cadastro já mesclado (só o que estava vazio foi preenchido, ver `mesclarCadastro`).
+    async gravarFaturamento(lojaId: string, faturamento: Prisma.InputJsonValue) {
+      await prisma.loja.updateMany({
+        where: { id: lojaId, geId, ...ativo },
+        data: { faturamento },
+      });
+    },
+
     // Parâmetros legais que valem hoje (a versão vigente de cada fase).
     async parametrosVigentes(): Promise<TabelaParametros> {
       return tabelaVigente(await parametrosRepository.listar(), hojeISO());

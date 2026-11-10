@@ -96,10 +96,10 @@ describe('revisão da base comercial (spec 029)', () => {
     expect(pdf.status).toBe(400);
     expect(pdf.body.error.message).toBe('Envie uma planilha .xlsx ou .csv');
 
-    const grande = await revisar(Buffer.alloc(11 * 1024 * 1024, 'a'), 'grande.csv');
+    const grande = await revisar(Buffer.alloc(21 * 1024 * 1024, 'a'), 'grande.csv');
     expect(grande.status).toBe(400);
     expect(grande.body.error.message).toBe(
-      'O arquivo tem mais de 10 MB. Divida a planilha em arquivos menores.',
+      'O arquivo tem mais de 20 MB. Divida a planilha em arquivos menores.',
     );
   });
 

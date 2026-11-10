@@ -14,6 +14,12 @@ import { makeEscalaService } from './escala.service.js';
 const XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 const escrita = exigirPerfil('TENANT_ADMIN', 'SCHEDULE_MANAGER');
 const perfilDe = (res: Response) => res.locals.perfil as Perfil;
+// Período do arquivo por CNPJ (formulário): vem como texto AAAA-MM-DD; o serviço valida e explica.
+const periodoDoForm = (req: Request) => {
+  const corpo = (req.body ?? {}) as Record<string, unknown>;
+  const txt = (k: string) => (typeof corpo[k] === 'string' ? (corpo[k] as string).trim() : null);
+  return { inicio: txt('periodoInicio'), fim: txt('periodoFim') };
+};
 const v = <T extends z.ZodType>(res: Response) => readValidated<z.infer<T>>(res);
 
 export const escalaRouter = (repoDoGe: (geId: string) => EscalaRepository = escalaRepository) => {
@@ -32,14 +38,21 @@ export const escalaRouter = (repoDoGe: (geId: string) => EscalaRepository = esca
   // Revisão antes de enviar: lê o arquivo e devolve o resumo, sem gravar nada.
   r.post('/cargas/base/revisar', escrita, uploadPlanilha, async (req: Request, res: Response) => {
     if (!req.file) throw new ValidationError('Envie o arquivo no campo "arquivo".');
-    res.json(await s(res).revisarBase(req.file.originalname, req.file.buffer));
+    res.json(await s(res).revisarBase(req.file.originalname, req.file.buffer, periodoDoForm(req)));
   });
 
   r.post('/cargas/base', escrita, uploadPlanilha, async (req: Request, res: Response) => {
     if (!req.file) throw new ValidationError('Envie o arquivo no campo "arquivo".');
     res
       .status(201)
-      .json(await s(res).importarBase(req.file.originalname, req.file.buffer, perfilDe(res)));
+      .json(
+        await s(res).importarBase(
+          req.file.originalname,
+          req.file.buffer,
+          perfilDe(res),
+          periodoDoForm(req),
+        ),
+      );
   });
 
   r.get('/lojas/:id/diagnostico', validate(S.diagnosticoReq), async (_req, res) => {

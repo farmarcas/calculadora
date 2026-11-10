@@ -343,31 +343,31 @@ describe('escala (rotas)', () => {
         },
       });
     const dono = await eco();
-    // Só o sábado pode mudar (não há domingo): reduz até o piso de 4 h (corta 2 h: 8h–14h → 8h–12h). Não cobre
-    // (11 turnos exigidos, 5 de capacidade) e fechar o sábado perderia 3466,67 (12,3% > 10%): para na trava de perda.
+    // Só o sábado pode mudar (não há domingo). O Cenário 2 perde no máximo 3% do faturamento: corta 1 h (8h–14h → 8h–13h,
+    // 2,1%); a 2.ª hora levaria a 4,1% e para na trava de perda. Não cobre (11 turnos exigidos, 5 de capacidade).
     // Só o faturamento por dia do Cadastro (sem base comercial): o corte é montado, mas a venda perdida não é estimada.
     expect(dono.viavel).toBe(false);
     expect(dono.naoResolveSozinho).toBe(true);
     expect(dono.travou).toBe('perda');
     expect(dono.diasFechar).toEqual([]);
-    expect(dono.horarioSemana[5]).toEqual({ dia: 5, aberto: true, abre: '08:00', fecha: '12:00' });
+    expect(dono.horarioSemana[5]).toEqual({ dia: 5, aberto: true, abre: '08:00', fecha: '13:00' });
     for (const d of [0, 1, 2, 3, 4])
       expect(dono.horarioSemana[d]).toMatchObject({ aberto: true, abre: '08:00', fecha: '20:00' });
-    expect(dono.horasSemana).toBe(64);
-    expect(dono.horasReduzir).toBe(2);
+    expect(dono.horasSemana).toBe(65);
+    expect(dono.horasReduzir).toBe(1);
     expect(dono.semVendaHoraria).toBe(true);
     expect(dono.vendaCortadaMes).toBeNull();
     expect(dono.vendaCortadaPorDia).toEqual([]);
     expect(dono.aviso).toContain('Sem venda hora a hora');
-    expect(dono.perdaFaturamentoPct).toBe(4.1);
+    expect(dono.perdaFaturamentoPct).toBe(2.1);
     expect(dono.faltaH).toBeGreaterThan(0);
     expect(dono.passos).toEqual([
       {
         tipo: 'reduzir',
         dia: 5,
-        horas: 2,
+        horas: 1,
         de: { abre: '08:00', fecha: '14:00' },
-        para: { abre: '08:00', fecha: '12:00' },
+        para: { abre: '08:00', fecha: '13:00' },
       },
     ]);
     expect(dono.impactoMensal).toBeNull(); // não resolve sozinho: fora da escolha do selo
@@ -409,14 +409,14 @@ describe('escala (rotas)', () => {
         {
           dia: 5,
           antes: { abre: '08:00', fecha: '14:00' },
-          depois: { abre: '08:00', fecha: '12:00' },
+          depois: { abre: '08:00', fecha: '13:00' },
         },
       ]);
       expect('vendaCortadaMes' in r).toBe(false);
       for (const d of r.vendaCortadaPorDia) expect('vendaMes' in d).toBe(false);
       expect('perdaFaturamentoPct' in r).toBe(false);
       const texto = JSON.stringify(r);
-      for (const valor of ['1155', '288', '4.1', 'R$']) expect(texto).not.toContain(valor);
+      for (const valor of ['577', '288', '2.1', 'R$']) expect(texto).not.toContain(valor);
     }
   });
 
@@ -508,11 +508,11 @@ describe('escala (rotas)', () => {
       saldoAnual: 0,
       pesoNoFaturamentoPct: 0,
     });
-    // Cenário 2 (só o sábado, até 4 h): perde as 2 últimas horas do sábado (133,33 por hora × 52 ÷ 12 = 577,78 cada)
+    // Cenário 2 (só o sábado, até 3% de perda): perde a última hora do sábado (133,33 por hora × 52 ÷ 12 = 577,78)
     expect(por.economia).toMatchObject({ status: 'nao_resolve', diasFechar: [], custoFolhaMensal: 12976, economiaFolhaMensal: 8434.4 });
-    expect(por.economia.faturamentoPerdidoMensal).toBeCloseTo(1155.56, 0);
-    expect(por.economia.saldoMensal).toBeCloseTo(8434.4 - 1155.56, 0);
-    expect(por.economia.vendaPerdidaPorDia).toMatchObject([{ dia: 5, horasFechadas: 2, ate: 12 }]);
+    expect(por.economia.faturamentoPerdidoMensal).toBeCloseTo(577.78, 0);
+    expect(por.economia.saldoMensal).toBeCloseTo(8434.4 - 577.78, 0);
+    expect(por.economia.vendaPerdidaPorDia).toMatchObject([{ dia: 5, horasFechadas: 1, ate: 13 }]);
     // Cenário 3: o saldo fecha com a conta aberta
     const eq3 = por.equilibrio;
     expect(eq3.status).toBe('viavel');

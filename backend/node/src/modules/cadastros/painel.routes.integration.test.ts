@@ -1,4 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
+import ExcelJS from 'exceljs';
 import { GE_INICIAL_ID } from '../../shared/ge.js';
 import { criarGe, limparGes, postLoja, reqGe } from '../../shared/testing/ge.js';
 import { prisma } from '../../shared/database/prisma.js';
@@ -142,5 +143,69 @@ describe('salvar tudo: PUT /lojas/:id/painel (spec 017)', () => {
     expect(g.body.situacao).toHaveProperty('status');
     await prisma.loja.deleteMany({ where: { geId: outro.id } });
     await limparGes();
+  });
+});
+
+describe('faturamento por hora no painel (spec 035)', () => {
+  let lojaId: string;
+  const painel = async (h: Record<string, string> = admin) => (await reqGe().get(`/api/v1/lojas/${lojaId}/painel`).set(h)).body;
+
+  beforeEach(async () => {
+    await prisma.auditoria.deleteMany();
+    await prisma.simulacao.deleteMany();
+    await prisma.carga.deleteMany();
+    await prisma.funcionario.deleteMany();
+    await prisma.loja.deleteMany();
+    const c = await postLoja({ codigo: '001', nome: 'Centro', horarios: semana('21:00') });
+    lojaId = c.body.id;
+  });
+  afterAll(async () => {
+    await prisma.$disconnect();
+  });
+
+  const enviarBase = async () => {
+    const wb = new ExcelJS.Workbook();
+    // 07/09/2026 é segunda, 08 terça e 12 sábado.
+    wb.addWorksheet('Base').addRows([
+      ['Data', 'Hora', 'Código da loja', 'Venda líquida (R$)'],
+      ['07/09/2026', '8', '001', '100,00'],
+      ['07/09/2026', '9', '001', '300,00'],
+      ['08/09/2026', '8', '001', '200,00'],
+      ['08/09/2026', '9', '001', '100,00'],
+      ['12/09/2026', '8', '001', '50,00'],
+    ]);
+    const up = await reqGe().post('/api/v1/cargas/base').set(admin).attach('arquivo', Buffer.from(await wb.xlsx.writeBuffer()), 'b.xlsx');
+    expect(up.status).toBe(201);
+  };
+
+  it('loja sem base: temBase falso, e o resto do painel segue igual', async () => {
+    const p = await painel();
+    expect(p.faturamentoPorHora).toEqual({ temBase: false });
+    expect(p).toHaveProperty('loja');
+    expect(p).toHaveProperty('situacao');
+    expect(p).toHaveProperty('avisosDeTurnos');
+  });
+
+  it('loja com base: a série por tipo de dia, com os valores do dono', async () => {
+    await enviarBase();
+    const f = (await painel()).faturamentoPorHora;
+    expect(f.temBase).toBe(true);
+    expect(f.poucosDias).toBe(true);
+    expect(f.tipos.uteis).toEqual([
+      { hora: 8, participacao: 0.4286, valor: 150 },
+      { hora: 9, participacao: 0.5714, valor: 200 },
+    ]);
+    expect(f.tipos.sabado).toEqual([{ hora: 8, participacao: 1, valor: 50 }]);
+    expect(f.tipos.domingo).toBeNull();
+  });
+
+  it('gestor e consulta recebem só a participação: o valor em reais nem existe na resposta', async () => {
+    await enviarBase();
+    for (const h of [gestor, consulta]) {
+      const f = (await painel(h)).faturamentoPorHora;
+      expect(f.temBase).toBe(true);
+      expect(f.tipos.uteis[0]).toHaveProperty('participacao');
+      expect(JSON.stringify(f)).not.toContain('valor');
+    }
   });
 });

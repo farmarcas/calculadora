@@ -177,9 +177,39 @@ describe('Cenário 2 — reduzir o fim de semana antes de fechar dias (spec 012)
         pessoas: farm(40, 40, 24),
         vendas: vendasDe(seteDias),
         origemVenda: 'base', // os fixtures têm venda igual em todas as horas: a conta hora a hora dá o mesmo que dividir o dia
+        // Estes testes foram escritos com o limite de 10%; o padrão de 3% tem testes próprios (abaixo).
+        limitePerdaCenario2Pct: 10,
         ...extra,
       }),
     ).economia;
+
+  it('o limite de perda do Cenário 2 é de 3% do faturamento por padrão: um corte de 3,6% não passa', () => {
+    // Mesma loja do teste abaixo (corte de 6 h no domingo = 3,6% do faturamento): com 10% cabe; com o padrão de 3%, não.
+    const padrao = eco({ limitePerdaCenario2Pct: undefined });
+    expect(padrao.viavel).toBe(false);
+    expect(padrao.naoResolveSozinho).toBe(true);
+    expect(padrao.travou).toBe('perda');
+    expect(padrao.resumo).toContain('limite de 3% do faturamento');
+    // Nenhum corte acima do limite: a perda do cenário fica em até 3% do faturamento.
+    expect(padrao.perdaFaturamentoPct!).toBeLessThanOrEqual(3);
+    expect(eco({ limitePerdaCenario2Pct: 10 }).viavel).toBe(true);
+  });
+
+  it('o limite de 3% é só do Cenário 2: o Cenário 3 segue com o dele (10%)', () => {
+    const ent = (limite?: number) =>
+      montarCenarios(
+        base({
+          minimos: { Farmacêutico: 1 },
+          dias: seteDias,
+          pessoas: farm(40, 40, 24),
+          vendas: vendasDe(seteDias),
+          origemVenda: 'base',
+          limitePerdaCenario2Pct: limite,
+        }),
+      );
+    expect(ent(undefined).equilibrio).toEqual(ent(10).equilibrio);
+    expect(ent(undefined).manter).toEqual(ent(10).manter);
+  });
 
   it('reduz o fechamento do domingo até a equipe caber, sem fechar dia nenhum', () => {
     // 40 + 40 + 24 h: 13 turnos para 14 exigidos. O domingo de 14 h (2 turnos) com 8 h vira 1 turno: 13 cabem.

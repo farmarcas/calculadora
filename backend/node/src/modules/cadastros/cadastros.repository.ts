@@ -222,7 +222,7 @@ export const cadastrosRepository = (geId: string): CadastrosRepository => ({
       select: { convencao8h24: true, minimos: true, custos: true },
     });
     return {
-      convencao8h24: l?.convencao8h24 ?? false,
+      convencao8h24: l?.convencao8h24 ?? true,
       minimos: (l?.minimos as Record<string, number> | null) ?? {},
       custos:
         (l?.custos as { salarioMedio: Record<string, number>; encargos?: object } | null) ?? null,

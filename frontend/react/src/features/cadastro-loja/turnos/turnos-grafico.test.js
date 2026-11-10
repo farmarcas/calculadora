@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { alcasDosTurnos, eixoDaJanela, faturamentoDoTurno, horasDeMaiorFaturamento, horasDoTurno, moverLimite, sugerirTurnos } from "./turnos-grafico.js";
+import { adicionarTurno, alcasDosTurnos, eixoDaJanela, faturamentoDoTurno, horasDeMaiorFaturamento, horasDoTurno, moverLimite, sugerirTurnos } from "./turnos-grafico.js";
 
 const janela = { abre: 7, fecha: 22 };
 const t = (nome, inicio, fim, minimos = { Farmacêutico: 1 }) => ({ nome, inicio, fim, minimos });
@@ -115,5 +115,26 @@ describe("sugerir turnos pelo movimento", () => {
   it("sem janela não sugere; com poucas horas respeita o número de horas", () => {
     expect(sugerirTurnos(serieDono, null, turnos)).toBeNull();
     expect(sugerirTurnos(serieDono, { abre: 8, fecha: 10 }, turnos)).toHaveLength(2);
+  });
+});
+
+describe("adicionar turno", () => {
+  const horarios = { versao: 2, dias: Array.from({ length: 7 }, () => ({ aberta: true, abre: "07:00", fecha: "22:00" })) };
+  it("ocupa o primeiro intervalo livre do horário da loja", () => {
+    const r = adicionarTurno([t("Manhã", "07:00", "12:00")], janela, horarios);
+    expect(r).toHaveLength(2);
+    expect(r[1]).toMatchObject({ nome: "Turno 2", inicio: "12:00", fim: "22:00" });
+    expect(r[1].minimos).toEqual({ Farmacêutico: 1 });
+  });
+  it("sem intervalo livre, divide ao meio o turno que termina por último", () => {
+    const r = adicionarTurno([t("Dia", "07:00", "22:00", { Farmacêutico: 2, Atendimento: 1 })], janela, horarios);
+    expect(r).toHaveLength(2);
+    expect(r[0].fim).toBe("15:00");
+    expect(r[1]).toMatchObject({ inicio: "15:00", fim: "22:00", minimos: { Farmacêutico: 2, Atendimento: 1 } });
+  });
+  it("não adiciona além do máximo nem divide turno de 1 hora", () => {
+    expect(adicionarTurno(turnos, janela, horarios, 3)).toBeNull();
+    const h2 = { versao: 2, dias: Array.from({ length: 7 }, () => ({ aberta: true, abre: "08:00", fecha: "09:00" })) };
+    expect(adicionarTurno([t("A", "08:00", "09:00")], { abre: 8, fecha: 9 }, h2)).toBeNull();
   });
 });

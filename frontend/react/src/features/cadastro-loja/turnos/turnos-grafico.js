@@ -1,6 +1,6 @@
 // Contas puras do gráfico de turnos com o faturamento por hora (spec 035), sem React. A série vem do servidor:
 // [{ hora, participacao, valor? }] de um tipo de dia (o `valor` em reais só existe para o dono).
-import { emHoras, janelaDoMinimo, pedacosDe, texto } from "../turnos.js";
+import { coberturaDoHorario, emHoras, janelaDoMinimo, pedacosDe, texto } from "../turnos.js";
 
 const EPS = 1e-9;
 const arred = (n) => Math.round(n * 100) / 100;
@@ -124,4 +124,23 @@ export const sugerirTurnos = (serie, janela, turnosAtuais, maximo = 6) => {
     minimos["Farmacêutico"] = Math.max(1, minimos["Farmacêutico"] ?? 1);
     return { nome: base?.nome ?? `Turno ${t + 1}`, inicio: texto(horaDe(ini)), fim: textoDoFim(horaDe(fim)), minimos };
   });
+};
+
+// "Adicionar turno": ocupa o primeiro intervalo do horário da loja que nenhum turno cobre; se não houver, divide ao meio (em hora
+// cheia) o turno que termina por último. Devolve os turnos novos, ou nulo quando não dá (turno de 1 hora ou menos para dividir).
+export const adicionarTurno = (turnos, janela, horarios, maximo = 6) => {
+  if (turnos.length >= maximo) return null;
+  const nome = `Turno ${turnos.length + 1}`;
+  const lacuna = coberturaDoHorario(turnos, horarios)[0];
+  if (lacuna) return [...turnos, { nome, inicio: texto(lacuna.de), fim: textoDoFim(lacuna.ate), minimos: { Farmacêutico: 1 } }];
+  if (!turnos.length) return null;
+  const ultimo = turnos.reduce((a, b) => (fimEmHoras(b) > fimEmHoras(a) ? b : a));
+  const i = turnos.indexOf(ultimo);
+  if (!turnoSimples(ultimo)) return null;
+  const ini = emHoras(ultimo.inicio);
+  const fim = fimEmHoras(ultimo);
+  const meio = Math.round((ini + fim) / 2);
+  if (meio <= ini + EPS || meio >= fim - EPS) return null;
+  const metade = turnos.map((t, j) => (j === i ? { ...t, fim: texto(meio) } : t));
+  return [...metade, { nome, inicio: texto(meio), fim: ultimo.fim, minimos: { ...ultimo.minimos } }];
 };

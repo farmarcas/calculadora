@@ -46,7 +46,7 @@ export const errosDaRegras = (rascunho, { dono }) => {
   return e;
 };
 
-export default function AbaRegras({ painel, rascunho, dono, podeEditar, mostrarErros }) {
+export default function AbaRegras({ painel, rascunho, dono, podeEditar, mostrarErros, onEnviarBase }) {
   const { loja } = painel;
   const { registrar, alterar, rascunho: r } = rascunho;
   const [erroCarga, setErroCarga] = useState(null);
@@ -103,7 +103,7 @@ export default function AbaRegras({ painel, rascunho, dono, podeEditar, mostrarE
         </section>
       )}
 
-      <MinimoPessoas config={c} horarios={horarios} editavel={podeEditar} erros={erros} onMudar={(parte) => alterar("configuracao", parte)} />
+      <MinimoPessoas config={c} horarios={horarios} editavel={podeEditar} erros={erros} onMudar={(parte) => alterar("configuracao", parte)} faturamentoPorHora={painel.faturamentoPorHora} dono={dono} podeEnviarBase={!!onEnviarBase} onEnviarBase={onEnviarBase} />
 
       <section aria-labelledby="titulo-encargos-convencao" className="border-t border-[var(--border-subtle)] pt-6">
         <h3 id="titulo-encargos-convencao" className="m-0 text-base font-bold text-[var(--text-strong)]">Encargos e Convenção Coletiva</h3>

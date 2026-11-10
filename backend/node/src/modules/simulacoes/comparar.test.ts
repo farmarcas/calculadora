@@ -15,9 +15,9 @@ const cob = {
       funcao: 'Farmacêutico',
       minimo: 1,
       porHora: [
-        { hora: 8, pessoas: 1, ok: true },
-        { hora: 9, pessoas: 0, ok: false },
-        { hora: 10, pessoas: 2, ok: true },
+        { hora: 8, pessoas: 1, ok: true, exigido: 1 },
+        { hora: 9, pessoas: 0, ok: false, exigido: 1 },
+        { hora: 10, pessoas: 2, ok: true, exigido: 1 },
       ],
     },
   ],

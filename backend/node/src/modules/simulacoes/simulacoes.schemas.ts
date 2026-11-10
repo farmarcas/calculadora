@@ -33,6 +33,17 @@ export const REGRAS = ['atual', 'r42', 'r40'] as const;
 export const FUNCOES_ESCALA = ['Farmacêutico', 'Atendimento', 'Caixa'] as const;
 
 // Vaga simulada: a matrícula (VAGA-n) só vem de volta para vagas que já existem.
+// Turno de uma vaga nova (a matrícula `VAGA-n` é dada pelo servidor ao criar a vaga).
+export const turnoDeVagaSchema = z
+  .object({
+    dia: z.number().int().min(0).max(6),
+    entrada: hora,
+    saida: hora,
+    iniIntervalo: hora.nullable().optional(),
+    fimIntervalo: hora.nullable().optional(),
+  })
+  .strict();
+
 export const vagaSchema = z
   .object({
     matricula: z
@@ -41,6 +52,8 @@ export const vagaSchema = z
       .optional(),
     funcao: z.enum(FUNCOES_ESCALA),
     cargaH: z.number().int().min(4).max(44),
+    // Só vale para vaga nova: os turnos de uma vaga que já existe seguem em `turnos` do pedido.
+    turnos: z.array(turnoDeVagaSchema).max(7).optional(),
   })
   .strict();
 
@@ -87,6 +100,17 @@ export const editarReq = req(
     })
     .strict()
     .refine((b) => Object.keys(b).length > 0, { message: 'Informe ao menos um campo' }),
+  id,
+);
+
+// Prévia do custo de uma contratação (não grava nada).
+export const efeitoContratacaoReq = req(
+  z
+    .object({
+      funcao: z.enum(FUNCOES_ESCALA),
+      cargaH: z.number().int().min(4).max(44),
+    })
+    .strict(),
   id,
 );
 

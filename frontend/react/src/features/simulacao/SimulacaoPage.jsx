@@ -6,6 +6,7 @@ import BarraParametros from "./BarraParametros.jsx";
 import PainelResultado from "./PainelResultado.jsx";
 import PassoContratacoes from "./PassoContratacoes.jsx";
 import PassoHorario from "./PassoHorario.jsx";
+import EscalaPorHora from "./escala/EscalaPorHora.jsx";
 import useSimulacao from "./useSimulacao.js";
 
 // Simulação de um cenário (abre em "Personalizar"): parâmetros, 3 passos e o painel de resultado.
@@ -69,6 +70,8 @@ export default function SimulacaoPage({ id, perfil, podeEscrever, aviso, onVolta
         </div>
         <PainelResultado sim={sim} calculando={calculando} dono={dono} podeEscrever={podeEscrever} salvando={salvando} onSalvar={salvarComoCenario} onClonar={clonar} />
       </div>
+
+      <EscalaPorHora sim={sim} editavel={editavel} dono={dono} calculando={calculando} onSalvar={salvar} />
     </div>
   );
 }

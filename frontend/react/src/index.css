@@ -145,3 +145,11 @@ body { margin: 0; background: var(--surface-page); color: var(--ink-900); font-f
 /* Campo que falta preencher (Cadastro de loja): anel com o token de atenção; o foco azul do campo continua por cima. */
 .cl-pendente { border-color: var(--func-warning-300) !important; box-shadow: 0 0 0 3px var(--func-attention-100); }
 .cl-pendente:focus { box-shadow: 0 0 0 3px var(--func-attention-100), 0 0 0 5px var(--system-500); }
+
+/* Escala por hora (spec 039): grade larga com rolagem própria; abaixo de 760 px de conteúdo vira a lista por função. */
+.escala-conteiner { container-type: inline-size; container-name: escala; }
+.escala-mobile { display: none; }
+@container escala (max-width: 759px) {
+  .escala-desktop { display: none; }
+  .escala-mobile { display: block; }
+}

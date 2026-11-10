@@ -196,6 +196,8 @@ export type EntradaCenarios = {
   minimos: Minimos;
   pessoas: { funcao: string; cargaH: number }[];
   vendas: VendaLinha[];
+  // Limite de perda de faturamento do Cenário 2, em % (padrão 3).
+  limitePerdaCenario2Pct?: number;
   // Venda estimada pelo faturamento do cadastro (não é base de dias reais): sem aviso de "poucos dias".
   vendasDoCadastro?: boolean;
   // Parâmetros legais em uso (jornada, dias, divisor); sem eles valem os de hoje.

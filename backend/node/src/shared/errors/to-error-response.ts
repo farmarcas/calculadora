@@ -57,7 +57,7 @@ export const toErrorResponse = (error: unknown): ErrorResponse => {
         error: {
           code: limite ? 'ARQUIVO_GRANDE' : 'ARQUIVO_INVALIDO',
           message: limite
-            ? 'O arquivo tem mais de 10 MB. Divida a planilha em arquivos menores.'
+            ? 'O arquivo tem mais de 20 MB. Divida a planilha em arquivos menores.'
             : 'Envie uma planilha .xlsx ou .csv no campo "arquivo".',
           details: [],
         },

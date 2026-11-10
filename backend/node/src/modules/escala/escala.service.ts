@@ -3,7 +3,7 @@ import { NotFoundError } from '../../shared/errors/not-found-error.js';
 import { ValidationError } from '../../shared/errors/validation-error.js';
 import { CAMPOS_BASE, type CampoDef } from '../planilhas/campos.js';
 import { inferirUmaAba } from '../planilhas/inferencia.js';
-import { lerPlanilha } from '../planilhas/leitor.js';
+import { lerPlanilha, type Aba } from '../planilhas/leitor.js';
 import { calcularCusto } from '../custos/custo.js';
 import {
   normalizarTurnos,
@@ -16,6 +16,7 @@ import { diasAbertos, montarDiagnostico } from './diagnostico.js';
 import { interpretarBase, somarPorHora, type ErroLinha } from './interpretar.js';
 import type { EscalaRepository } from './escala.repository.js';
 import { premissasDe, type PremissasEntrada } from './premissas.js';
+import { abaPorCnpj, makeBasePorCnpj, type PeriodoEntrada } from './base-por-cnpj.service.js';
 
 const entendi = (
   campos: CampoDef[],
@@ -44,8 +45,14 @@ const errosPorLoja = (erros: ErroLinha[]) => {
 };
 
 export const makeEscalaService = (repo: EscalaRepository, auditar: Auditor) => {
-  const abrir = async (arquivo: string, buffer: Buffer, campos: CampoDef[], _nomeModelo: string) => {
-    const abas = await lerPlanilha(buffer, arquivo);
+  const abrir = async (
+    arquivo: string,
+    buffer: Buffer,
+    campos: CampoDef[],
+    _nomeModelo: string,
+    jaLidas?: Aba[],
+  ) => {
+    const abas = jaLidas ?? (await lerPlanilha(buffer, arquivo));
     if (abas.filter((a) => !/como preencher/i.test(a.nome)).every((a) => a.linhas.length === 0))
       throw new ValidationError(
         'A planilha está vazia. Preencha a partir da linha 2 do modelo e envie de novo.',
@@ -61,10 +68,15 @@ export const makeEscalaService = (repo: EscalaRepository, auditar: Auditor) => {
     return inf;
   };
 
+  const porCnpj = makeBasePorCnpj(repo, auditar);
+
   return {
     // Revisão da base comercial: lê, resume e diz o que seria substituído, sem gravar nada.
-    async revisarBase(arquivo: string, buffer: Buffer) {
-      const inf = await abrir(arquivo, buffer, CAMPOS_BASE, 'modelo de base comercial');
+    async revisarBase(arquivo: string, buffer: Buffer, periodo: PeriodoEntrada = {}) {
+      const abas = await lerPlanilha(buffer, arquivo);
+      const cnpj = abaPorCnpj(abas);
+      if (cnpj) return porCnpj.revisar(arquivo, cnpj, periodo);
+      const inf = await abrir(arquivo, buffer, CAMPOS_BASE, 'modelo de base comercial', abas);
       const { vendas, erros } = interpretarBase(inf.aba, inf.colunas);
       const codigos = [...new Set(vendas.map((v) => v.loja))];
       const lojas = await repo.lojasPorCodigos(codigos);
@@ -86,8 +98,11 @@ export const makeEscalaService = (repo: EscalaRepository, auditar: Auditor) => {
       };
     },
 
-    async importarBase(arquivo: string, buffer: Buffer, perfil: string) {
-      const inf = await abrir(arquivo, buffer, CAMPOS_BASE, 'modelo de base comercial');
+    async importarBase(arquivo: string, buffer: Buffer, perfil: string, periodo: PeriodoEntrada = {}) {
+      const abas = await lerPlanilha(buffer, arquivo);
+      const cnpj = abaPorCnpj(abas);
+      if (cnpj) return porCnpj.importar(arquivo, cnpj, periodo, perfil);
+      const inf = await abrir(arquivo, buffer, CAMPOS_BASE, 'modelo de base comercial', abas);
       const { vendas, erros } = interpretarBase(inf.aba, inf.colunas);
       const lojas = await repo.lojasPorCodigos([
         ...new Set([

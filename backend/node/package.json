@@ -16,7 +16,9 @@
     "postinstall": "prisma generate",
     "seed": "tsx prisma/seed.ts",
     "migrar-escala": "tsx src/scripts/migrar-escala.ts",
-    "migrar-escala:prod": "node dist/scripts/migrar-escala.js"
+    "migrar-escala:prod": "node dist/scripts/migrar-escala.js",
+    "importar-base-cnpj": "tsx src/scripts/importar-base-cnpj.ts",
+    "importar-base-cnpj:prod": "node dist/scripts/importar-base-cnpj.js"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.10.0",

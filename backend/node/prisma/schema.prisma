@@ -247,8 +247,9 @@ model VendaHora {
   venda    Float
   // CMV (custo da mercadoria) da hora, em reais; nulo quando a base não trouxe (spec 034). O lucro bruto é venda − cmv.
   cmv      Float?
-  clientes Int
-  unidades Int
+  // Média de um dia: pode ter decimais (spec 036).
+  clientes Float
+  unidades Float
 
   carga Carga @relation(fields: [cargaId], references: [id], onDelete: Cascade)
 

@@ -1,6 +1,6 @@
 // Funções puras dos modais de importação: tamanho, datas, mensagens e a lista de erros em CSV.
 
-export const LIMITE_MB = 10;
+export const LIMITE_MB = 20;
 
 const fmt = (n) => n.toLocaleString("pt-BR", { maximumFractionDigits: 1, minimumFractionDigits: 0 });
 

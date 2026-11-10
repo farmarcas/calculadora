@@ -29,9 +29,9 @@ Formato: `- [ ] ID [P] [História] descrição com o arquivo`. Servidor em `back
 - [x] T020 Conferir no navegador (dono, gestor e consulta; Arariba e lojas de teste em cada estado; celular de 375 px) e rodar os testes da tela; commitar a fatia
 
 ## Fatia 4 — Limpeza e fechamento
-- [ ] T021 Remover `cartao/CartaoCenario.jsx`, `FaixaDeResultado.jsx`, `BlocoHorario.jsx`, `BlocoContratacoes.jsx`, `PainelDias.jsx` e as funções de `cartao-regras.js` e `comparativo-regras.js` que ficam sem uso (com os testes delas); manter o que a ordem e o número do cenário ainda usam
-- [ ] T022 Rodar `tsc`, lint, todos os testes (unidade, integração e tela) e `vite build`; atualizar o `local/ver-tudo`; enviar a branch `feat/cenarios-em-linhas`
-- [ ] T023 Atualizar a documentação dos cenários em `docs/` onde falar dos cartões e de valores em reais
+- [x] T021 Remover `cartao/CartaoCenario.jsx`, `FaixaDeResultado.jsx`, `BlocoHorario.jsx`, `BlocoContratacoes.jsx`, `PainelDias.jsx` e as funções de `cartao-regras.js` e `comparativo-regras.js` que ficam sem uso (com os testes delas); manter o que a ordem e o número do cenário ainda usam
+- [x] T022 Rodar `tsc`, lint, todos os testes (unidade, integração e tela) e `vite build`; atualizar o `local/ver-tudo`; enviar a branch `feat/cenarios-em-linhas`
+- [x] T023 Atualizar a documentação dos cenários em `docs/` onde falar dos cartões e de valores em reais
 
 ## Dependências
 - Fatia 1 antes da 3 (a tela lê `linhas`). Fatia 2 antes da 3 (a tela usa as regras puras). Fatias 1 e 2 são independentes entre si.
@@ -39,3 +39,8 @@ Formato: `- [ ] ID [P] [História] descrição com o arquivo`. Servidor em `back
 
 ## Ordem sugerida
 Fatia 1, fatia 2, fatia 3 e fatia 4. Nenhuma toca em dados: tudo é código e tela.
+
+## Observações da implementação
+- A pill "Equipe menor que hoje" tem 4 palavras: o quadro a define assim e a regra de "até 3 palavras" do pedido foi aplicada às demais; ela cabe em uma linha.
+- Equipe menor que hoje: a frase usa pessoas quando a falta é de uma jornada inteira (44 h) ou mais, e horas por semana quando é menor.
+- Linha indisponível: coberta por testes de unidade (loja real sem custos fica "pendente" e nem chega às linhas).

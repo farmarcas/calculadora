@@ -19,13 +19,13 @@ Formato: `- [ ] ID [P] [História] descrição com o arquivo`. Servidor em `back
 - [x] T012 Rodar os testes da tela e commitar a fatia
 
 ## Fatia 3 — A grade, em leitura (Histórias 1, 2, 5 e 6)
-- [ ] T013 [US1] `styles/alquimia.css`: tokens que faltarem (azul escuro e azul claro das funções, os quatro tons da escala de venda e clientes, texto verde de sucesso) usando o mais próximo do Design System
-- [ ] T014 [US1] `escala/GradeDeHoras.jsx` (novo): cabeçalho das horas, linha "Venda por hora" (R$, só o dono, "R$ · só o dono vê") e "Clientes por hora" ("cupons vendidos"), com a média do dia à direita; sem base mostra "Sem clientes por hora nesta base"
-- [ ] T015 [US2] `escala/LinhaDaFuncao.jsx` (novo): resumo com chevron de recolher, cor e nome da função, "N pessoas", "+ Contratar" (só dono e gestor, só rascunho) e as células de cobertura (verde, ou rosa com "N !" e borda vermelha, ou tracejada azul); à direita "mín. N"
-- [ ] T016 [US1] `escala/LinhaDaPessoa.jsx` (novo): turno em barra, "Função · 44h", total da semana e a barra "Folga" nos dias de folga; sem arrastar nesta fatia
-- [ ] T017 [US1] `escala/EscalaPorHora.jsx` (novo): título, texto de ajuda, abas dos dias abertos (Seg a Dom, a selecionada em preto), faixa de contexto ("Nenhum turno selecionado" ou o turno), faixa amarela de aviso, dia fechado ou sem dados, e as linhas; `SimulacaoPage.jsx` a renderiza em largura total abaixo da grade atual
-- [ ] T018 [US5] Permissões: o dono vê a linha de venda; o gestor não vê venda nem custo; visualizador e simulação gravada só leem (sem "+ Contratar")
-- [ ] T019 Conferir no navegador (dono, gestor e visualizador; Arariba) e rodar os testes da tela; commitar a fatia
+- [x] T013 [US1] `styles/alquimia.css`: tokens que faltarem (azul escuro e azul claro das funções, os quatro tons da escala de venda e clientes, texto verde de sucesso) usando o mais próximo do Design System
+- [x] T014 [US1] `escala/GradeDeHoras.jsx` (novo): cabeçalho das horas, linha "Venda por hora" (R$, só o dono, "R$ · só o dono vê") e "Clientes por hora" ("cupons vendidos"), com a média do dia à direita; sem base mostra "Sem clientes por hora nesta base"
+- [x] T015 [US2] `escala/LinhaDaFuncao.jsx` (novo): resumo com chevron de recolher, cor e nome da função, "N pessoas", "+ Contratar" (só dono e gestor, só rascunho) e as células de cobertura (verde, ou rosa com "N !" e borda vermelha, ou tracejada azul); à direita "mín. N"
+- [x] T016 [US1] `escala/LinhaDaPessoa.jsx` (novo): turno em barra, "Função · 44h", total da semana e a barra "Folga" nos dias de folga; sem arrastar nesta fatia
+- [x] T017 [US1] `escala/EscalaPorHora.jsx` (novo): título, texto de ajuda, abas dos dias abertos (Seg a Dom, a selecionada em preto), faixa de contexto ("Nenhum turno selecionado" ou o turno), faixa amarela de aviso, dia fechado ou sem dados, e as linhas; `SimulacaoPage.jsx` a renderiza em largura total abaixo da grade atual
+- [x] T018 [US5] Permissões: o dono vê a linha de venda; o gestor não vê venda nem custo; visualizador e simulação gravada só leem (sem "+ Contratar")
+- [x] T019 Conferir no navegador (dono, gestor e visualizador; Arariba) e rodar os testes da tela; commitar a fatia
 
 ## Fatia 4 — + Contratar e a contratação simulada (História 3)
 - [ ] T020 [US3] `escala/FormularioContratar.jsx` (novo): card sob a linha da função (um aberto por vez) com título "Contratar <função>", o subtítulo, "Fechar", Tipo, Dias (chips), Entra e Sai, a sugestão preenchida, o efeito na semana (horas cobertas e horário da loja) e, para o dono, o custo em % vindo da prévia e a venda como o sistema calcula; "Cancelar" e "Adicionar à simulação" (desabilitado com o motivo quando inválido)

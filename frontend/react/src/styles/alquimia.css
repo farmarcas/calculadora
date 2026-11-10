@@ -242,3 +242,14 @@
 
 /* Verde para TEXTO (spec 024): o verde do DS (#6EAC00) fica abaixo de 3:1 sobre branco; este tem cerca de 5:1 sobre branco e cinza. */
 :root { --text-success-strong: #3E7500; }
+
+/* Escala por hora (spec 039): cores das funções e os quatro tons da escala de venda e clientes, só com tokens do DS. */
+:root {
+  --escala-farmaceutico: var(--system-900);
+  --escala-atendimento: var(--system-50);
+  --escala-caixa: var(--func-void-50);
+  --escala-tom-0: var(--system-25);
+  --escala-tom-1: var(--system-100);
+  --escala-tom-2: var(--system-500);
+  --escala-tom-3: var(--system-900);
+}

@@ -4,6 +4,7 @@ import { Aviso } from "../../components/ui/index.jsx";
 import CartaoCenario, { avisosDoCartao, temAvisos } from "./cartao/CartaoCenario.jsx";
 import PainelDias from "./cartao/PainelDias.jsx";
 import { palavraDaRegua } from "../regua.js";
+import { numeroDoCenario, ordenarCenarios } from "./comparativo-regras.js";
 import { linhasDoHorario, totaisDaSemana } from "./cartao/cartao-regras.js";
 
 // Quantas linhas o cartão tem na grade compartilhada: título (com a frase do cenário), resultado, status, contratações,
@@ -31,8 +32,9 @@ export default function Comparativo({ comparativo, cenarios, lojaId, podeEscreve
   const comparativoRef = useRef(null);
   if (!comparativo) return null;
   const { destaque } = comparativo;
+  // Equilíbrio, Manter horários e Sem contratações, nesta ordem (o número de cada cenário não muda).
   // A régua (margem ou venda) vai em cada coluna para os textos do cartão a lerem de um lugar só.
-  const colunas = comparativo.cenarios.map((c) => ({ ...c, regua: comparativo.regua ?? null }));
+  const colunas = ordenarCenarios(comparativo.cenarios).map((c) => ({ ...c, regua: comparativo.regua ?? null }));
   // O selo "Cenário sugerido" pode ir a outro cenário que não o de menor custo (quando este deixa falta de cobertura).
   const sugeridoId = comparativo.sugerido !== undefined ? comparativo.sugerido : destaque;
   const dono = colunas[0].custoFolhaMensal !== undefined;
@@ -47,7 +49,7 @@ export default function Comparativo({ comparativo, cenarios, lojaId, podeEscreve
     setErro(null);
     setOcupado(true);
     try {
-      const corpo = { nome: `Cenário ${n}: ${c.nome}`.slice(0, 80), regra: cenarios.regra.id };
+      const corpo = { nome: c.nome.slice(0, 80), regra: cenarios.regra.id };
       let s;
       let aviso = null;
       try {
@@ -99,7 +101,7 @@ export default function Comparativo({ comparativo, cenarios, lojaId, podeEscreve
           {colunas.map((c, i) => (
             <CartaoCenario
               key={c.id}
-              posicao={i + 1}
+              posicao={numeroDoCenario(c.id)}
               c={c}
               antes={antes}
               novos={novosDe(c)}
@@ -111,8 +113,8 @@ export default function Comparativo({ comparativo, cenarios, lojaId, podeEscreve
               mostrarAvisos={algumAviso}
               podeEscrever={podePersonalizar}
               ocupado={ocupado}
-              onPersonalizar={() => personalizar(c, i + 1)}
-              onAbrirPainel={(e) => abrirPainel(c, i + 1, e.currentTarget)}
+              onPersonalizar={() => personalizar(c, numeroDoCenario(c.id))}
+              onAbrirPainel={(e) => abrirPainel(c, numeroDoCenario(c.id), e.currentTarget)}
             />
           ))}
         </div>

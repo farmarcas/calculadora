@@ -303,7 +303,7 @@ describe('Cenário 2 — reduzir o fim de semana antes de fechar dias (spec 012)
     expect(e.motivoInviavel).toContain('não cobre o horário');
     expect(e.resumo).toContain('a perda chegaria ao limite de 10% do faturamento');
     expect(e.resumo).toContain('faltam 16 h de cobertura');
-    expect(e.resumo).toContain('Cenário 3');
+    expect(e.resumo).toContain('Equilíbrio');
     // não resolve sozinho fica de fora do selo de sugerido
     const r = montarCenarios(
       base({

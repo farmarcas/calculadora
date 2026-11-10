@@ -522,7 +522,7 @@ describe('escala (rotas)', () => {
     );
     expect(eq3.saldoAnual).toBeCloseTo(eq3.saldoMensal * 12, 0);
     expect(['manter', 'equilibrio']).toContain(dono.comparativo.destaque);
-    expect(por.economia.alertas.join(' ')).toContain('Cenário 3');
+    expect(por.economia.alertas.join(' ')).toContain('Equilíbrio');
     const textoDono = JSON.stringify(dono);
     for (const chave of ['margemCortadaMes', 'margemGanhaMes', 'resultadoLiquidoMensal', 'ganhoFrenteManterMensal', 'margemInformada'])
       expect(textoDono).not.toContain(chave);

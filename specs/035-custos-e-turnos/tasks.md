@@ -17,11 +17,11 @@ Formato: `- [ ] ID [P] [História] descrição com o arquivo`. Servidor em `back
 - [x] T010 Rodar os testes da tela e commitar a fatia
 
 ## Fatia 3 — Aba, ordem, padrão e tokens (História 1, P1)
-- [ ] T011 [US1] `cadastro-loja/config.js`: texto da aba "Custos e Turnos" (o id interno `regras` não muda); conferir pendências, atalhos e `DetalheLoja.jsx` que a nomeiam
-- [ ] T012 [US1] `AbaRegras.jsx`: ordem "Custos de Salário em Folha" (só dono), "Turnos", "Encargos e Convenção Coletiva" (encargos só dono + convenção, com os mesmos textos e comportamentos); o bloco de encargos sai de dentro de Custos
-- [ ] T013 [US1] Modo padrão: loja sem modo escolhido abre em "Por turnos" com os turnos iniciais de hoje, e o ponto de partida do rascunho é o mesmo (nada de "alteração pendente" ao abrir); quem já guardou um modo mantém o guardado; testes da regra
-- [ ] T014 [P] `styles/alquimia.css`: tokens `--chart-bar`, `--chart-band-border`, `--chart-band-selected`, `--chart-turn-tint-a`, `--chart-turn-tint-b`, `--chart-detail-border`, `--chart-band-text`
-- [ ] T015 Rodar os testes da tela, conferir no navegador e commitar a fatia
+- [x] T011 [US1] `cadastro-loja/config.js`: texto da aba "Custos e Turnos" (o id interno `regras` não muda); conferir pendências, atalhos e `DetalheLoja.jsx` que a nomeiam
+- [x] T012 [US1] `AbaRegras.jsx`: ordem "Custos de Salário em Folha" (só dono), "Turnos", "Encargos e Convenção Coletiva" (encargos só dono + convenção, com os mesmos textos e comportamentos); o bloco de encargos sai de dentro de Custos
+- [x] T013 [US1] Modo padrão: loja sem modo escolhido abre em "Por turnos" com os turnos iniciais de hoje, e o ponto de partida do rascunho é o mesmo (nada de "alteração pendente" ao abrir); quem já guardou um modo mantém o guardado; testes da regra
+- [x] T014 [P] `styles/alquimia.css`: tokens `--chart-bar`, `--chart-band-border`, `--chart-band-selected`, `--chart-turn-tint-a`, `--chart-turn-tint-b`, `--chart-detail-border`, `--chart-band-text`
+- [x] T015 Rodar os testes da tela, conferir no navegador e commitar a fatia
 
 ## Fatia 4 — Seção Turnos: gráfico, tabela e detalhe (Histórias 2 e 3, P1)
 - [ ] T016 [US2] `turnos/GraficoDeTurnos.jsx`: barras por hora relativas ao maior valor, 3 picos em destaque, rótulos de hora, faixas dos turnos, seletor de tipo de dia, aviso de poucos dias, linha de apoio; barras `aria-hidden`

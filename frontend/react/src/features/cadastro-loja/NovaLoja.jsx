@@ -8,7 +8,7 @@ const REGIMES = [["", "Não informado"], ["simples", "Simples Nacional"], ["pres
 const CAMPO = "h-10 w-full rounded-[6px] border border-[var(--border-default)] bg-[var(--surface-card)] px-3 text-sm text-[var(--text-strong)] focus:border-2 focus:border-[var(--system-500)] focus:outline-none aria-[invalid=true]:border-[var(--border-danger)]";
 const VAZIO = { codigo: "", nome: "", cnpj: "", cidade: "", uf: "", marca: "", regimeTributario: "" };
 
-// Modo "Nova loja" (só o operador): dados da loja; Equipe e Regras e custos ficam bloqueadas até a primeira gravação.
+// Modo "Nova loja" (só o operador): dados da loja; Equipe e Custos e Turnos ficam bloqueadas até a primeira gravação.
 export default function NovaLoja({ onCriada, onCancelar, onVoltar }) {
   const [v, setV] = useState(VAZIO);
   const [tentou, setTentou] = useState(false);
@@ -61,7 +61,7 @@ export default function NovaLoja({ onCriada, onCancelar, onVoltar }) {
         <p className="m-0 mt-1 text-xs text-[var(--text-secondary)]">Preencha os dados para cadastrar. O funcionamento, o faturamento, a equipe e as regras ficam liberados depois da primeira gravação.</p>
         <div role="tablist" aria-label="Seções da loja" className="mt-4 flex gap-4 border-b border-[var(--border-subtle)]">
           <button type="button" role="tab" aria-selected="true" className="border-0 bg-transparent px-1.5 pt-2 pb-2.5 text-base font-bold text-[var(--text-strong)]" style={{ boxShadow: "inset 0 -3px 0 var(--color-primary)" }}>Dados e funcionamento</button>
-          {["Equipe", "Regras e custos"].map((t) => (
+          {["Equipe", "Custos e Turnos"].map((t) => (
             <button key={t} type="button" role="tab" aria-selected="false" aria-disabled="true" disabled title="Disponível depois de cadastrar a loja" className="border-0 bg-transparent px-1.5 pt-2 pb-2.5 text-base text-[var(--text-disabled)] cursor-not-allowed">{t}</button>
           ))}
         </div>

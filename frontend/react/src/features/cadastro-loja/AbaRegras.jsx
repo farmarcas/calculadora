@@ -5,18 +5,14 @@ import { AlertaRegime, ComposicaoEncargos, NOME_REGIME, pct } from "../diagnosti
 import { DICAS_DE_ENCARGOS } from "./dicasDeEncargos.js";
 import { MotivoCampo, SeloCampo, classeDoCampo, descricaoDoCampo, usarCampos } from "./campoPendente.jsx";
 import MinimoPessoas from "./MinimoPessoas.jsx";
+import { baseDaConfiguracao } from "./configuracao.js";
 import { FUNCOES, errosDosTurnos } from "./turnos.js";
+
+export { baseDaConfiguracao };
 
 const CAMPO = "h-10 w-full rounded-[6px] border border-[var(--border-default)] bg-[var(--surface-card)] px-3 text-sm text-[var(--text-strong)] focus:border-2 focus:border-[var(--system-500)] focus:outline-none aria-[invalid=true]:border-[var(--border-danger)] disabled:bg-[var(--surface-muted)]";
 // Campo bloqueado pelo regime (Simples Nacional): cinza e sem edição.
 
-// Convenção, mínimos e turnos como a tela edita (modo "turnos" ou "unico"; o que não está em uso fica guardado).
-export const baseDaConfiguracao = (config) => ({
-  convencao8h24: !!config.convencao8h24,
-  minimos: Object.fromEntries(FUNCOES.map((f) => [f, config.minimos?.[f] ?? (f === "Farmacêutico" ? 1 : 0)])),
-  turnos: config.turnos ?? null,
-  modoMinimo: config.modoMinimo === "unico" || !config.turnos?.length ? (config.modoMinimo === "turnos" && !config.turnos?.length ? "unico" : config.modoMinimo ?? "unico") : "turnos",
-});
 export const baseDosCustos = (r) => ({
   salarioMedio: Object.fromEntries(FUNCOES.map((f) => [f, r.custos?.salarioMedio?.[f] == null ? "" : String(r.custos.salarioMedio[f])])),
 });
@@ -35,7 +31,7 @@ export const custosParaApi = (_parte, c) => ({
   salarioMedio: Object.fromEntries(Object.entries(c.salarioMedio).filter(([, v]) => v !== "").map(([k, v]) => [k, Number(v)])),
 });
 
-// Erros da aba Regras e custos (texto + campo para focar).
+// Erros da aba Custos e Turnos (texto + campo para focar).
 export const errosDaRegras = (rascunho, { dono }) => {
   const e = [];
   const c = rascunho.configuracao;
@@ -61,7 +57,7 @@ export default function AbaRegras({ painel, rascunho, dono, podeEditar, mostrarE
   const carregar = useCallback(async () => {
     try {
       const diag = await api(`/lojas/${loja.id}/diagnostico`);
-      registrar("configuracao", baseDaConfiguracao(diag.config));
+      registrar("configuracao", baseDaConfiguracao(diag.config, loja.horarios));
       if (dono) {
         const custos = await api(`/lojas/${loja.id}/custos`);
         setDadosCustos(custos);
@@ -104,8 +100,15 @@ export default function AbaRegras({ painel, rascunho, dono, podeEditar, mostrarE
             ))}
           </div>
           <p className="m-0 mt-3 text-xs text-[var(--text-secondary)]">O salário médio vale para a jornada cheia de hoje (44h). Quem já é contratado mantém o salário. Uma vaga nova custa proporcional à carga dela.</p>
+        </section>
+      )}
 
-          <div className="mt-4 border-t border-[var(--border-subtle)] pt-4">
+      <MinimoPessoas config={c} horarios={horarios} editavel={podeEditar} erros={erros} onMudar={(parte) => alterar("configuracao", parte)} />
+
+      <section aria-labelledby="titulo-encargos-convencao" className="border-t border-[var(--border-subtle)] pt-6">
+        <h3 id="titulo-encargos-convencao" className="m-0 text-base font-bold text-[var(--text-strong)]">Encargos e Convenção Coletiva</h3>
+        {dono && k && enc && (
+          <div className="mt-3">
             {dadosCustos.alertaRegime && <div className="mb-3"><AlertaRegime lojaId={loja.id} texto={dadosCustos.alertaRegime} onSalvo={carregar} /></div>}
             <div className="flex items-center justify-between gap-3">
               <button type="button" aria-expanded={aberto} aria-controls="encargos-detalhe" onClick={() => setAberto(!aberto)} className="flex min-w-0 items-center gap-3 border-0 bg-transparent p-0 text-left cursor-pointer">
@@ -123,11 +126,9 @@ export default function AbaRegras({ painel, rascunho, dono, podeEditar, mostrarE
               </div>
             )}
           </div>
-        </section>
-      )}
-
-      <section aria-labelledby="titulo-convencao" className="border-t border-[var(--border-subtle)] pt-6">
-        <h3 id="titulo-convencao" className="m-0 text-base font-bold text-[var(--text-strong)]">Convenção coletiva</h3>
+        )}
+      <div aria-labelledby="titulo-convencao" role="group" className={dono && k && enc ? "mt-6 border-t border-[var(--border-subtle)] pt-6" : "mt-3"}>
+        <h4 id="titulo-convencao" className="m-0 text-sm font-bold text-[var(--text-strong)]">Convenção coletiva</h4>
         <p className="m-0 mt-1 text-xs text-[var(--text-secondary)]">Define se a regra de 42h é atingível em 5 dias.</p>
         <div className="mt-3 flex flex-wrap items-center justify-between gap-4 rounded-card border border-[var(--border-subtle)] px-4 py-3">
           <div className="min-w-0"><strong className="block text-sm text-[var(--text-strong)]">Permitir 8h24 por dia na transição</strong><span className="text-xs text-[var(--text-secondary)]">{c.convencao8h24 ? "Na regra de 42h, cada pessoa pode fazer até 42h em 5 dias (8h24 por dia)." : "Sem autorização, a regra de 42h vira 40h na prática (5 dias × 8h)."}</span></div>
@@ -137,9 +138,8 @@ export default function AbaRegras({ painel, rascunho, dono, podeEditar, mostrarE
             <span className={c.convencao8h24 ? "font-bold text-[var(--text-strong)]" : "text-[var(--text-secondary)]"}>Permite</span>
           </div>
         </div>
+      </div>
       </section>
-
-      <MinimoPessoas config={c} horarios={horarios} editavel={podeEditar} erros={erros} onMudar={(parte) => alterar("configuracao", parte)} />
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { api } from "../../api/client.js";
 import { Aviso } from "../../components/ui/index.jsx";
 import CartaoCenario, { avisosDoCartao, temAvisos } from "./cartao/CartaoCenario.jsx";
 import PainelDias from "./cartao/PainelDias.jsx";
+import { numeroDoCenario, ordenarCenarios } from "./comparativo-regras.js";
 import { linhasDoHorario, totaisDaSemana } from "./cartao/cartao-regras.js";
 
 // Quantas linhas o cartão tem na grade compartilhada: título (com a frase do cenário), resultado, status, contratações,
@@ -29,7 +30,9 @@ export default function Comparativo({ comparativo, cenarios, lojaId, podeEscreve
   const [painel, setPainel] = useState(null); // { c, posicao, linhas, totais, gatilho }
   const comparativoRef = useRef(null);
   if (!comparativo) return null;
-  const { cenarios: colunas, destaque } = comparativo;
+  const { destaque } = comparativo;
+  // Equilíbrio, Manter horários e Sem contratações, nesta ordem (o número de cada cenário não muda).
+  const colunas = ordenarCenarios(comparativo.cenarios);
   // O selo "Cenário sugerido" pode ir a outro cenário que não o de menor custo (quando este deixa falta de cobertura).
   const sugeridoId = comparativo.sugerido !== undefined ? comparativo.sugerido : destaque;
   const dono = colunas[0].custoFolhaMensal !== undefined;
@@ -96,7 +99,7 @@ export default function Comparativo({ comparativo, cenarios, lojaId, podeEscreve
           {colunas.map((c, i) => (
             <CartaoCenario
               key={c.id}
-              posicao={i + 1}
+              posicao={numeroDoCenario(c.id)}
               c={c}
               antes={antes}
               novos={novosDe(c)}
@@ -108,8 +111,8 @@ export default function Comparativo({ comparativo, cenarios, lojaId, podeEscreve
               mostrarAvisos={algumAviso}
               podeEscrever={podePersonalizar}
               ocupado={ocupado}
-              onPersonalizar={() => personalizar(c, i + 1)}
-              onAbrirPainel={(e) => abrirPainel(c, i + 1, e.currentTarget)}
+              onPersonalizar={() => personalizar(c, numeroDoCenario(c.id))}
+              onAbrirPainel={(e) => abrirPainel(c, numeroDoCenario(c.id), e.currentTarget)}
             />
           ))}
         </div>

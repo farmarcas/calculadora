@@ -442,6 +442,28 @@ describe('simulações (rotas)', () => {
       expect(r.status).toBe(200);
     });
 
+    it('intervalo de até 2 horas não abre falta (spec 045); de 3 horas abre; Personalizar não contrata por causa do almoço', async () => {
+      const farm11h = (cobertura: { funcao: string; porHora: { hora: number; pessoas: number; ok: boolean }[] }[]) =>
+        cobertura.find((c) => c.funcao === 'Farmacêutico')!.porHora.find((c) => c.hora === 11)!;
+      // Ana (08h–14h) é a única farmacêutica às 11h; almoço de 1 h (11h–12h)
+      await prisma.funcionario.updateMany({
+        where: { matricula: 'F1' },
+        data: { iniIntervalo: 11, fimIntervalo: 12 },
+      });
+      const curto = (await criar()).body;
+      expect(farm11h(curto.avaliacao.cobertura[0])).toMatchObject({ pessoas: 1, ok: true });
+      // O mesmo almoço não faz o Personalizar contratar nada
+      const comVagas = (await criar({ nome: 'Almoço', regra: 'r40', comVagasSugeridas: true })).body;
+      expect((comVagas.quadro as { vaga?: boolean }[]).filter((p) => p.vaga)).toHaveLength(0);
+      // Intervalo de 3 h (09h–12h): volta a descontar
+      await prisma.funcionario.updateMany({
+        where: { matricula: 'F1' },
+        data: { iniIntervalo: 9, fimIntervalo: 12 },
+      });
+      const longo = (await criar({ nome: 'Intervalo longo', regra: 'r40' })).body;
+      expect(farm11h(longo.avaliacao.cobertura[0])).toMatchObject({ pessoas: 0, ok: false });
+    });
+
     it('só se contrata integral (spec 044): vaga nova parcial é recusada; vaga parcial de simulação antiga continua abrindo', async () => {
       const sim = (await criar()).body;
       // Parcial novo: recusado com a frase em português

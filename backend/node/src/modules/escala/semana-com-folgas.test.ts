@@ -86,12 +86,24 @@ describe('aplicarFolgas', () => {
 });
 
 describe('coberturaDaFuncao', () => {
-  it('desconta o intervalo e exige 1 farmacêutico em todas as horas', () => {
+  it('exige 1 farmacêutico em todas as horas; intervalo de até 2 h não desconta, o de 3 h desconta (spec 045)', () => {
     const horarios = [h('F', 'Farmacêutico', [0], { iniIntervalo: 12, fimIntervalo: 13 })];
     const cob = coberturaDaFuncao('Farmacêutico', turnosDosHorarios(horarios), dias(1), {});
-    const noMeio = cob[0]!.find((c) => c.hora === 12)!;
-    expect(noMeio).toMatchObject({ pessoas: 0, exigido: 1 });
+    expect(cob[0]!.find((c) => c.hora === 12)).toMatchObject({ pessoas: 1, exigido: 1 });
     expect(cob[0]!.find((c) => c.hora === 9)).toMatchObject({ pessoas: 1, exigido: 1 });
+    const longo = [h('F', 'Farmacêutico', [0], { iniIntervalo: 12, fimIntervalo: 15 })];
+    const c2 = coberturaDaFuncao('Farmacêutico', turnosDosHorarios(longo), dias(1), {});
+    expect(c2[0]!.find((c) => c.hora === 13)).toMatchObject({ pessoas: 0, exigido: 1 });
+  });
+
+  it('o almoço do único farmacêutico não vira falta nem contratação', () => {
+    const horarios = [
+      h('F', 'Farmacêutico', [0, 1, 2, 3, 4], { saida: 17, iniIntervalo: 12, fimIntervalo: 13 }),
+    ];
+    const aberta = [0, 1, 2, 3, 4].map((dia) => ({ dia, abre: 8, fecha: 17 }));
+    const s = semanaComFolgas({ regra: r42, dias: aberta, minimos: {}, horarios });
+    expect(s.funcoes['Farmacêutico']!.faltaH).toBe(0);
+    expect(s.funcoes['Farmacêutico']!.vagas).toEqual([]);
   });
 });
 

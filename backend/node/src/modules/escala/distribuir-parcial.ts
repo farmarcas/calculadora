@@ -1,5 +1,6 @@
 import type { DiaAberto } from '../regras/capacidade.js';
 import type { TurnoPessoa } from './cobertura.js';
+import { intervaloDesconta } from '../regras/intervalo.js';
 
 export type BlocoParcial = { dia: number; de: string; ate: string; horas: number };
 export type DistribuicaoParcial = {
@@ -26,10 +27,9 @@ const cobreCelula = (t: TurnoPessoa, dia: number, ini: number, len: number) =>
   t.entrada <= ini + EPS &&
   t.saida >= ini + len - EPS &&
   !(
-    t.iniIntervalo != null &&
-    t.fimIntervalo != null &&
-    t.iniIntervalo < ini + len - EPS &&
-    t.fimIntervalo > ini + EPS
+    intervaloDesconta(t.iniIntervalo, t.fimIntervalo) &&
+    t.iniIntervalo! < ini + len - EPS &&
+    t.fimIntervalo! > ini + EPS
   );
 
 type Faixa = { ini: number; fim: number };

@@ -119,3 +119,18 @@ export const vagasSugeridas = (
       ...(l.parcialH ? [{ funcao: l.funcao, cargaH: Math.min(44, l.parcialH) }] : []),
     ]);
 };
+
+// O Cadastro pode ter horários com minutos fora dos quartos de hora (14h38); a simulação só guarda de 15 em 15 minutos. Cada
+// hora vai para o quarto mais perto, sem deixar a saída antes da entrada.
+const emQuarto = (h: number) => Math.round(h * 4) / 4;
+export const emQuartosDeHora = (turnos: TurnoSim[]): TurnoSim[] =>
+  turnos.map((t) => {
+    const entrada = emQuarto(t.entrada);
+    return {
+      ...t,
+      entrada,
+      saida: Math.max(emQuarto(t.saida), entrada + 0.25),
+      iniIntervalo: t.iniIntervalo == null ? null : emQuarto(t.iniIntervalo),
+      fimIntervalo: t.fimIntervalo == null ? null : emQuarto(t.fimIntervalo),
+    };
+  });

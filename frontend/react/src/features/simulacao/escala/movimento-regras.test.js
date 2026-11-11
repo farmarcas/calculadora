@@ -46,3 +46,13 @@ describe("teclado", () => {
     expect(aplicarMovimento(turno, "dir", 1, janela).saida).toBe(17);
   });
 });
+
+describe("turno do Cadastro com minutos fora dos quartos de hora", () => {
+  it("mover leva a saída (14h38) para o quarto mais perto, em horas de 15 em 15 minutos", () => {
+    const t = { matricula: "A", dia: 0, entrada: 7, saida: 14 + 38 / 60, iniIntervalo: null, fimIntervalo: null };
+    const m = moverTurno(t, 0.25, { min: 7, max: 22 });
+    expect(m.entrada).toBe(7.25);
+    expect((m.saida * 4) % 1).toBe(0);
+    expect(m.saida).toBe(15);
+  });
+});

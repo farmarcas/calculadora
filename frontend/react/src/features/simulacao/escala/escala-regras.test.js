@@ -337,3 +337,11 @@ describe("intervalo na escala", () => {
     expect(quemEstaEmIntervalo([{ ...eliane, iniIntervalo: null, fimIntervalo: null }], quadro)).toEqual({});
   });
 });
+
+describe("turnosParaGravar (só quartos de hora)", () => {
+  it("leva um horário do Cadastro como 14h38 ao quarto mais perto, sem tirar a saída de depois da entrada", () => {
+    const [t] = turnosParaGravar([{ matricula: "A", dia: 0, entrada: 7, saida: 14 + 38 / 60, iniIntervalo: 11.1, fimIntervalo: 12.1, extra: "x" }]);
+    expect(t).toEqual({ matricula: "A", dia: 0, entrada: 7, saida: 14.75, iniIntervalo: 11, fimIntervalo: 12 });
+    expect(turnosParaGravar([{ matricula: "A", dia: 0, entrada: 9, saida: 9.05, iniIntervalo: null, fimIntervalo: null }])[0].saida).toBe(9.25);
+  });
+});

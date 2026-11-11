@@ -11,6 +11,7 @@ import {
 } from './acesso.js';
 
 const RETENCAO_MS = 7 * 24 * 60 * 60 * 1000;
+const PRAZO_DO_LOGIN = { maxWait: 5_000, timeout: 30_000 };
 
 const comoSessao = (s: {
   id: string;
@@ -72,7 +73,7 @@ export const authRepository = {
         gruposInteiros.map((g) => g.id),
         perfil,
       );
-    }),
+    }, PRAZO_DO_LOGIN),
 
   async abrirSessao(dados: Omit<SessaoAtiva, 'id'>) {
     await prisma.sessao.deleteMany({

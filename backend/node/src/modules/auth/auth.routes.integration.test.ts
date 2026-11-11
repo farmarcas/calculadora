@@ -29,6 +29,7 @@ const sso: ConfigSso = {
 const codigos = new Map<string, UsuarioDoRadar>();
 const acessos = new Map<string, UsuarioDoRadar>();
 const gruposDoCodigo = new Map<string, GrupoDoRadar[] | undefined>();
+const lojasDoCodigo = new Map<string, LojaDoRadar[] | undefined>();
 let radarFora = false;
 
 const radar: RadarClient = {
@@ -39,7 +40,11 @@ const radar: RadarClient = {
     codigos.delete(code);
     const accessToken = randomUUID();
     acessos.set(accessToken, achado);
-    return { accessToken, economicGroups: gruposDoCodigo.get(code) };
+    return {
+      accessToken,
+      economicGroups: gruposDoCodigo.get(code),
+      stores: lojasDoCodigo.get(code),
+    };
   },
   async lerUsuario(accessToken) {
     return acessos.get(accessToken)!;
@@ -70,11 +75,16 @@ const lojaRadar = (grupo: number, over: Partial<LojaDoRadar> = {}): LojaDoRadar 
   ...over,
 });
 
-const entrar = async (u: UsuarioDoRadar, economicGroups?: GrupoDoRadar[]) => {
+const entrar = async (
+  u: UsuarioDoRadar,
+  economicGroups?: GrupoDoRadar[],
+  stores?: LojaDoRadar[],
+) => {
   const agente = request.agent(app);
   const code = randomUUID();
   codigos.set(code, u);
   gruposDoCodigo.set(code, economicGroups);
+  lojasDoCodigo.set(code, stores);
   const resposta = await agente.post('/api/v1/auth/sso/exchange').send({ code });
   return { agente, resposta, code };
 };
@@ -167,6 +177,7 @@ describe('login pelo Radar', () => {
     codigos.clear();
     acessos.clear();
     gruposDoCodigo.clear();
+    lojasDoCodigo.clear();
     await prisma.sessao.deleteMany();
     await prisma.auditoria.deleteMany();
     await prisma.simulacao.deleteMany();
@@ -452,6 +463,132 @@ describe('login pelo Radar', () => {
       expect(resposta.status).toBe(403);
       expect(resposta.body.error.code).toBe('SEM_ACESSO');
     });
+  });
+
+  describe('Admin recebe as lojas da rede (lista do Radar)', () => {
+    const ADMIN = { name: 'Admin' };
+    const inteiro = (n: number): GrupoDoRadar => ({
+      id: String(n),
+      name: `Grupo ${n}`,
+      fullAccess: true,
+    });
+    const lojasDoGrupo = (identificacao: string) =>
+      prisma.loja.findMany({
+        where: { ge: { identificacao }, deletedAt: null },
+        orderBy: { codigo: 'asc' },
+        select: { codigo: true, nome: true, cnpj: true },
+      });
+
+    it('cria as lojas que faltam só com número, nome e CNPJ e mostra no filtro', async () => {
+      const a = lojaRadar(250, { id: '5001', name: 'Loja A' });
+      const b = lojaRadar(251, { id: '5002', name: 'Loja B' });
+
+      const { resposta, agente } = await entrar(
+        usuario({ role: ADMIN }),
+        [inteiro(250), inteiro(251)],
+        [a, b],
+      );
+
+      expect(resposta.status).toBe(200);
+      expect(await lojasDoGrupo('250')).toEqual([{ codigo: '5001', nome: 'Loja A', cnpj: a.cnpj }]);
+      expect(await lojasDoGrupo('251')).toEqual([{ codigo: '5002', nome: 'Loja B', cnpj: b.cnpj }]);
+      const ge = await prisma.grupoEconomico.findUniqueOrThrow({
+        where: { identificacao: '250' },
+      });
+      const lojas = await agente.get('/api/v1/lojas').set('X-GE', ge.id);
+      expect(lojas.body.data.map((l: { nome: string }) => l.nome)).toEqual(['Loja A']);
+    });
+
+    it('não altera a loja que já existe nem traz de volta a excluída', async () => {
+      const ge = await criarGrupo('250');
+      const existente = await criarLoja(ge.id, 'MINHA');
+      const excluida = await criarLoja(ge.id, 'EXCLUIDA');
+      await prisma.loja.update({ where: { id: excluida.id }, data: { deletedAt: new Date() } });
+
+      await entrar(
+        usuario({ role: ADMIN }),
+        [inteiro(250)],
+        [
+          lojaRadar(250, { id: '7001', name: 'Outro nome', cnpj: existente.cnpj }),
+          lojaRadar(250, { id: '7002', cnpj: excluida.cnpj }),
+        ],
+      );
+
+      expect(await lojasDoGrupo('250')).toEqual([
+        { codigo: 'MINHA', nome: 'Loja MINHA', cnpj: existente.cnpj },
+      ]);
+      expect(await prisma.loja.count()).toBe(2);
+    });
+
+    it('ignora loja desativada, sem grupo ou sem CNPJ e não cria loja em grupo desativado', async () => {
+      const desativado = await criarGrupo('251');
+      await prisma.grupoEconomico.update({ where: { id: desativado.id }, data: { ativo: false } });
+
+      const { resposta } = await entrar(
+        usuario({ role: ADMIN }),
+        [inteiro(250), inteiro(251)],
+        [
+          lojaRadar(250, { id: '8001' }),
+          lojaRadar(250, { id: '8002', status: 3 }),
+          lojaRadar(250, { id: '8003', economicGroup: null }),
+          lojaRadar(250, { id: '8004', cnpj: null }),
+          lojaRadar(251, { id: '8005' }),
+        ],
+      );
+
+      expect(resposta.status).toBe(200);
+      expect(
+        (await prisma.loja.findMany({ select: { codigo: true } })).map((l) => l.codigo),
+      ).toEqual(['8001']);
+    });
+
+    it('junta as lojas vinculadas ao Admin com as da rede, sem repetir', async () => {
+      const minha = lojaRadar(250, { id: '9001' });
+
+      await entrar(
+        usuario({ role: ADMIN, stores: [minha] }),
+        [inteiro(250)],
+        [minha, lojaRadar(250, { id: '9002' })],
+      );
+
+      expect((await lojasDoGrupo('250')).map((l) => l.codigo)).toEqual(['9001', '9002']);
+    });
+
+    it('associado não cria loja da rede, mesmo que a lista venha', async () => {
+      await entrar(
+        usuario({ stores: [lojaRadar(250, { id: '9101' })] }),
+        [
+          { id: '250', name: 'Grupo 250', fullAccess: false },
+          { id: '260', name: 'Grupo 260', fullAccess: false },
+        ],
+        [lojaRadar(260, { id: '9102' })],
+      );
+
+      expect(
+        (await prisma.loja.findMany({ select: { codigo: true } })).map((l) => l.codigo),
+      ).toEqual(['9101']);
+    });
+
+    it('2.000 grupos e 10.000 lojas: entra em até 5 s e, de novo, em até 3 s', async () => {
+      const grupos = Array.from({ length: 2000 }, (_, i) => inteiro(20000 + i));
+      const lojas = Array.from({ length: 10000 }, (_, i) =>
+        lojaRadar(20000 + (i % 2000), { id: String(500000 + i) }),
+      );
+
+      let inicio = Date.now();
+      const primeiro = await entrar(usuario({ role: ADMIN }), grupos, lojas);
+      const tempoPrimeiro = Date.now() - inicio;
+
+      inicio = Date.now();
+      const segundo = await entrar(usuario({ role: ADMIN }), grupos, lojas);
+      const tempoSegundo = Date.now() - inicio;
+
+      expect(primeiro.resposta.status).toBe(200);
+      expect(segundo.resposta.status).toBe(200);
+      expect(await prisma.loja.count()).toBe(10000);
+      expect(tempoPrimeiro).toBeLessThan(5000);
+      expect(tempoSegundo).toBeLessThan(3000);
+    }, 30_000);
   });
 
   describe('grupos e lojas no login', () => {

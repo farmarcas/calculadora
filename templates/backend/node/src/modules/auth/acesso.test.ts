@@ -4,6 +4,7 @@ import {
   gruposInteirosDe,
   juntarGrupos,
   lojasACriar,
+  lojasDosGruposInteiros,
   montarGrupos,
   separarLojas,
 } from './acesso.js';
@@ -131,5 +132,28 @@ describe('grupos inteiros vindos do Radar', () => {
 
   it('nenhum dos dois: nenhum grupo', () => {
     expect(juntarGrupos([], [], 'TENANT_ADMIN')).toEqual([]);
+  });
+});
+
+describe('lojas da rede', () => {
+  const daRede = (grupo: string | null, id: string) =>
+    loja({ id, economicGroup: grupo === null ? null : { id: grupo, name: `Grupo ${grupo}` } });
+
+  it('aceita só lojas de grupos com acesso inteiro', () => {
+    const lojas = [daRede('250', '1'), daRede('251', '2'), daRede(null, '3')];
+
+    expect(
+      lojasDosGruposInteiros(lojas, [{ identificacao: '250', nome: 'Grupo 250' }]).map((l) => l.id),
+    ).toEqual(['1']);
+  });
+
+  it.each([undefined, null])('sem lista (%s) não traz nenhuma', (lojas) => {
+    expect(lojasDosGruposInteiros(lojas, [{ identificacao: '250', nome: 'Grupo 250' }])).toEqual(
+      [],
+    );
+  });
+
+  it('sem grupo inteiro não aceita nenhuma', () => {
+    expect(lojasDosGruposInteiros([daRede('250', '1')], [])).toEqual([]);
   });
 });

@@ -163,7 +163,7 @@ export const erroDoFormulario = ({ tipo, dias, entra, sai, regra }) => {
 
 // A janela e os dias que cobrem as horas sem cobertura da função (a sugestão que já vem preenchida). `coberturaPorDia` é
 // { dia: cobertura da função }. Parcial: janela de até 6 h; integral: a jornada cheia nos dias que a regra permite.
-export const sugerirContratacao = ({ funcao: _funcao, coberturaPorDia, abas, tipo = "parcial", regra, diaPreferido }) => {
+export const sugerirContratacao = ({ funcao: _funcao, coberturaPorDia, abas, tipo = "integral", regra, diaPreferido }) => {
   if (!abas.length) return null;
   const faltas = abas.map((a) => ({
     dia: a.dia,
@@ -242,7 +242,7 @@ export const horasReforcadas = (turnosDasVagas, dia) => {
   return horas;
 };
 
-// As contratações simuladas de uma função: "Farmacêutico · 16h parcial".
+// As contratações simuladas de uma função: "Farmacêutico · 40h".
 export const contratacoesSimuladas = (quadro, turnos, funcao) =>
   quadro
     .filter((p) => p.vaga && !p.desligado && p.funcao === funcao)
@@ -250,7 +250,7 @@ export const contratacoesSimuladas = (quadro, turnos, funcao) =>
       matricula: p.matricula,
       nome: p.nome,
       cargaH: p.cargaH,
-      texto: `${funcao} · ${p.cargaH}h ${p.cargaH > LIMITE_PARCIAL_H ? "integral" : "parcial"}`,
+      texto: `${funcao} · ${p.cargaH}h`,
       turnos: turnos.filter((t) => t.matricula === p.matricula),
     }));
 

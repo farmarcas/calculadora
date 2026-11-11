@@ -129,8 +129,8 @@ export default function EscalaPorHora({ sim, editavel, dono, calculando = false,
   // Abre (ou fecha) o formulário de uma função, já com a sugestão que cobre as horas sem cobertura.
   const abrirContratar = (f) => {
     if (rascunho?.funcao === f) return setRascunho(null);
-    const sug = sugerirContratacao({ funcao: f, coberturaPorDia: coberturaPorDia(f), abas, tipo: "parcial", regra: sim.regraInfo, diaPreferido: dia });
-    return setRascunho({ funcao: f, tipo: "parcial", dias: sug?.dias ?? [dia], entra: sug?.entra ?? aba.abre, sai: sug?.sai ?? Math.min(aba.fecha, aba.abre + 6) });
+    const sug = sugerirContratacao({ funcao: f, coberturaPorDia: coberturaPorDia(f), abas, tipo: "integral", regra: sim.regraInfo, diaPreferido: dia });
+    return setRascunho({ funcao: f, tipo: "integral", dias: sug?.dias ?? [dia], entra: sug?.entra ?? aba.abre, sai: sug?.sai ?? Math.min(aba.fecha, aba.abre + 6) });
   };
   const formularioDe = (f) =>
     rascunho?.funcao === f ? (

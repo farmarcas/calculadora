@@ -134,3 +134,14 @@ export const emQuartosDeHora = (turnos: TurnoSim[]): TurnoSim[] =>
       fimIntervalo: t.fimIntervalo == null ? null : emQuarto(t.fimIntervalo),
     };
   });
+
+// A jornada cheia de uma contratação na regra (spec 044: só se contrata integral): a mesma que a sugestão dos cenários usa.
+export const jornadaCheiaH = (regra: Regra) => Math.min(44, Math.floor(tetoEfetivo(regra)));
+
+// Vaga nova (sem matrícula) só vale integral; vaga que já existe numa simulação salva segue como estava.
+export const exigirVagasIntegrais = (vagas: VagaEntrada[] | undefined, regra: Regra) => {
+  const cheia = jornadaCheiaH(regra);
+  for (const v of vagas ?? [])
+    if (!v.matricula && v.cargaH !== cheia)
+      throw new ValidationError(`A contratação é integral: ${cheia} horas por semana nesta regra.`);
+};

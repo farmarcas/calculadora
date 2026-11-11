@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { apoioDaVenda, apoioDoCusto, diasDaSimulacao, linhaDaTabela, tabelaDoResultado, textoContratarSimulacao, totalDeContratacoes } from "./resultado-regras.js";
+import { apoioDaVenda, blocoDoHorarioEstendido, apoioDoCusto, diasDaSimulacao, linhaDaTabela, tabelaDoResultado, textoContratarSimulacao, totalDeContratacoes } from "./resultado-regras.js";
 import { faixaDosDias } from "../diagnostico/cartao/linha-regras.js";
 
 describe("horário da simulação para a faixa dos 7 dias", () => {
@@ -61,5 +61,33 @@ describe("contratar com as horas do parcial", () => {
     expect(apoioDaVenda(0, "ok")).toBe("sem mudança");
     expect(apoioDaVenda(-2.9, "ok")).toBe("em relação a hoje");
     expect(apoioDaVenda(null, "nao_estimada")).toBe("sem venda hora a hora");
+  });
+});
+
+describe("blocoDoHorarioEstendido (spec 049)", () => {
+  const obrigatorio = { estado: "ok", horasNovasSemana: 3, origemCmv: "media", vendaAdicionalMensal: 9000, cmvPct: 57.8, cmvMensal: 5202, lucroBrutoMensal: 3798, aumentoFolhaMensal: 4680, resultadoMensal: -882, recomendado: false };
+  it("caso obrigatório: CMV R$ 5.202, lucro bruto R$ 3.798, resultado −R$ 882, vermelho e Não recomendado", () => {
+    const b = blocoDoHorarioEstendido(obrigatorio);
+    expect(b.selo).toEqual({ texto: "Não recomendado", tom: "vermelho" });
+    expect(b.tom).toBe("vermelho");
+    const v = Object.fromEntries(b.linhas.map((l) => [l.rotulo, l.valor]));
+    expect(v["Venda adicional estimada"]).toBe("R$ 9.000/mês");
+    expect(v["CMV da venda adicional (57,8%)"]).toBe("−R$ 5.202/mês");
+    expect(v["Lucro bruto"]).toBe("R$ 3.798/mês");
+    expect(v["Aumento de folha"]).toBe("−R$ 4.680/mês");
+    expect(v["Resultado"]).toBe("−R$ 882/mês");
+    expect(b.passos.join(" ")).toContain("R$ 3.798 − R$ 4.680 = −R$ 882");
+  });
+  it("resultado maior ou igual a zero é azul e Recomendado", () => {
+    const b = blocoDoHorarioEstendido({ ...obrigatorio, aumentoFolhaMensal: 3000, resultadoMensal: 798, recomendado: true });
+    expect(b.selo).toEqual({ texto: "Recomendado", tom: "azul" });
+    expect(b.tom).toBe("azul");
+  });
+  it("estados sem dado: aviso, sem selo e sem passos", () => {
+    const b = blocoDoHorarioEstendido({ estado: "sem_cmv", horasNovasSemana: 2, vendaAdicionalMensal: 1000, cmvPct: null, cmvMensal: null, lucroBrutoMensal: null, aumentoFolhaMensal: 100, resultadoMensal: null, recomendado: null, origemCmv: null });
+    expect(b.aviso).toBe("Informe o CMV da loja para calcular o lucro bruto.");
+    expect(b.selo).toBeNull();
+    expect(b.passos).toEqual([]);
+    expect(blocoDoHorarioEstendido(undefined)).toBeNull();
   });
 });

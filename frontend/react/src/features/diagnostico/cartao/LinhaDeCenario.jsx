@@ -1,7 +1,7 @@
 import { Botao } from "../../../components/ui/index.jsx";
 import FaixaDosDias from "./FaixaDosDias.jsx";
 import PillDeStatus from "./PillDeStatus.jsx";
-import { estadoVisual, faixaDosDias, rotuloDoStatus, textoContratar, textoDaVariacao, textoDoTotal, textoIndisponivel } from "./linha-regras.js";
+import { estadoVisual, faixaDosDias, rotuloDoStatus, textoContratar, textoDaVariacao, textoDoPeso, textoDoTotal, textoIndisponivel } from "./linha-regras.js";
 import { COR_DO_TOM } from "./tom.js";
 
 const COR_VARIACAO = { ...COR_DO_TOM, mudo: "var(--text-secondary)" };
@@ -11,6 +11,19 @@ const Celula = ({ rotulo, children, className = "" }) => (
     {rotulo && <span className="linha-rotulo">{rotulo}</span>}
     {children}
   </div>
+);
+
+// Spec 048: o peso no faturamento (dono) ou só o sentido (gestor e consulta).
+const Peso = ({ p }) => (
+  <>
+    <div className="text-sm leading-5 font-bold" style={{ color: COR_VARIACAO[p.tom] }} data-testid="custo-peso">{p.texto}</div>
+    {p.aumento && (
+      <div className="mt-0.5 text-sm leading-5 font-bold text-[var(--text-strong)]">
+        {p.aumento} <span className="text-[11px] leading-4 font-normal text-[var(--text-secondary)]">{p.reais}</span>
+      </div>
+    )}
+    {p.apoio && <div className="mt-1 text-[11px] leading-4 text-[var(--text-secondary)]">{p.apoio}</div>}
+  </>
 );
 
 const Variacao = ({ v }) => (
@@ -62,14 +75,7 @@ export default function LinhaDeCenario({ linha, antes, dono, podeEscrever, ocupa
           </Celula>
           <Celula rotulo="Venda"><Variacao v={textoDaVariacao(linha.vendaPct, linha.vendaEstado, "venda")} /></Celula>
           <Celula rotulo="Custo de pessoal">
-            <Variacao v={textoDaVariacao(linha.custoPct, linha.custoEstado, "custo")} />
-            {linha.custoPctFaturamento && (
-              <div className="mt-1 text-[11px] leading-4 text-[var(--text-secondary)]" data-testid="custo-pct-faturamento">
-                <strong className="text-[var(--text-strong)]">{pctBr(linha.custoPctFaturamento.depois)}</strong> do faturamento
-                <br />
-                (hoje {pctBr(linha.custoPctFaturamento.hoje)})
-              </div>
-            )}
+            <Peso p={textoDoPeso(linha, dono)} />
           </Celula>
         </>
       )}

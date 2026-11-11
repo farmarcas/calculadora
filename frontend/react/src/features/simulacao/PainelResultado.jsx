@@ -1,4 +1,5 @@
 import { Botao, Ficha } from "../../components/ui/index.jsx";
+import BlocoHorarioEstendido from "./BlocoHorarioEstendido.jsx";
 import ResultadoEmHoras from "./ResultadoEmHoras.jsx";
 
 const tipoDeSolucao = (r) => {
@@ -21,6 +22,8 @@ export default function PainelResultado({ sim, calculando, podeEscrever, salvand
       </div>
 
       <ResultadoEmHoras r={r} calculando={calculando} />
+
+      {r.horarioEstendido && <BlocoHorarioEstendido h={r.horarioEstendido} />}
 
       <div className="mt-4">
         {editavel ? (

@@ -53,3 +53,45 @@ export const apoioDaVenda = (pct, estado) => {
   if (pct == null || Math.abs(pct) < 0.05) return "sem mudança";
   return "em relação a hoje";
 };
+
+// ---- Resultado do horário estendido (spec 049) -----------------------------------------------------------------------------
+
+const brlInteiro = (n) => `${n < 0 ? MENOS : ""}R$ ${Math.round(Math.abs(n)).toLocaleString("pt-BR")}`;
+const pctTxt = (n) => `${String(Math.round(n * 10) / 10).replace(".", ",")}%`;
+
+const AVISO_DO_ESTADO = {
+  sem_cmv: "Informe o CMV da loja para calcular o lucro bruto.",
+  sem_salarios: "Informe os salários para calcular o aumento de folha.",
+  sem_venda: "Envie a base comercial para estimar a venda das horas novas.",
+};
+
+// O bloco e o modal "Como calculamos": venda adicional − CMV = lucro bruto; lucro bruto − aumento de folha = resultado. Azul e
+// "Recomendado" quando o resultado é maior ou igual a zero; vermelho e "Não recomendado" quando é menor.
+export const blocoDoHorarioEstendido = (h) => {
+  if (!h) return null;
+  const ok = h.estado === "ok";
+  const origem = h.origemCmv === "hora" ? "o CMV de cada hora da base comercial" : h.origemCmv === "media" ? "o CMV médio da loja" : null;
+  return {
+    titulo: "Resultado do horário estendido",
+    aviso: AVISO_DO_ESTADO[h.estado] ?? null,
+    selo: ok ? (h.recomendado ? { texto: "Recomendado", tom: "azul" } : { texto: "Não recomendado", tom: "vermelho" }) : null,
+    linhas: [
+      { rotulo: "Venda adicional estimada", valor: h.vendaAdicionalMensal == null ? "—" : `${brlInteiro(h.vendaAdicionalMensal)}/mês` },
+      { rotulo: h.cmvPct == null ? "CMV da venda adicional" : `CMV da venda adicional (${pctTxt(h.cmvPct)})`, valor: h.cmvMensal == null ? "—" : `${MENOS}${brlInteiro(h.cmvMensal)}/mês` },
+      { rotulo: "Lucro bruto", valor: h.lucroBrutoMensal == null ? "—" : `${brlInteiro(h.lucroBrutoMensal)}/mês` },
+      { rotulo: "Aumento de folha", valor: h.aumentoFolhaMensal == null ? "—" : `${MENOS}${brlInteiro(h.aumentoFolhaMensal)}/mês` },
+      { rotulo: "Resultado", valor: h.resultadoMensal == null ? "—" : `${brlInteiro(h.resultadoMensal)}/mês`, destaque: true },
+    ],
+    resultado: h.resultadoMensal,
+    tom: !ok ? "neutro" : h.recomendado ? "azul" : "vermelho",
+    passos: ok
+      ? [
+          `As ${h.horasNovasSemana} horas a mais por semana devem vender cerca de ${brlInteiro(h.vendaAdicionalMensal)} por mês (hora sem venda registrada vale 50% da hora vizinha).`,
+          `Dessa venda, ${pctTxt(h.cmvPct)} é CMV (${origem}): ${brlInteiro(h.cmvMensal)}.`,
+          `Lucro bruto: ${brlInteiro(h.vendaAdicionalMensal)} − ${brlInteiro(h.cmvMensal)} = ${brlInteiro(h.lucroBrutoMensal)}.`,
+          `Aumento de folha desta simulação (contratações e horas extras): ${brlInteiro(h.aumentoFolhaMensal)}.`,
+          `Resultado: ${brlInteiro(h.lucroBrutoMensal)} − ${brlInteiro(h.aumentoFolhaMensal)} = ${brlInteiro(h.resultadoMensal)} por mês. ${h.recomendado ? "O lucro bruto paga a folha a mais." : "O lucro bruto não paga a folha a mais."}`,
+        ]
+      : [],
+  };
+};

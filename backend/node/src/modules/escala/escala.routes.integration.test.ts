@@ -1526,7 +1526,9 @@ describe('escala (rotas)', () => {
       for (const id of ['r42', 'r40']) {
         const linhasDoDono = dono.cenarios[id].linhas;
         // O dono recebe, a mais, o peso do custo de pessoal no faturamento; as demais linhas são idênticas.
-        const linhas = linhasDoDono.map(({ custoPctFaturamento: _c, ...resto }: { custoPctFaturamento?: unknown }) => resto);
+        const linhas = linhasDoDono.map(
+          ({ custoPctFaturamento: _c, custoPct: _p, ...resto }: { custoPctFaturamento?: unknown; custoPct?: unknown }) => resto,
+        );
         expect(linhasDoDono.every((l: object) => 'custoPctFaturamento' in l)).toBe(true);
         expect(linhas.map((l: { id: string }) => l.id)).toEqual(['equilibrio', 'manter', 'economia']);
         expect(ges.cenarios[id].linhas).toEqual(linhas);
@@ -1536,7 +1538,7 @@ describe('escala (rotas)', () => {
         for (const l of linhas) {
           expect(Object.keys(l).sort()).toEqual(
             [
-              'ajustes', 'causa', 'contratacoes', 'contratar', 'custoEstado', 'custoPct', 'diasFechar', 'horarioSemana',
+              'ajustes', 'causa', 'contratacoes', 'contratar', 'custoEstado', 'custoSentido', 'diasFechar', 'horarioSemana',
               'horasDiferenca', 'horasSemana', 'id', 'igualA', 'indisponivel', 'nome', 'status', 'vendaEstado', 'vendaPct',
             ].sort(),
           );

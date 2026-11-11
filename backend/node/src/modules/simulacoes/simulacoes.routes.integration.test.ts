@@ -1281,6 +1281,37 @@ describe('simulações (rotas)', () => {
       return sim.id as string;
     };
 
+    it('horário estendido (spec 049): venda adicional, CMV, lucro bruto, folha e resultado só para o dono, só com horas a mais', async () => {
+      await baseComMargem('350,00');
+      const sim = (
+        await reqGe()
+          .post(`/api/v1/lojas/${lojaId}/simulacoes`)
+          .set(admin)
+          .send({ nome: 'Estende', regra: 'r40' })
+      ).body;
+      // Sem horas a mais: o bloco não existe
+      expect((await reqGe().get(`/api/v1/simulacoes/${sim.id}`).set(admin)).body.resultado).not.toHaveProperty('horarioEstendido');
+      // Abre até as 22h (2 horas a mais, 5 dias): 10 horas novas por semana, sem venda registrada (50% da hora vizinha)
+      await reqGe().put(`/api/v1/simulacoes/${sim.id}`).set(admin).send({ horarios: semana('22:00') });
+      const dono = (await reqGe().get(`/api/v1/simulacoes/${sim.id}`).set(admin)).body.resultado;
+      const h = dono.horarioEstendido;
+      expect(h.horasNovasSemana).toBe(10);
+      expect(h.estado).toBe('ok');
+      expect(h.origemCmv).toBe('hora');
+      // venda: 250 por hora nova × 10 × 52 ÷ 12; lucro bruto: 75 (50% de 150) × 10 × 52 ÷ 12; CMV = a diferença
+      expect(h.vendaAdicionalMensal).toBeCloseTo((250 * 10 * 52) / 12, 1);
+      expect(h.lucroBrutoMensal).toBeCloseTo((75 * 10 * 52) / 12, 1);
+      expect(h.cmvMensal).toBeCloseTo(h.vendaAdicionalMensal - h.lucroBrutoMensal, 1);
+      expect(h.resultadoMensal).toBeCloseTo(h.lucroBrutoMensal - h.aumentoFolhaMensal, 1);
+      expect(h.recomendado).toBe(h.resultadoMensal >= 0);
+      // Gestor e consulta nunca recebem o bloco
+      for (const perfil of [gestor, { 'X-Perfil': 'SCHEDULE_VIEWER', 'X-GE': GE_INICIAL_ID }]) {
+        const r = (await reqGe().get(`/api/v1/simulacoes/${sim.id}`).set(perfil)).body.resultado;
+        expect(r).not.toHaveProperty('horarioEstendido');
+        expect(JSON.stringify(r)).not.toContain('cmvMensal');
+      }
+    });
+
     it('base com CMV: o painel mede a venda que sai em lucro bruto (venda − CMV); a lista e a comparação mostram o mesmo saldo', async () => {
       await baseComMargem('350,00');
       const id = await comHorarioReduzido();

@@ -34,11 +34,11 @@ export default function EscalaDaSemana({ sim, editavel, onDia, onCadastrar }) {
         </div>
       ) : (
         <div className="overflow-x-auto pb-4">
-          <div role="table" aria-label="Escala da semana" className="min-w-[1020px]">
-            <div role="row" className="grid items-center gap-x-2 border-y border-[var(--border-subtle)] bg-[var(--surface-subtle)] py-2 text-[11px] leading-4 font-bold tracking-wide text-[var(--text-secondary)]" style={{ gridTemplateColumns: COLUNAS }}>
+          <div role="table" aria-label="Escala da semana" className="min-w-[1040px]">
+            <div role="row" className="grid items-center gap-x-2 border-y border-[var(--border-subtle)] bg-[var(--surface-subtle)] py-2 pr-6 text-[11px] leading-4 font-bold tracking-wide text-[var(--text-secondary)]" style={{ gridTemplateColumns: COLUNAS }}>
               <div role="columnheader" className="sticky left-0 z-[1] bg-[var(--surface-subtle)] pl-6">COLABORADOR</div>
               {DIAS_DA_SEMANA.map((d) => <div key={d} role="columnheader" className="text-center uppercase">{d}</div>)}
-              <div role="columnheader" className="pr-0 text-right uppercase">Semana</div>
+              <div role="columnheader" className="text-right uppercase">Semana</div>
             </div>
             {grupos.map((g) => (
               <div key={g.funcao}>

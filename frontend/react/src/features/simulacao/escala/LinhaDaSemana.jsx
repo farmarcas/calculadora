@@ -10,7 +10,7 @@ const NOMES_LONGOS = ["segunda", "terça", "quarta", "quinta", "sexta", "sábado
 export default function LinhaDaSemana({ linha, colunas, editavel, onDia }) {
   const cor = CORES[linha.funcao] ?? CORES.Caixa;
   return (
-    <div role="row" className="grid items-center gap-x-2 border-t border-[var(--border-subtle)] py-2" style={{ gridTemplateColumns: colunas }}>
+    <div role="row" className="grid items-center gap-x-2 border-t border-[var(--border-subtle)] py-2 pr-6" style={{ gridTemplateColumns: colunas }}>
       <div role="rowheader" className="sticky left-0 z-[1] min-w-0 bg-[var(--surface-card)] py-1 pr-2 pl-6">
         <div className={`truncate text-[13px] leading-4 font-bold ${linha.simulada ? "text-[var(--color-primary)]" : "text-[var(--text-strong)]"}`}>{linha.simulada ? "Contratação simulada" : linha.nome}</div>
         <div className="truncate text-[11px] leading-4 text-[var(--text-secondary)]">{linha.funcao} · {linha.simulada ? `${linha.cargaH}h parcial` : `${linha.cargaH}h`}</div>
@@ -40,7 +40,7 @@ export default function LinhaDaSemana({ linha, colunas, editavel, onDia }) {
           </div>
         );
       })}
-      <div role="cell" className={`text-right text-[13px] leading-4 font-bold ${linha.passaDaJornada ? "" : "text-[var(--text-strong)]"}`} style={linha.passaDaJornada ? { color: "var(--escala-semana-atencao)" } : undefined} title={linha.passaDaJornada ? `Passa da jornada de ${linha.cargaH}h` : undefined} data-testid={linha.passaDaJornada ? "total-passa-da-jornada" : undefined}>
+      <div role="cell" className={`text-right whitespace-nowrap text-[13px] leading-4 font-bold ${linha.passaDaJornada ? "" : "text-[var(--text-strong)]"}`} style={linha.passaDaJornada ? { color: "var(--escala-semana-atencao)" } : undefined} title={linha.passaDaJornada ? `Passa da jornada de ${linha.cargaH}h` : undefined} data-testid={linha.passaDaJornada ? "total-passa-da-jornada" : undefined}>
         {linha.total.texto}
       </div>
     </div>

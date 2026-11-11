@@ -177,7 +177,7 @@ describe('esticarTurnos (spec 046)', () => {
     const r = rodar([fm('A', { cargaH: 36 })]);
     const total = r.turnos.reduce((s, x) => s + liquida(x), 0);
     expect(total).toBeLessThanOrEqual(36 + 1e-9);
-    expect(total).toBeGreaterThan(35); // era 35 h
+    expect(total).toBeGreaterThan(35); // era 35 h; a carga de 36 h é o limite
   });
 
   it('não passa do teto da regra mesmo com carga maior', () => {
@@ -197,11 +197,44 @@ describe('esticarTurnos (spec 046)', () => {
     expect(r.turnos.every((x) => x.saida === 15 && x.antes === undefined)).toBe(true);
   });
 
-  it('sem falta de cobertura ninguém é esticado', () => {
+  it('sem falta de cobertura, a jornada cheia ainda completa o turno (spec 047): 7 h viram 8h24, 5 dias = 42 h', () => {
     const horarios = [fm('A'), fm('B', { entrada: 14, saida: 22, iniIntervalo: 17, fimIntervalo: 18 })];
     const r = rodar(horarios);
-    // A cobre 7h–15h e B 14h–22h: não há falta
-    expect(r.esticados).toEqual([]);
+    // A cobre 7h–15h e B 14h–22h (não há falta), mas cada um é completado até 8h24 líquidas por dia
+    for (const m of ['A', 'B']) {
+      const meus = r.turnos.filter((x) => x.matricula === m);
+      expect(meus).toHaveLength(5);
+      for (const x of meus) expect(liquida(x)).toBeCloseTo(8.4, 6);
+      expect(meus.reduce((s, x) => s + liquida(x), 0)).toBeCloseTo(42, 6);
+    }
+  });
+
+  it('sem convenção de 8h24 (40 h) a jornada é 8 h por dia; na regra de 44h, 7h20 em 6 dias', () => {
+    const r40 = esticarTurnos({
+      turnos: turnosDosHorarios([fm('A')]),
+      horarios: [fm('A')],
+      dias: lojaAberta,
+      regra: { dias: 5, maxDia: 8, teto: 40 },
+      minimos: {},
+    });
+    for (const x of r40.turnos) expect(liquida(x)).toBeCloseTo(8, 6);
+    const seis = [0, 1, 2, 3, 4, 5].map((dia) => ({ dia, abre: 7, fecha: 22 }));
+    const h44 = fm('A', { dias: [0, 1, 2, 3, 4, 5] });
+    const r44 = esticarTurnos({
+      turnos: turnosDosHorarios([h44]),
+      horarios: [h44],
+      dias: seis,
+      regra: { dias: 6, maxDia: 8, teto: 44 },
+      minimos: {},
+    });
+    expect(r44.turnos).toHaveLength(6);
+    for (const x of r44.turnos) expect(liquida(x)).toBeCloseTo(44 / 6, 6);
+  });
+
+  it('não cria dias: quem trabalha 4 dias continua com 4', () => {
+    const h4 = fm('A', { dias: [0, 1, 2, 3] });
+    const r = esticarTurnos({ turnos: turnosDosHorarios([h4]), horarios: [h4], dias: lojaAberta, regra, minimos: {} });
+    expect(r.turnos).toHaveLength(4);
   });
 
   it('respeita o descanso de 11 h entre os dias', () => {

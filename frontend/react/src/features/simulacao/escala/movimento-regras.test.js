@@ -47,12 +47,12 @@ describe("teclado", () => {
   });
 });
 
-describe("turno do Cadastro com minutos fora dos quartos de hora", () => {
-  it("mover leva a saída (14h38) para o quarto mais perto, em horas de 15 em 15 minutos", () => {
-    const t = { matricula: "A", dia: 0, entrada: 7, saida: 14 + 38 / 60, iniIntervalo: null, fimIntervalo: null };
+describe("turno com minutos inteiros (spec 047)", () => {
+  it("mover mantém a duração e o intervalo, sem arredondar a saída (14h38, 15h24)", () => {
+    const t = { matricula: "A", dia: 0, entrada: 7, saida: 15.4, iniIntervalo: 11, fimIntervalo: 12 };
     const m = moverTurno(t, 0.25, { min: 7, max: 22 });
     expect(m.entrada).toBe(7.25);
-    expect((m.saida * 4) % 1).toBe(0);
-    expect(m.saida).toBe(15);
+    expect(m.saida - m.entrada).toBeCloseTo(8.4, 9);
+    expect(m.iniIntervalo).toBeCloseTo(11.25, 9);
   });
 });

@@ -1545,4 +1545,136 @@ describe('simulações (rotas)', () => {
       expect(depois.vendaQueSai).toBeLessThan(antes.vendaQueSai);
     });
   });
+  describe('nome e parecer do cenário salvo (spec 056)', () => {
+    const gestor = { 'X-Perfil': 'SCHEDULE_MANAGER', 'X-GE': GE_INICIAL_ID };
+    const consulta = { 'X-Perfil': 'SCHEDULE_VIEWER', 'X-GE': GE_INICIAL_ID };
+    const salarios = () =>
+      reqGe()
+        .put(`/api/v1/lojas/${lojaId}/custos`)
+        .set(admin)
+        .send({ salarioMedio: { Farmacêutico: 8000, Atendimento: 2000 } });
+    const gravar = (id: string, corpo: object, h: Record<string, string> = admin) =>
+      reqGe().post(`/api/v1/simulacoes/${id}/gravar`).set(h).send(corpo);
+    const parecer = (id: string, h: Record<string, string> = admin) =>
+      reqGe().get(`/api/v1/simulacoes/${id}/parecer`).set(h);
+    // Um rascunho com uma contratação (muda a folha) e salvo com nome e observação.
+    const salvo = async (nome = 'Plano reforço', observacao = 'Aprovado pelo regional.') => {
+      await salarios();
+      const sim = (await criar()).body;
+      await reqGe()
+        .put(`/api/v1/simulacoes/${sim.id}`)
+        .set(admin)
+        .send({ vagas: [{ funcao: 'Atendimento', cargaH: 40 }] });
+      const g = await gravar(sim.id, { comoCenario: true, nome, observacao });
+      expect(g.status).toBe(200);
+      return { id: sim.id as string, g };
+    };
+
+    it('salva com o nome e a observação que a pessoa deu; o parecer do dono tem as seções e os valores', async () => {
+      const { id, g } = await salvo();
+      expect(g.body).toMatchObject({ nome: 'Plano reforço', observacao: 'Aprovado pelo regional.', status: 'gravada' });
+      const p = await parecer(id);
+      expect(p.status).toBe(200);
+      expect(p.body).toMatchObject({
+        nome: 'Plano reforço',
+        loja: 'Centro',
+        observacao: 'Aprovado pelo regional.',
+        salvoPor: 'TENANT_ADMIN',
+        montadoAgora: false,
+      });
+      expect(p.body.resumo).toHaveLength(3);
+      expect(p.body.decisoes.map((x: { titulo: string }) => x.titulo)).toEqual(['Contratações', 'Desligamentos', 'Horário', 'Folgas']);
+      expect(p.body.efeitos.map((x: { titulo: string }) => x.titulo)).toEqual(['Cobertura', 'Venda', 'Equipe', 'Custo']);
+      expect(JSON.stringify(p.body)).toContain('R$');
+      expect(JSON.stringify(p.body.decisoes)).toContain('1 atendente, 40 h por semana');
+    });
+
+    it('gestor e consulta leem a mesma estrutura sem valores em reais nem percentual de custo', async () => {
+      const { id } = await salvo();
+      for (const h of [gestor, consulta]) {
+        const p = await parecer(id, h);
+        expect(p.status).toBe(200);
+        const json = JSON.stringify(p.body);
+        expect(json).not.toMatch(/R\$|%|custoDoDono|folhaHoje|folhaDepois/);
+        expect(p.body.efeitos[3].itens).toEqual(['A folha de pessoal aumenta em relação a hoje.']);
+        expect(p.body.observacao).toBe('Aprovado pelo regional.');
+      }
+    });
+
+    it('nome vazio, nome com mais de 60 e observação com mais de 1000 são recusados', async () => {
+      const sim = (await criar()).body;
+      expect((await gravar(sim.id, { comoCenario: true, nome: '   ' })).status).toBe(400);
+      expect((await gravar(sim.id, { comoCenario: true, nome: 'x'.repeat(61) })).status).toBe(400);
+      expect((await gravar(sim.id, { comoCenario: true, nome: 'Ok', observacao: 'y'.repeat(1001) })).status).toBe(400);
+      // nada foi gravado
+      expect((await reqGe().get(`/api/v1/simulacoes/${sim.id}`).set(admin)).body.status).toBe('rascunho');
+    });
+
+    it('nome repetido na loja (sem diferenciar maiúsculas) é recusado e o rascunho segue rascunho', async () => {
+      await salvo('Plano A');
+      const outra = (await criar({ nome: 'Outra', regra: 'r40' })).body;
+      const r = await gravar(outra.id, { comoCenario: true, nome: 'plano a' });
+      expect(r.status).toBe(409);
+      expect(r.body.error.code).toBe('NOME_REPETIDO');
+      expect((await reqGe().get(`/api/v1/simulacoes/${outra.id}`).set(admin)).body.status).toBe('rascunho');
+      // um nome diferente passa
+      expect((await gravar(outra.id, { comoCenario: true, nome: 'Plano B' })).status).toBe(200);
+    });
+
+    it('salvar sem observação funciona e salvar duas vezes não cria dois cenários', async () => {
+      const sim = (await criar()).body;
+      const a = await gravar(sim.id, { comoCenario: true, nome: 'Sem observação' });
+      expect(a.status).toBe(200);
+      expect(a.body.observacao).toBeNull();
+      expect((await gravar(sim.id, { comoCenario: true, nome: 'Sem observação' })).status).toBe(409);
+    });
+
+    it('o parecer fica como estava quando o Cadastro muda depois (retrato do momento de salvar)', async () => {
+      const { id } = await salvo();
+      const antes = (await parecer(id)).body;
+      await reqGe()
+        .put(`/api/v1/lojas/${lojaId}/custos`)
+        .set(admin)
+        .send({ salarioMedio: { Farmacêutico: 30000, Atendimento: 9000 } });
+      const depois = (await parecer(id)).body;
+      expect(depois.efeitos).toEqual(antes.efeitos);
+      expect(depois.resumo).toEqual(antes.resumo);
+    });
+
+    it('cenário salvo antes do parecer abre, com o texto montado agora e sem observação', async () => {
+      const { id } = await salvo();
+      await prisma.$executeRawUnsafe('update simulacoes set parecer = null, observacao = null where id = $1::uuid', id);
+      const p = await parecer(id);
+      expect(p.status).toBe(200);
+      expect(p.body.montadoAgora).toBe(true);
+      expect(p.body.observacao).toBeNull();
+      expect(p.body.resumo.length).toBeGreaterThan(0);
+      const g = await parecer(id, gestor);
+      expect(JSON.stringify(g.body)).not.toMatch(/R\$|%/);
+    });
+
+    it('rascunho não tem parecer', async () => {
+      const sim = (await criar()).body;
+      expect((await parecer(sim.id)).status).toBe(409);
+    });
+
+    it('o PDF baixa para os três perfis, com o nome do cenário no arquivo', async () => {
+      const { id } = await salvo('Plano reforço');
+      for (const h of [admin, gestor, consulta]) {
+        const r = await reqGe()
+          .get(`/api/v1/simulacoes/${id}/parecer.pdf`)
+          .set(h)
+          .buffer(true)
+          .parse((res, cb) => {
+            const partes: Buffer[] = [];
+            res.on('data', (b: Buffer) => partes.push(b));
+            res.on('end', () => cb(null, Buffer.concat(partes)));
+          });
+        expect(r.status).toBe(200);
+        expect(r.headers['content-type']).toContain('application/pdf');
+        expect(r.headers['content-disposition']).toContain('parecer-plano-reforco.pdf');
+        expect((r.body as Buffer).subarray(0, 5).toString()).toBe('%PDF-');
+      }
+    });
+  });
 });

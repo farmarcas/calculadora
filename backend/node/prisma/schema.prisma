@@ -286,6 +286,9 @@ model Simulacao {
   horarios   Json?
   // Número do cenário, dado ao gravar (único por loja entre as gravadas).
   numeroCenario Int?         @map("numero_cenario")
+  // Spec 056: a observação da pessoa ao salvar o cenário e o parecer (retrato do momento de salvar, com as versões do dono e do público).
+  observacao String?
+  parecer    Json?
   criadaEm   DateTime        @default(now()) @map("criada_em") @db.Timestamptz(3)
   gravadaEm  DateTime?       @map("gravada_em") @db.Timestamptz(3)
   aprovadaPor     String?   @map("aprovada_por")

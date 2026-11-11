@@ -3,6 +3,7 @@ import { api } from "../../api/client.js";
 import { Aviso, Botao, Ficha } from "../../components/ui/index.jsx";
 import { fraseDaRegua, palavraDaRegua } from "../regua.js";
 import { DICA_DESATUALIZADA, SITUACOES, VAZIO, tipoTexto } from "./formato.js";
+import { temParecer } from "./parecer-regras.js";
 import { MAX_COMPARACAO, MIN_COMPARACAO, contarMudancas, diferenca, gruposDisponiveis, gruposVisiveis, mudou, remover, rotuloDaMetrica, textoDoValor, trocarBase, valorDe } from "./comparacao.js";
 
 const COR = { bom: "text-[var(--text-success-strong)]", ruim: "text-[var(--text-danger)]", neutro: "text-[var(--text-secondary)]" };
@@ -54,7 +55,7 @@ function Adicionar({ opcoes, desabilitado, onEscolher }) {
 }
 
 // Comparação de 2 a 4 simulações da mesma loja: a primeira é a base; as outras mostram a diferença frente a ela.
-export default function ComparacaoDeSimulacoes({ lojaId, ids, lista, onVoltar }) {
+export default function ComparacaoDeSimulacoes({ lojaId, ids, lista, onVoltar, onParecer }) {
   const [ordem, setOrdem] = useState(ids);
   const [dados, setDados] = useState({}); // id → simulação comparada
   const [erro, setErro] = useState(null);
@@ -121,6 +122,7 @@ export default function ComparacaoDeSimulacoes({ lojaId, ids, lista, onVoltar })
                   return (
                     <th key={s.id} scope="col" className={`${CABECALHO_FIXO} min-w-[170px] px-3 py-3 text-left md:min-w-[200px] md:px-4`}>
                       <div className="font-bold text-[var(--text-strong)]">{s.nome}</div>
+                      {onParecer && temParecer(s) && <button type="button" onClick={() => onParecer(s.id)} aria-label={`Ver parecer de ${s.nome}`} className="mt-1 min-h-11 cursor-pointer border-0 bg-transparent p-0 text-xs font-bold text-[var(--text-link,#006ff7)] hover:underline md:min-h-0">Ver parecer</button>}
                       <div className="mt-1.5 flex flex-wrap gap-1.5 font-normal">
                         {i === 0 && <span className="inline-flex h-7 items-center rounded-full bg-[var(--color-primary-soft)] px-3.5 text-xs font-bold text-[var(--system-800)]">Base</span>}
                         <Ficha tom={tom}>{rotulo}</Ficha>

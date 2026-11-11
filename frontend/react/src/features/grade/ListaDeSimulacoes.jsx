@@ -4,6 +4,7 @@ import { dataBR } from "../../components/importacao/formato.js";
 import { DICA_DESATUALIZADA, SITUACOES, VAZIO, horasPorSemana, reais, reaisComSinal, tipoTexto } from "./formato.js";
 import { fraseDaRegua } from "../regua.js";
 import { podeMarcar } from "./selecao.js";
+import { temParecer } from "./parecer-regras.js";
 
 const CABECALHO = "bg-[var(--surface-subtle)] px-4 py-3 text-[11px] font-bold uppercase tracking-wide text-[var(--text-secondary)]";
 
@@ -25,7 +26,7 @@ function Saldo({ valor }) {
 }
 
 // Tabela "Simulações da loja": uma linha por simulação, com o resultado de cada uma. Os valores em reais só vêm da API para o dono.
-export default function ListaDeSimulacoes({ lista, marcadas, onAlternar, onAbrir, podeEscrever, onNova, descartadas, onDescartadas }) {
+export default function ListaDeSimulacoes({ lista, marcadas, onAlternar, onAbrir, onParecer, podeEscrever, onNova, descartadas, onDescartadas }) {
   const comReais = lista.some((s) => "saldoMensal" in s);
   return (
     <section aria-labelledby="titulo-lista" className="overflow-hidden rounded-[8px] border border-[var(--border-subtle)] bg-[var(--surface-card)]">
@@ -86,7 +87,10 @@ export default function ListaDeSimulacoes({ lista, marcadas, onAlternar, onAbrir
                   )}
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-xs text-[var(--text-secondary)]">{dataBR(String(s.criadaEm).slice(0, 10))} · por {s.criadaPor}</span>
-                    <button type="button" onClick={() => onAbrir(s.id)} aria-label={`Abrir ${s.nome}`} className="min-h-11 cursor-pointer rounded-[4px] border-0 bg-transparent px-3 text-sm font-bold text-[var(--text-link)] hover:underline">Abrir</button>
+                    <span className="flex items-center">
+                      {onParecer && temParecer(s) && <button type="button" onClick={() => onParecer(s.id)} aria-label={`Ver parecer de ${s.nome}`} className="min-h-11 cursor-pointer rounded-[4px] border-0 bg-transparent px-3 text-sm font-bold text-[var(--text-link)] hover:underline">Ver parecer</button>}
+                      <button type="button" onClick={() => onAbrir(s.id)} aria-label={`Abrir ${s.nome}`} className="min-h-11 cursor-pointer rounded-[4px] border-0 bg-transparent px-3 text-sm font-bold text-[var(--text-link)] hover:underline">Abrir</button>
+                    </span>
                   </div>
                 </div>
               </li>
@@ -133,7 +137,10 @@ export default function ListaDeSimulacoes({ lista, marcadas, onAlternar, onAbrir
                       <div className="text-[var(--text-strong)]">{dataBR(String(s.criadaEm).slice(0, 10))}</div>
                       <div className="text-xs text-[var(--text-secondary)]">por {s.criadaPor}</div>
                     </td>
-                    <td className="px-4 py-3 pr-6 text-right"><Botao tipo="texto" onClick={() => onAbrir(s.id)}>Abrir</Botao></td>
+                    <td className="px-4 py-3 pr-6 text-right whitespace-nowrap">
+                      {onParecer && temParecer(s) && <Botao tipo="texto" onClick={() => onParecer(s.id)} aria-label={`Ver parecer de ${s.nome}`}>Ver parecer</Botao>}
+                      <Botao tipo="texto" onClick={() => onAbrir(s.id)}>Abrir</Botao>
+                    </td>
                   </tr>
                 );
               })}

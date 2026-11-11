@@ -16,6 +16,8 @@ import { calcularIndicadores, sintese } from './comparar.js';
 import { motivosDeDesatualizacao } from './desatualizada.js';
 import { nomeDeQuemCriou, tipoDoCenario } from './resumo.js';
 import { gerarExcelEscala } from './exportar.js';
+import { montarParecer, type ParecerGuardado } from './parecer.js';
+import { gerarPdf, nomeDoArquivo } from './parecer-pdf.js';
 import { coberturaDaSimulacao } from './cobertura-simulacao.js';
 import { avaliarSimulacao, type PessoaSim, type TurnoSim } from './avaliar.js';
 import {
@@ -188,6 +190,7 @@ export const makeSimulacoesService = (
       },
       origemId: s.origemId,
       numeroCenario: s.numeroCenario,
+      observacao: s.observacao,
       // Para o cabeçalho da tela: nome da loja, regime e (só o dono) o total de encargos.
       loja: {
         nome: l.nome,
@@ -521,12 +524,30 @@ export const makeSimulacoesService = (
       return { custoPct, custoEstado: custoPct !== null ? 'ok' : depois.custoEstado };
     },
 
-    async gravar(id: string, perfil: string, comoCenario = false) {
+    async gravar(
+      id: string,
+      perfil: string,
+      comoCenario = false,
+      extras: { nome?: string; observacao?: string } = {},
+    ) {
       const s = await simulacao(id);
       if (s.status !== 'rascunho')
         throw new ConflictError('Só rascunho pode ser gravado.', 'SIMULACAO_NAO_EDITAVEL');
       const l = await loja(s.lojaId);
       const { c, avaliacao } = avaliar(s, l);
+      // Spec 056: o nome que a pessoa deu (único na loja, sem diferenciar maiúsculas) e o parecer do momento de salvar.
+      const nomeEscolhido = extras.nome?.trim() || null;
+      if (nomeEscolhido && (await repo.nomeJaUsado(s.lojaId, nomeEscolhido, id)))
+        throw new ConflictError('Já existe um cenário com esse nome nesta loja.', 'NOME_REPETIDO');
+      const base = await lojas.baseAtiva(s.lojaId);
+      const parecer: ParecerGuardado = {
+        ...montarParecer({
+          quadro: s.quadro,
+          turnos: s.turnos,
+          resultado: resultadoDe(s, l, base?.vendas ?? [], true),
+        }),
+        salvoPor: perfil,
+      };
       // A escala por turno saiu da Simulação: as regras de turno (cobertura, jornada, interjornada) não travam mais gravar nem aprovar.
       await repo.gravar(
         id,
@@ -536,11 +557,65 @@ export const makeSimulacoesService = (
         // Todo cenário salvo ganha um número da loja (1, 2, 3…); só "Salvar como cenário" troca o nome.
         await (async () => {
           const numero = await repo.proximoNumeroCenario(s.lojaId);
-          return { numero, nome: comoCenario ? `Cenário ${numero}` : s.nome };
+          return {
+            numero,
+            nome: nomeEscolhido ?? (comoCenario ? `Cenário ${numero}` : s.nome),
+          };
         })(),
+        { observacao: extras.observacao?.trim() || null, parecer },
       );
       await auditar({ acao: 'simulacao.gravada', perfil, alvoTipo: 'simulacao', alvoId: id });
       return detalhe(await simulacao(id), perfil);
+    },
+
+    // Spec 056: o parecer do cenário salvo, na versão do perfil (dono completa; gestor e consulta sem valores). Cenário salvo antes
+    // do parecer: montado agora, sem observação.
+    async parecer(id: string, perfil: string) {
+      const s = await simulacao(id);
+      if (s.status === 'rascunho')
+        throw new ConflictError('Só cenário salvo tem parecer.', 'SEM_PARECER');
+      const l = await loja(s.lojaId);
+      const dono = perfil === 'TENANT_ADMIN';
+      let guardado = s.parecer as ParecerGuardado | null;
+      const montadoAgora = !guardado;
+      if (!guardado) {
+        const base = await lojas.baseAtiva(s.lojaId);
+        guardado = montarParecer({
+          quadro: s.quadro,
+          turnos: s.turnos,
+          resultado: resultadoDe(s, l, base?.vendas ?? [], true),
+        });
+      }
+      const texto = dono ? guardado.dono : guardado.publico;
+      const { c } = avaliar(s, l);
+      return {
+        id: s.id,
+        nome: s.nome,
+        loja: l.nome,
+        regra: c.regra.nome,
+        salvoEm: s.gravadaEm ?? s.criadaEm,
+        salvoPor: guardado.salvoPor ?? null,
+        observacao: s.observacao,
+        resumo: texto.resumo,
+        decisoes: texto.decisoes,
+        efeitos: texto.efeitos,
+        montadoAgora,
+      };
+    },
+
+    async parecerPdf(id: string, perfil: string) {
+      const p = await this.parecer(id, perfil);
+      const rotulo: Record<string, string> = {
+        TENANT_ADMIN: 'Dono',
+        SCHEDULE_MANAGER: 'Gestor',
+        SCHEDULE_VIEWER: 'Consulta',
+      };
+      const buffer = await gerarPdf({
+        ...p,
+        salvoEm: new Date(p.salvoEm),
+        salvoPor: p.salvoPor ? (rotulo[p.salvoPor] ?? null) : null,
+      });
+      return { buffer, nome: nomeDoArquivo(p.nome) };
     },
 
     // Compara 2 a 3 simulações da mesma loja, cada uma pelos seus próprios números.

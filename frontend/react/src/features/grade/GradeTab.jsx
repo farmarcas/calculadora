@@ -3,6 +3,7 @@ import { api } from "../../api/client.js";
 import { Aviso, Botao, Campo, Modal, entrada } from "../../components/ui/index.jsx";
 import BarraDeComparar from "./BarraDeComparar.jsx";
 import ListaDeSimulacoes from "./ListaDeSimulacoes.jsx";
+import ParecerDoCenario from "./ParecerDoCenario.jsx";
 import { MENSAGEM_LIMITE, alternarSelecao, marcadasValidas, mostrarBarra } from "./selecao.js";
 import ComparacaoDeSimulacoes from "./ComparacaoDeSimulacoes.jsx";
 import SimulacaoPage from "../simulacao/SimulacaoPage.jsx";
@@ -56,6 +57,7 @@ export default function GradeTab({ lojaId, perfil, podeEscrever, abrirId, avisoI
   const [descartadas, setDescartadas] = useState(false);
   const [aberta, setAberta] = useState(null);
   const [nova, setNova] = useState(false);
+  const [parecerId, setParecerId] = useState(null);
   const [erro, setErro] = useState(null);
   const [marcadas, setMarcadas] = useState([]);
   const [comparando, setComparando] = useState(false);
@@ -95,14 +97,21 @@ export default function GradeTab({ lojaId, perfil, podeEscrever, abrirId, avisoI
     }
   }, [abrirId]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Spec 056: o parecer do cenário salvo abre numa janela, a partir da lista ou da comparação.
+  const janelaDoParecer = parecerId ? <ParecerDoCenario id={parecerId} onFechar={() => setParecerId(null)} /> : null;
+
   if (comparando)
     return (
+      <>
       <ComparacaoDeSimulacoes
         lojaId={lojaId}
         ids={marcadas}
         lista={lista}
+        onParecer={setParecerId}
         onVoltar={(mensagem) => { setComparando(false); setMarcadas(mensagem ? [] : marcadas); setAvisoLista(mensagem ?? null); carregar(); }}
       />
+      {janelaDoParecer}
+      </>
     );
 
   if (aberta)
@@ -128,6 +137,7 @@ export default function GradeTab({ lojaId, perfil, podeEscrever, abrirId, avisoI
           marcadas={marcadas}
           onAlternar={alternar}
           onAbrir={setAberta}
+          onParecer={setParecerId}
           podeEscrever={podeEscrever}
           onNova={() => setNova(true)}
           descartadas={descartadas}
@@ -136,6 +146,7 @@ export default function GradeTab({ lojaId, perfil, podeEscrever, abrirId, avisoI
         {mostrarBarra(marcadas) && <BarraDeComparar quantidade={marcadas.length} onLimpar={() => { setMarcadas([]); setLimite(false); }} onComparar={() => setComparando(true)} />}
         <p role="status" className="m-0 mt-2 text-sm text-[var(--text-secondary)]">{limite ? MENSAGEM_LIMITE : ""}</p>
       </div>
+      {janelaDoParecer}
       {nova && <Nova lojaId={lojaId} lista={lista} onClose={() => setNova(false)} onCriada={(s) => { setNova(false); setAberta(s.id); carregar(); }} />}
     </div>
   );

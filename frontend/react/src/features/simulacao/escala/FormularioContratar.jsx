@@ -13,9 +13,12 @@ const COR = { ...COR_DO_TOM, mudo: "var(--text-secondary)" };
 // "Contratar <função>": um formulário sob a linha da função. A contratação entra só na simulação e o Cadastro não muda.
 // Já vem preenchido com a sugestão que cobre as horas sem cobertura; o efeito na semana é recalculado a cada mudança.
 export default function FormularioContratar({ simId, funcao, abas, coberturaPorDia, regra, dono, diaPreferido, valor, onMudar, onCancelar, onAdicionar }) {
-  const sugerir = (tipo) => sugerirContratacao({ funcao, coberturaPorDia, abas, tipo, regra, diaPreferido });
+  // Só se contrata integral (spec 044): a carga é a jornada cheia da regra.
+  const sugerir = () => sugerirContratacao({ funcao, coberturaPorDia, abas, tipo: "integral", regra, diaPreferido });
   // O estado (tipo, dias, entra e sai) mora na seção: a barra de prévia da grade nasce dele e arrastá-la muda Entra e Sai.
-  const { tipo, dias, entra, sai } = valor;
+  const { dias, entra, sai } = valor;
+  const tipo = "integral";
+  const jornadaCheia = Math.min(44, Math.floor(Math.min(regra.teto, regra.dias * regra.maxDia)));
   const setEntra = (v) => onMudar({ entra: v });
   const setSai = (v) => onMudar({ sai: v });
   const [custo, setCusto] = useState(null);
@@ -23,12 +26,12 @@ export default function FormularioContratar({ simId, funcao, abas, coberturaPorD
   const minAbre = Math.min(...abas.map((a) => a.abre));
   const maxFecha = Math.max(...abas.map((a) => a.fecha));
   const opcoes = useMemo(() => opcoesDeHora(minAbre, maxFecha), [minAbre, maxFecha]);
-  const sugestaoDoTipo = useMemo(() => sugerir(tipo), [tipo, coberturaPorDia]); // eslint-disable-line react-hooks/exhaustive-deps
+  const sugestaoDoTipo = useMemo(() => sugerir(), [coberturaPorDia]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const aplicarSugestao = (t) => {
-    const sug = sugerir(t);
+  const aplicarSugestao = () => {
+    const sug = sugerir();
     if (!sug) return;
-    onMudar({ tipo: t, dias: sug.dias, entra: sug.entra, sai: sug.sai });
+    onMudar({ tipo: "integral", dias: sug.dias, entra: sug.entra, sai: sug.sai });
   };
 
   const turnos = turnosDoFormulario({ dias, entra, sai });
@@ -72,13 +75,10 @@ export default function FormularioContratar({ simId, funcao, abas, coberturaPorD
       </div>
 
       <div className="mt-3 flex flex-wrap items-end gap-4">
-        <label className="flex flex-col gap-1 text-[11px] leading-4 text-[var(--text-secondary)]">
-          Tipo
-          <select value={tipo} onChange={(e) => aplicarSugestao(e.target.value)} className={`${entrada} min-w-[200px] text-sm text-[var(--text-strong)]`}>
-            <option value="parcial">Parcial · até 30h por semana</option>
-            <option value="integral">Integral · {Math.min(44, Math.floor(Math.min(regra.teto, regra.dias * regra.maxDia)))}h por semana</option>
-          </select>
-        </label>
+        <div className="flex flex-col gap-1 text-[11px] leading-4 text-[var(--text-secondary)]">
+          Contratação
+          <div className={`${entrada} flex min-w-[200px] items-center text-sm font-bold text-[var(--text-strong)]`} data-testid="contratacao-integral">Integral · {jornadaCheia}h por semana</div>
+        </div>
         <fieldset className="m-0 flex flex-col gap-1 border-0 p-0">
           <legend className="p-0 text-[11px] leading-4 text-[var(--text-secondary)]">Dias</legend>
           <div className="flex gap-1">
@@ -104,7 +104,7 @@ export default function FormularioContratar({ simId, funcao, abas, coberturaPorD
       {sugestaoDoTipo && (
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-btn bg-[var(--func-success-100)] px-3 py-2 text-xs leading-4 font-bold text-[var(--text-success-strong)]">
           <span>{textoDaSugestao({ sugestao: sugestaoDoTipo, funcao, coberturaPorDia })}</span>
-          <button type="button" onClick={() => aplicarSugestao(tipo)} className="cursor-pointer border-0 bg-transparent p-0 text-xs font-bold text-[var(--text-success-strong)] underline">Usar a sugestão</button>
+          <button type="button" onClick={aplicarSugestao} className="cursor-pointer border-0 bg-transparent p-0 text-xs font-bold text-[var(--text-success-strong)] underline">Usar a sugestão</button>
         </div>
       )}
 

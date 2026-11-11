@@ -192,8 +192,9 @@ describe('montarDiagnostico', () => {
         falta: true,
         contratar: 1,
         gapH: 14,
-        parcialTurnos: 2,
-        parcialH: 14,
+        // Spec 044: só integral, sem parcial
+        parcialTurnos: 0,
+        parcialH: null,
       });
     });
 

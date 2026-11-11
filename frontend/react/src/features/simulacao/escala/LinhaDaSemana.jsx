@@ -7,8 +7,26 @@ const NOMES_LONGOS = ["segunda", "terça", "quarta", "quinta", "sexta", "sábado
 
 // Uma pessoa na semana: nome, sete células (turno, folga ou fechada) e o total. A Contratação simulada tem borda tracejada e
 // nome em azul. Clicar na célula só existe para quem pode editar: leva à Escala por hora do dia.
-export default function LinhaDaSemana({ linha, colunas, editavel, onDia, onDesligar }) {
+export default function LinhaDaSemana({ linha, colunas, editavel, onDia, onDesligar, onReligar }) {
   const cor = CORES[linha.funcao] ?? CORES.Caixa;
+  // Spec 054: quem foi desligado só desta simulação continua na lista, mais opaco e fora do cálculo, com "Religar".
+  if (linha.desligada) {
+    return (
+      <div role="row" data-testid="linha-desligada" className="grid items-center gap-x-2 border-t border-[var(--border-subtle)] py-2 pr-6" style={{ gridTemplateColumns: colunas }}>
+        <div role="rowheader" className="sticky left-0 z-[1] min-w-0 bg-[var(--surface-card)] py-1 pr-2 pl-6">
+          <div className="opacity-55">
+            <div className="truncate text-[13px] leading-4 font-bold text-[var(--text-strong)]">{linha.nome}</div>
+            <div className="truncate text-[11px] leading-4 text-[var(--text-secondary)]">{linha.funcao} · {linha.cargaH}h · fora da simulação</div>
+          </div>
+          {onReligar && <button type="button" onClick={onReligar} aria-label={`Religar ${linha.nome}`} className="cursor-pointer border-0 bg-transparent p-0 text-[11px] leading-4 font-bold text-[var(--color-primary)] hover:underline">Religar</button>}
+        </div>
+        <div role="cell" className="flex h-12 items-center justify-center rounded-btn border border-dashed border-[var(--border-default)] bg-[var(--surface-subtle)] text-xs text-[var(--text-secondary)]" style={{ gridColumn: "span 7" }}>
+          <span className="opacity-55">Fora da simulação: não conta na cobertura nem no custo</span>
+        </div>
+        <div role="cell" className="text-right text-[13px] leading-4 text-[var(--text-secondary)] opacity-55">—</div>
+      </div>
+    );
+  }
   return (
     <div role="row" className="grid items-center gap-x-2 border-t border-[var(--border-subtle)] py-2 pr-6" style={{ gridTemplateColumns: colunas }}>
       <div role="rowheader" className="sticky left-0 z-[1] min-w-0 bg-[var(--surface-card)] py-1 pr-2 pl-6">

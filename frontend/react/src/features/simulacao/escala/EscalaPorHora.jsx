@@ -11,7 +11,7 @@ const NOMES_LONGOS = ["segunda", "terça", "quarta", "quinta", "sexta", "sábado
 
 // "Escala por hora" (spec 039), dentro da Simulação: a grade do dia com venda e clientes por hora, a cobertura por função e
 // os turnos de cada pessoa. A contratação e os turnos valem só para esta simulação; nada vai ao Cadastro.
-export default function EscalaPorHora({ sim, editavel, dono, calculando = false, erro = null, onLimparErro, onSalvar, onDesligar = null, irParaDia = null }) {
+export default function EscalaPorHora({ sim, editavel, dono, calculando = false, erro = null, onLimparErro, onSalvar, onDesligar = null, onReligar = null, irParaDia = null }) {
   const abas = useMemo(() => diasDasAbas(sim.diasAbertos), [sim.diasAbertos]);
   const [dia, setDia] = useState(abas[0]?.dia ?? 0);
   const [selecionado, setSelecionado] = useState(null);
@@ -50,7 +50,8 @@ export default function EscalaPorHora({ sim, editavel, dono, calculando = false,
   const cobDoDia = sim.avaliacao?.cobertura?.[dia] ?? [];
   const vendaPorHora = sim.resultado?.vendaPorHora;
 
-  const funcoes = [...new Set([...cobDoDia.map((c) => c.funcao), ...quadro.map((p) => p.funcao)])].sort((a, b) => (ORDEM.indexOf(a) + 1 || 99) - (ORDEM.indexOf(b) + 1 || 99));
+  const desligadas = sim.quadro.filter((p) => p.desligado && !p.vaga && p.funcao);
+  const funcoes = [...new Set([...cobDoDia.map((c) => c.funcao), ...quadro.map((p) => p.funcao), ...desligadas.map((p) => p.funcao)])].sort((a, b) => (ORDEM.indexOf(a) + 1 || 99) - (ORDEM.indexOf(b) + 1 || 99));
   const turnosDoDia = turnos.filter((t) => t.dia === dia);
   const funcaoDe = new Map(quadro.map((p) => [p.matricula, p.funcao]));
 
@@ -75,7 +76,7 @@ export default function EscalaPorHora({ sim, editavel, dono, calculando = false,
     const daPrevia = rascunho?.funcao === f ? turnosPrevia : [];
     const reforcadas = horasReforcadas([...turnos.filter((t) => simuladas.some((s) => s.matricula === t.matricula)), ...daPrevia], dia);
     const intervalos = quemEstaEmIntervalo(turnosDoDia.filter((t) => funcaoDe.get(t.matricula) === f), quadro);
-    return [{ f, cob, pessoas: quadro.filter((p) => p.funcao === f && !p.vaga), simuladas, reforcadas, intervalos }];
+    return [{ f, cob, pessoas: quadro.filter((p) => p.funcao === f && !p.vaga), desligadas: desligadas.filter((p) => p.funcao === f), simuladas, reforcadas, intervalos }];
   });
   const turnoSelecionado = turnos.find((t) => t.matricula === selecionado && t.dia === dia);
   const pessoaSelecionada = quadro.find((p) => p.matricula === selecionado);
@@ -193,7 +194,7 @@ export default function EscalaPorHora({ sim, editavel, dono, calculando = false,
         <div className="escala-desktop overflow-x-auto px-4 pb-6">
           <div role="table" aria-label={`Escala de ${NOMES_LONGOS[dia]}`} style={{ minWidth: larguraMinima }}>
             <GradeDeHoras horas={horas} dono={dono} venda={vendaPorHora?.venda?.[dia]} clientes={vendaPorHora?.clientes?.[dia]} temBase={!!sim.resultado?.temBase} colunas={colunas} />
-            {blocos.map(({ f, cob, pessoas, simuladas, reforcadas, intervalos }) => (
+            {blocos.map(({ f, cob, pessoas, desligadas: foraDaSimulacao, simuladas, reforcadas, intervalos }) => (
               <div key={f}>
                 <LinhaDaFuncao funcao={f} pessoas={pessoas.length} cobertura={cob} reforcadas={reforcadas} intervalos={intervalos} recolhida={recolhidas.has(f)} onAlternar={() => alternar(f)} onContratar={editavel ? () => abrirContratar(f) : undefined} colunas={colunas} />
                 {formularioDe(f)}
@@ -202,6 +203,9 @@ export default function EscalaPorHora({ sim, editavel, dono, calculando = false,
                   <>
                     {pessoas.map((p) => (
                       <LinhaDaPessoa key={p.matricula} limiteH={Math.min(p.cargaH, sim.regraInfo.teto, sim.regraInfo.dias * sim.regraInfo.maxDia)} pessoa={p} turno={turnoDoDiaDe(turnos, p.matricula, dia)} turnosDaPessoa={turnos.filter((t) => t.matricula === p.matricula)} ini={ini} fim={fim} colunas={colunas} selecionado={selecionado === p.matricula} onSelecionar={() => setSelecionado(p.matricula)} editavel={editavel} onMudar={(t, fim2) => mudarTurno(p.matricula, t, fim2)} onCriarTurno={() => criarTurno(p.matricula)} onDesligar={editavel && onDesligar ? () => onDesligar(p.matricula) : undefined} />
+                    ))}
+                    {foraDaSimulacao.map((p) => (
+                      <LinhaDaPessoa key={p.matricula} pessoa={p} ini={ini} fim={fim} colunas={colunas} desligada onReligar={editavel && onReligar ? () => onReligar(p.matricula) : undefined} />
                     ))}
                     {simuladas.map((s) => {
                       const p = quadro.find((x) => x.matricula === s.matricula);
@@ -213,7 +217,7 @@ export default function EscalaPorHora({ sim, editavel, dono, calculando = false,
             ))}
           </div>
         </div>
-        <EscalaMobile horas={horas} dono={dono} vendaDia={vendaPorHora?.venda?.[dia]} clientesDia={vendaPorHora?.clientes?.[dia]} temBase={!!sim.resultado?.temBase} blocos={blocos} turnos={turnos} dia={dia} editavel={editavel} recolhidas={recolhidas} onAlternar={alternar} onContratar={abrirContratar} formulario={formularioDe} onRemover={remover} onDesligar={onDesligar} />
+        <EscalaMobile horas={horas} dono={dono} vendaDia={vendaPorHora?.venda?.[dia]} clientesDia={vendaPorHora?.clientes?.[dia]} temBase={!!sim.resultado?.temBase} blocos={blocos} turnos={turnos} dia={dia} editavel={editavel} recolhidas={recolhidas} onAlternar={alternar} onContratar={abrirContratar} formulario={formularioDe} onRemover={remover} onDesligar={onDesligar} onReligar={onReligar} />
       </div>
       {regrasDeTurno.length > 0 && (
         <div className="mx-6 mb-6 rounded-btn bg-[var(--surface-subtle)] px-4 py-3 text-xs leading-4 text-[var(--text-secondary)]" data-testid="avisos-de-regra">

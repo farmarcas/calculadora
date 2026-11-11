@@ -5,7 +5,7 @@ import { aplicarMovimento, movimentoPorTecla } from "./movimento-regras.js";
 
 // Uma pessoa no dia: o turno em barra sobre as colunas das horas, "Função · 44h" e o total da semana. Folga mostra a barra
 // tracejada. A contratação simulada é a linha azul, com "Remover" em vermelho.
-export default function LinhaDaPessoa({ pessoa, turno, turnosDaPessoa, ini, fim, colunas, simulada = false, selecionado = false, onSelecionar, onRemover, rotuloSimulada, editavel = false, onMudar, onCriarTurno, onSugerir, previa = false, limiteH = null, onDesligar }) {
+export default function LinhaDaPessoa({ pessoa, turno, turnosDaPessoa = [], ini, fim, colunas, simulada = false, selecionado = false, onSelecionar, onRemover, rotuloSimulada, editavel = false, onMudar, onCriarTurno, onSugerir, previa = false, limiteH = null, onDesligar, desligada = false, onReligar }) {
   const trilha = useRef(null);
   const [emGesto, setEmGesto] = useState(false); // durante o arrasto o turno ganha destaque e mostra o horário novo
   const janela = { min: ini, max: fim };
@@ -58,6 +58,23 @@ export default function LinhaDaPessoa({ pessoa, turno, turnosDaPessoa, ini, fim,
   const larg = turno ? ((turno.saida - turno.entrada) / largura) * 100 : 0;
   const cor = COR_DA_FUNCAO[pessoa.funcao] ?? "var(--escala-caixa)";
   const escuro = pessoa.funcao === "Farmacêutico";
+
+  // Spec 054: quem foi desligado só desta simulação continua na lista, mais opaco, fora do cálculo, com "Religar".
+  if (desligada) {
+    return (
+      <div role="row" data-testid="linha-desligada" className="grid items-center gap-x-1 border-t border-[var(--border-subtle)] py-1.5" style={{ gridTemplateColumns: colunas }}>
+        <div className="min-w-0 pl-9 opacity-55">
+          <div className="truncate text-[13px] leading-4 font-bold text-[var(--text-strong)]">{pessoa.nome}</div>
+          <div className="truncate text-[11px] leading-4 text-[var(--text-secondary)]">{pessoa.funcao} · {pessoa.cargaH}h · fora da simulação</div>
+        </div>
+        <div role="cell" className="relative flex h-7 items-center justify-between gap-3 rounded-btn border border-dashed border-[var(--border-default)] bg-[var(--surface-subtle)] px-3 text-xs text-[var(--text-secondary)]" style={{ gridColumn: `span ${Math.round(largura)}` }}>
+          <span className="opacity-55">Fora da simulação: não conta na cobertura nem no custo</span>
+          {onReligar && <button type="button" onClick={onReligar} aria-label={`Religar ${pessoa.nome}`} className="cursor-pointer border-0 bg-transparent p-0 text-xs font-bold text-[var(--color-primary)] hover:underline">Religar</button>}
+        </div>
+        <div role="cell" className="pr-2 text-right text-xs leading-4 text-[var(--text-secondary)] opacity-55">—</div>
+      </div>
+    );
+  }
 
   return (
     <div role="row" className={`grid items-center gap-x-1 border-t border-[var(--border-subtle)] py-1.5 ${simulada ? "bg-[var(--color-primary-soft)]" : ""}`} style={{ gridTemplateColumns: colunas }}>

@@ -23,7 +23,9 @@ export const semEscala = (turnos = []) => turnos.length === 0;
 export const montarSemana = ({ quadro = [], turnos = [], diasAbertos = [] }) => {
   const abertos = new Set(diasAbertos.map((d) => d.dia));
   const ativos = quadro.filter((p) => !p.desligado && p.funcao);
-  const funcoes = [...new Set(ativos.map((p) => p.funcao))].sort((a, b) => (ORDEM_DAS_FUNCOES.indexOf(a) + 1 || 99) - (ORDEM_DAS_FUNCOES.indexOf(b) + 1 || 99));
+  // Spec 054: quem foi desligado só desta simulação continua na lista (opaco, sem turnos), mas não conta.
+  const desligadas = quadro.filter((p) => p.desligado && !p.vaga && p.funcao);
+  const funcoes = [...new Set([...ativos, ...desligadas].map((p) => p.funcao))].sort((a, b) => (ORDEM_DAS_FUNCOES.indexOf(a) + 1 || 99) - (ORDEM_DAS_FUNCOES.indexOf(b) + 1 || 99));
   const linhaDe = (p) => {
     const meus = turnos.filter((t) => t.matricula === p.matricula);
     const total = totalDaSemana(turnos, p.matricula);
@@ -40,7 +42,8 @@ export const montarSemana = ({ quadro = [], turnos = [], diasAbertos = [] }) => 
   };
   return funcoes.map((funcao) => {
     const doGrupo = ativos.filter((p) => p.funcao === funcao);
-    const linhas = [...doGrupo.filter((p) => !p.vaga), ...doGrupo.filter((p) => p.vaga)].map(linhaDe);
+    const foraDoCalculo = desligadas.filter((p) => p.funcao === funcao).map((p) => ({ matricula: p.matricula, nome: p.nome, funcao: p.funcao, cargaH: p.cargaH, simulada: false, desligada: true, celulas: [], total: { horas: 0, dias: 0, texto: "—" }, passaDaJornada: false }));
+    const linhas = [...doGrupo.filter((p) => !p.vaga), ...doGrupo.filter((p) => p.vaga)].map(linhaDe).concat(foraDoCalculo);
     return { funcao, pessoas: doGrupo.filter((p) => !p.vaga).length + doGrupo.filter((p) => p.vaga).length, linhas };
   });
 };

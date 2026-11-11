@@ -114,9 +114,9 @@ export default function SimulacaoPage({ id, perfil, podeEscrever, aviso, onVolta
 
       <FaixaDeDesligados quadro={sim.quadro} editavel={editavel} onReligar={religar} />
 
-      <EscalaPorHora sim={sim} editavel={editavel} dono={dono} calculando={calculando} erro={erro} onLimparErro={() => setErro(null)} onSalvar={salvar} onDesligar={desligar} irParaDia={irParaDia} />
+      <EscalaPorHora sim={sim} editavel={editavel} dono={dono} calculando={calculando} erro={erro} onLimparErro={() => setErro(null)} onSalvar={salvar} onDesligar={desligar} onReligar={religar} irParaDia={irParaDia} />
 
-      <EscalaDaSemana sim={sim} editavel={editavel} onDia={abrirDia} onDesligar={desligar} folgas={{ podeSugerir, onSugerir: sugerirAsFolgas, calculando, desfazer: sugestaoViva ? desfazerSugestao : null, avisos: sugestaoViva?.avisos ?? [], rodizio: sugestaoViva?.rodizio ?? null }} onCadastrar={() => window.location.assign("/?tela=cadastros")} />
+      <EscalaDaSemana sim={sim} editavel={editavel} onDia={abrirDia} onDesligar={desligar} onReligar={religar} folgas={{ podeSugerir, onSugerir: sugerirAsFolgas, calculando, desfazer: sugestaoViva ? desfazerSugestao : null, avisos: sugestaoViva?.avisos ?? [], rodizio: sugestaoViva?.rodizio ?? null }} onCadastrar={() => window.location.assign("/?tela=cadastros")} />
     </div>
   );
 }

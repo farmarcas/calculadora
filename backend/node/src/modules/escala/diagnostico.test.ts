@@ -148,8 +148,8 @@ describe('montarDiagnostico', () => {
       dias: [0, 1, 2, 3, 4, 5].map(() => aberta('08:00', '22:00')).concat([dom as never]),
     });
     const dois = [
-      farm('F1', 8, 14, [0, 1, 2, 3, 4, 5, 6], 44),
-      farm('F2', 14, 22, [0, 1, 2, 3, 4, 5, 6], 44),
+      farm('F1', 8, 15, [0, 1, 2, 3, 4, 5, 6], 44),
+      farm('F2', 15, 22, [0, 1, 2, 3, 4, 5, 6], 44),
     ];
     const diag = (horarios: object | null, turnos = dois) =>
       montarDiagnostico({
@@ -173,8 +173,9 @@ describe('montarDiagnostico', () => {
       expect(f).toMatchObject({
         necessidadeH: 84,
         necessidadeT: 12,
-        capacidadeH: 88,
-        saldoH: 4,
+        // Spec 043: a capacidade é a cobertura real (as horas exigidas que a equipe, com folgas, cobre): 84 de 84.
+        capacidadeH: 84,
+        saldoH: 0,
         falta: false,
       });
     });
@@ -184,15 +185,15 @@ describe('montarDiagnostico', () => {
       expect(f).toMatchObject({
         necessidadeH: 98,
         necessidadeT: 14,
-        capacidadeH: 88,
-        saldoH: -10,
+        // Spec 043: com as folgas (1 por pessoa na regra de 44h), falta cobrir 14 h: segunda de manhã e terça à tarde.
+        capacidadeH: 84,
+        saldoH: -14,
         saldoT: -2,
         falta: true,
         contratar: 1,
-        // faltam 10 h na semana: 1 parcial de 10 h (2 turnos de 7,33 h, para compatibilidade)
-        gapH: 10,
+        gapH: 14,
         parcialTurnos: 2,
-        parcialH: 10,
+        parcialH: 14,
       });
     });
 

@@ -3,9 +3,10 @@ import { duracaoTurno, regraPara, tetoEfetivo, type Regra } from './perfis.js';
 import { camadasDoDia, requisitos, type Minimos } from './requisitos.js';
 import { sugerirContratacao, type Sugestao } from './contratacao-horas.js';
 import { FARMACEUTICO, metaNivelDeHoje } from './gap-horas.js';
+import { semanaComFolgas, type HorarioPessoa, type SemanaComFolgas } from '../escala/semana-com-folgas.js';
 
 export type DiaAberto = { dia: number; abre: number; fecha: number }; // dia 0 = segunda
-export type Pessoa = { funcao: string; cargaH: number };
+export type Pessoa = { funcao: string; cargaH: number; matricula?: string };
 
 export type OrigemMeta = 'lei' | 'dono' | 'nivel_de_hoje' | 'nenhuma';
 
@@ -56,6 +57,9 @@ export type OpcoesVerificacao = {
   // Para dar custo à sugestão (só quem pode ver valores em reais).
   custos?: { salarioMedio: Partial<Record<string, number>>; encargosPct: number } | null;
   divisor?: number;
+  // Spec 043: os horários da equipe no Cadastro. Com eles, a falta de quem tem exigência (farmacêutico e meta do dono) sai da
+  // cobertura real hora a hora, já com as folgas e o rodízio de domingo, e não mais da capacidade por horas.
+  horarios?: HorarioPessoa[];
 };
 export type OpcoesContratacao = OpcoesVerificacao;
 
@@ -64,6 +68,17 @@ export const AVISO_CRF =
 
 const EPS = 1e-9;
 const arred = (n: number) => Math.round(n * 100) / 100;
+
+const cacheSemana = new Map<string, SemanaComFolgas>();
+const semanaDe = (regra: Regra, dias: DiaAberto[], minimos: Minimos, horarios: HorarioPessoa[]) => {
+  const chave = JSON.stringify([regra, dias, minimos, horarios]);
+  const guardada = cacheSemana.get(chave);
+  if (guardada) return guardada;
+  const nova = semanaComFolgas({ regra, dias, minimos, horarios });
+  if (cacheSemana.size > 300) cacheSemana.clear();
+  cacheSemana.set(chave, nova);
+  return nova;
+};
 
 // Capacidade do quadro (horas e turnos) × necessidade da loja, por função, numa regra. O farmacêutico é o único
 // cargo obrigatório; os demais não têm mínimo (meta = nível de hoje, ou a meta do dono, se houver).
@@ -83,6 +98,14 @@ export const verificarRegra = (
   const escala = hoje > 0 ? abertas / hoje : 1;
   const tetoHoje = tetoEfetivo(opcoes.regraAtual ?? regraPara('atual', false));
   const divisor = opcoes.divisor ?? PARAMETROS_PADRAO[regra.id].divisor;
+  // A cobertura real só vale quando a equipe do Cadastro trabalha em todos os dias abertos: num dia que o Cadastro não tem (um
+  // cenário que abre um dia hoje fechado), ninguém foi escalado ainda e a conta volta a ser por horas.
+  // Os horários são só os de quem está na lista de pessoas (cenários que tiram gente da conta, como o de reduzir a equipe).
+  const matriculas = new Set(pessoas.map((p) => p.matricula).filter((m): m is string => !!m));
+  const horarios = (opcoes.horarios ?? []).filter((h) => matriculas.size === 0 || matriculas.has(h.matricula));
+  const todosOsDiasTemEscala = dias.every((d) => horarios.some((h) => h.dias.includes(d.dia)));
+  const semana =
+    horarios.length && todosOsDiasTemEscala ? semanaDe(regra, dias, minimos, horarios) : null;
 
   return funcoes.map((funcao) => {
     const obrigatorio = funcao === FARMACEUTICO;
@@ -120,20 +143,28 @@ export const verificarRegra = (
     }
 
     const horasDe = quadro.map((p) => Math.min(p.cargaH, regra.teto, regra.dias * regra.maxDia));
-    const capacidadeH = horasDe.reduce((s, h) => s + h, 0);
+    let capacidadeH = horasDe.reduce((s, h) => s + h, 0);
     const capacidadeT = horasDe.reduce(
       (s, h) => s + Math.min(regra.dias, Math.floor(h / TL + EPS)),
       0,
     );
 
-    const saldoH = arred(capacidadeH - necessidadeH);
+    let saldoH = arred(capacidadeH - necessidadeH);
     const saldoT = comExigencia ? capacidadeT - necessidadeT : capacidadeT;
     // Gap em horas semanais. Se as horas fecham mas algum dia ficaria sem cobertura (turnos), o farmacêutico
     // ainda precisa do que falta em turnos.
     let gapH = Math.max(0, -saldoH);
     if (obrigatorio && gapH <= EPS && saldoT < 0) gapH = -saldoT * TL;
     gapH = arred(gapH);
-    const falta = comExigencia && (saldoH < 0 || (obrigatorio && saldoT < 0));
+    let falta = comExigencia && (saldoH < 0 || (obrigatorio && saldoT < 0));
+    // Com os horários da equipe, a falta é a da cobertura real (folgas e domingo em rodízio), hora a hora.
+    const real = semana && comExigencia ? (semana.funcoes[funcao] ?? null) : null;
+    if (real) {
+      gapH = real.faltaH <= EPS ? 0 : arred(real.gapParaSugestaoH);
+      capacidadeH = arred(necessidadeH - real.faltaH);
+      saldoH = arred(capacidadeH - necessidadeH);
+      falta = real.faltaH > EPS;
+    }
 
     const opcoesSug = sugerirContratacao({
       gapH,
@@ -151,12 +182,29 @@ export const verificarRegra = (
         parcial.inteiras * Math.min(regra.dias, Math.floor(porPessoa / TL + EPS)) +
         (parcial.parcialH ? Math.min(regra.dias, Math.ceil(parcial.parcialH / TL - EPS)) : 0);
       const restantes = -saldoT - turnosNovos;
-      if (restantes > 0)
+      if (!real && restantes > 0)
         avisos.push(
           `Pelas horas a contratação fecha, mas pela conta de turnos ainda podem faltar ${restantes} turno(s) em alguns dias: a distribuição dos horários confirma.`,
         );
     }
-    const sugestao = parcial ? { ...parcial, avisos } : null;
+    if (real && !real.resolve && real.faltaH > EPS)
+      avisos.push('Mesmo com as contratações e as folgas, ainda falta cobertura em alguns horários.');
+    // Com a cobertura real, as horas usadas são as da falta de verdade; o resto da contratação é folga de horário.
+    const usadasReal = real ? arred(Math.min(parcial?.horasContratadas ?? 0, real.faltaH)) : null;
+    const sugestao = parcial
+      ? {
+          ...parcial,
+          ...(real && usadasReal !== null && parcial.horasContratadas > 0
+            ? {
+                horasUsadas: usadasReal,
+                horasOciosas: arred(Math.max(0, parcial.horasContratadas - usadasReal)),
+                ociosidadePct:
+                  Math.round((Math.max(0, parcial.horasContratadas - usadasReal) / parcial.horasContratadas) * 1000) / 10,
+              }
+            : {}),
+          avisos,
+        }
+      : null;
     const parcialH = sugestao?.parcialH ?? null;
     const inteiras = sugestao?.inteiras ?? 0;
 
@@ -177,7 +225,7 @@ export const verificarRegra = (
       okT: saldoT >= 0,
       falta,
       gapH,
-      faltaH: gapH,
+      faltaH: real ? arred(real.faltaH) : gapH,
       cargaCheiaH: arred(porPessoa),
       sugestao,
       alternativa: opcoesSug?.alternativa
@@ -196,7 +244,9 @@ export const verificarRegra = (
             : origemMeta === 'nivel_de_hoje'
               ? `Sem mínimo: a meta é manter o nível de hoje (${arred(necessidadeH)}h por semana, o que o cargo cumpre hoje). `
               : 'Sem mínimo e sem ninguém no cargo: nada a cobrir. ') +
-        `Capacidade: cada pessoa até ${arred(porPessoa)}h em até ${regra.dias} dias = ${arred(capacidadeH)}h.` +
+        (real
+          ? `Com as folgas e o domingo em rodízio, a equipe cobre ${arred(necessidadeH - real.faltaH)}h das ${arred(necessidadeH)}h exigidas.`
+          : `Capacidade: cada pessoa até ${arred(porPessoa)}h em até ${regra.dias} dias = ${arred(capacidadeH)}h.`) +
         (gapH > 0
           ? ` Falta cobrir ${gapH}h${sugestao ? `: ${sugestao.tipo === 'parcial' ? `1 parcial de ${sugestao.parcialH}h` : sugestao.tipo === 'integral' ? `${sugestao.inteiras} integral(is)` : `${sugestao.inteiras} integral(is) e 1 parcial de ${sugestao.parcialH}h`}` : ''}.`
           : ''),

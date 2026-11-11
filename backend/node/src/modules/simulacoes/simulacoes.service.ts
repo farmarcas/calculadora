@@ -17,7 +17,13 @@ import { nomeDeQuemCriou, tipoDoCenario } from './resumo.js';
 import { gerarExcelEscala } from './exportar.js';
 import { coberturaDaSimulacao } from './cobertura-simulacao.js';
 import { avaliarSimulacao, type PessoaSim, type TurnoSim } from './avaliar.js';
-import { aplicarVagasEDesligados, vagasSugeridas, type VagaEntrada } from './vagas.js';
+import {
+  aplicarVagasEDesligados,
+  emQuartosDeHora,
+  vagasSugeridas,
+  type VagaEntrada,
+} from './vagas.js';
+import { semanaComFolgas, type HorarioPessoa } from '../escala/semana-com-folgas.js';
 import { calcularCusto } from '../custos/custo.js';
 import type { Custos } from '../custos/custos.schemas.js';
 import type {
@@ -249,7 +255,18 @@ export const makeSimulacoesService = (
         fimIntervalo: t.fimIntervalo,
       })),
     );
-    return { quadro, turnos };
+    // Os horários de cada pessoa no Cadastro: a base da semana com folgas (spec 043).
+    const equipe: HorarioPessoa[] = ts.map((t) => ({
+      matricula: t.matricula,
+      funcao: t.funcao!,
+      cargaH: t.cargaH,
+      dias: t.dias,
+      entrada: t.entrada,
+      saida: t.saida,
+      iniIntervalo: t.iniIntervalo,
+      fimIntervalo: t.fimIntervalo,
+    }));
+    return { quadro, turnos: emQuartosDeHora(turnos), equipe };
   };
 
   const validarTurnos = (s: SimulacaoRegistro, turnos: TurnoSim[]) => {
@@ -308,13 +325,24 @@ export const makeSimulacoesService = (
 
     async criar(
       lojaId: string,
-      b: { nome: string; regra: RegraId; origem: string; comVagasSugeridas?: boolean },
+      b: {
+        nome: string;
+        regra: RegraId;
+        origem: string;
+        comVagasSugeridas?: boolean;
+        horarios?: unknown;
+      },
       perfil: string,
     ) {
       const l = await loja(lojaId);
       let base: { quadro: PessoaSim[]; turnos: TurnoSim[]; horarios?: unknown };
+      let equipe: HorarioPessoa[] = [];
       let origemId: string | null = null;
-      if (b.origem === 'escala_atual') base = await doEscalaAtual(lojaId);
+      if (b.origem === 'escala_atual') {
+        const r = await doEscalaAtual(lojaId);
+        base = { quadro: r.quadro, turnos: r.turnos };
+        equipe = r.equipe;
+      }
       else if (b.origem === 'vazia') {
         const quadro = await cadastro.funcionariosDaLoja(lojaId);
         if (quadro.length === 0)
@@ -335,13 +363,30 @@ export const makeSimulacoesService = (
             'As contratações sugeridas só valem a partir da equipe do Cadastro com horários.',
           );
         const regra = regraPara(b.regra, l.convencao8h24, tabela);
-        const sugeridas = vagasSugeridas(
-          regra,
-          diasAbertos(l.horarios),
-          exigenciasDaLoja({ ...FUNCOES_PADRAO_MINIMO, ...soNoCalculo(l.minimos) }, l.turnos),
-          base.quadro,
+        const minimos = exigenciasDaLoja(
+          { ...FUNCOES_PADRAO_MINIMO, ...soNoCalculo(l.minimos) },
+          l.turnos,
         );
-        base = { ...base, ...aplicarVagasEDesligados(base.quadro, base.turnos, sugeridas) };
+        const diasDaSimulacao = diasAbertos(normalizarHorarios(b.horarios) ?? l.horarios);
+        const todosOsDiasTemEscala = diasDaSimulacao.every((d) =>
+          equipe.some((h) => h.dias.includes(d.dia)),
+        );
+        if (todosOsDiasTemEscala) {
+          // A equipe já com as folgas e o rodízio de domingo, e as contratações nos turnos que cobrem o que falta (spec 043).
+          const semana = semanaComFolgas({ regra, dias: diasDaSimulacao, minimos, horarios: equipe });
+          const sugeridas: VagaEntrada[] = Object.values(semana.funcoes).flatMap((f) =>
+            f.vagas.map((v) => ({ funcao: v.funcao, cargaH: v.cargaH, turnos: v.turnos })),
+          );
+          base = {
+            ...base,
+            ...aplicarVagasEDesligados(base.quadro, emQuartosDeHora(semana.turnos), sugeridas),
+          };
+        } else {
+          // Dia aberto que o Cadastro não escala (cenário que abre um dia hoje fechado): a conta volta a ser por horas.
+          const sugeridas = vagasSugeridas(regra, diasDaSimulacao, minimos, base.quadro);
+          base = { ...base, ...aplicarVagasEDesligados(base.quadro, base.turnos, sugeridas) };
+        }
+        if (b.horarios) base = { ...base, horarios: normalizarHorarios(b.horarios) };
       }
       const s = await repo.criar({
         lojaId,
@@ -429,6 +474,30 @@ export const makeSimulacoesService = (
       if (b.turnos)
         await auditar({ acao: 'simulacao.ajustada', perfil, alvoTipo: 'simulacao', alvoId: id });
       return detalhe(await simulacao(id), perfil);
+    },
+
+    // Prévia do custo de pessoal de uma contratação (spec 039): o mesmo resultado da simulação com e sem a vaga, sem gravar
+    // nada. Só o dono recebe o número (depende de salário); os outros perfis recebem um objeto vazio.
+    async efeitoContratacao(id: string, perfil: string, b: { funcao: string; cargaH: number }) {
+      if (perfil !== 'TENANT_ADMIN') return {};
+      const s = await simulacao(id);
+      const l = await loja(s.lojaId);
+      const base = await lojas.baseAtiva(s.lojaId);
+      const vendas = base?.vendas ?? [];
+      const antes = resultadoDe(s, l, vendas, true).emHoras;
+      const vaga: PessoaSim = {
+        matricula: 'VAGA-PREVIA',
+        nome: 'Vaga prévia',
+        funcao: b.funcao,
+        cargaH: b.cargaH,
+        vaga: true,
+      };
+      const depois = resultadoDe({ ...s, quadro: [...s.quadro, vaga] }, l, vendas, true).emHoras;
+      const custoPct =
+        antes.custoPct === null || depois.custoPct === null
+          ? null
+          : Math.round((depois.custoPct - antes.custoPct) * 10) / 10;
+      return { custoPct, custoEstado: custoPct !== null ? 'ok' : depois.custoEstado };
     },
 
     async gravar(id: string, perfil: string, comoCenario = false) {

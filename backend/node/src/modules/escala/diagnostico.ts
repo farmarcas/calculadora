@@ -180,11 +180,27 @@ export const montarDiagnostico = (a: {
   }
 
   const noCalculo = turnos.filter((t) => t.funcao);
-  const pessoas = noCalculo.map((t) => ({ funcao: t.funcao!, cargaH: t.cargaH }));
+  const pessoas = noCalculo.map((t) => ({
+    funcao: t.funcao!,
+    cargaH: t.cargaH,
+    matricula: t.matricula,
+  }));
+  // Os horários do Cadastro: o motor mede a cobertura real, com folgas e domingo em rodízio (spec 043).
+  const horarios = noCalculo.map((t) => ({
+    matricula: t.matricula,
+    funcao: t.funcao!,
+    cargaH: t.cargaH,
+    dias: t.dias,
+    entrada: t.entrada,
+    saida: t.saida,
+    iniIntervalo: t.iniIntervalo,
+    fimIntervalo: t.fimIntervalo,
+  }));
 
   const regras = REGRA_IDS.map((id: RegraId) => {
     const regra = regraPara(id, loja.convencao8h24, a.parametros);
     const brutas = verificarRegra(regra, dias, exigencias, pessoas, {
+      horarios,
       limiteParcial: prem.limiteParcial,
       regraAtual: regraPara('atual', loja.convencao8h24, a.parametros),
       // Só o dono vê o custo da sugestão.
@@ -241,6 +257,7 @@ export const montarDiagnostico = (a: {
               exigencias,
               pessoas,
               {
+                horarios,
                 limiteParcial: prem.limiteParcial,
                 regraAtual: regraPara('atual', loja.convencao8h24, a.parametros),
                 divisor: (a.parametros ?? PARAMETROS_PADRAO)[id].divisor,
@@ -427,6 +444,7 @@ export const montarDiagnostico = (a: {
         dias,
         minimos: exigencias,
         pessoas,
+        horarios,
         vendas: origemVendas === 'base' ? vendasComCmv : vendasUsadas,
         regua,
         vendasDoCadastro: origemVendas === 'cadastro',

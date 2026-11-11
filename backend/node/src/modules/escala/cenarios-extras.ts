@@ -207,7 +207,9 @@ const pct = (n: number) => Math.round(n * 10) / 10;
 const montarReduzir = (e: EntradaCenarios, c: CenariosRegra): CenarioReduzir => {
   const regra = regraPara(e.regraId, e.convencao8h24, e.parametros);
   const linhaDe = (pessoas: EntradaCenarios['pessoas'], funcao: string) =>
-    verificarRegra(regra, e.dias, e.minimos, pessoas, opcoesDoMotor(e, regra)).find(
+    // Sobra de gente se mede por capacidade em horas (supõe os horários refeitos); a cobertura real, com os turnos de hoje,
+    // só vale para o que a equipe atual deixa descoberto.
+    verificarRegra(regra, e.dias, e.minimos, pessoas, { ...opcoesDoMotor(e, regra), horarios: undefined }).find(
       (l) => l.funcao === funcao,
     );
   const req = requisitos(e.minimos);

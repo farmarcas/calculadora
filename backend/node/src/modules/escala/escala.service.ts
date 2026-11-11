@@ -5,6 +5,7 @@ import { CAMPOS_BASE, type CampoDef } from '../planilhas/campos.js';
 import { inferirUmaAba } from '../planilhas/inferencia.js';
 import { lerPlanilha, type Aba } from '../planilhas/leitor.js';
 import { calcularCusto } from '../custos/custo.js';
+import { faturamentoMensalDe } from './vendas.js';
 import {
   normalizarTurnos,
   validarTurnos,
@@ -210,12 +211,23 @@ export const makeEscalaService = (repo: EscalaRepository, auditar: Auditor) => {
         custos: loja.custos ?? null,
         parametros,
       });
+      // Faturamento mensal da loja (só o dono): o do Cadastro, a soma dos dias ou a base comercial, nessa ordem.
+      const faturamento = faturamentoMensalDe({
+        faturamento: loja.faturamento,
+        vendasBase: base?.vendas ?? [],
+      });
       return {
         ...diag,
+        faturamentoMensal: faturamento,
         folhaMensal: custo.informado
           ? {
               informado: true as const,
               mensal: custo.mensal,
+              // Quanto a folha atual pesa no faturamento mensal da loja (nulo sem um dos dois).
+              pctDoFaturamento:
+                custo.mensal !== null && faturamento && faturamento.valor > 0
+                  ? Math.round((custo.mensal / faturamento.valor) * 1000) / 10
+                  : null,
               faltamInformar: custo.faltamInformar,
               encargosPct: loja.custos?.encargosPct ?? 0,
               // O encargo vem do regime tributário da loja: total, composição e o alerta quando o regime falta.

@@ -27,7 +27,8 @@ export type Achado = {
   matricula?: string;
   dia?: number;
 };
-export type CelulaCobertura = { hora: number; pessoas: number; ok: boolean };
+// `exigido`: as pessoas que a função precisa ter naquela hora (o mínimo do turno, ou o mínimo único).
+export type CelulaCobertura = { hora: number; pessoas: number; ok: boolean; exigido: number };
 export type CoberturaDia = { funcao: string; minimo: number; porHora: CelulaCobertura[] }[];
 
 const NOMES_DIA = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
@@ -181,7 +182,8 @@ export const avaliarSimulacao = (a: {
       const meus = doDia.filter((t) => funcaoDe.get(t.matricula) === funcao);
       const porHora = horas.map((hora) => {
         const pessoas = meus.filter((t) => presente(t, hora)).length;
-        return { hora, pessoas, ok: pessoas >= req.emHora(funcao, d.dia, hora) };
+        const exigido = req.emHora(funcao, d.dia, hora);
+        return { hora, pessoas, ok: pessoas >= exigido, exigido };
       });
       const faltas = porHora.filter((c) => !c.ok).map((c) => c.hora);
       const minimoNasFaltas = Math.max(0, ...faltas.map((h) => req.emHora(funcao, d.dia, h)));

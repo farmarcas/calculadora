@@ -1,7 +1,7 @@
 import { Botao } from "../../../components/ui/index.jsx";
 import FaixaDosDias from "./FaixaDosDias.jsx";
 import PillDeStatus from "./PillDeStatus.jsx";
-import { estadoVisual, faixaDosDias, rotuloDoStatus, seloDaLinha, textoContratar, textoDaVariacao, textoDoTotal, textoIndisponivel } from "./linha-regras.js";
+import { estadoVisual, faixaDosDias, rotuloDoStatus, textoContratar, textoDaVariacao, textoDoTotal, textoIndisponivel } from "./linha-regras.js";
 import { COR_DO_TOM } from "./tom.js";
 
 const COR_VARIACAO = { ...COR_DO_TOM, mudo: "var(--text-secondary)" };
@@ -20,26 +20,25 @@ const Variacao = ({ v }) => (
   </>
 );
 
-// Uma linha por cenário, sem nenhum valor em reais: cenário (selo, nome e status), contratar, horário (total e os sete dias),
+// Uma linha por cenário, sem nenhum valor em reais: cenário (nome e status), contratar, horário (total e os sete dias),
 // variação da venda e do custo de pessoal em %, e o botão. A faixa amarela diz a causa quando há consequência.
-export default function LinhaDeCenario({ linha, antes, sugerido, dono, podeEscrever, ocupado, onPersonalizar }) {
-  const estado = estadoVisual(linha, { sugerido });
+export default function LinhaDeCenario({ linha, antes, dono, podeEscrever, ocupado, onPersonalizar }) {
+  const estado = estadoVisual(linha);
   const status = rotuloDoStatus(linha.status);
   const indisponivel = estado === "indisponivel";
   const rebaixado = estado === "rebaixado";
   const idTitulo = `cenario-${linha.id}-nome`;
   const total = textoDoTotal(linha.horasSemana, linha.horasDiferenca);
 
-  const fundo = estado === "sugerido" ? "bg-[var(--color-primary-soft)]" : rebaixado || indisponivel ? "bg-[var(--surface-subtle)]" : "bg-[var(--surface-card)]";
-  const barra = estado === "sugerido" ? "w-1 bg-[var(--system-500)]" : rebaixado ? "w-1.5 bg-[var(--func-warning-300)]" : null;
+  const fundo = rebaixado || indisponivel ? "bg-[var(--surface-subtle)]" : "bg-[var(--surface-card)]";
+  const barra = rebaixado ? "w-1.5 bg-[var(--func-warning-300)]" : null;
 
   return (
     <section aria-labelledby={idTitulo} data-estado={estado} className={`linha-cenario relative border-b border-[var(--border-subtle)] last:border-b-0 ${fundo}`}>
       {barra && <span aria-hidden="true" className={`absolute top-0 bottom-0 left-0 ${barra}`} />}
 
       <Celula>
-        <div className={`text-[11px] leading-4 font-bold tracking-wide ${estado === "sugerido" ? "text-[var(--color-primary)]" : "text-[var(--text-secondary)]"}`}>{seloDaLinha(estado === "sugerido")}</div>
-        <h3 id={idTitulo} className={`m-0 mt-0.5 text-base leading-5 font-bold ${rebaixado || indisponivel ? "text-[var(--text-secondary)]" : "text-[var(--text-strong)]"}`}>{linha.nome}</h3>
+        <h3 id={idTitulo} className={`m-0 text-base leading-5 font-bold ${rebaixado || indisponivel ? "text-[var(--text-secondary)]" : "text-[var(--text-strong)]"}`}>{linha.nome}</h3>
         {linha.igualA && <div className="text-[11px] leading-4 text-[var(--text-secondary)]">Igual a {linha.igualA}</div>}
         {status && <div className="mt-1.5"><PillDeStatus rotulo={status} rebaixado={rebaixado} /></div>}
         {indisponivel && <div className="mt-1.5 text-[11px] leading-4 text-[var(--text-secondary)]">Indisponível</div>}
@@ -66,7 +65,7 @@ export default function LinhaDeCenario({ linha, antes, sugerido, dono, podeEscre
 
       <div className="linha-acao flex items-start">
         {podeEscrever && (
-          <Botao tipo={indisponivel || rebaixado ? "neutro" : sugerido ? "primario" : "secundario"} className="w-full" disabled={ocupado || indisponivel} aria-label={`Personalizar ${linha.nome}`} onClick={onPersonalizar}>
+          <Botao tipo={indisponivel || rebaixado ? "neutro" : "secundario"} className="w-full" disabled={ocupado || indisponivel} aria-label={`Personalizar ${linha.nome}`} onClick={onPersonalizar}>
             Personalizar
           </Botao>
         )}

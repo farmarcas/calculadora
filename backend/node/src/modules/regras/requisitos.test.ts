@@ -147,3 +147,27 @@ describe('cobertura e simulação com exigência por turno', () => {
     expect(cob.porHora.find((h) => h.hora === 15)!.ok).toBe(false);
   });
 });
+
+describe('minimosIguais: a ordem das chaves não importa', () => {
+  const nosTurnos: MinimosPorFatia = {
+    fatias: [{ de: 7, ate: 10, minimos: { Caixa: 0, Atendimento: 1, Farmacêutico: 1 }, nome: 'Manhã' }],
+    reserva: { Caixa: 0, Atendimento: 1, Farmacêutico: 1 },
+  };
+  // O mesmo conteúdo na ordem em que o Postgres (jsonb) devolve as chaves: por tamanho, não pela ordem em que foram gravadas.
+  const doBanco: MinimosPorFatia = {
+    reserva: { Caixa: 0, Atendimento: 1, Farmacêutico: 1 },
+    fatias: [{ de: 7, ate: 10, nome: 'Manhã', minimos: { Farmacêutico: 1, Caixa: 0, Atendimento: 1 } }],
+  };
+  it('o mesmo mínimo por turno com as chaves em outra ordem é igual', () => {
+    expect(JSON.stringify(nosTurnos)).not.toBe(JSON.stringify(doBanco));
+    expect(minimosIguais(nosTurnos, doBanco)).toBe(true);
+  });
+  it('mínimos diferentes continuam diferentes', () => {
+    expect(minimosIguais(nosTurnos, { ...doBanco, reserva: { Caixa: 0, Atendimento: 2, Farmacêutico: 1 } })).toBe(false);
+    expect(minimosIguais(nosTurnos, { fatias: [{ ...doBanco.fatias[0]!, ate: 11 }], reserva: doBanco.reserva })).toBe(false);
+  });
+  it('a ordem dos turnos conta (é outro desenho do dia)', () => {
+    const dois: MinimosPorFatia = { fatias: [...nosTurnos.fatias, { de: 10, ate: 16, minimos: { Farmacêutico: 1 }, nome: 'Tarde' }], reserva: nosTurnos.reserva };
+    expect(minimosIguais(dois, { ...dois, fatias: [dois.fatias[1]!, dois.fatias[0]!] })).toBe(false);
+  });
+});

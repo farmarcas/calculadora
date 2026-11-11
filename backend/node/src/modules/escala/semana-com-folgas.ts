@@ -18,6 +18,8 @@ export type HorarioPessoa = {
   saida: number;
   iniIntervalo: number | null;
   fimIntervalo: number | null;
+  // Horário fixo no Cadastro: o esticamento (spec 046) não mexe no turno dessa pessoa.
+  fixo?: boolean;
 };
 export type CelulaHora = { hora: number; pessoas: number; exigido: number };
 export type CoberturaFuncao = Record<number, CelulaHora[]>;
@@ -39,6 +41,8 @@ export type SemanaComFolgas = {
   retirados: { matricula: string; dia: number }[];
   avisos: string[];
   domingoSugerido: boolean;
+  // Spec 046: os turnos que cresceram até o limite da regra (de, para).
+  esticados: { matricula: string; dia: number; de: string; para: string }[];
   funcoes: Record<string, ResultadoFuncao>;
 };
 
@@ -278,6 +282,129 @@ export const ajustarJornada = (
   return saida;
 };
 
+
+// ---- Esticar os turnos até o limite (spec 046) --------------------------------------------------------------------------
+
+const INTERJORNADA_H = 11;
+
+// Depois das folgas e do corte de jornada, aumenta os turnos de quem trabalha menos que o limite (o menor entre a carga
+// contratada e o teto da regra), só onde a função ainda está sem cobertura: hora inteira a hora inteira, no fim do turno e,
+// se não couber, no começo. Respeita o máximo de horas por dia, o horário da loja e as 11 h de descanso entre os dias.
+// Quem tem horário fixo não entra. A falta só diminui. O horário de antes fica em `antes`.
+export const esticarTurnos = (a: {
+  turnos: TurnoSim[];
+  horarios: HorarioPessoa[];
+  dias: DiaAberto[];
+  regra: Pick<Regra, 'dias' | 'maxDia' | 'teto'>;
+  minimos: Minimos;
+}): { turnos: TurnoSim[]; esticados: { matricula: string; dia: number; de: string; para: string }[] } => {
+  const teto = tetoEfetivo(a.regra as Regra);
+  const req = requisitos(a.minimos);
+  const exigidas = [...new Set([FARMACEUTICO, ...req.funcoes])];
+  const funcaoDe = new Map(a.horarios.map((h) => [h.matricula, h.funcao]));
+  const atuais = a.turnos.map((t) => ({ ...t }));
+  const esticados: { matricula: string; dia: number; de: string; para: string }[] = [];
+  const diaAberto = (dia: number) => a.dias.find((d) => d.dia === dia);
+  const hhmm = (h: number) => {
+    const m = Math.round(h * 60);
+    return `${String(Math.floor(m / 60)).padStart(2, '0')}h${m % 60 ? String(m % 60).padStart(2, '0') : ''}`;
+  };
+  const semanaDe = (m: string) =>
+    atuais.filter((t) => t.matricula === m).reduce((s, t) => s + liquidaDe(t), 0);
+  const descansoOk = (m: string, dia: number, entrada: number, saida: number) => {
+    const doDia = (d: number) => atuais.find((t) => t.matricula === m && t.dia === (d + 7) % 7);
+    const prox = doDia(dia + 1);
+    const ant = doDia(dia - 1);
+    return (
+      (!prox || 24 - saida + prox.entrada >= INTERJORNADA_H - EPS) &&
+      (!ant || 24 - ant.saida + entrada >= INTERJORNADA_H - EPS)
+    );
+  };
+
+  for (const funcao of exigidas) {
+    const gente = a.horarios
+      .filter((h) => h.funcao === funcao && !h.fixo)
+      .map((h) => ({ h, limite: Math.min(h.cargaH, teto) }))
+      .filter((x) => atuais.some((t) => t.matricula === x.h.matricula))
+      .sort(
+        (x, y) =>
+          y.limite - semanaDe(y.h.matricula) - (x.limite - semanaDe(x.h.matricula)) ||
+          x.h.matricula.localeCompare(y.h.matricula),
+      );
+    for (const { h, limite } of gente) {
+      for (let volta = 0; volta < 40; volta++) {
+        if (semanaDe(h.matricula) >= limite - EPS) break;
+        // Em cada dia que a pessoa trabalha, vê se a hora logo depois (ou antes) do turno tem falta e cabe.
+        let melhor: { idx: number; lado: 'fim' | 'inicio'; falta: number } | null = null;
+        for (let idx = 0; idx < atuais.length; idx++) {
+          const t = atuais[idx]!;
+          if (t.matricula !== h.matricula) continue;
+          const d = diaAberto(t.dia);
+          if (!d) continue;
+          const daFuncaoNoDia = atuais.filter(
+            (x) => x.dia === t.dia && funcaoDe.get(x.matricula) === funcao,
+          );
+          const cob = coberturaDaFuncao(funcao, daFuncaoNoDia, [d], a.minimos)[t.dia] ?? [];
+          const falta = cob.filter((c) => c.pessoas < c.exigido).length;
+          const curta = (hora: number) => cob.some((c) => c.hora === hora && c.pessoas < c.exigido);
+          const folgaDia = a.regra.maxDia - liquidaDe(t);
+          const folgaSemana = limite - semanaDe(h.matricula);
+          const passo = (n: number) => n <= folgaDia + EPS && n <= folgaSemana + EPS;
+          const horaFim = Math.floor(t.saida + EPS);
+          const passoFim = horaFim + 1 - t.saida;
+          if (
+            curta(horaFim) &&
+            t.saida + passoFim <= d.fecha + EPS &&
+            passo(passoFim) &&
+            descansoOk(h.matricula, t.dia, t.entrada, t.saida + passoFim) &&
+            (!melhor || falta > melhor.falta)
+          )
+            melhor = { idx, lado: 'fim', falta };
+          else {
+            const horaIni = Math.ceil(t.entrada - EPS) - 1;
+            const passoIni = t.entrada - horaIni;
+            if (
+              horaIni >= d.abre - EPS &&
+              curta(horaIni) &&
+              passo(passoIni) &&
+              descansoOk(h.matricula, t.dia, t.entrada - passoIni, t.saida) &&
+              (!melhor || falta > melhor.falta)
+            )
+              melhor = { idx, lado: 'inicio', falta };
+          }
+        }
+        if (!melhor) break;
+        const t = atuais[melhor.idx]!;
+        const antes = t.antes ?? { entrada: t.entrada, saida: t.saida };
+        const novo: TurnoSim = { ...t, antes };
+        if (melhor.lado === 'fim') novo.saida = Math.floor(t.saida + EPS) + 1;
+        else novo.entrada = Math.ceil(t.entrada - EPS) - 1;
+        // Passou de 6 h: entra 1 h de intervalo, sem passar do máximo do dia (a hora de intervalo não conta).
+        if (
+          novo.iniIntervalo == null &&
+          novo.saida - novo.entrada > HORAS_SEM_INTERVALO + EPS
+        ) {
+          const iv = intervaloEscolhido(novo.entrada, novo.saida, []);
+          novo.iniIntervalo = iv.iniIntervalo;
+          novo.fimIntervalo = iv.fimIntervalo;
+        }
+        if (liquidaDe(novo) > a.regra.maxDia + EPS) break;
+        atuais[melhor.idx] = novo;
+        const ja = esticados.findIndex((e) => e.matricula === novo.matricula && e.dia === novo.dia);
+        const registro = {
+          matricula: novo.matricula,
+          dia: novo.dia,
+          de: `${hhmm(antes.entrada)}–${hhmm(antes.saida)}`,
+          para: `${hhmm(novo.entrada)}–${hhmm(novo.saida)}`,
+        };
+        if (ja >= 0) esticados[ja] = registro;
+        else esticados.push(registro);
+      }
+    }
+  }
+  return { turnos: atuais, esticados };
+};
+
 // ---- Contratações ------------------------------------------------------------------------------------------------------
 
 // O intervalo de 1 h no meio do turno longo, escolhido onde não abre falta: a hora de almoço não pode cair onde a função já
@@ -359,7 +486,16 @@ export const semanaComFolgas = (a: {
   minimos: Minimos;
   horarios: HorarioPessoa[];
 }): SemanaComFolgas => {
-  const folgas = aplicarFolgas(a);
+  const folgasBase = aplicarFolgas(a);
+  // Spec 046: depois das folgas, os turnos de quem trabalha menos que o limite crescem onde falta cobertura.
+  const esticado = esticarTurnos({
+    turnos: folgasBase.turnos,
+    horarios: a.horarios,
+    dias: a.dias,
+    regra: a.regra,
+    minimos: a.minimos,
+  });
+  const folgas = { ...folgasBase, turnos: esticado.turnos };
   const req = requisitos(a.minimos);
   const exigidas = [...new Set([FARMACEUTICO, ...req.funcoes])];
   const funcaoDe = new Map(a.horarios.map((h) => [h.matricula, h.funcao]));
@@ -429,6 +565,7 @@ export const semanaComFolgas = (a: {
     retirados: folgas.retirados,
     avisos: folgas.avisos,
     domingoSugerido: folgas.domingoSugerido,
+    esticados: esticado.esticados,
     funcoes,
   };
 };

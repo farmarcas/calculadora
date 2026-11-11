@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { ajustarJornada, pessoasParaFolgar, sugerirFolgas, textoDoRodizio } from "./folgas-regras.js";
+import { textoDoEsticamento, turnoEsticado, turnosParaGravar } from "./escala-regras.js";
+import { esticarTurnos, ajustarJornada, pessoasParaFolgar, sugerirFolgas, textoDoRodizio } from "./folgas-regras.js";
 
 const horas = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17];
 const abas = (n = 7) => Array.from({ length: n }, (_, dia) => ({ dia, abre: 8, fecha: 18 }));
@@ -107,5 +108,42 @@ describe("ajustarJornada", () => {
     const q = [...gente("A"), { matricula: "V", nome: "V", funcao: "Caixa", cargaH: 16, vaga: true }];
     const ts = [...semana("A", 5).map((x) => ({ ...x, saida: 16 })), ...semana("V", 2).map((x) => ({ ...x, matricula: "V", saida: 19 }))];
     expect(ajustarJornada(ts, q, regra)).toEqual(ts);
+  });
+});
+
+describe("esticarTurnos (spec 046)", () => {
+  const regra = { dias: 5, maxDia: 8.4, teto: 42 };
+  const abas = [0, 1, 2, 3, 4].map((dia) => ({ dia, abre: 7, fecha: 22 }));
+  const q = [{ matricula: "A", nome: "A", funcao: "Farmacêutico", cargaH: 44 }];
+  const ts = [0, 1, 2, 3, 4].map((dia) => ({ matricula: "A", dia, entrada: 7, saida: 15, iniIntervalo: 11, fimIntervalo: 12 }));
+  const horas = Array.from({ length: 15 }, (_, i) => 7 + i);
+  const cobertura = Object.fromEntries(abas.map((a) => [a.dia, [{ funcao: "Farmacêutico", porHora: horas.map((hora) => ({ hora, pessoas: hora >= 7 && hora < 15 ? 1 : 0, ok: hora < 15, exigido: 1 })) }]]));
+  const liquida = (t) => t.saida - t.entrada - (t.fimIntervalo - t.iniIntervalo);
+  it("estica o fim onde falta cobertura, guarda o antes e não passa do máximo do dia nem do limite da semana", () => {
+    const r = esticarTurnos({ turnos: ts, quadro: q, cobertura, abas, regra });
+    for (const t of r) {
+      expect(t.saida).toBeGreaterThan(15);
+      expect(liquida(t)).toBeLessThanOrEqual(8.4 + 1e-9);
+      expect(t.antes).toEqual({ entrada: 7, saida: 15 });
+    }
+    expect(r.reduce((s, t) => s + liquida(t), 0)).toBeLessThanOrEqual(42 + 1e-9);
+  });
+  it("vagas e quem já está no limite não mudam; sem falta, nada muda", () => {
+    // com B cobrindo das 15h às 22h não há falta, e A não cresce
+    const qB = [...q, { matricula: "B", nome: "B", funcao: "Farmacêutico", cargaH: 44 }];
+    const tsB = [...ts, ...[0, 1, 2, 3, 4].map((dia) => ({ matricula: "B", dia, entrada: 15, saida: 22, iniIntervalo: 18, fimIntervalo: 19 }))];
+    expect(esticarTurnos({ turnos: tsB, quadro: qB, cobertura, abas, regra })).toEqual(tsB);
+    const vaga = [{ ...q[0], vaga: true }];
+    expect(esticarTurnos({ turnos: ts, quadro: vaga, cobertura, abas, regra })).toEqual(ts);
+    const noLimite = [{ ...q[0], cargaH: 35 }];
+    expect(esticarTurnos({ turnos: ts, quadro: noLimite, cobertura, abas, regra })).toEqual(ts);
+  });
+  it("turnoEsticado e o texto da dica; turnosParaGravar leva o antes só quando é diferente", () => {
+    const t = { matricula: "A", dia: 0, entrada: 7, saida: 16, iniIntervalo: 11, fimIntervalo: 12, antes: { entrada: 7, saida: 15 } };
+    expect(turnoEsticado(t)).toBe(true);
+    expect(textoDoEsticamento(t, 42)).toBe("Turno aumentado de 07h–15h para 07h–16h para cobrir a falta, dentro do limite de 42h");
+    expect(turnosParaGravar([t])[0].antes).toEqual({ entrada: 7, saida: 15 });
+    expect(turnosParaGravar([{ ...t, saida: 15 }])[0].antes).toBeUndefined();
+    expect(turnoEsticado({ ...t, antes: undefined })).toBe(false);
   });
 });

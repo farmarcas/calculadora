@@ -311,6 +311,9 @@ model SimulacaoTurno {
   saida        Float
   iniIntervalo Float?  @map("ini_intervalo")
   fimIntervalo Float?  @map("fim_intervalo")
+  // Spec 046: o horário do Cadastro de antes de o turno ser esticado até o limite da regra (nulos quando não foi esticado).
+  antesEntrada Float?  @map("antes_entrada")
+  antesSaida   Float?  @map("antes_saida")
 
   simulacao Simulacao @relation(fields: [simulacaoId], references: [id], onDelete: Cascade)
 

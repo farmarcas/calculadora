@@ -1,5 +1,5 @@
 import { COR_DA_FUNCAO } from "./LinhaDaFuncao.jsx";
-import { celulasDaFuncao, mediaDoDia, minimoDaFuncao, quartis, rotuloHora, textoDoIntervalo, textoDoTurno, tomDoQuartil, totalDaSemana } from "./escala-regras.js";
+import { celulasDaFuncao, mediaDoDia, minimoDaFuncao, quartis, rotuloHora, textoDoIntervalo, textoDoTurno, tomDoQuartil, totalDaSemana, turnoEsticado } from "./escala-regras.js";
 
 const FUNDO = ["var(--escala-tom-0)", "var(--escala-tom-1)", "var(--escala-tom-2)", "var(--escala-tom-3)"];
 const TEXTO = ["var(--text-strong)", "var(--text-strong)", "#fff", "#fff"];
@@ -93,6 +93,7 @@ export default function EscalaMobile({ horas, dono, vendaDia, clientesDia, temBa
                         <div className="font-bold text-[var(--text-strong)]">{t ? textoDoTurno(t) : simulada && total.dias === 0 ? "Sem turnos" : "Folga"}</div>
                         <div className="text-[var(--text-secondary)]">{total.texto}</div>
                         {t && textoDoIntervalo(t) && <div className="text-[var(--text-secondary)]">intervalo {textoDoIntervalo(t)}</div>}
+                        {t && turnoEsticado(t) && <div className="font-bold text-[var(--color-primary)]" data-testid="turno-ajustado">ajustado (antes {textoDoTurno(t.antes)})</div>}
                       </div>
                     </li>
                   );

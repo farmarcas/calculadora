@@ -195,6 +195,8 @@ export const montarDiagnostico = (a: {
     saida: t.saida,
     iniIntervalo: t.iniIntervalo,
     fimIntervalo: t.fimIntervalo,
+    // Horário fixo no Cadastro: o esticamento (spec 046) não mexe no turno.
+    fixo: a.horarioFixo?.has(t.matricula) ?? false,
   }));
 
   const regras = REGRA_IDS.map((id: RegraId) => {

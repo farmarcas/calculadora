@@ -17,14 +17,15 @@ const vagasDeCenario = (c) =>
     ];
   });
 
-// Os três cenários em linhas (Equilíbrio, Manter horários, Sem contratações) para a regra escolhida, sem valores em reais:
+// Os cenários em linhas (Manter horários e Sem contratações; o Equilíbrio está oculto) para a regra escolhida, sem valores em reais:
 // o horário, o que contratar e a variação de venda e de custo de pessoal em %. As linhas vêm prontas do servidor, iguais
 // para dono, gestor e consulta. Nenhum cenário vem destacado como sugerido.
 export default function Comparativo({ comparativo, cenarios, lojaId, podeEscrever, onSimular }) {
   const [ocupado, setOcupado] = useState(false);
   const [erro, setErro] = useState(null);
   if (!comparativo) return null;
-  const linhas = cenarios?.linhas ?? [];
+  // O cenário Equilíbrio fica oculto na tela; o servidor continua calculando.
+  const linhas = (cenarios?.linhas ?? []).filter((l) => l.id !== "equilibrio");
   const dono = comparativo.cenarios?.[0]?.custoFolhaMensal !== undefined;
   const antes = cenarios?.manter?.horarioSemana ?? [];
 

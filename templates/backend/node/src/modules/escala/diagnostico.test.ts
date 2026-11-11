@@ -185,13 +185,15 @@ describe('montarDiagnostico', () => {
       expect(f).toMatchObject({
         necessidadeH: 98,
         necessidadeT: 14,
-        // Spec 043: com as folgas (1 por pessoa na regra de 44h), falta cobrir 14 h: segunda de manhã e terça à tarde.
-        capacidadeH: 84,
-        saldoH: -14,
+        // Spec 043: com as folgas (1 por pessoa na regra de 44h), faltariam 14 h (segunda de manhã e terça à tarde). Specs 046 e
+        // 047: o outro farmacêutico completa o turno até a jornada cheia da regra de 44h (7h20 por dia, 6 dias), 20 min por
+        // dia nos dias de folga, e faltam 12 h.
+        capacidadeH: 86,
+        saldoH: -12,
         saldoT: -2,
         falta: true,
         contratar: 1,
-        gapH: 14,
+        gapH: 12,
         // Spec 044: só integral, sem parcial
         parcialTurnos: 0,
         parcialH: null,

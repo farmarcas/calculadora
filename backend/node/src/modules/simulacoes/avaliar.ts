@@ -19,6 +19,8 @@ export type TurnoSim = {
   saida: number;
   iniIntervalo: number | null;
   fimIntervalo: number | null;
+  // Spec 046: o horário do Cadastro de antes de o turno ser esticado até o limite da regra (ausente quando não foi esticado).
+  antes?: { entrada: number; saida: number };
 };
 
 export type Achado = {

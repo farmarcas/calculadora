@@ -201,7 +201,7 @@ export default function EscalaPorHora({ sim, editavel, dono, calculando = false,
                 {!recolhidas.has(f) && (
                   <>
                     {pessoas.map((p) => (
-                      <LinhaDaPessoa key={p.matricula} pessoa={p} turno={turnoDoDiaDe(turnos, p.matricula, dia)} turnosDaPessoa={turnos.filter((t) => t.matricula === p.matricula)} ini={ini} fim={fim} colunas={colunas} selecionado={selecionado === p.matricula} onSelecionar={() => setSelecionado(p.matricula)} editavel={editavel} onMudar={(t, fim2) => mudarTurno(p.matricula, t, fim2)} onCriarTurno={() => criarTurno(p.matricula)} />
+                      <LinhaDaPessoa key={p.matricula} limiteH={Math.min(p.cargaH, sim.regraInfo.teto, sim.regraInfo.dias * sim.regraInfo.maxDia)} pessoa={p} turno={turnoDoDiaDe(turnos, p.matricula, dia)} turnosDaPessoa={turnos.filter((t) => t.matricula === p.matricula)} ini={ini} fim={fim} colunas={colunas} selecionado={selecionado === p.matricula} onSelecionar={() => setSelecionado(p.matricula)} editavel={editavel} onMudar={(t, fim2) => mudarTurno(p.matricula, t, fim2)} onCriarTurno={() => criarTurno(p.matricula)} />
                     ))}
                     {simuladas.map((s) => {
                       const p = quadro.find((x) => x.matricula === s.matricula);

@@ -56,6 +56,114 @@ export const ajustarJornada = (turnos, quadro, regra) => {
   return saida;
 };
 
+
+// ---- Esticar os turnos até o limite (spec 046) ------------------------------------------------------------------------
+
+const INTERJORNADA_H = 11;
+
+// Aumenta os turnos de quem trabalha menos que o limite (o menor entre a carga e o teto da regra), só onde a função ainda está
+// sem cobertura: hora inteira a hora inteira, no fim do turno e, se não couber, no começo. Respeita o máximo de horas por dia,
+// o horário da loja (`abas`) e as 11 h de descanso entre os dias. Vagas simuladas não entram. Mesmo critério do servidor
+// (escala/semana-com-folgas.ts). O horário de antes fica em `antes`.
+export const esticarTurnos = ({ turnos, quadro, cobertura, abas, regra }) => {
+  if (!regra?.maxDia) return turnos;
+  const teto = Math.min(regra.teto ?? Infinity, (regra.dias ?? 7) * regra.maxDia);
+  // A jornada cheia de um dia (spec 047): 8h24 com a convenção, 8h sem ela, 7h20 na regra de 44h. Nenhum dia passa disso.
+  const jornadaDia = Math.min(regra.maxDia, teto / (regra.dias ?? 7));
+  const funcaoDe = new Map(quadro.filter((p) => !p.desligado && p.funcao).map((p) => [p.matricula, p.funcao]));
+  const atuais = turnos.map((t) => ({ ...t }));
+  const semanaDe = (m) => atuais.filter((t) => t.matricula === m).reduce((s, t) => s + liquidaDe(t), 0);
+  const descansoOk = (m, dia, entrada, saida) => {
+    const doDia = (d) => atuais.find((t) => t.matricula === m && t.dia === (d + 7) % 7);
+    const prox = doDia(dia + 1);
+    const ant = doDia(dia - 1);
+    return (!prox || 24 - saida + prox.entrada >= INTERJORNADA_H - EPS) && (!ant || 24 - ant.saida + entrada >= INTERJORNADA_H - EPS);
+  };
+  const funcoes = [...new Set(Object.values(cobertura ?? {}).flat().map((c) => c.funcao))];
+  for (const funcao of funcoes) {
+    const gente = quadro
+      .filter((p) => p.funcao === funcao && !p.vaga && !p.desligado && atuais.some((t) => t.matricula === p.matricula))
+      .map((p) => ({ p, limite: Math.min(p.cargaH, teto) }))
+      .sort((x, y) => y.limite - semanaDe(y.p.matricula) - (x.limite - semanaDe(x.p.matricula)) || String(x.p.matricula).localeCompare(String(y.p.matricula)));
+    for (const { p, limite } of gente) {
+      for (let volta = 0; volta < 40; volta++) {
+        if (semanaDe(p.matricula) >= limite - EPS) break;
+        let melhor = null;
+        for (let idx = 0; idx < atuais.length; idx++) {
+          const t = atuais[idx];
+          if (t.matricula !== p.matricula) continue;
+          const aba = abas.find((a) => a.dia === t.dia);
+          const base = cobertura?.[t.dia]?.find((c) => c.funcao === funcao);
+          if (!aba || !base) continue;
+          const cob = recalcularCobertura(base, atuais.filter((x) => x.dia === t.dia && funcaoDe.get(x.matricula) === funcao)).porHora;
+          const falta = cob.filter((c) => c.pessoas < c.exigido).length;
+          const curta = (hora) => cob.some((c) => c.hora === hora && c.pessoas < c.exigido);
+          const folgaDia = jornadaDia - liquidaDe(t);
+          const folgaSemana = limite - semanaDe(p.matricula);
+          const passo = (n) => n <= folgaDia + EPS && n <= folgaSemana + EPS;
+          const horaFim = Math.floor(t.saida + EPS);
+          const passoFim = horaFim + 1 - t.saida;
+          if (curta(horaFim) && t.saida + passoFim <= aba.fecha + EPS && passo(passoFim) && descansoOk(p.matricula, t.dia, t.entrada, t.saida + passoFim) && (!melhor || falta > melhor.falta)) melhor = { idx, lado: "fim", falta };
+          else {
+            const horaIni = Math.ceil(t.entrada - EPS) - 1;
+            const passoIni = t.entrada - horaIni;
+            if (horaIni >= aba.abre - EPS && curta(horaIni) && passo(passoIni) && descansoOk(p.matricula, t.dia, t.entrada - passoIni, t.saida) && (!melhor || falta > melhor.falta)) melhor = { idx, lado: "inicio", falta };
+          }
+        }
+        if (!melhor) break;
+        const t = atuais[melhor.idx];
+        const novo = { ...t, antes: t.antes ?? { entrada: t.entrada, saida: t.saida } };
+        if (melhor.lado === "fim") novo.saida = Math.floor(t.saida + EPS) + 1;
+        else novo.entrada = Math.ceil(t.entrada - EPS) - 1;
+        if (novo.iniIntervalo == null && novo.saida - novo.entrada > 6 + EPS) {
+          const meio = novo.entrada + Math.floor((novo.saida - novo.entrada) / 2);
+          novo.iniIntervalo = meio;
+          novo.fimIntervalo = meio + 1;
+        }
+        if (liquidaDe(novo) > jornadaDia + EPS) break;
+        atuais[melhor.idx] = novo;
+      }
+    }
+  }
+  // Fase 2 (spec 047): todos trabalham a jornada cheia em cada dia que já trabalham, mesmo sem falta (mesmo critério do servidor).
+  const minuto = (h) => Math.floor(h * 60 + 1e-6) / 60;
+  const gente2 = quadro.filter((p) => !p.vaga && !p.desligado && atuais.some((t) => t.matricula === p.matricula)).sort((x, y) => String(x.matricula).localeCompare(String(y.matricula)));
+  for (const p of gente2) {
+    const limite = Math.min(p.cargaH, teto);
+    const idxs = atuais.map((t, i) => ({ t, i })).filter((x) => x.t.matricula === p.matricula).sort((x, y) => x.t.dia - y.t.dia);
+    for (const { i } of idxs) {
+      const t = atuais[i];
+      const aba = abas.find((a) => a.dia === t.dia);
+      const faltaSemana = limite - semanaDe(p.matricula);
+      const net = liquidaDe(t);
+      if (!aba || net >= jornadaDia - EPS || faltaSemana <= EPS) continue;
+      const alvo = Math.min(jornadaDia, net + faltaSemana);
+      const iv = t.iniIntervalo != null && t.fimIntervalo != null ? t.fimIntervalo - t.iniIntervalo : 0;
+      const grossAlvo = alvo + (iv > 0 ? iv : alvo > 6 + EPS ? 1 : 0);
+      let preciso = minuto(grossAlvo - (t.saida - t.entrada));
+      if (preciso <= EPS) continue;
+      const prox = atuais.find((x) => x.matricula === p.matricula && x.dia === (t.dia + 1) % 7);
+      const ant = atuais.find((x) => x.matricula === p.matricula && x.dia === (t.dia + 6) % 7);
+      const limiteFim = Math.min(aba.fecha, prox ? 24 + prox.entrada - INTERJORNADA_H : 24);
+      const limiteIni = Math.max(aba.abre, ant ? ant.saida - 24 + INTERJORNADA_H : 0);
+      const noFim = minuto(Math.max(0, Math.min(preciso, limiteFim - t.saida)));
+      preciso -= noFim;
+      const noIni = minuto(Math.max(0, Math.min(preciso, t.entrada - limiteIni)));
+      if (noFim + noIni <= EPS) continue;
+      const novo = { ...t, antes: t.antes ?? { entrada: t.entrada, saida: t.saida }, entrada: t.entrada - noIni, saida: t.saida + noFim };
+      if (novo.iniIntervalo == null && novo.saida - novo.entrada > 6 + EPS) {
+        const meio = novo.entrada + Math.floor((novo.saida - novo.entrada) / 2);
+        novo.iniIntervalo = meio;
+        novo.fimIntervalo = meio + 1;
+      }
+      if (liquidaDe(novo) > jornadaDia + EPS) continue;
+      atuais[i] = novo;
+    }
+  }
+  return atuais;
+};
+
+
 // Sugere as folgas. `cobertura` é a cobertura por dia e função ({ [dia]: [{ funcao, porHora }] }) e `abas` os dias abertos.
 export const sugerirFolgas = ({ quadro = [], turnos = [], cobertura = {}, abas = [], regra }) => {
   const limite = regra?.dias ?? 7;
@@ -149,5 +257,6 @@ export const sugerirFolgas = ({ quadro = [], turnos = [], cobertura = {}, abas =
   }
 
   atuais = ajustarJornada(atuais, quadro, regra);
+  atuais = esticarTurnos({ turnos: atuais, quadro, cobertura, abas, regra });
   return { turnos: atuais, retirados, avisos, domingoSugerido };
 };

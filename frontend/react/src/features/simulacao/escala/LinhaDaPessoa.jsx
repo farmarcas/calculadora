@@ -1,11 +1,11 @@
 import { useRef, useState } from "react";
 import { COR_DA_FUNCAO } from "./LinhaDaFuncao.jsx";
-import { intervaloSemCobertura, posicaoDoIntervalo, textoDoIntervalo, textoDoTurno, totalDaSemana } from "./escala-regras.js";
+import { intervaloSemCobertura, posicaoDoIntervalo, textoDoEsticamento, textoDoIntervalo, textoDoTurno, totalDaSemana, turnoEsticado } from "./escala-regras.js";
 import { aplicarMovimento, movimentoPorTecla } from "./movimento-regras.js";
 
 // Uma pessoa no dia: o turno em barra sobre as colunas das horas, "Função · 44h" e o total da semana. Folga mostra a barra
 // tracejada. A contratação simulada é a linha azul, com "Remover" em vermelho.
-export default function LinhaDaPessoa({ pessoa, turno, turnosDaPessoa, ini, fim, colunas, simulada = false, selecionado = false, onSelecionar, onRemover, rotuloSimulada, editavel = false, onMudar, onCriarTurno, onSugerir, previa = false }) {
+export default function LinhaDaPessoa({ pessoa, turno, turnosDaPessoa, ini, fim, colunas, simulada = false, selecionado = false, onSelecionar, onRemover, rotuloSimulada, editavel = false, onMudar, onCriarTurno, onSugerir, previa = false, limiteH = null }) {
   const trilha = useRef(null);
   const [emGesto, setEmGesto] = useState(false); // durante o arrasto o turno ganha destaque e mostra o horário novo
   const janela = { min: ini, max: fim };
@@ -73,8 +73,8 @@ export default function LinhaDaPessoa({ pessoa, turno, turnosDaPessoa, ini, fim,
             onClick={onSelecionar}
             onPointerDown={(e) => comecar(e, "mover")}
             onKeyDown={tecla}
-            title={intervalo ? `Intervalo ${textoDoIntervalo(turno)}: ${intervaloSemCobertura(turno) ? "não precisa de cobertura (até 2 horas)" : "a pessoa não conta na cobertura nessa hora"}` : undefined}
-            aria-label={`${pessoa.nome}: turno ${textoDoTurno(turno)}${intervalo ? `, intervalo ${textoDoIntervalo(turno)}` : ""}${editavel ? ". Setas movem 15 minutos; com Shift, mudam a saída" : ""}`}
+            title={[turnoEsticado(turno) ? textoDoEsticamento(turno, limiteH) : null, intervalo ? `Intervalo ${textoDoIntervalo(turno)}: ${intervaloSemCobertura(turno) ? "não precisa de cobertura (até 2 horas)" : "a pessoa não conta na cobertura nessa hora"}` : null].filter(Boolean).join(". ") || undefined}
+            aria-label={`${pessoa.nome}: turno ${textoDoTurno(turno)}${intervalo ? `, intervalo ${textoDoIntervalo(turno)}` : ""}${turnoEsticado(turno) ? ", ajustado" : ""}${editavel ? ". Setas movem 15 minutos; com Shift, mudam a saída" : ""}`}
             aria-pressed={selecionado}
             className={`absolute top-0 flex h-7 min-w-0 items-center overflow-hidden rounded-btn px-2 text-left text-xs font-bold ${simulada ? `border-2 border-dashed border-[var(--system-500)] bg-[var(--color-primary-soft)] text-[var(--color-primary)] ${previa ? "opacity-90" : ""}` : escuro ? "border-0 text-white" : "border-0 text-[var(--system-900)]"} ${selecionado ? "outline outline-2 outline-[var(--system-500)]" : ""} ${editavel ? "cursor-grab touch-none" : ""} ${emGesto ? "z-10 cursor-grabbing shadow-card outline outline-2 outline-[var(--system-500)]" : ""}`}
             style={{ left: `${esq}%`, width: `${larg}%`, ...(simulada ? {} : { background: cor }) }}
@@ -90,6 +90,7 @@ export default function LinhaDaPessoa({ pessoa, turno, turnosDaPessoa, ini, fim,
             {editavel && <span aria-hidden="true" onPointerDown={(e) => comecar(e, "esq")} className="absolute inset-y-0 left-0 flex w-3 cursor-ew-resize items-center justify-center"><span className="h-3.5 w-0.5 rounded bg-current opacity-60" /></span>}
             {editavel && <span aria-hidden="true" onPointerDown={(e) => comecar(e, "dir")} className="absolute inset-y-0 right-0 flex w-3 cursor-ew-resize items-center justify-center"><span className="h-3.5 w-0.5 rounded bg-current opacity-60" /></span>}
             <span className={`truncate ${editavel ? "px-1" : ""}`}>{textoDoTurno(turno)} · {Math.round((turno.saida - turno.entrada - ((turno.fimIntervalo ?? 0) - (turno.iniIntervalo ?? 0))) * 10) / 10}h</span>
+            {turnoEsticado(turno) && <span data-testid="turno-ajustado" className="ml-1 shrink-0 rounded-sm bg-white/30 px-1 text-[10px] leading-3 font-bold uppercase">ajustado</span>}
           </button>
         ) : (
           <div className="absolute inset-0 flex items-center justify-center rounded-btn border border-dashed border-[var(--border-default)] text-xs text-[var(--text-secondary)]">

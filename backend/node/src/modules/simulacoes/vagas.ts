@@ -120,18 +120,21 @@ export const vagasSugeridas = (
     ]);
 };
 
-// O Cadastro pode ter horários com minutos fora dos quartos de hora (14h38); a simulação só guarda de 15 em 15 minutos. Cada
-// hora vai para o quarto mais perto, sem deixar a saída antes da entrada.
-const emQuarto = (h: number) => Math.round(h * 4) / 4;
-export const emQuartosDeHora = (turnos: TurnoSim[]): TurnoSim[] =>
+// A simulação guarda minutos inteiros (spec 047): o horário do Cadastro (14h38) fica como está; só some a fração de minuto que o
+// ponto flutuante deixa. Sem deixar a saída antes da entrada.
+const emMinuto = (h: number) => Math.round(h * 60) / 60;
+export const emMinutosDeHora = (turnos: TurnoSim[]): TurnoSim[] =>
   turnos.map((t) => {
-    const entrada = emQuarto(t.entrada);
+    const entrada = emMinuto(t.entrada);
     return {
       ...t,
       entrada,
-      saida: Math.max(emQuarto(t.saida), entrada + 0.25),
-      iniIntervalo: t.iniIntervalo == null ? null : emQuarto(t.iniIntervalo),
-      fimIntervalo: t.fimIntervalo == null ? null : emQuarto(t.fimIntervalo),
+      saida: Math.max(emMinuto(t.saida), entrada + 1 / 60),
+      iniIntervalo: t.iniIntervalo == null ? null : emMinuto(t.iniIntervalo),
+      fimIntervalo: t.fimIntervalo == null ? null : emMinuto(t.fimIntervalo),
+      ...(t.antes
+        ? { antes: { entrada: emMinuto(t.antes.entrada), saida: emMinuto(t.antes.saida) } }
+        : {}),
     };
   });
 

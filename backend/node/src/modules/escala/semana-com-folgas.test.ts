@@ -5,6 +5,7 @@ import {
   aplicarFolgas,
   coberturaDaFuncao,
   semanaComFolgas,
+  turnosParaVaga,
   faltaDaFuncao,
   turnosDosHorarios,
   type HorarioPessoa,
@@ -305,5 +306,73 @@ describe('esticarTurnos (spec 046)', () => {
       semEsticar.funcoes['Farmacêutico']!.faltaH,
     );
     expect(comEsticar.esticados.length).toBeGreaterThan(0);
+  });
+});
+
+describe('turnosParaVaga: a contratação integral trabalha a jornada cheia (spec 053)', () => {
+  const lojaDias = Array.from({ length: 7 }, (_, dia) => ({ dia, abre: 7, fecha: 22 }));
+  const liquida = (t: { entrada: number; saida: number; iniIntervalo?: number | null; fimIntervalo?: number | null }) =>
+    t.saida - t.entrada - (t.iniIntervalo != null && t.fimIntervalo != null ? t.fimIntervalo - t.iniIntervalo : 0);
+  // Falta de farmacêutico só das 07h às 13h, em 4 dias (seg a qui): antes só isso virava turno (6 h por dia).
+  const cobertura = () => {
+    const c: Record<number, { hora: number; pessoas: number; exigido: number }[]> = {};
+    for (let dia = 0; dia < 7; dia++)
+      c[dia] = Array.from({ length: 15 }, (_, i) => ({
+        hora: 7 + i,
+        pessoas: dia < 4 && i < 6 ? 0 : 1,
+        exigido: 1,
+      }));
+    return c;
+  };
+
+  it('42 h na regra de 42h (convenção de 8h24): cada turno vai a 8h24 e o contrato fecha em 5 dias', () => {
+    const regra = regraPara('r42', true);
+    const ts = turnosParaVaga({ cargaH: 42, cobertura: cobertura(), dias: lojaDias, regra });
+    expect(ts).toHaveLength(5);
+    for (const t of ts) expect(liquida(t)).toBeCloseTo(8.4, 2);
+    expect(ts.reduce((s, t) => s + liquida(t), 0)).toBeCloseTo(42, 2);
+    // a falta continua coberta: os quatro primeiros dias começam às 07h
+    for (const t of ts.filter((x) => x.dia < 4)) expect(t.entrada).toBe(7);
+  });
+
+  it('sem convenção (8h por dia): 40 h em 5 turnos de 8h; nunca passa do horário da loja', () => {
+    const regra = regraPara('r40', false);
+    const ts = turnosParaVaga({ cargaH: 40, cobertura: cobertura(), dias: lojaDias, regra });
+    expect(ts).toHaveLength(5);
+    for (const t of ts) {
+      expect(liquida(t)).toBeCloseTo(8, 2);
+      expect(t.entrada).toBeGreaterThanOrEqual(7);
+      expect(t.saida).toBeLessThanOrEqual(22);
+    }
+  });
+
+  it('respeita as 11 h de descanso entre os dias', () => {
+    const regra = regraPara('r42', true);
+    const ts = turnosParaVaga({ cargaH: 42, cobertura: cobertura(), dias: lojaDias, regra });
+    for (const t of ts) {
+      const prox = ts.find((x) => x.dia === (t.dia + 1) % 7);
+      if (prox) expect(24 - t.saida + prox.entrada).toBeGreaterThanOrEqual(11 - 1e-9);
+    }
+  });
+
+  it('o parcial (até 30 h) continua cobrindo só a falta', () => {
+    const regra = regraPara('r42', true);
+    const ts = turnosParaVaga({ cargaH: 20, cobertura: cobertura(), dias: lojaDias, regra });
+    for (const t of ts) expect(liquida(t)).toBeLessThanOrEqual(6 + 1e-9);
+    expect(ts.reduce((s, t) => s + liquida(t), 0)).toBeCloseTo(20, 0);
+  });
+
+  it('loja que abre pouco: o turno fica do tamanho do horário da loja', () => {
+    const regra = regraPara('r42', true);
+    const curta = Array.from({ length: 7 }, (_, dia) => ({ dia, abre: 9, fecha: 15 }));
+    // a cobertura só tem as horas abertas (09h às 15h), como no cálculo real
+    const cob = Object.fromEntries(
+      Object.entries(cobertura()).map(([dia, hs]) => [dia, hs.filter((c) => c.hora >= 9 && c.hora < 15).map((c) => ({ ...c, pessoas: 0 }))]),
+    );
+    const ts = turnosParaVaga({ cargaH: 42, cobertura: cob, dias: curta, regra });
+    for (const t of ts) {
+      expect(t.entrada).toBeGreaterThanOrEqual(9);
+      expect(t.saida).toBeLessThanOrEqual(15);
+    }
   });
 });

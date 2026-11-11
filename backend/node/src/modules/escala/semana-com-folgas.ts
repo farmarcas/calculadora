@@ -560,7 +560,82 @@ export const turnosParaVaga = (a: {
     });
     resta -= liquida;
   }
+  if (integral) completarJornadaDaVaga(turnos, a);
   return turnos.sort((x, y) => x.dia - y.dia);
+};
+
+// A contratação integral também trabalha a jornada cheia (spec 053, a mesma ideia da spec 047 para quem já está no quadro): depois
+// de cobrir onde falta, cada turno cresce até a jornada do dia (8h24 com a convenção, 8h sem ela; `carga ÷ dias da regra`, nunca
+// mais que o máximo do dia) e, se ainda sobrarem horas do contrato, entram turnos nos outros dias abertos, até os dias da regra.
+// No fim do turno e, se não couber, no começo; sem passar do horário da loja nem das 11 h de descanso entre os dias. Minutos inteiros.
+const completarJornadaDaVaga = (
+  turnos: TurnoDeVaga[],
+  a: { cargaH: number; cobertura: CoberturaFuncao; dias: DiaAberto[]; regra: Pick<Regra, 'dias' | 'maxDia'> },
+) => {
+  const { cargaH, cobertura, dias, regra } = a;
+  const jornadaDia = Math.min(regra.maxDia, cargaH / regra.dias);
+  const minuto = (h: number) => Math.floor(h * 60 + 1e-6) / 60;
+  const liquida = (t: TurnoDeVaga) =>
+    t.saida - t.entrada - (t.iniIntervalo != null && t.fimIntervalo != null ? t.fimIntervalo - t.iniIntervalo : 0);
+  const semana = () => turnos.reduce((s, t) => s + liquida(t), 0);
+  const doDia = (dia: number) => turnos.find((t) => t.dia === (dia + 7) % 7);
+  const folgaDeDescanso = (dia: number) => {
+    const prox = doDia(dia + 1);
+    const ant = doDia(dia - 1);
+    return {
+      fimMax: prox ? 24 + prox.entrada - INTERJORNADA_H : 24,
+      iniMin: ant ? ant.saida - 24 + INTERJORNADA_H : 0,
+    };
+  };
+  const comIntervalo = (t: TurnoDeVaga): TurnoDeVaga => {
+    if (t.iniIntervalo != null || !(t.saida - t.entrada > HORAS_SEM_INTERVALO + EPS)) return t;
+    return { ...t, ...intervaloEscolhido(t.entrada, t.saida, cobertura[t.dia] ?? []) };
+  };
+
+  // 1) Cada turno cresce até a jornada do dia.
+  for (let i = 0; i < turnos.length; i++) {
+    const t = turnos[i]!;
+    const d = dias.find((x) => x.dia === t.dia);
+    const resta = cargaH - semana();
+    const net = liquida(t);
+    if (!d || resta <= EPS || net >= jornadaDia - EPS) continue;
+    const alvo = Math.min(jornadaDia, net + resta);
+    const iv = t.iniIntervalo != null && t.fimIntervalo != null ? t.fimIntervalo - t.iniIntervalo : 0;
+    const grossAlvo = alvo + (iv > 0 ? iv : alvo > HORAS_SEM_INTERVALO + EPS ? 1 : 0);
+    let preciso = minuto(grossAlvo - (t.saida - t.entrada));
+    if (preciso <= EPS) continue;
+    const { fimMax, iniMin } = folgaDeDescanso(t.dia);
+    const noFim = minuto(Math.max(0, Math.min(preciso, Math.min(d.fecha, fimMax) - t.saida)));
+    preciso -= noFim;
+    const noIni = minuto(Math.max(0, Math.min(preciso, t.entrada - Math.max(d.abre, iniMin))));
+    if (noFim + noIni <= EPS) continue;
+    turnos[i] = comIntervalo({ ...t, entrada: t.entrada - noIni, saida: t.saida + noFim });
+  }
+
+  // 2) Sobrou contrato: novos dias, os que mais precisam primeiro (mais horas sem cobertura), depois os demais em ordem.
+  const falta = (dia: number) => (cobertura[dia] ?? []).filter((c) => c.pessoas < c.exigido).length;
+  const candidatos = dias
+    .filter((d) => !doDia(d.dia))
+    .sort((x, y) => falta(y.dia) - falta(x.dia) || x.dia - y.dia);
+  for (const d of candidatos) {
+    const resta = cargaH - semana();
+    if (resta < 1 / 60 || turnos.length >= regra.dias) break;
+    const { fimMax, iniMin } = folgaDeDescanso(d.dia);
+    const ini = Math.max(d.abre, iniMin);
+    const fim = Math.min(d.fecha, fimMax);
+    let net = Math.min(jornadaDia, resta);
+    let gross = net + (net > HORAS_SEM_INTERVALO + EPS ? 1 : 0);
+    if (gross > fim - ini + EPS) {
+      gross = minuto(fim - ini);
+      net = gross - (gross > HORAS_SEM_INTERVALO + EPS ? 1 : 0);
+    }
+    if (net < 1 - EPS) continue;
+    // Onde falta cobertura, começa na primeira hora sem cobertura (sem passar do fim); senão, na abertura.
+    const primeira = (cobertura[d.dia] ?? []).find((c) => c.pessoas < c.exigido)?.hora;
+    let entrada = primeira !== undefined ? Math.max(ini, Math.min(primeira, fim - gross)) : ini;
+    entrada = minuto(entrada);
+    turnos.push(comIntervalo({ dia: d.dia, entrada, saida: entrada + gross, iniIntervalo: null, fimIntervalo: null }));
+  }
 };
 
 // ---- A semana inteira ---------------------------------------------------------------------------------------------------

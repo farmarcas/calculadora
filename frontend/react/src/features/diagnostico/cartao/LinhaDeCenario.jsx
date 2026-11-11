@@ -2,7 +2,7 @@ import { Botao } from "../../../components/ui/index.jsx";
 import CelulaFolha from "./CelulaFolha.jsx";
 import FaixaDosDias from "./FaixaDosDias.jsx";
 import PillDeStatus from "./PillDeStatus.jsx";
-import { cabecalhoDaFolha, estadoVisual, faixaDosDias, rotuloDoStatus, textoContratar, textoDaVariacao, textoDoTotal, textoIndisponivel } from "./linha-regras.js";
+import { cabecalhoDaFolha, estadoVisual, faixaDosDias, partesDaExplicacao, rotuloDoStatus, textoContratar, textoDaVariacao, textoDoTotal, textoIndisponivel } from "./linha-regras.js";
 import { COR_DO_TOM } from "./tom.js";
 
 const COR_VARIACAO = { ...COR_DO_TOM, mudo: "var(--text-secondary)" };
@@ -31,6 +31,7 @@ export default function LinhaDeCenario({ linha, antes, dono, podeEscrever, ocupa
   const indisponivel = estado === "indisponivel";
   const rebaixado = estado === "rebaixado";
   const idTitulo = `cenario-${linha.id}-nome`;
+  const explicacao = partesDaExplicacao(linha);
   const total = textoDoTotal(linha.horasSemana, linha.horasDiferenca);
 
   const fundo = rebaixado || indisponivel ? "bg-[var(--surface-subtle)]" : "bg-[var(--surface-card)]";
@@ -76,7 +77,13 @@ export default function LinhaDeCenario({ linha, antes, dono, podeEscrever, ocupa
         )}
       </div>
 
-      {linha.causa && !indisponivel && (
+      {explicacao && !indisponivel && (
+        <p className="linha-faixa m-0 text-[13px] leading-[18px] text-[var(--text-default)]" data-testid="explicacao">
+          {explicacao.partes.map((p, i) => (p.negrito ? <strong key={i} className="font-bold text-[var(--text-primary-black)]">{p.texto}</strong> : <span key={i}>{p.texto}</span>))}
+        </p>
+      )}
+
+      {!explicacao && linha.causa && !indisponivel && (
         <div className="linha-faixa rounded-btn bg-[var(--func-attention-100)] px-3 py-2 text-xs leading-4 font-bold text-[var(--neutral-dark-900)]" data-testid="causa">{linha.causa}</div>
       )}
     </section>

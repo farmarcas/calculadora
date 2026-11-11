@@ -145,3 +145,11 @@ export const estadoVisual = (linha) => {
 
 export const textoIndisponivel = ({ dono }) =>
   dono ? "Informe as vendas por dia ou por hora e os salários para calcular este cenário." : "O dono ainda não informou os custos.";
+
+// Spec 051: a frase explicativa do cenário. O servidor já a manda pronta, em trechos; aqui só se descarta o que vier vazio e se
+// monta o texto corrido (para leitor de tela).
+export const partesDaExplicacao = (linha) => {
+  const partes = (linha?.explicacao?.partes ?? []).filter((p) => p && p.texto);
+  if (partes.length === 0) return null;
+  return { partes, texto: partes.map((p) => p.texto).join("") };
+};

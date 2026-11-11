@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { estadoVisual, faixaDosDias, rotuloDoStatus, ROTULOS_DE_STATUS, textoContratar, textoDaVariacao, textoDaFolha, cabecalhoDaFolha, textoDoTotal, textoIndisponivel } from "./linha-regras.js";
+import { estadoVisual, faixaDosDias, rotuloDoStatus, ROTULOS_DE_STATUS, textoContratar, textoDaVariacao, textoDaFolha, cabecalhoDaFolha, textoDoTotal, textoIndisponivel, partesDaExplicacao } from "./linha-regras.js";
 
 const dia = (d, abre, fecha) => ({ dia: d, aberto: !!abre, abre: abre ?? null, fecha: fecha ?? null });
 const semana = (...faixas) => faixas.map((f, i) => dia(i, ...(f ?? [])));
@@ -134,5 +134,22 @@ describe("textoDaFolha (spec 050, layout A3)", () => {
   it("cabeçalho por perfil", () => {
     expect(cabecalhoDaFolha(true)).toBe("Folha no faturamento");
     expect(cabecalhoDaFolha(false)).toBe("Custo de pessoal");
+  });
+});
+
+describe("partesDaExplicacao (spec 051)", () => {
+  it("devolve os trechos e o texto corrido, com o negrito preservado", () => {
+    const r = partesDaExplicacao({ explicacao: { partes: [{ texto: "Sem contratar ninguém. " }, { texto: "Mesmo assim, ainda faltariam 17 h de farmacêutico por semana.", negrito: true }, { texto: " Entre em Analisar." }] } });
+    expect(r.partes[1].negrito).toBe(true);
+    expect(r.texto).toBe("Sem contratar ninguém. Mesmo assim, ainda faltariam 17 h de farmacêutico por semana. Entre em Analisar.");
+  });
+  it("sem frase (ou com trechos vazios) devolve nulo", () => {
+    expect(partesDaExplicacao({})).toBeNull();
+    expect(partesDaExplicacao({ explicacao: null })).toBeNull();
+    expect(partesDaExplicacao({ explicacao: { partes: [{ texto: "" }] } })).toBeNull();
+  });
+  it("a frase não usa p.p., pontos nem Personalizar", () => {
+    const r = partesDaExplicacao({ explicacao: { partes: [{ texto: "Entre em Analisar para escolher quais." }] } });
+    expect(r.texto).not.toMatch(/p\.p\.|pontos|Personalizar/);
   });
 });

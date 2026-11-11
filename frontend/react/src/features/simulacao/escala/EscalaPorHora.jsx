@@ -4,7 +4,7 @@ import FormularioContratar from "./FormularioContratar.jsx";
 import GradeDeHoras from "./GradeDeHoras.jsx";
 import LinhaDaFuncao from "./LinhaDaFuncao.jsx";
 import LinhaDaPessoa from "./LinhaDaPessoa.jsx";
-import { avisosDaPessoa, contratacoesSimuladas, erroDoFormulario, sugerirContratacao, turnosDoFormulario, diasDasAbas, faixaDeAviso, horasDoDia, horasReforcadas, novoTurnoNaFolga, recalcularCobertura, semTurnoNoDia, sugerirTurnosDasVagas, textoDoTurno, totalDaSemana, turnosParaGravar } from "./escala-regras.js";
+import { avisosDaPessoa, contratacoesSimuladas, erroDoFormulario, sugerirContratacao, turnosDoFormulario, diasDasAbas, faixaDeAviso, horasDoDia, horasReforcadas, novoTurnoNaFolga, quemEstaEmIntervalo, recalcularCobertura, semTurnoNoDia, sugerirTurnosDasVagas, textoDoTurno, totalDaSemana, turnosParaGravar } from "./escala-regras.js";
 
 const ORDEM = ["Farmacêutico", "Atendimento", "Caixa"];
 const NOMES_LONGOS = ["segunda", "terça", "quarta", "quinta", "sexta", "sábado", "domingo"];
@@ -67,7 +67,8 @@ export default function EscalaPorHora({ sim, editavel, dono, calculando = false,
     const simuladas = contratacoesSimuladas(sim.quadro, turnos, f);
     const daPrevia = rascunho?.funcao === f ? turnosPrevia : [];
     const reforcadas = horasReforcadas([...turnos.filter((t) => simuladas.some((s) => s.matricula === t.matricula)), ...daPrevia], dia);
-    return [{ f, cob, pessoas: quadro.filter((p) => p.funcao === f && !p.vaga), simuladas, reforcadas }];
+    const intervalos = quemEstaEmIntervalo(turnosDoDia.filter((t) => funcaoDe.get(t.matricula) === f), quadro);
+    return [{ f, cob, pessoas: quadro.filter((p) => p.funcao === f && !p.vaga), simuladas, reforcadas, intervalos }];
   });
   const turnoSelecionado = turnos.find((t) => t.matricula === selecionado && t.dia === dia);
   const pessoaSelecionada = quadro.find((p) => p.matricula === selecionado);
@@ -185,9 +186,9 @@ export default function EscalaPorHora({ sim, editavel, dono, calculando = false,
         <div className="escala-desktop overflow-x-auto px-6 pb-6">
           <div role="table" aria-label={`Escala de ${NOMES_LONGOS[dia]}`} className="min-w-[900px]">
             <GradeDeHoras horas={horas} dono={dono} venda={vendaPorHora?.venda?.[dia]} clientes={vendaPorHora?.clientes?.[dia]} temBase={!!sim.resultado?.temBase} colunas={colunas} />
-            {blocos.map(({ f, cob, pessoas, simuladas, reforcadas }) => (
+            {blocos.map(({ f, cob, pessoas, simuladas, reforcadas, intervalos }) => (
               <div key={f}>
-                <LinhaDaFuncao funcao={f} pessoas={pessoas.length} cobertura={cob} reforcadas={reforcadas} recolhida={recolhidas.has(f)} onAlternar={() => alternar(f)} onContratar={editavel ? () => abrirContratar(f) : undefined} colunas={colunas} />
+                <LinhaDaFuncao funcao={f} pessoas={pessoas.length} cobertura={cob} reforcadas={reforcadas} intervalos={intervalos} recolhida={recolhidas.has(f)} onAlternar={() => alternar(f)} onContratar={editavel ? () => abrirContratar(f) : undefined} colunas={colunas} />
                 {formularioDe(f)}
                 {linhaDaPrevia(f)}
                 {!recolhidas.has(f) && (

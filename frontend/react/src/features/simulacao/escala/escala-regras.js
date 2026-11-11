@@ -416,3 +416,32 @@ export const avisosDaPessoa = (avaliacao, matricula) =>
 // Os turnos no formato que o servidor aceita ao gravar (só os campos conhecidos, intervalo nulo quando não há).
 export const turnosParaGravar = (turnos) =>
   turnos.map(({ matricula, dia, entrada, saida, iniIntervalo, fimIntervalo }) => ({ matricula, dia, entrada, saida, iniIntervalo: iniIntervalo ?? null, fimIntervalo: fimIntervalo ?? null }));
+
+// ---- Intervalo na escala (almoço) -----------------------------------------------------------------------------------
+
+// Onde fica o intervalo dentro da barra do turno, em % da largura da barra; nulo sem intervalo.
+export const posicaoDoIntervalo = (t) => {
+  if (!t || t.iniIntervalo == null || t.fimIntervalo == null || !(t.saida > t.entrada)) return null;
+  const len = t.saida - t.entrada;
+  const esq = ((t.iniIntervalo - t.entrada) / len) * 100;
+  const larg = ((t.fimIntervalo - t.iniIntervalo) / len) * 100;
+  return esq < 0 || esq + larg > 100 + EPS ? null : { esq, larg };
+};
+
+// "10h–11h" do intervalo de um turno.
+export const textoDoIntervalo = (t) => (t && t.iniIntervalo != null && t.fimIntervalo != null ? `${hhTexto(t.iniIntervalo)}–${hhTexto(t.fimIntervalo)}` : "");
+
+// Quem está no intervalo em cada hora (a razão de uma hora "faltar" com a barra do turno passando por cima dela):
+// { hora: ["Eliane", "Pedro"] }, só para as pessoas dos turnos dados.
+export const quemEstaEmIntervalo = (turnosDoDia, quadro) => {
+  const nomes = new Map(quadro.map((p) => [p.matricula, String(p.nome ?? "").split(" ")[0]]));
+  const porHora = {};
+  for (const t of turnosDoDia) {
+    if (t.iniIntervalo == null || t.fimIntervalo == null) continue;
+    for (let h = Math.floor(t.entrada + EPS); h < Math.ceil(t.saida - EPS); h++) {
+      const dentro = t.entrada <= h + EPS && t.saida >= h + 1 - EPS && t.iniIntervalo < h + 1 - EPS && t.fimIntervalo > h + EPS;
+      if (dentro) (porHora[h] ??= []).push(nomes.get(t.matricula) ?? "Alguém");
+    }
+  }
+  return porHora;
+};

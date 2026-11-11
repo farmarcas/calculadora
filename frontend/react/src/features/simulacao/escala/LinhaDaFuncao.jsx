@@ -1,11 +1,16 @@
 import { celulasDaFuncao, minimoDaFuncao } from "./escala-regras.js";
 
 export const COR_DA_FUNCAO = { Farmacêutico: "var(--escala-farmaceutico)", Atendimento: "var(--escala-atendimento)", Caixa: "var(--escala-caixa)" };
+// A dica da célula: o que a hora tem e, quando há, quem está no intervalo (a razão de faltar com a barra passando por cima).
+const dicaDaHora = (c, emIntervalo) => {
+  const base = c.ok ? `${c.pessoas} de ${c.exigido} pessoas` : `Abaixo do mínimo: ${c.pessoas} de ${c.exigido}`;
+  return emIntervalo?.length ? `${base}. Em intervalo: ${emIntervalo.join(", ")}` : base;
+};
 const corDe = (f) => COR_DA_FUNCAO[f] ?? "var(--escala-caixa)";
 
 // A linha-resumo de uma função: chevron de recolher, cor, nome, "N pessoas", "+ Contratar" e, em cada hora, quantas pessoas
 // estão (verde) ou "N !" com borda vermelha quando fica abaixo do mínimo; borda tracejada azul nas horas reforçadas.
-export default function LinhaDaFuncao({ funcao, pessoas, cobertura, reforcadas, recolhida, onAlternar, onContratar, colunas }) {
+export default function LinhaDaFuncao({ funcao, pessoas, cobertura, reforcadas, recolhida, onAlternar, onContratar, colunas, intervalos = {} }) {
   const celulas = celulasDaFuncao(cobertura, reforcadas);
   return (
     <div role="row" className="grid items-center gap-x-1 border-t border-[var(--border-subtle)] bg-[var(--surface-subtle)] py-2" style={{ gridTemplateColumns: colunas }}>
@@ -22,7 +27,8 @@ export default function LinhaDaFuncao({ funcao, pessoas, cobertura, reforcadas, 
         <div
           key={c.hora}
           role="cell"
-          aria-label={c.ok ? `${c.hora}h: ${c.pessoas} ${c.pessoas === 1 ? "pessoa" : "pessoas"}` : `${c.hora}h: ${c.pessoas} de ${c.exigido} pessoas, abaixo do mínimo`}
+          title={dicaDaHora(c, intervalos[c.hora])}
+          aria-label={`${c.ok ? `${c.hora}h: ${c.pessoas} ${c.pessoas === 1 ? "pessoa" : "pessoas"}` : `${c.hora}h: ${c.pessoas} de ${c.exigido} pessoas, abaixo do mínimo`}${intervalos[c.hora]?.length ? `. Em intervalo: ${intervalos[c.hora].join(", ")}` : ""}`}
           className={`rounded-btn py-1.5 text-center text-xs leading-4 font-bold ${c.reforcada ? "border border-dashed border-[var(--system-500)]" : "border border-transparent"}`}
           style={c.ok ? { background: "var(--func-success-100)", color: "var(--text-success-strong)", ...(c.reforcada ? {} : {}) } : { background: "var(--func-warning-100)", color: "var(--neutral-dark-900)", borderColor: "var(--func-warning-300)", borderStyle: "solid" }}
         >

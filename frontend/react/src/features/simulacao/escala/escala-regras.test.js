@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  turnosParaGravar, avisosDaPessoa, novoTurnoNaFolga, semTurnoNoDia, sugerirTurnosDasVagas, turnoHabitual, turnosParaVaga, vagaSemTurnos,
+  posicaoDoIntervalo, quemEstaEmIntervalo, textoDoIntervalo, turnosParaGravar, avisosDaPessoa, novoTurnoNaFolga, semTurnoNoDia, sugerirTurnosDasVagas, turnoHabitual, turnosParaVaga, vagaSemTurnos,
   cargaDaContratacao, celulasDaFuncao, contratacoesSimuladas, diasDasAbas, efeitoDaContratacao, erroDoFormulario, faixaDeAviso,
   faltasDaFuncao, horasDoDia, horasReforcadas, mediaDoDia, minimoDaFuncao, quartis, recalcularCobertura, sugerirContratacao,
   diasPorExtenso, faixaDasFaltas, opcoesDeHora, textoDaSugestao, textoDoEfeito, textoDoTurno, tomDoQuartil, totalDaSemana, turnosDoFormulario,
@@ -313,5 +313,27 @@ describe("folga, tirar do dia e avisos (spec 040)", () => {
 describe("turnos para gravar", () => {
   it("mantém só os campos que o servidor aceita, com intervalo nulo quando não há", () => {
     expect(turnosParaGravar([{ id: "x", matricula: "A", dia: 1, entrada: 8, saida: 16, extra: 1 }])).toEqual([{ matricula: "A", dia: 1, entrada: 8, saida: 16, iniIntervalo: null, fimIntervalo: null }]);
+  });
+});
+
+describe("intervalo na escala", () => {
+  const eliane = { matricula: "E", dia: 0, entrada: 7, saida: 15, iniIntervalo: 10, fimIntervalo: 11 };
+  it("posição do intervalo dentro da barra, em %", () => {
+    expect(posicaoDoIntervalo(eliane)).toEqual({ esq: 37.5, larg: 12.5 });
+    expect(posicaoDoIntervalo({ ...eliane, iniIntervalo: null, fimIntervalo: null })).toBeNull();
+    expect(posicaoDoIntervalo({ ...eliane, iniIntervalo: 6, fimIntervalo: 7 })).toBeNull(); // fora do turno
+    expect(posicaoDoIntervalo(null)).toBeNull();
+  });
+  it("texto do intervalo", () => {
+    expect(textoDoIntervalo(eliane)).toBe("10h–11h");
+    expect(textoDoIntervalo({ ...eliane, iniIntervalo: 12.5, fimIntervalo: 13.5 })).toBe("12h30–13h30");
+    expect(textoDoIntervalo({ ...eliane, iniIntervalo: null })).toBe("");
+  });
+  it("quem está no intervalo em cada hora, pelo primeiro nome", () => {
+    const quadro = [{ matricula: "E", nome: "Eliane Aparecida Garcia" }, { matricula: "O", nome: "Olimpia Barbosa" }];
+    const olimpia = { matricula: "O", dia: 0, entrada: 14, saida: 22, iniIntervalo: 17, fimIntervalo: 18 };
+    expect(quemEstaEmIntervalo([eliane, olimpia], quadro)).toEqual({ 10: ["Eliane"], 17: ["Olimpia"] });
+    expect(quemEstaEmIntervalo([{ ...eliane, iniIntervalo: 10, fimIntervalo: 12 }], quadro)).toEqual({ 10: ["Eliane"], 11: ["Eliane"] });
+    expect(quemEstaEmIntervalo([{ ...eliane, iniIntervalo: null, fimIntervalo: null }], quadro)).toEqual({});
   });
 });

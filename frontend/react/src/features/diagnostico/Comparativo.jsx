@@ -91,7 +91,7 @@ export default function Comparativo({ comparativo, cenarios, lojaId, podeEscreve
         </p>
       ) : (
         <div role="group" aria-label="Lista de cenários" className="overflow-hidden rounded-card border border-[var(--border-subtle)] shadow-card">
-          <div aria-hidden="true" className="linha-cabecalho bg-[var(--surface-subtle)] py-3 text-[11px] leading-4 font-bold tracking-wide text-[var(--neutral-mid-300)]">
+          <div aria-hidden="true" className="linha-cabecalho border-b border-[var(--border-subtle)] bg-[var(--surface-subtle)] text-xs leading-4 font-bold tracking-wider text-[var(--text-secondary)]">
             <span>CENÁRIO</span>
             <span>CONTRATAR</span>
             <span>HORÁRIO</span>

@@ -42,7 +42,10 @@ export default function EscalaPorHora({ sim, editavel, dono, calculando = false,
   const horas = horasDoDia(aba);
   const ini = horas[0];
   const fim = horas[horas.length - 1] + 1;
-  const colunas = `300px repeat(${horas.length}, minmax(34px, 1fr)) 130px`;
+  // As colunas encolhem com a tela (pessoa, uma por hora e a semana) para a grade caber sem rolar para o lado; só uma loja com
+  // muitas horas abertas (24 h) passa do espaço e rola dentro do card.
+  const colunas = `minmax(170px, 260px) repeat(${horas.length}, minmax(32px, 1fr)) 110px`;
+  const larguraMinima = 170 + horas.length * 32 + 110 + (horas.length + 1) * 4; // + os espaços entre as colunas
   const quadro = sim.quadro.filter((p) => !p.desligado && p.funcao);
   const cobDoDia = sim.avaliacao?.cobertura?.[dia] ?? [];
   const vendaPorHora = sim.resultado?.vendaPorHora;
@@ -187,8 +190,8 @@ export default function EscalaPorHora({ sim, editavel, dono, calculando = false,
       {aviso && <div role="status" className="mx-6 mb-3 rounded-btn bg-[var(--func-attention-100)] px-4 py-2.5 text-sm leading-5 font-bold text-[var(--neutral-dark-900)]" data-testid="faixa-de-aviso">{aviso}</div>}
 
       <div className="escala-conteiner">
-        <div className="escala-desktop overflow-x-auto px-6 pb-6">
-          <div role="table" aria-label={`Escala de ${NOMES_LONGOS[dia]}`} className="min-w-[900px]">
+        <div className="escala-desktop overflow-x-auto px-4 pb-6">
+          <div role="table" aria-label={`Escala de ${NOMES_LONGOS[dia]}`} style={{ minWidth: larguraMinima }}>
             <GradeDeHoras horas={horas} dono={dono} venda={vendaPorHora?.venda?.[dia]} clientes={vendaPorHora?.clientes?.[dia]} temBase={!!sim.resultado?.temBase} colunas={colunas} />
             {blocos.map(({ f, cob, pessoas, simuladas, reforcadas, intervalos }) => (
               <div key={f}>

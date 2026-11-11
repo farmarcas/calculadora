@@ -153,3 +153,69 @@ describe("esticarTurnos (spec 046)", () => {
     expect(turnoEsticado({ ...t, antes: undefined })).toBe(false);
   });
 });
+
+describe("sugerirFolgas: folgas intercaladas (spec 055)", () => {
+  const r40 = { dias: 5 };
+  const nomes = (...ms) => ms.map((m) => ({ matricula: m, nome: `Pessoa ${m}`, funcao: "Caixa", cargaH: 44 }));
+  const rodar = (qtde, minimo, regra = r40, nomeDe = nomes) => {
+    const q = nomeDe(...["A", "B", "C", "D", "E", "F"].slice(0, qtde));
+    const ts = q.flatMap((p) => semana(p.matricula));
+    return sugerirFolgas({ quadro: q, turnos: ts, cobertura: cob(ts, q, minimo), abas: abas(), regra });
+  };
+  const porPessoa = (retirados) => {
+    const por = new Map();
+    for (const r of retirados) por.set(r.matricula, [...(por.get(r.matricula) ?? []), r.dia].sort((a, b) => a - b));
+    return por;
+  };
+  const vizinhos = (a, b) => Math.min(Math.abs(a - b), 7 - Math.abs(a - b)) === 1;
+
+  it("5 atendentes, regra de 40h, 7 dias: nenhuma pessoa com folgas em dias seguidos (domingo e segunda contam) e em todos os dias", () => {
+    const r = rodar(5, 1);
+    const por = porPessoa(r.retirados);
+    expect(por.size).toBe(5);
+    for (const [, d] of por) {
+      expect(d).toHaveLength(2);
+      expect(vizinhos(d[0], d[1])).toBe(false);
+    }
+    expect(new Set(r.retirados.map((x) => x.dia)).size).toBeGreaterThanOrEqual(5);
+    expect(r.avisos.filter((a) => a.includes("afastar"))).toEqual([]);
+  });
+
+  it("paridade com o servidor: as mesmas folgas, pessoa por pessoa, para a mesma entrada", () => {
+    // O mesmo caso (5 caixas, mínimo 1, regra de 40h) em escala/semana-com-folgas.test.ts dá exatamente isto.
+    const por = porPessoa(rodar(5, 1).retirados);
+    expect(Object.fromEntries(por)).toEqual({ A: [2, 6], B: [3, 6], C: [2, 5], D: [0, 3], E: [1, 4] });
+  });
+
+  it("no máximo 2 pessoas folgam no mesmo dia e a mesma entrada dá sempre a mesma sugestão", () => {
+    const a = rodar(5, 1);
+    const c = new Map();
+    for (const x of a.retirados) c.set(x.dia, (c.get(x.dia) ?? 0) + 1);
+    expect(Math.max(...c.values())).toBeLessThanOrEqual(2);
+    expect(rodar(5, 1).retirados).toEqual(a.retirados);
+  });
+
+  it("cobertura primeiro: 3 pessoas com mínimo 2 folgam em dias diferentes, sem abrir falta", () => {
+    const r = rodar(3, 2);
+    expect(r.avisos.filter((a) => a.includes("vai faltar"))).toEqual([]);
+    const c = new Map();
+    for (const x of r.retirados) c.set(x.dia, (c.get(x.dia) ?? 0) + 1);
+    expect(Math.max(...c.values())).toBe(1);
+  });
+
+  it("sem alternativa sem faltar gente, as folgas ficam coladas e o aviso diz de quem é", () => {
+    // B só trabalha segunda e terça: nos outros dias a folga de A abriria falta, então A folga seg e ter.
+    const q = [{ matricula: "A", nome: "Cristina", funcao: "Caixa", cargaH: 44 }, { matricula: "B", nome: "Bruno", funcao: "Caixa", cargaH: 44 }];
+    const ts = [...semana("A"), t("B", 0), t("B", 1)];
+    const r = sugerirFolgas({ quadro: q, turnos: ts, cobertura: cob(ts, q, 1), abas: abas(), regra: r40 });
+    expect(r.retirados.filter((x) => x.matricula === "A").map((x) => x.dia).sort()).toEqual([0, 1]);
+    expect(r.avisos).toContain("Cristina: não deu para afastar as folgas sem faltar gente.");
+    expect(r.avisos.filter((a) => a.includes("vai faltar"))).toEqual([]);
+  });
+
+  it("quem só recebe 1 folga continua escolhendo pelo dia que abre menos falta", () => {
+    const r = rodar(3, 2, r44);
+    for (const [, d] of porPessoa(r.retirados)) expect(d).toHaveLength(1);
+    expect(r.avisos.filter((a) => a.includes("afastar"))).toEqual([]);
+  });
+});

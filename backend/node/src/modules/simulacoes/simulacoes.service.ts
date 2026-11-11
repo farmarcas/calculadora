@@ -262,6 +262,7 @@ export const makeSimulacoesService = (
     const fixos = await lojas.matriculasHorarioFixo(lojaId);
     const equipe: HorarioPessoa[] = ts.map((t) => ({
       matricula: t.matricula,
+      nome: t.nome,
       funcao: t.funcao!,
       cargaH: t.cargaH,
       dias: t.dias,

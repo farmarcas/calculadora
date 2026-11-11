@@ -20,6 +20,8 @@ export type HorarioPessoa = {
   fimIntervalo: number | null;
   // Horário fixo no Cadastro: o esticamento (spec 046) não mexe no turno dessa pessoa.
   fixo?: boolean;
+  // Só para os avisos (spec 055): "Nome: não deu para afastar as folgas sem faltar gente." Sem nome, o aviso usa a função.
+  nome?: string;
 };
 export type CelulaHora = { hora: number; pessoas: number; exigido: number };
 export type CoberturaFuncao = Record<number, CelulaHora[]>;
@@ -213,23 +215,56 @@ export const aplicarFolgas = (a: {
       .filter((p) => (falta.get(p.matricula) ?? 0) > 0)
       .sort((x, y) => (falta.get(y.matricula) ?? 0) - (falta.get(x.matricula) ?? 0));
     for (const p of pendentes) {
+      const posicao = doGrupo.findIndex((x) => x.matricula === p.matricula);
+      // Os dias abertos em que a pessoa não trabalha (as folgas que ela já tem e as que acabam de ser dadas).
+      const folgasDe = () => [...aberto].filter((d) => !diasDe(p.matricula).has(d));
+      // Spec 055: distância até as outras folgas dela, contando a volta da semana (domingo e segunda são vizinhos).
+      const proximidade = (d: number) => {
+        const outras = folgasDe();
+        if (!outras.length) return 0;
+        const dist = Math.min(
+          ...outras.map((o) => {
+            const x = Math.abs(o - d);
+            return Math.min(x, 7 - x);
+          }),
+        );
+        return 3 - Math.min(3, dist);
+      };
       while ((falta.get(p.matricula) ?? 0) > 0) {
         const dias = [...diasDe(p.matricula)].filter((d) => aberto.has(d));
         if (!dias.length) break;
-        // Escolhe o dia que abre menos falta nova (zero quando sobra gente); depois espalha entre as pessoas da função.
+        // Cobertura primeiro (menos falta nova); depois afasta da própria folga, espalha a equipe, prefere mais sobra e, no
+        // empate, gira o dia pela posição da pessoa (nunca "o menor dia" para todos). Sem sorteio: a mesma entrada dá o mesmo.
         const opcoes = dias
           .map((d) => ({
             d,
             novaFalta: faltaNova(funcao, p.matricula, d),
+            perto: proximidade(d),
             sobra: sobraSem(funcao, p.matricula, d),
             junto: contar(funcao, d),
+            giro: (((d - posicao) % 7) + 7) % 7,
           }))
           .sort(
             (x, y) =>
-              x.novaFalta - y.novaFalta || x.junto - y.junto || y.sobra - x.sobra || x.d - y.d,
+              x.novaFalta - y.novaFalta ||
+              x.perto - y.perto ||
+              x.junto - y.junto ||
+              y.sobra - x.sobra ||
+              x.giro - y.giro ||
+              x.d - y.d,
           );
         retirar(p.matricula, funcao, opcoes[0]!.d);
         falta.set(p.matricula, (falta.get(p.matricula) ?? 0) - 1);
+      }
+      // Folga nova colada em outra folga dela: a cobertura veio primeiro, e a sugestão diz de quem é.
+      const novas = retirados.filter((r) => r.matricula === p.matricula).map((r) => r.dia);
+      if (novas.length) {
+        const todas = folgasDe();
+        const colada = novas.some((d) =>
+          todas.some((o) => o !== d && Math.min(Math.abs(o - d), 7 - Math.abs(o - d)) === 1),
+        );
+        if (colada)
+          avisos.push(`${p.nome ?? p.funcao}: não deu para afastar as folgas sem faltar gente.`);
       }
     }
   }

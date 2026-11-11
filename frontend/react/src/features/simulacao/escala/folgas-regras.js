@@ -231,15 +231,32 @@ export const sugerirFolgas = ({ quadro = [], turnos = [], cobertura = {}, abas =
     // 2) As demais folgas: nos dias de maior sobra, espalhando entre as pessoas da função.
     const pendentes = doGrupo.filter((p) => (falta.get(p.matricula) ?? 0) > 0).sort((a, b) => (falta.get(b.matricula) ?? 0) - (falta.get(a.matricula) ?? 0));
     for (const p of pendentes) {
+      const posicao = doGrupo.findIndex((x) => x.matricula === p.matricula);
+      // Os dias abertos em que a pessoa não trabalha (as folgas que ela já tem e as que acabam de ser dadas).
+      const folgasDe = () => [...diasAbertos].filter((d) => !diasDe(atuais, p.matricula).has(d));
+      // Spec 055: distância até as outras folgas dela, contando a volta da semana (domingo e segunda são vizinhos).
+      const distancia = (a, b) => Math.min(Math.abs(a - b), 7 - Math.abs(a - b));
+      const proximidade = (d) => {
+        const outras = folgasDe();
+        if (!outras.length) return 0;
+        return 3 - Math.min(3, Math.min(...outras.map((o) => distancia(o, d))));
+      };
       while ((falta.get(p.matricula) ?? 0) > 0) {
         const dias = [...diasDe(atuais, p.matricula)].filter((d) => diasAbertos.has(d));
         if (!dias.length) break;
-        // Escolhe o dia que abre menos falta nova (zero quando sobra gente); depois espalha entre as pessoas da função.
+        // Cobertura primeiro (menos falta nova); depois afasta da própria folga, espalha a equipe, prefere mais sobra e, no
+        // empate, gira o dia pela posição da pessoa (nunca "o menor dia" para todos). Sem sorteio: a mesma entrada dá o mesmo.
         const opcoes = dias
-          .map((d) => ({ d, novaFalta: faltaNova(funcao, p.matricula, d), sobra: sobraSem(funcao, p.matricula, d), junto: contar(funcao, d) }))
-          .sort((a, b) => a.novaFalta - b.novaFalta || a.junto - b.junto || b.sobra - a.sobra || a.d - b.d);
+          .map((d) => ({ d, novaFalta: faltaNova(funcao, p.matricula, d), perto: proximidade(d), sobra: sobraSem(funcao, p.matricula, d), junto: contar(funcao, d), giro: (((d - posicao) % 7) + 7) % 7 }))
+          .sort((a, b) => a.novaFalta - b.novaFalta || a.perto - b.perto || a.junto - b.junto || b.sobra - a.sobra || a.giro - b.giro || a.d - b.d);
         retirar(p, opcoes[0].d);
         falta.set(p.matricula, falta.get(p.matricula) - 1);
+      }
+      // Folga nova colada em outra folga dela: a cobertura veio primeiro, e a sugestão diz de quem é.
+      const novas = retirados.filter((r) => r.matricula === p.matricula).map((r) => r.dia);
+      if (novas.length) {
+        const todas = folgasDe();
+        if (novas.some((d) => todas.some((o) => o !== d && distancia(o, d) === 1))) avisos.push(`${p.nome ?? p.funcao}: não deu para afastar as folgas sem faltar gente.`);
       }
     }
   }

@@ -35,7 +35,7 @@ export default function TabelaPorCargo({ regra, linhas, horasAbertas, jornada })
             <tr className="border-b border-line">
               <th scope="col" className={`${TH} text-left`}>Cargo</th>
               <th scope="col" className={`${TH} text-right`}>Pessoas</th>
-              <th scope="col" className={`${TH} text-right`}>Horas por semana</th>
+              <th scope="col" className={`${TH} text-right`}>Horas cobertas por semana</th>
               <th scope="col" className={`${TH} text-right`}>Falta por semana</th>
             </tr>
           </thead>

@@ -1577,7 +1577,11 @@ describe('simulações (rotas)', () => {
 
     it('salva com o nome e a observação que a pessoa deu; o parecer do dono tem as seções e os valores', async () => {
       const { id, g } = await salvo();
-      expect(g.body).toMatchObject({ nome: 'Plano reforço', observacao: 'Aprovado pelo regional.', status: 'gravada' });
+      expect(g.body).toMatchObject({
+        nome: 'Plano reforço',
+        observacao: 'Aprovado pelo regional.',
+        status: 'gravada',
+      });
       const p = await parecer(id);
       expect(p.status).toBe(200);
       expect(p.body).toMatchObject({
@@ -1588,8 +1592,18 @@ describe('simulações (rotas)', () => {
         montadoAgora: false,
       });
       expect(p.body.resumo).toHaveLength(3);
-      expect(p.body.decisoes.map((x: { titulo: string }) => x.titulo)).toEqual(['Contratações', 'Desligamentos', 'Horário', 'Folgas']);
-      expect(p.body.efeitos.map((x: { titulo: string }) => x.titulo)).toEqual(['Cobertura', 'Venda', 'Equipe', 'Custo']);
+      expect(p.body.decisoes.map((x: { titulo: string }) => x.titulo)).toEqual([
+        'Contratações',
+        'Desligamentos',
+        'Horário',
+        'Folgas',
+      ]);
+      expect(p.body.efeitos.map((x: { titulo: string }) => x.titulo)).toEqual([
+        'Cobertura',
+        'Venda',
+        'Equipe',
+        'Custo',
+      ]);
       expect(JSON.stringify(p.body)).toContain('R$');
       expect(JSON.stringify(p.body.decisoes)).toContain('1 atendente, 40 h por semana');
     });
@@ -1610,9 +1624,14 @@ describe('simulações (rotas)', () => {
       const sim = (await criar()).body;
       expect((await gravar(sim.id, { comoCenario: true, nome: '   ' })).status).toBe(400);
       expect((await gravar(sim.id, { comoCenario: true, nome: 'x'.repeat(61) })).status).toBe(400);
-      expect((await gravar(sim.id, { comoCenario: true, nome: 'Ok', observacao: 'y'.repeat(1001) })).status).toBe(400);
+      expect(
+        (await gravar(sim.id, { comoCenario: true, nome: 'Ok', observacao: 'y'.repeat(1001) }))
+          .status,
+      ).toBe(400);
       // nada foi gravado
-      expect((await reqGe().get(`/api/v1/simulacoes/${sim.id}`).set(admin)).body.status).toBe('rascunho');
+      expect((await reqGe().get(`/api/v1/simulacoes/${sim.id}`).set(admin)).body.status).toBe(
+        'rascunho',
+      );
     });
 
     it('nome repetido na loja (sem diferenciar maiúsculas) é recusado e o rascunho segue rascunho', async () => {
@@ -1621,7 +1640,9 @@ describe('simulações (rotas)', () => {
       const r = await gravar(outra.id, { comoCenario: true, nome: 'plano a' });
       expect(r.status).toBe(409);
       expect(r.body.error.code).toBe('NOME_REPETIDO');
-      expect((await reqGe().get(`/api/v1/simulacoes/${outra.id}`).set(admin)).body.status).toBe('rascunho');
+      expect((await reqGe().get(`/api/v1/simulacoes/${outra.id}`).set(admin)).body.status).toBe(
+        'rascunho',
+      );
       // um nome diferente passa
       expect((await gravar(outra.id, { comoCenario: true, nome: 'Plano B' })).status).toBe(200);
     });
@@ -1631,7 +1652,9 @@ describe('simulações (rotas)', () => {
       const a = await gravar(sim.id, { comoCenario: true, nome: 'Sem observação' });
       expect(a.status).toBe(200);
       expect(a.body.observacao).toBeNull();
-      expect((await gravar(sim.id, { comoCenario: true, nome: 'Sem observação' })).status).toBe(409);
+      expect((await gravar(sim.id, { comoCenario: true, nome: 'Sem observação' })).status).toBe(
+        409,
+      );
     });
 
     it('o parecer fica como estava quando o Cadastro muda depois (retrato do momento de salvar)', async () => {
@@ -1648,7 +1671,10 @@ describe('simulações (rotas)', () => {
 
     it('cenário salvo antes do parecer abre, com o texto montado agora e sem observação', async () => {
       const { id } = await salvo();
-      await prisma.$executeRawUnsafe('update simulacoes set parecer = null, observacao = null where id = $1::uuid', id);
+      await prisma.$executeRawUnsafe(
+        'update simulacoes set parecer = null, observacao = null where id = $1::uuid',
+        id,
+      );
       const p = await parecer(id);
       expect(p.status).toBe(200);
       expect(p.body.montadoAgora).toBe(true);

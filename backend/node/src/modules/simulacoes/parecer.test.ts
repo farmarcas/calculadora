@@ -13,11 +13,35 @@ const quadro: PessoaSim[] = [
   { matricula: 'A', nome: 'Ana', funcao: 'Farmacêutico', cargaH: 40 },
   { matricula: 'B', nome: 'Bia', funcao: 'Farmacêutico', cargaH: 40 },
 ];
-const vaga: PessoaSim = { matricula: 'VAGA-1', nome: 'Vaga 1', funcao: 'Farmacêutico', cargaH: 40, vaga: true };
-const venda = (hora: number, v: number): VendaLinha => ({ data: '2026-01-05', hora, venda: v, margem: null, clientes: 0, unidades: 0 });
+const vaga: PessoaSim = {
+  matricula: 'VAGA-1',
+  nome: 'Vaga 1',
+  funcao: 'Farmacêutico',
+  cargaH: 40,
+  vaga: true,
+};
+const venda = (hora: number, v: number): VendaLinha => ({
+  data: '2026-01-05',
+  hora,
+  venda: v,
+  margem: null,
+  clientes: 0,
+  unidades: 0,
+});
 const pequena: DiaAberto[] = [{ dia: 0, abre: 8, fecha: 16 }];
 const turnos = (q: PessoaSim[]): TurnoSim[] =>
-  q.filter((p) => !p.vaga).flatMap((p) => [0, 1, 2, 3, 4].map((dia) => ({ matricula: p.matricula, dia, entrada: 8, saida: 16, iniIntervalo: null, fimIntervalo: null })));
+  q
+    .filter((p) => !p.vaga)
+    .flatMap((p) =>
+      [0, 1, 2, 3, 4].map((dia) => ({
+        matricula: p.matricula,
+        dia,
+        entrada: 8,
+        saida: 16,
+        iniIntervalo: null,
+        fimIntervalo: null,
+      })),
+    );
 
 const resultado = (over: Partial<Parameters<typeof calcularResultado>[0]> = {}) =>
   calcularResultado({
@@ -40,14 +64,20 @@ const parecer = (over: Partial<Parameters<typeof calcularResultado>[0]> = {}) =>
   return montarParecer({ quadro: q, turnos: turnos(q), resultado: resultado(over) });
 };
 const textoTodo = (t: TextoDoParecer) =>
-  [...t.resumo, ...t.decisoes.flatMap((s) => [s.titulo, ...s.itens]), ...t.efeitos.flatMap((s) => [s.titulo, ...s.itens])].join('\n');
+  [
+    ...t.resumo,
+    ...t.decisoes.flatMap((s) => [s.titulo, ...s.itens]),
+    ...t.efeitos.flatMap((s) => [s.titulo, ...s.itens]),
+  ].join('\n');
 
 describe('montarParecer (spec 056)', () => {
   it('com contratação: o dono lê pesos e reais; resumo em 3 frases', () => {
     const p = parecer({ quadro: [...quadro, vaga] });
     expect(p.dono.resumo).toHaveLength(3);
     expect(p.dono.resumo[0]).toContain('contrata 1 farmacêutico');
-    expect(p.dono.resumo[2]).toMatch(/^A folha sobe de \d+,\d% para \d+,\d% do faturamento \(R\$ [\d.]+ por mês\)\.$/);
+    expect(p.dono.resumo[2]).toMatch(
+      /^A folha sobe de \d+,\d% para \d+,\d% do faturamento \(R\$ [\d.]+ por mês\)\.$/,
+    );
     const t = textoTodo(p.dono);
     expect(t).toContain('1 farmacêutico, 40 h por semana (jornada cheia).');
     expect(t).toMatch(/Folha por mês: de R\$ [\d.]+ para R\$ [\d.]+\./);
@@ -62,7 +92,12 @@ describe('montarParecer (spec 056)', () => {
     expect(p.publico.resumo[2]).toBe('A folha de pessoal aumenta em relação a hoje.');
     expect(t).not.toMatch(/R\$|%/);
     expect(p.publico.decisoes).toEqual(p.dono.decisoes);
-    expect(p.publico.efeitos.map((s) => s.titulo)).toEqual(['Cobertura', 'Venda', 'Equipe', 'Custo']);
+    expect(p.publico.efeitos.map((s) => s.titulo)).toEqual([
+      'Cobertura',
+      'Venda',
+      'Equipe',
+      'Custo',
+    ]);
     expect(p.publico.efeitos[3]!.itens).toEqual(['A folha de pessoal aumenta em relação a hoje.']);
   });
 
@@ -110,9 +145,18 @@ describe('montarParecer (spec 056)', () => {
   it('cobertura: horas que faltam por função e o resumo diz que ainda falta', () => {
     const sozinho: PessoaSim[] = [quadro[0]!];
     const longa: DiaAberto[] = [0, 1, 2, 3, 4, 5].map((dia) => ({ dia, abre: 7, fecha: 22 }));
-    const p = parecer({ quadro: sozinho, dias: longa, diasCadastro: longa, minimos: { Farmacêutico: 1 } });
-    expect(textoTodo(p.publico)).toMatch(/Farmacêutico: hoje faltam [\d,]+ h por semana; neste cenário ainda faltam/);
-    expect(p.publico.resumo[1]).toMatch(/^Mesmo assim, ainda faltam [\d,]+ h de cobertura por semana\.$/);
+    const p = parecer({
+      quadro: sozinho,
+      dias: longa,
+      diasCadastro: longa,
+      minimos: { Farmacêutico: 1 },
+    });
+    expect(textoTodo(p.publico)).toMatch(
+      /Farmacêutico: hoje faltam [\d,]+ h por semana; neste cenário ainda faltam/,
+    );
+    expect(p.publico.resumo[1]).toMatch(
+      /^Mesmo assim, ainda faltam [\d,]+ h de cobertura por semana\.$/,
+    );
   });
 
   it('nenhum texto usa p.p., pontos nem a sigla CMV', () => {

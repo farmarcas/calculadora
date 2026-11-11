@@ -73,8 +73,17 @@ export const gravarReq = req(
   z
     .object({
       comoCenario: z.boolean().optional(),
-      nome: z.string().trim().min(1, 'Dê um nome ao cenário').max(60, 'O nome pode ter até 60 caracteres').optional(),
-      observacao: z.string().trim().max(1000, 'A observação pode ter até 1000 caracteres').optional(),
+      nome: z
+        .string()
+        .trim()
+        .min(1, 'Dê um nome ao cenário')
+        .max(60, 'O nome pode ter até 60 caracteres')
+        .optional(),
+      observacao: z
+        .string()
+        .trim()
+        .max(1000, 'A observação pode ter até 1000 caracteres')
+        .optional(),
     })
     .strict()
     .default({}),

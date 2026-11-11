@@ -55,7 +55,9 @@ const minutos = (t: string | null) => {
   return m ? Number(m[1]) * 60 + Number(m[2]) : null;
 };
 const lista = (itens: string[]) =>
-  itens.length > 1 ? `${itens.slice(0, -1).join(', ')} e ${itens[itens.length - 1]}` : (itens[0] ?? '');
+  itens.length > 1
+    ? `${itens.slice(0, -1).join(', ')} e ${itens[itens.length - 1]}`
+    : (itens[0] ?? '');
 
 // Os dias em que a simulação abre horas a mais que o Cadastro: "sábado até 23h".
 const quandoAbreMais = (r: ResultadoSimulacao) => {
@@ -100,7 +102,9 @@ const decisoesDeFolgas = (r: ResultadoSimulacao, quadro: PessoaSim[], turnos: Tu
   for (const p of quadro) {
     if (p.vaga || p.desligado || !p.funcao) continue;
     const trabalhados = new Set(
-      turnos.filter((t) => t.matricula === p.matricula && abertos.includes(t.dia)).map((t) => t.dia),
+      turnos
+        .filter((t) => t.matricula === p.matricula && abertos.includes(t.dia))
+        .map((t) => t.dia),
     );
     if (trabalhados.size === 0) continue;
     porFuncao.set(p.funcao, [...(porFuncao.get(p.funcao) ?? []), trabalhados.size]);
@@ -109,7 +113,8 @@ const decisoesDeFolgas = (r: ResultadoSimulacao, quadro: PessoaSim[], turnos: Tu
     const min = Math.min(...dias);
     const max = Math.max(...dias);
     const trab = min === max ? `${min} dias` : `de ${min} a ${max} dias`;
-    const folga = min === max ? abertos.length - min : `${abertos.length - max} a ${abertos.length - min}`;
+    const folga =
+      min === max ? abertos.length - min : `${abertos.length - max} a ${abertos.length - min}`;
     return `${plural(f)} trabalham ${trab} por semana (folgam ${folga})`;
   });
   return frases.length
@@ -138,7 +143,10 @@ export const montarParecer = (e: EntradaParecer): ParecerGuardado => {
 
   // ---- Decisões (iguais nas duas versões: não têm valores em reais) ----
   const decisoes: SecaoDoParecer[] = [
-    { titulo: 'Contratações', itens: contratacoes.length ? contratacoes : ['Nenhuma contratação.'] },
+    {
+      titulo: 'Contratações',
+      itens: contratacoes.length ? contratacoes : ['Nenhuma contratação.'],
+    },
     {
       titulo: 'Desligamentos',
       itens: desligados.length
@@ -151,7 +159,8 @@ export const montarParecer = (e: EntradaParecer): ParecerGuardado => {
 
   // ---- Cobertura, venda e equipe (iguais nas duas versões) ----
   const cobertura: string[] = [];
-  if (h.status === 'inviavel') cobertura.push('Sem farmacêutico no quadro: a loja não pode funcionar assim (inviável).');
+  if (h.status === 'inviavel')
+    cobertura.push('Sem farmacêutico no quadro: a loja não pode funcionar assim (inviável).');
   else if (!horasQueFaltam.length && r.funcoes.every((f) => f.faltaHoje <= 0))
     cobertura.push('A equipe cobre todos os horários.');
   for (const f of r.funcoes) {
@@ -206,8 +215,10 @@ export const montarParecer = (e: EntradaParecer): ParecerGuardado => {
       } else {
         const p = c.peso;
         const de = `de ${pct1(p.hoje)} para ${pct1(p.depois)} do faturamento`;
-        if (sentido === 'aumenta') fraseDoDono = `A folha sobe ${de} (${reais(p.aumentoMensal)} por mês).`;
-        else if (sentido === 'diminui') fraseDoDono = `A folha cai ${de} (${reais(p.aumentoMensal)} por mês).`;
+        if (sentido === 'aumenta')
+          fraseDoDono = `A folha sobe ${de} (${reais(p.aumentoMensal)} por mês).`;
+        else if (sentido === 'diminui')
+          fraseDoDono = `A folha cai ${de} (${reais(p.aumentoMensal)} por mês).`;
         else
           fraseDoDono =
             p.depois > p.hoje
@@ -239,9 +250,13 @@ export const montarParecer = (e: EntradaParecer): ParecerGuardado => {
 
   // ---- Resumo ----
   const decidiu: string[] = [];
-  if (contratacoes.length) decidiu.push(`contrata ${lista(contratacoes.map((t) => t.replace(/\.$/, '').replace(/ \(.*\)$/, '')))}`);
+  if (contratacoes.length)
+    decidiu.push(
+      `contrata ${lista(contratacoes.map((t) => t.replace(/\.$/, '').replace(/ \(.*\)$/, '')))}`,
+    );
   else decidiu.push('não contrata ninguém');
-  if (desligados.length) decidiu.push(`desliga ${desligados.length} ${desligados.length === 1 ? 'pessoa' : 'pessoas'}`);
+  if (desligados.length)
+    decidiu.push(`desliga ${desligados.length} ${desligados.length === 1 ? 'pessoa' : 'pessoas'}`);
   if (r.horario.mudou) decidiu.push('muda o horário da loja');
   const frase1 = `Este cenário ${lista(decidiu)}.`;
   const frase2 =
@@ -256,7 +271,10 @@ export const montarParecer = (e: EntradaParecer): ParecerGuardado => {
 
   const secaoCusto = (itens: string[]): SecaoDoParecer => ({ titulo: 'Custo', itens });
   const efeitosBase = (custo: SecaoDoParecer): SecaoDoParecer[] => [
-    { titulo: 'Cobertura', itens: cobertura.length ? cobertura : ['A equipe cobre todos os horários.'] },
+    {
+      titulo: 'Cobertura',
+      itens: cobertura.length ? cobertura : ['A equipe cobre todos os horários.'],
+    },
     { titulo: 'Venda', itens: [venda] },
     { titulo: 'Equipe', itens: equipe },
     custo,
@@ -268,7 +286,9 @@ export const montarParecer = (e: EntradaParecer): ParecerGuardado => {
     dono: {
       resumo: resumoDono,
       decisoes,
-      efeitos: efeitosBase(secaoCusto([...custoDono, ...(custoDono.length ? [] : [fraseSentido]), ...horarioAMais])),
+      efeitos: efeitosBase(
+        secaoCusto([...custoDono, ...(custoDono.length ? [] : [fraseSentido]), ...horarioAMais]),
+      ),
     },
     publico: {
       resumo: resumoPublico,

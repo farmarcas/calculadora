@@ -64,10 +64,16 @@ export const gerarPdf = (p: ParecerParaPdf): Promise<Buffer> =>
     // O logo do Radar no topo, à esquerda; o texto começa logo abaixo dele.
     const larguraDoLogo = 110;
     const alturaDoLogo = larguraDoLogo / PROPORCAO_DO_LOGO;
-    doc.image(LOGO_RADAR_PNG, doc.page.margins.left, doc.page.margins.top, { width: larguraDoLogo });
+    doc.image(LOGO_RADAR_PNG, doc.page.margins.left, doc.page.margins.top, {
+      width: larguraDoLogo,
+    });
     doc.x = doc.page.margins.left;
     doc.y = doc.page.margins.top + alturaDoLogo + 18;
-    doc.font('Helvetica-Bold').fontSize(18).fillColor('#1D2433').text(t(`Parecer: ${p.nome}`));
+    doc
+      .font('Helvetica-Bold')
+      .fontSize(18)
+      .fillColor('#1D2433')
+      .text(t(`Parecer: ${p.nome}`));
     doc.moveDown(0.3);
     doc
       .font('Helvetica')
@@ -75,8 +81,7 @@ export const gerarPdf = (p: ParecerParaPdf): Promise<Buffer> =>
       .fillColor('#42526E')
       .text(t(`Loja: ${p.loja}  ·  Regra: ${p.regra}`))
       .text(t(`Salvo em ${dataBr(p.salvoEm)}${p.salvoPor ? ` por ${p.salvoPor}` : ''}`));
-    if (p.montadoAgora)
-      doc.text(t('Cenário salvo antes do parecer: texto montado agora.'));
+    if (p.montadoAgora) doc.text(t('Cenário salvo antes do parecer: texto montado agora.'));
     doc.moveDown(0.8);
 
     const titulo = (texto: string) => {
@@ -110,7 +115,11 @@ export const gerarPdf = (p: ParecerParaPdf): Promise<Buffer> =>
     secoes(p.efeitos);
     if (p.observacao) {
       titulo('Observação de quem salvou');
-      doc.font('Helvetica-Oblique').fontSize(11).fillColor('#1D2433').text(t(p.observacao), { lineGap: 2 });
+      doc
+        .font('Helvetica-Oblique')
+        .fontSize(11)
+        .fillColor('#1D2433')
+        .text(t(p.observacao), { lineGap: 2 });
     }
     doc.moveDown(1.2);
     doc

@@ -85,9 +85,15 @@ function Barras({ regras, selecionada }) {
   );
 }
 
-function Celula({ rotulo, valor, sub, dica, children }) {
+const ORIGEM_FATURAMENTO = {
+  mensal: "Informado no Cadastro da loja",
+  dias: "Venda por dia do Cadastro × 52 ÷ 12",
+  base: "Base comercial: venda da semana × 52 ÷ 12",
+};
+
+function Celula({ rotulo, valor, sub, dica, larga = false, children }) {
   return (
-    <div className="bg-[var(--surface-card)] p-4 flex flex-col gap-1 min-w-0">
+    <div className="bg-[var(--surface-card)] p-4 flex flex-col gap-1 min-w-0" style={larga ? { gridColumn: "1 / -1" } : undefined}>
       <div className={`${ROTULO} flex items-center gap-1.5`}>
         {rotulo}
         {dica}
@@ -168,13 +174,27 @@ export default function QuadroCentral({ diag, regraId, onRegra, podeEscrever, on
                 dica={folha.encargos && folha.mensal !== null ? <DicaComposicao encargos={folha.encargos} /> : null}
                 valor={folha.mensal === null ? "—" : brl(folha.mensal)}
                 sub={folha.mensal === null ? `Falta o salário médio de ${folha.faltamInformar.join(", ")}` : `Salários + encargos de ${pct(folha.encargosPct)}${folha.encargos ? ` (${NOME_REGIME[folha.encargos.regime]})` : ""} · ${plural(n.colaboradoresNoCalculo, "funcionário", "funcionários")}`}
-              />
+              >
+                {folha.mensal !== null && (
+                  <div className="text-xs leading-4 font-bold text-[var(--text-strong)]" data-testid="folha-pct-faturamento">
+                    {folha.pctDoFaturamento != null ? `${pct(folha.pctDoFaturamento)} do faturamento mensal da loja` : "Sem faturamento para comparar"}
+                  </div>
+                )}
+              </Celula>
             ) : folha ? (
               <Celula rotulo="Folha mensal atual" valor="—" sub="Informe os custos em Cadastro de Loja › Editar › Funcionários e configuração" />
             ) : (
               <Celula rotulo="Funcionários no cálculo" valor={n.colaboradoresNoCalculo} sub="Do Cadastro de funcionários" />
             )}
             <Celula rotulo="Equipe toda" valor={c ? saldoTxt(c.saldoHoras) : "—"} sub={c ? "Por semana: capacidade menos necessidade ou meta" : "Sem cálculo para esta regra"} />
+            {diag.faturamentoMensal !== undefined && (
+              <Celula
+                larga
+                rotulo="Faturamento mensal da loja"
+                valor={diag.faturamentoMensal ? brl(diag.faturamentoMensal.valor) : "—"}
+                sub={diag.faturamentoMensal ? ORIGEM_FATURAMENTO[diag.faturamentoMensal.origem] : "Informe o faturamento no Cadastro da loja ou envie a base comercial"}
+              />
+            )}
           </div>
         </div>
 

@@ -26,27 +26,42 @@ export const textoDaVariacao = (pct, estado, tipo) => {
   return { texto, tom, apoio: null };
 };
 
-// Spec 048: o peso do custo de pessoal no faturamento. Dono: "8,0% → 9,7% do faturamento", "+1,7 p.p." e "(R$ 7.659/mês)".
-// Gestor e consulta: só o sentido ("Aumenta", "Igual" ou "Diminui"), sem número. `tom` é o da cor do texto.
+// Spec 050: a coluna "Folha no faturamento" (layout A3). Dono: peso depois (grande), "hoje X,X%", chip da variação (a diferença dos
+// pesos já arredondados, em "%": 9,7 − 8,0 = +1,7%) e os reais por mês. Gestor e consulta: só o chip "Aumenta", "Igual" ou
+// "Diminui". Sem dados: uma frase, sem números. A cor nunca vai sozinha (o chip traz sinal ou texto) e há `ariaLabel` completo.
 const MILHAR = (n) => Math.round(n).toLocaleString("pt-BR");
 const umaCasa = (n) => n.toFixed(1).replace(".", ",");
-export const textoDoPeso = (linha, dono) => {
-  if (linha.custoEstado === "sem_salarios") return { texto: "—", tom: "neutro", apoio: dono ? "Informe os salários para calcular" : null };
-  if (dono && linha.custoEstado === "sem_faturamento") return { texto: "—", tom: "neutro", apoio: "Informe o faturamento para ver o peso da folha" };
-  const c = dono ? linha.custoPctFaturamento : null;
-  if (dono && c) {
-    const pp = Math.abs(c.aumentoPp) < 0.05 ? 0 : c.aumentoPp;
-    return {
-      texto: `${umaCasa(c.hoje)}% → ${umaCasa(c.depois)}% do faturamento`,
-      tom: "neutro",
-      aumento: pp === 0 ? "0,0 p.p." : `${pp > 0 ? "+" : MENOS}${umaCasa(Math.abs(pp))} p.p.`,
-      reais: `(R$ ${c.aumentoMensal < 0 ? MENOS : ""}${MILHAR(Math.abs(c.aumentoMensal))}/mês)`,
-      apoio: null,
-    };
+export const FRASE_SEM_SALARIOS = "Informe os salários para ver o custo de pessoal.";
+export const FRASE_SEM_FATURAMENTO = "Informe o faturamento para ver o peso da folha.";
+export const FRASE_SEM_DADOS = "Dados do custo ainda não informados.";
+
+export const cabecalhoDaFolha = (dono) => (dono ? "Folha no faturamento" : "Custo de pessoal");
+
+export const textoDaFolha = (linha, dono) => {
+  const sentido = linha.custoSentido;
+  const faltaSalarios = linha.custoEstado === "sem_salarios";
+  const faltaFaturamento = linha.custoEstado === "sem_faturamento";
+  if (!dono) {
+    if (!sentido || faltaSalarios || linha.custoEstado === "sem_calculo") return { tipo: "falta", frase: FRASE_SEM_DADOS };
+    const chip = { aumenta: { texto: "Aumenta", tom: "aumenta" }, igual: { texto: "Igual", tom: "igual" }, diminui: { texto: "Diminui", tom: "diminui" } }[sentido];
+    return { tipo: "chip", chip, ariaLabel: `Custo de pessoal ${sentido === "aumenta" ? "aumenta" : sentido === "diminui" ? "diminui" : "igual"}` };
   }
-  const SENTIDOS = { aumenta: { texto: "▲ Aumenta", tom: "neutro" }, igual: { texto: "● Igual", tom: "neutro" }, diminui: { texto: "▼ Diminui", tom: "sucesso" } };
-  const s = SENTIDOS[linha.custoSentido];
-  return s ? { ...s, apoio: null } : { texto: "—", tom: "neutro", apoio: null };
+  if (faltaSalarios) return { tipo: "falta", frase: FRASE_SEM_SALARIOS };
+  if (faltaFaturamento) return { tipo: "falta", frase: FRASE_SEM_FATURAMENTO };
+  const c = linha.custoPctFaturamento;
+  if (!c || !sentido) return { tipo: "falta", frase: FRASE_SEM_SALARIOS };
+  const base = { tipo: "dono", peso: `${umaCasa(c.depois)}%`, hoje: `hoje ${umaCasa(c.hoje)}%` };
+  const de = `de ${umaCasa(c.hoje)}% para ${umaCasa(c.depois)}% do faturamento`;
+  if (sentido === "aumenta") {
+    const v = Math.abs(c.aumentoPp);
+    return { ...base, chip: { texto: `+${umaCasa(v)}%`, tom: "aumenta" }, reais: `R$ ${MILHAR(c.aumentoMensal)} a mais por mês`, ariaLabel: `Folha sobe ${umaCasa(v)} ponto percentual, ${de}` };
+  }
+  if (sentido === "diminui") {
+    const v = Math.abs(c.aumentoPp);
+    return { ...base, chip: { texto: `${MENOS}${umaCasa(v)}%`, tom: "diminui" }, reais: `R$ ${MILHAR(Math.abs(c.aumentoMensal))} a menos por mês`, ariaLabel: `Folha cai ${umaCasa(v)} ponto percentual, ${de}` };
+  }
+  // Igual: a folha em reais não muda; o peso só sobe quando a venda cai.
+  return { ...base, chip: { texto: "folha igual", tom: "igual" }, reais: c.depois > c.hoje ? "Sobe só porque a venda cai." : null, ariaLabel: `Folha igual em reais, ${de}` };
 };
 
 // ---- Horário ---------------------------------------------------------------------------------------------------------
@@ -130,3 +145,11 @@ export const estadoVisual = (linha) => {
 
 export const textoIndisponivel = ({ dono }) =>
   dono ? "Informe as vendas por dia ou por hora e os salários para calcular este cenário." : "O dono ainda não informou os custos.";
+
+// Spec 051: a frase explicativa do cenário. O servidor já a manda pronta, em trechos; aqui só se descarta o que vier vazio e se
+// monta o texto corrido (para leitor de tela).
+export const partesDaExplicacao = (linha) => {
+  const partes = (linha?.explicacao?.partes ?? []).filter((p) => p && p.texto);
+  if (partes.length === 0) return null;
+  return { partes, texto: partes.map((p) => p.texto).join("") };
+};

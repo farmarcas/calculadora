@@ -1,7 +1,8 @@
 import { Botao } from "../../../components/ui/index.jsx";
+import CelulaFolha from "./CelulaFolha.jsx";
 import FaixaDosDias from "./FaixaDosDias.jsx";
 import PillDeStatus from "./PillDeStatus.jsx";
-import { estadoVisual, faixaDosDias, rotuloDoStatus, textoContratar, textoDaVariacao, textoDoPeso, textoDoTotal, textoIndisponivel } from "./linha-regras.js";
+import { cabecalhoDaFolha, estadoVisual, faixaDosDias, partesDaExplicacao, rotuloDoStatus, textoContratar, textoDaVariacao, textoDoTotal, textoIndisponivel } from "./linha-regras.js";
 import { COR_DO_TOM } from "./tom.js";
 
 const COR_VARIACAO = { ...COR_DO_TOM, mudo: "var(--text-secondary)" };
@@ -11,19 +12,6 @@ const Celula = ({ rotulo, children, className = "" }) => (
     {rotulo && <span className="linha-rotulo">{rotulo}</span>}
     {children}
   </div>
-);
-
-// Spec 048: o peso no faturamento (dono) ou só o sentido (gestor e consulta).
-const Peso = ({ p }) => (
-  <>
-    <div className="text-sm leading-5 font-bold" style={{ color: COR_VARIACAO[p.tom] }} data-testid="custo-peso">{p.texto}</div>
-    {p.aumento && (
-      <div className="mt-0.5 text-sm leading-5 font-bold text-[var(--text-strong)]">
-        {p.aumento} <span className="text-[11px] leading-4 font-normal text-[var(--text-secondary)]">{p.reais}</span>
-      </div>
-    )}
-    {p.apoio && <div className="mt-1 text-[11px] leading-4 text-[var(--text-secondary)]">{p.apoio}</div>}
-  </>
 );
 
 const Variacao = ({ v }) => (
@@ -43,6 +31,7 @@ export default function LinhaDeCenario({ linha, antes, dono, podeEscrever, ocupa
   const indisponivel = estado === "indisponivel";
   const rebaixado = estado === "rebaixado";
   const idTitulo = `cenario-${linha.id}-nome`;
+  const explicacao = partesDaExplicacao(linha);
   const total = textoDoTotal(linha.horasSemana, linha.horasDiferenca);
 
   const fundo = rebaixado || indisponivel ? "bg-[var(--surface-subtle)]" : "bg-[var(--surface-card)]";
@@ -74,8 +63,8 @@ export default function LinhaDeCenario({ linha, antes, dono, podeEscrever, ocupa
             <div className="mt-2"><FaixaDosDias dias={faixaDosDias(linha.horarioSemana, antes)} /></div>
           </Celula>
           <Celula rotulo="Venda"><Variacao v={textoDaVariacao(linha.vendaPct, linha.vendaEstado, "venda")} /></Celula>
-          <Celula rotulo="Custo de pessoal">
-            <Peso p={textoDoPeso(linha, dono)} />
+          <Celula rotulo={cabecalhoDaFolha(dono)}>
+            <CelulaFolha linha={linha} dono={dono} />
           </Celula>
         </>
       )}
@@ -88,7 +77,13 @@ export default function LinhaDeCenario({ linha, antes, dono, podeEscrever, ocupa
         )}
       </div>
 
-      {linha.causa && !indisponivel && (
+      {explicacao && !indisponivel && (
+        <p className="linha-faixa m-0 text-[13px] leading-[18px] text-[var(--text-default)]" data-testid="explicacao">
+          {explicacao.partes.map((p, i) => (p.negrito ? <strong key={i} className="font-bold text-[var(--text-primary-black)]">{p.texto}</strong> : <span key={i}>{p.texto}</span>))}
+        </p>
+      )}
+
+      {!explicacao && linha.causa && !indisponivel && (
         <div className="linha-faixa rounded-btn bg-[var(--func-attention-100)] px-3 py-2 text-xs leading-4 font-bold text-[var(--neutral-dark-900)]" data-testid="causa">{linha.causa}</div>
       )}
     </section>

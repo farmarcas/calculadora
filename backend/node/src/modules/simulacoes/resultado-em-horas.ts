@@ -10,8 +10,11 @@ export type EmHoras = {
   // Variação contra hoje, em % (uma casa, com sinal), e o estado que explica quando não há número.
   vendaPct: number | null;
   vendaEstado: 'ok' | 'nao_estimada' | 'sem_calculo';
-  custoPct: number | null;
-  custoEstado: 'ok' | 'sem_salarios' | 'sem_calculo';
+  // Spec 052: só o dono recebe o número (% sobre a folha); a tela dele usa o peso no faturamento (`custoDoDono`).
+  custoPct?: number | null;
+  custoEstado: 'ok' | 'sem_salarios' | 'sem_faturamento' | 'sem_calculo';
+  // O sentido da mudança do custo de pessoal, para todos os perfis e sem número.
+  custoSentido: 'aumenta' | 'igual' | 'diminui' | null;
   pessoas: { hoje: number; simulacao: number };
   horasContratadas: { hoje: number; simulacao: number };
   horasAbertas: { hoje: number; simulacao: number };
@@ -30,6 +33,8 @@ export type EntradaEmHoras = {
   vendaPerdidaReal: number | null;
   vendaGanhaReal: number | null;
   faturamentoMensalReal: number;
+  // Faturamento mensal de referência da loja (o mesmo dos Cenários); nulo quando a loja não tem. Ausente: não se confere.
+  faturamentoMensalRef?: number | null;
   // Folha do quadro de hoje e custo adicional (folha das vagas + hora extra); nulos sem salário informado.
   folhaHoje: number | null;
   custoAdicional: number | null;
@@ -112,7 +117,22 @@ export const montarEmHoras = (e: EntradaEmHoras): EmHoras => {
     vendaPct,
     vendaEstado: vendaPct !== null ? 'ok' : !e.temBase ? 'nao_estimada' : 'sem_calculo',
     custoPct,
-    custoEstado: custoPct !== null ? 'ok' : semSalarios ? 'sem_salarios' : 'sem_calculo',
+    custoEstado:
+      custoPct === null
+        ? semSalarios
+          ? 'sem_salarios'
+          : 'sem_calculo'
+        : e.faturamentoMensalRef === null
+          ? 'sem_faturamento'
+          : 'ok',
+    custoSentido:
+      e.custoAdicional === null
+        ? null
+        : e.custoAdicional > ZERO
+          ? 'aumenta'
+          : e.custoAdicional < -ZERO
+            ? 'diminui'
+            : 'igual',
     pessoas: e.pessoas,
     horasContratadas: {
       hoje: arred2(e.horasContratadas.hoje),

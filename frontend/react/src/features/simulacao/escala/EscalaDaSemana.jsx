@@ -7,7 +7,7 @@ const LEGENDA = [["Farmacêutico", "farmaceutico"], ["Atendimento", "atendimento
 
 // "Escala da semana" (spec 041), na Simulação, logo depois da "Escala por hora": a semana de cada pessoa, com folgas, intervalos
 // e a Contratação simulada. Usa a mesma escala da Escala por hora; sem R$, igual para todos os perfis.
-export default function EscalaDaSemana({ sim, editavel, onDia, onCadastrar, folgas = null }) {
+export default function EscalaDaSemana({ sim, editavel, onDia, onCadastrar, onDesligar = null, onReligar = null, folgas = null }) {
   const grupos = useMemo(() => montarSemana({ quadro: sim.quadro, turnos: sim.turnos, diasAbertos: sim.diasAbertos }), [sim.quadro, sim.turnos, sim.diasAbertos]);
   const [recolhidos, setRecolhidos] = useState(() => new Set(["Atendimento"]));
   const alternar = (f) => setRecolhidos((r) => { const n = new Set(r); if (n.has(f)) n.delete(f); else n.add(f); return n; });
@@ -60,7 +60,7 @@ export default function EscalaDaSemana({ sim, editavel, onDia, onCadastrar, folg
                   <span className="text-sm font-bold text-[var(--text-strong)]">{g.funcao}</span>
                   <span className="text-xs text-[var(--text-secondary)]">{g.pessoas} {g.pessoas === 1 ? "pessoa" : "pessoas"}</span>
                 </button>
-                {!recolhidos.has(g.funcao) && g.linhas.map((l) => <LinhaDaSemana key={l.matricula} linha={l} colunas={COLUNAS} editavel={editavel} onDia={onDia} />)}
+                {!recolhidos.has(g.funcao) && g.linhas.map((l) => <LinhaDaSemana key={l.matricula} linha={l} colunas={COLUNAS} editavel={editavel} onDia={onDia} onDesligar={editavel && onDesligar ? () => onDesligar(l.matricula) : undefined} onReligar={editavel && onReligar ? () => onReligar(l.matricula) : undefined} />)}
               </div>
             ))}
           </div>

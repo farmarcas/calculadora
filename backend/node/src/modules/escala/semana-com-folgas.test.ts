@@ -5,6 +5,7 @@ import {
   aplicarFolgas,
   coberturaDaFuncao,
   semanaComFolgas,
+  turnosParaVaga,
   faltaDaFuncao,
   turnosDosHorarios,
   type HorarioPessoa,
@@ -305,5 +306,163 @@ describe('esticarTurnos (spec 046)', () => {
       semEsticar.funcoes['Farmacêutico']!.faltaH,
     );
     expect(comEsticar.esticados.length).toBeGreaterThan(0);
+  });
+});
+
+describe('turnosParaVaga: a contratação integral trabalha a jornada cheia (spec 053)', () => {
+  const lojaDias = Array.from({ length: 7 }, (_, dia) => ({ dia, abre: 7, fecha: 22 }));
+  const liquida = (t: { entrada: number; saida: number; iniIntervalo?: number | null; fimIntervalo?: number | null }) =>
+    t.saida - t.entrada - (t.iniIntervalo != null && t.fimIntervalo != null ? t.fimIntervalo - t.iniIntervalo : 0);
+  // Falta de farmacêutico só das 07h às 13h, em 4 dias (seg a qui): antes só isso virava turno (6 h por dia).
+  const cobertura = () => {
+    const c: Record<number, { hora: number; pessoas: number; exigido: number }[]> = {};
+    for (let dia = 0; dia < 7; dia++)
+      c[dia] = Array.from({ length: 15 }, (_, i) => ({
+        hora: 7 + i,
+        pessoas: dia < 4 && i < 6 ? 0 : 1,
+        exigido: 1,
+      }));
+    return c;
+  };
+
+  it('42 h na regra de 42h (convenção de 8h24): cada turno vai a 8h24 e o contrato fecha em 5 dias', () => {
+    const regra = regraPara('r42', true);
+    const ts = turnosParaVaga({ cargaH: 42, cobertura: cobertura(), dias: lojaDias, regra });
+    expect(ts).toHaveLength(5);
+    for (const t of ts) expect(liquida(t)).toBeCloseTo(8.4, 2);
+    expect(ts.reduce((s, t) => s + liquida(t), 0)).toBeCloseTo(42, 2);
+    // a falta continua coberta: os quatro primeiros dias começam às 07h
+    for (const t of ts.filter((x) => x.dia < 4)) expect(t.entrada).toBe(7);
+  });
+
+  it('sem convenção (8h por dia): 40 h em 5 turnos de 8h; nunca passa do horário da loja', () => {
+    const regra = regraPara('r40', false);
+    const ts = turnosParaVaga({ cargaH: 40, cobertura: cobertura(), dias: lojaDias, regra });
+    expect(ts).toHaveLength(5);
+    for (const t of ts) {
+      expect(liquida(t)).toBeCloseTo(8, 2);
+      expect(t.entrada).toBeGreaterThanOrEqual(7);
+      expect(t.saida).toBeLessThanOrEqual(22);
+    }
+  });
+
+  it('respeita as 11 h de descanso entre os dias', () => {
+    const regra = regraPara('r42', true);
+    const ts = turnosParaVaga({ cargaH: 42, cobertura: cobertura(), dias: lojaDias, regra });
+    for (const t of ts) {
+      const prox = ts.find((x) => x.dia === (t.dia + 1) % 7);
+      if (prox) expect(24 - t.saida + prox.entrada).toBeGreaterThanOrEqual(11 - 1e-9);
+    }
+  });
+
+  it('o parcial (até 30 h) continua cobrindo só a falta', () => {
+    const regra = regraPara('r42', true);
+    const ts = turnosParaVaga({ cargaH: 20, cobertura: cobertura(), dias: lojaDias, regra });
+    for (const t of ts) expect(liquida(t)).toBeLessThanOrEqual(6 + 1e-9);
+    expect(ts.reduce((s, t) => s + liquida(t), 0)).toBeCloseTo(20, 0);
+  });
+
+  it('loja que abre pouco: o turno fica do tamanho do horário da loja', () => {
+    const regra = regraPara('r42', true);
+    const curta = Array.from({ length: 7 }, (_, dia) => ({ dia, abre: 9, fecha: 15 }));
+    // a cobertura só tem as horas abertas (09h às 15h), como no cálculo real
+    const cob = Object.fromEntries(
+      Object.entries(cobertura()).map(([dia, hs]) => [dia, hs.filter((c) => c.hora >= 9 && c.hora < 15).map((c) => ({ ...c, pessoas: 0 }))]),
+    );
+    const ts = turnosParaVaga({ cargaH: 42, cobertura: cob, dias: curta, regra });
+    for (const t of ts) {
+      expect(t.entrada).toBeGreaterThanOrEqual(9);
+      expect(t.saida).toBeLessThanOrEqual(15);
+    }
+  });
+});
+
+describe('aplicarFolgas: folgas intercaladas (spec 055)', () => {
+  const r40 = regraPara('r40', false);
+  const equipe = (n: number, funcao = 'Caixa') =>
+    Array.from({ length: n }, (_, i) => h(String.fromCharCode(65 + i), funcao, todos, { nome: `Pessoa ${String.fromCharCode(65 + i)}` }));
+  const folgasPorPessoa = (retirados: { matricula: string; dia: number }[]) => {
+    const por = new Map<string, number[]>();
+    for (const r of retirados) por.set(r.matricula, [...(por.get(r.matricula) ?? []), r.dia].sort((a, b) => a - b));
+    return por;
+  };
+  const vizinhos = (a: number, b: number) => Math.min(Math.abs(a - b), 7 - Math.abs(a - b)) === 1;
+
+  it('5 atendentes, regra de 40h, trabalhando 7 dias: 2 folgas cada, nenhuma em dias seguidos (domingo e segunda contam) e em todos os dias da semana', () => {
+    const r = aplicarFolgas({ horarios: equipe(5), dias: dias(), regra: r40, minimos });
+    const por = folgasPorPessoa(r.retirados);
+    expect(por.size).toBe(5);
+    for (const [, d] of por) {
+      expect(d).toHaveLength(2);
+      expect(vizinhos(d[0]!, d[1]!)).toBe(false);
+    }
+    const dist = new Set(r.retirados.map((x) => x.dia));
+    expect(dist.size).toBeGreaterThanOrEqual(5);
+    // ninguém fica com as folgas só nos primeiros dias: nem todo mundo em segunda, terça e quarta
+    expect([...dist].some((d) => d >= 4)).toBe(true);
+    expect(r.avisos.filter((a) => a.includes('afastar'))).toEqual([]);
+  });
+
+  it('paridade com a tela: as mesmas folgas, pessoa por pessoa (o mesmo caso em folgas-regras.test.js)', () => {
+    const r = aplicarFolgas({ horarios: equipe(5), dias: dias(), regra: r40, minimos });
+    expect(Object.fromEntries(folgasPorPessoa(r.retirados))).toEqual({
+      A: [2, 6],
+      B: [3, 6],
+      C: [2, 5],
+      D: [0, 3],
+      E: [1, 4],
+    });
+  });
+
+  it('as folgas da função ficam equilibradas: no máximo 2 pessoas folgam no mesmo dia', () => {
+    const r = aplicarFolgas({ horarios: equipe(5), dias: dias(), regra: r40, minimos });
+    const contagem = new Map<number, number>();
+    for (const x of r.retirados) contagem.set(x.dia, (contagem.get(x.dia) ?? 0) + 1);
+    expect(Math.max(...contagem.values())).toBeLessThanOrEqual(2);
+  });
+
+  it('a mesma entrada dá sempre a mesma sugestão', () => {
+    const a = aplicarFolgas({ horarios: equipe(5), dias: dias(), regra: r40, minimos });
+    const b = aplicarFolgas({ horarios: equipe(5), dias: dias(), regra: r40, minimos });
+    expect(b.retirados).toEqual(a.retirados);
+    expect(b.avisos).toEqual(a.avisos);
+  });
+
+  it('cobertura primeiro: 3 pessoas com mínimo 2 folgam em dias diferentes, sem abrir falta', () => {
+    const r = aplicarFolgas({ horarios: equipe(3), dias: dias(), regra: r40, minimos: { Caixa: 2 } });
+    expect(r.avisos.filter((a) => a.includes('vai faltar'))).toEqual([]);
+    const contagem = new Map<number, number>();
+    for (const x of r.retirados) contagem.set(x.dia, (contagem.get(x.dia) ?? 0) + 1);
+    expect(Math.max(...contagem.values())).toBe(1);
+  });
+
+  it('quem só tem 1 folga a receber continua escolhendo pelo dia que abre menos falta', () => {
+    const r = aplicarFolgas({ horarios: equipe(3), dias: dias(), regra: r44, minimos: { Caixa: 2 } });
+    const por = folgasPorPessoa(r.retirados);
+    for (const [, d] of por) expect(d).toHaveLength(1);
+    expect(r.avisos.filter((a) => a.includes('afastar'))).toEqual([]);
+  });
+
+  it('sem alternativa sem faltar gente, as folgas ficam coladas e o aviso diz de quem é', () => {
+    // B só trabalha segunda e terça: nos outros dias a folga de A abriria falta, então A folga seg e ter (colados).
+    const a = h('A', 'Caixa', todos, { nome: 'Cristina' });
+    const b = h('B', 'Caixa', [0, 1], { nome: 'Bruno' });
+    const r = aplicarFolgas({ horarios: [a, b], dias: dias(), regra: r40, minimos });
+    const diasDeA = r.retirados.filter((x) => x.matricula === 'A').map((x) => x.dia).sort();
+    expect(diasDeA).toEqual([0, 1]);
+    expect(r.avisos).toContain('Cristina: não deu para afastar as folgas sem faltar gente.');
+    expect(r.avisos.filter((x) => x.includes('vai faltar'))).toEqual([]);
+  });
+
+  it('sem nome no horário, o aviso usa a função', () => {
+    const a = h('A', 'Caixa', todos);
+    const b = h('B', 'Caixa', [0, 1]);
+    const r = aplicarFolgas({ horarios: [a, b], dias: dias(), regra: r40, minimos });
+    expect(r.avisos).toContain('Caixa: não deu para afastar as folgas sem faltar gente.');
+  });
+
+  it('função com uma pessoa só: nada para espalhar, a folga segue a regra de hoje', () => {
+    const r = aplicarFolgas({ horarios: [h('A', 'Caixa', todos)], dias: dias(), regra: r44, minimos: {} });
+    expect(r.retirados).toHaveLength(1);
   });
 });

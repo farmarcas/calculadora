@@ -31,9 +31,13 @@ describe("celulaDoDia", () => {
 
 describe("montarSemana", () => {
   const grupos = montarSemana({ quadro, turnos, diasAbertos: abertos });
-  it("agrupa por função na ordem do produto e ignora desligados", () => {
+  it("agrupa por função na ordem do produto; o desligado continua na lista (opaco), no fim do grupo, e não conta (spec 054)", () => {
     expect(grupos.map((g) => g.funcao)).toEqual(["Farmacêutico", "Atendimento", "Caixa"]);
-    expect(grupos[2].linhas.map((l) => l.nome)).toEqual(["Diego"]);
+    expect(grupos[2].linhas.map((l) => l.nome)).toEqual(["Diego", "Saiu"]);
+    const saiu = grupos[2].linhas[1];
+    expect(saiu).toMatchObject({ desligada: true, celulas: [], total: { horas: 0, dias: 0, texto: "—" } });
+    expect(grupos[2].pessoas).toBe(1); // o contador do grupo só conta quem está na simulação
+    expect(grupos[2].linhas[0].desligada).toBeUndefined();
   });
   it("a Contratação simulada vem no fim do grupo, com folga nos dias não cobertos", () => {
     const farm = grupos[0].linhas;

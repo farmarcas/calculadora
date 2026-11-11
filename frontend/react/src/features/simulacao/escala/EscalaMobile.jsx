@@ -33,7 +33,7 @@ const FaixaDaMetrica = ({ rotulo, sub, valores, horas }) => {
 
 // A escala no celular (spec 039): uma lista por função com o turno de cada pessoa em texto, a cobertura por hora numa faixa
 // com rolagem e "+ Contratar" por função. Nesta versão não se arrasta: o ajuste fino dos turnos é no computador.
-export default function EscalaMobile({ horas, dono, vendaDia, clientesDia, temBase, blocos, turnos, dia, editavel, recolhidas, onAlternar, onContratar, formulario, onRemover }) {
+export default function EscalaMobile({ horas, dono, vendaDia, clientesDia, temBase, blocos, turnos, dia, editavel, recolhidas, onAlternar, onContratar, formulario, onRemover, onDesligar, onReligar }) {
   const pegar = (m) => horas.map((h) => m?.[h] ?? 0);
   return (
     <div className="escala-mobile px-4 pb-4">
@@ -44,7 +44,7 @@ export default function EscalaMobile({ horas, dono, vendaDia, clientesDia, temBa
         <p className="mb-3 text-sm text-[var(--text-secondary)]"><strong className="text-[var(--text-strong)]">Clientes por hora</strong> · {temBase ? "Sem clientes por hora neste dia." : "Sem clientes por hora nesta base."}</p>
       )}
 
-      {blocos.map(({ f, cob, pessoas, simuladas, reforcadas }) => {
+      {blocos.map(({ f, cob, pessoas, desligadas = [], simuladas, reforcadas }) => {
         const celulas = celulasDaFuncao(cob, reforcadas);
         const recolhida = recolhidas.has(f);
         return (
@@ -87,6 +87,7 @@ export default function EscalaMobile({ horas, dono, vendaDia, clientesDia, temBa
                       <div className="min-w-0">
                         <div className={`truncate text-[13px] leading-4 font-bold ${simulada ? "text-[var(--color-primary)]" : "text-[var(--text-strong)]"}`}>{p.nome}</div>
                         <div className="truncate text-[11px] leading-4 text-[var(--text-secondary)]">{simulada ? texto : `${p.funcao} · ${p.cargaH ?? ""}h`.replace(" · h", "")}</div>
+                        {!simulada && editavel && onDesligar && <button type="button" onClick={() => onDesligar(p.matricula)} aria-label={`Desligar ${p.nome}`} className="cursor-pointer border-0 bg-transparent p-0 text-[11px] leading-4 font-bold text-[var(--text-danger)]">Desligar</button>}
                         {simulada && editavel && <button type="button" onClick={() => onRemover(p.matricula)} className="cursor-pointer border-0 bg-transparent p-0 text-[11px] leading-4 font-bold text-[var(--text-danger)]">Remover</button>}
                       </div>
                       <div className="shrink-0 text-right text-xs leading-4">
@@ -98,6 +99,15 @@ export default function EscalaMobile({ horas, dono, vendaDia, clientesDia, temBa
                     </li>
                   );
                 })}
+                {desligadas.map((p) => (
+                  <li key={p.matricula} data-testid="linha-desligada" className="flex items-center justify-between gap-3 border-t border-[var(--border-subtle)] px-3 py-2">
+                    <div className="min-w-0 opacity-55">
+                      <div className="truncate text-[13px] leading-4 font-bold text-[var(--text-strong)]">{p.nome}</div>
+                      <div className="truncate text-[11px] leading-4 text-[var(--text-secondary)]">{p.funcao} · fora da simulação</div>
+                    </div>
+                    {editavel && onReligar && <button type="button" onClick={() => onReligar(p.matricula)} aria-label={`Religar ${p.nome}`} className="shrink-0 cursor-pointer border-0 bg-transparent p-0 text-xs font-bold text-[var(--color-primary)]">Religar</button>}
+                  </li>
+                ))}
               </ul>
             )}
           </section>

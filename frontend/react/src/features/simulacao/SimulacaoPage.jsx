@@ -5,6 +5,8 @@ import BarraParametros from "./BarraParametros.jsx";
 import PainelResultado from "./PainelResultado.jsx";
 import PassoHorario from "./PassoHorario.jsx";
 import EscalaDaSemana from "./escala/EscalaDaSemana.jsx";
+import FaixaDeDesligados from "./escala/FaixaDeDesligados.jsx";
+import { listaAposDesligar, listaAposReligar } from "./escala/desligados-regras.js";
 import EscalaPorHora from "./escala/EscalaPorHora.jsx";
 import { diasDasAbas, turnosParaGravar } from "./escala/escala-regras.js";
 import { pessoasParaFolgar, sugerirFolgas, textoDoRodizio } from "./escala/folgas-regras.js";
@@ -71,6 +73,16 @@ export default function SimulacaoPage({ id, perfil, podeEscrever, aviso, onVolta
   // A sugestão só vale (e só pode ser desfeita) enquanto a escala é a que ela deixou.
   const sugestaoViva = sugestao && chaveDosTurnos(sim.turnos) === sugestao.depois ? sugestao : null;
 
+  // Desligar e religar (spec 054): o servidor espera sempre a lista completa de desligados.
+  const desligar = (matricula) => {
+    setErro(null);
+    salvar({ desligados: listaAposDesligar(sim.quadro, matricula) });
+  };
+  const religar = (matricula) => {
+    setErro(null);
+    salvar({ desligados: listaAposReligar(sim.quadro, matricula) });
+  };
+
   // Clicar num dia da Escala da semana: a Escala por hora mostra o dia e a tela rola até ela.
   const abrirDia = (dia) => {
     setIrParaDia((a) => ({ dia, n: (a?.n ?? 0) + 1 }));
@@ -100,9 +112,11 @@ export default function SimulacaoPage({ id, perfil, podeEscrever, aviso, onVolta
         <PainelResultado sim={sim} calculando={calculando} dono={dono} podeEscrever={podeEscrever} salvando={salvando} onSalvar={salvarComoCenario} onClonar={clonar} />
       </div>
 
-      <EscalaPorHora sim={sim} editavel={editavel} dono={dono} calculando={calculando} erro={erro} onLimparErro={() => setErro(null)} onSalvar={salvar} irParaDia={irParaDia} />
+      <FaixaDeDesligados quadro={sim.quadro} editavel={editavel} onReligar={religar} />
 
-      <EscalaDaSemana sim={sim} editavel={editavel} onDia={abrirDia} folgas={{ podeSugerir, onSugerir: sugerirAsFolgas, calculando, desfazer: sugestaoViva ? desfazerSugestao : null, avisos: sugestaoViva?.avisos ?? [], rodizio: sugestaoViva?.rodizio ?? null }} onCadastrar={() => window.location.assign("/?tela=cadastros")} />
+      <EscalaPorHora sim={sim} editavel={editavel} dono={dono} calculando={calculando} erro={erro} onLimparErro={() => setErro(null)} onSalvar={salvar} onDesligar={desligar} onReligar={religar} irParaDia={irParaDia} />
+
+      <EscalaDaSemana sim={sim} editavel={editavel} onDia={abrirDia} onDesligar={desligar} onReligar={religar} folgas={{ podeSugerir, onSugerir: sugerirAsFolgas, calculando, desfazer: sugestaoViva ? desfazerSugestao : null, avisos: sugestaoViva?.avisos ?? [], rodizio: sugestaoViva?.rodizio ?? null }} onCadastrar={() => window.location.assign("/?tela=cadastros")} />
     </div>
   );
 }

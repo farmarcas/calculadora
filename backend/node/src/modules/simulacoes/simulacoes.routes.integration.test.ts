@@ -378,6 +378,56 @@ describe('simulações (rotas)', () => {
       expect(u.body.avaliacao.erros).toEqual([]);
     });
 
+    const comSalarios = () =>
+      reqGe()
+        .put(`/api/v1/lojas/${lojaId}/custos`)
+        .set(admin)
+        .send({ salarioMedio: { Farmacêutico: 8000, Atendimento: 2000 } });
+
+    it('desligar e religar (spec 054): pessoas e folha mudam; religar devolve o mesmo resultado e a mesma grade', async () => {
+      await comSalarios();
+      const sim = (await criar()).body;
+      const antes = (await reqGe().get(`/api/v1/simulacoes/${sim.id}`).set(admin)).body;
+      const d = (await put(sim.id, { desligados: ['F2'] })).body;
+      expect(d.resultado.emHoras.pessoas).toEqual({ hoje: 2, simulacao: 1 });
+      expect(d.resultado.emHoras.horasContratadas).toEqual({ hoje: 80, simulacao: 40 });
+      expect(d.resultado.emHoras.custoSentido).toBe('diminui');
+      expect(d.resultado.custoDoDono.folhaDepois).toBeLessThan(d.resultado.custoDoDono.folhaHoje);
+      // os turnos dela continuam guardados (religar traz de volta)
+      expect(d.turnos.filter((t: { matricula: string }) => t.matricula === 'F2')).toHaveLength(5);
+      const r = (await put(sim.id, { desligados: [] })).body;
+      expect(r.resultado).toEqual(antes.resultado);
+      expect(r.turnos).toEqual(antes.turnos);
+      expect(r.quadro.some((p: { desligado?: boolean }) => p.desligado)).toBe(false);
+    });
+
+    it('desligar o único farmacêutico é aceito e o resultado fica inviável; desligar todos não dá erro', async () => {
+      const sim = (await criar()).body;
+      const d = await put(sim.id, { desligados: ['F1', 'F2'] });
+      expect(d.status).toBe(200);
+      expect(d.body.resultado.emHoras.status).toBe('inviavel');
+      expect(d.body.resultado.emHoras.pessoas).toEqual({ hoje: 2, simulacao: 0 });
+    });
+
+    it('desligar: gestor vê quem saiu e o resultado sem valores em reais; gravada recusa; o Cadastro não muda', async () => {
+      const gestor = { 'X-Perfil': 'SCHEDULE_MANAGER', 'X-GE': GE_INICIAL_ID };
+      await comSalarios();
+      const sim = (await criar()).body;
+      const d = (
+        await reqGe().put(`/api/v1/simulacoes/${sim.id}`).set(gestor).send({ desligados: ['F1'] })
+      ).body;
+      expect(d.quadro.find((p: { matricula: string }) => p.matricula === 'F1').desligado).toBe(true);
+      expect(d.resultado.emHoras.custoSentido).toBe('diminui');
+      expect(d.resultado).not.toHaveProperty('custoDoDono');
+      expect(JSON.stringify(d.resultado)).not.toMatch(/custoDoDono|folhaHoje|pesoHoje|saldoMensal/);
+      const antes = await prisma.funcionario.count({ where: { lojaId } });
+      expect(antes).toBe(2);
+      await reqGe().post(`/api/v1/simulacoes/${sim.id}/gravar`).set(admin);
+      expect((await put(sim.id, { desligados: [] })).status).toBe(409);
+      // o Cadastro segue com as duas pessoas ativas
+      expect(await prisma.funcionario.count({ where: { lojaId } })).toBe(2);
+    });
+
     it('recusa vaga com carga inválida, vaga inexistente e desligar uma vaga', async () => {
       const sim = (await criar()).body;
       expect((await put(sim.id, { vagas: [{ funcao: 'Caixa', cargaH: 2 }] })).status).toBe(400);
@@ -1037,7 +1087,7 @@ describe('simulações (rotas)', () => {
     const detalhe = async (id: string, h: Record<string, string>) =>
       (await reqGe().get(`/api/v1/simulacoes/${id}`).set(h)).body.resultado;
 
-    it('igual para dono, gestor e consulta, sem valor em reais nem salário', async () => {
+    it('gestor e consulta iguais entre si; o dono só tem a mais o % do custo e o peso da folha (spec 052)', async () => {
       const sim = (await criar()).body;
       const [dono, ges, con] = await Promise.all([
         detalhe(sim.id, admin),
@@ -1045,14 +1095,25 @@ describe('simulações (rotas)', () => {
         detalhe(sim.id, consulta),
       ]);
       expect(dono.emHoras).toBeDefined();
-      expect(ges.emHoras).toEqual(dono.emHoras);
-      expect(con.emHoras).toEqual(dono.emHoras);
+      const { custoPct: _p, ...doDonoSemCusto } = dono.emHoras;
+      expect(ges.emHoras).toEqual(doDonoSemCusto);
+      expect(con.emHoras).toEqual(doDonoSemCusto);
+      expect(dono.emHoras).toHaveProperty('custoPct');
+      expect(ges.emHoras).not.toHaveProperty('custoPct');
+      // o peso da folha no faturamento e a folha por mês são só do dono; gestor e consulta recebem só o sentido
+      expect(dono).toHaveProperty('custoDoDono');
+      for (const outro of [ges, con]) {
+        expect(outro).not.toHaveProperty('custoDoDono');
+        expect(['aumenta', 'igual', 'diminui', null]).toContain(outro.emHoras.custoSentido);
+        expect(JSON.stringify(outro)).not.toMatch(/custoDoDono|folhaHoje|folhaDepois|pesoHoje/);
+      }
       expect(Object.keys(dono.emHoras).sort()).toEqual(
         [
           'causa',
           'contratar',
           'custoEstado',
           'custoPct',
+          'custoSentido',
           'horaExtraH',
           'horasAbertas',
           'horasContratadas',

@@ -36,9 +36,11 @@ body { margin: 0; background: var(--surface-page); color: var(--ink-900); font-f
 .linha-cenario { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; padding: 16px 16px 16px 20px; }
 .linha-cenario > * { min-width: 0; }
 .linha-rotulo { display: block; margin-bottom: 4px; font-size: 11px; line-height: 16px; font-weight: 700; color: var(--neutral-mid-300); text-transform: uppercase; }
-@container linhas (min-width: 920px) {
-  .linha-cabecalho, .linha-cenario { grid-template-columns: minmax(170px, 1.2fr) minmax(120px, 0.9fr) minmax(250px, 2.2fr) 80px 88px 108px; column-gap: 12px; align-items: start; }
-  .linha-cabecalho { display: grid; padding: 0 16px 0 20px; }
+@container linhas (min-width: 1120px) {
+  /* Spec 050: Cenário 200px | Contratar 1fr | Horário 1,25fr | Venda 84px | Folha 200px | botão 120px, com 16px de espaço; a altura
+     da linha vem do Horário (a célula da folha não estica a linha). */
+  .linha-cabecalho, .linha-cenario { grid-template-columns: 200px minmax(0, 1fr) minmax(0, 1.25fr) 84px 200px 120px; column-gap: 16px; align-items: start; }
+  .linha-cabecalho { display: grid; padding: 14px 16px 14px 20px; }
   .linha-rotulo { display: none; }
   .linha-indisponivel { grid-column: 2 / 6; }
   .linha-faixa { grid-column: 1 / -1; }

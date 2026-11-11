@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { estadoVisual, faixaDosDias, rotuloDoStatus, ROTULOS_DE_STATUS, textoContratar, textoDaVariacao, textoDoPeso, textoDoTotal, textoIndisponivel } from "./linha-regras.js";
+import { estadoVisual, faixaDosDias, rotuloDoStatus, ROTULOS_DE_STATUS, textoContratar, textoDaVariacao, textoDaFolha, cabecalhoDaFolha, textoDoTotal, textoIndisponivel, partesDaExplicacao } from "./linha-regras.js";
 
 const dia = (d, abre, fecha) => ({ dia: d, aberto: !!abre, abre: abre ?? null, fecha: fecha ?? null });
 const semana = (...faixas) => faixas.map((f, i) => dia(i, ...(f ?? [])));
@@ -90,27 +90,66 @@ describe("status e estado visual", () => {
   });
 });
 
-describe("textoDoPeso (spec 048)", () => {
-  const base = { custoEstado: "ok", custoSentido: "aumenta" };
-  it("dono: % hoje → depois do faturamento, aumento em p.p. e R$ por mês", () => {
-    const t = textoDoPeso({ ...base, custoPctFaturamento: { hoje: 8, depois: 9.7, aumentoPp: 1.7, aumentoMensal: 7659 } }, true);
-    expect(t.texto).toBe("8,0% → 9,7% do faturamento");
-    expect(t.aumento).toBe("+1,7 p.p.");
-    expect(t.reais).toBe("(R$ 7.659/mês)");
+describe("textoDaFolha (spec 050, layout A3)", () => {
+  const dono = (sentido, c) => ({ custoEstado: "ok", custoSentido: sentido, custoPctFaturamento: c });
+  it("Cosmópolis, Manter horários: 9,7% (hoje 8,0%), chip +1,7% e R$ 7.659 a mais por mês", () => {
+    const t = textoDaFolha(dono("aumenta", { hoje: 8, depois: 9.7, aumentoPp: 1.7, aumentoMensal: 7659 }), true);
+    expect(t).toMatchObject({ tipo: "dono", peso: "9,7%", hoje: "hoje 8,0%", chip: { texto: "+1,7%", tom: "aumenta" }, reais: "R$ 7.659 a mais por mês" });
+    expect(t.ariaLabel).toBe("Folha sobe 1,7 ponto percentual, de 8,0% para 9,7% do faturamento");
   });
-  it("sem aumento: 0 p.p. e R$ 0", () => {
-    const t = textoDoPeso({ ...base, custoSentido: "igual", custoPctFaturamento: { hoje: 8, depois: 8, aumentoPp: 0, aumentoMensal: 0 } }, true);
-    expect(t.aumento).toBe("0,0 p.p.");
-    expect(t.reais).toBe("(R$ 0/mês)");
+  it("Cosmópolis, Sem contratações: chip neutro 'folha igual' e 'Sobe só porque a venda cai.'", () => {
+    const t = textoDaFolha(dono("igual", { hoje: 8, depois: 8.2, aumentoPp: 0.2, aumentoMensal: 0 }), true);
+    expect(t).toMatchObject({ peso: "8,2%", chip: { texto: "folha igual", tom: "igual" }, reais: "Sobe só porque a venda cai." });
+    expect(JSON.stringify(t)).not.toMatch(/p\.p\.|R\$ 0/);
   });
-  it("sem faturamento e sem salários dizem o que falta", () => {
-    expect(textoDoPeso({ custoEstado: "sem_faturamento" }, true).apoio).toBe("Informe o faturamento para ver o peso da folha");
-    expect(textoDoPeso({ custoEstado: "sem_salarios" }, true).apoio).toBe("Informe os salários para calcular");
+  it("igual sem o peso subir: sem a frase da venda", () => {
+    expect(textoDaFolha(dono("igual", { hoje: 8, depois: 8, aumentoPp: 0, aumentoMensal: 0 }), true).reais).toBeNull();
   });
-  it("gestor e consulta: só o sentido, sem número", () => {
-    expect(textoDoPeso({ ...base, custoPctFaturamento: { hoje: 8, depois: 9.7, aumentoPp: 1.7, aumentoMensal: 7659 } }, false).texto).toBe("▲ Aumenta");
-    expect(textoDoPeso({ custoEstado: "ok", custoSentido: "igual" }, false).texto).toBe("● Igual");
-    expect(textoDoPeso({ custoEstado: "ok", custoSentido: "diminui" }, false).texto).toBe("▼ Diminui");
-    expect(JSON.stringify(textoDoPeso({ ...base, custoPctFaturamento: { hoje: 8, depois: 9.7, aumentoPp: 1.7, aumentoMensal: 7659 } }, false))).not.toMatch(/7\.659|9,7/);
+  it("reduz equipe: chip verde −0,6% (sinal U+2212) e R$ 2.340 a menos por mês", () => {
+    const t = textoDaFolha(dono("diminui", { hoje: 8, depois: 7.4, aumentoPp: -0.6, aumentoMensal: -2340 }), true);
+    expect(t).toMatchObject({ peso: "7,4%", chip: { texto: "−0,6%", tom: "diminui" }, reais: "R$ 2.340 a menos por mês" });
+    expect(t.chip.texto.charCodeAt(0)).toBe(0x2212);
+    expect(t.ariaLabel).toBe("Folha cai 0,6 ponto percentual, de 8,0% para 7,4% do faturamento");
+  });
+  it("Paulínia, Manter horários: 14,7% (hoje 10,3%), +4,4% e R$ 11.112 a mais por mês", () => {
+    const t = textoDaFolha(dono("aumenta", { hoje: 10.3, depois: 14.7, aumentoPp: 4.4, aumentoMensal: 11112 }), true);
+    expect(t).toMatchObject({ peso: "14,7%", hoje: "hoje 10,3%", chip: { texto: "+4,4%" }, reais: "R$ 11.112 a mais por mês" });
+  });
+  it("o chip bate com a diferença dos pesos exibidos", () => {
+    const t = textoDaFolha(dono("aumenta", { hoje: 8, depois: 9.7, aumentoPp: 1.7, aumentoMensal: 7659 }), true);
+    expect(Number(t.peso.replace(",", ".").replace("%", "")) - Number(t.hoje.replace("hoje ", "").replace(",", ".").replace("%", ""))).toBeCloseTo(Number(t.chip.texto.replace("+", "").replace(",", ".").replace("%", "")), 9);
+  });
+  it("gestor e consulta: só Aumenta, Igual e Diminui, sem nenhum número", () => {
+    for (const [s, txt] of [["aumenta", "Aumenta"], ["igual", "Igual"], ["diminui", "Diminui"]]) {
+      const t = textoDaFolha({ custoEstado: "ok", custoSentido: s }, false);
+      expect(t).toMatchObject({ tipo: "chip", chip: { texto: txt } });
+      expect(JSON.stringify(t)).not.toMatch(/\d/);
+    }
+  });
+  it("dados que faltam: as frases do dono e a do gestor, sem números", () => {
+    expect(textoDaFolha({ custoEstado: "sem_salarios" }, true)).toEqual({ tipo: "falta", frase: "Informe os salários para ver o custo de pessoal." });
+    expect(textoDaFolha({ custoEstado: "sem_faturamento", custoSentido: "aumenta" }, true)).toEqual({ tipo: "falta", frase: "Informe o faturamento para ver o peso da folha." });
+    expect(textoDaFolha({ custoEstado: "sem_salarios" }, false)).toEqual({ tipo: "falta", frase: "Dados do custo ainda não informados." });
+  });
+  it("cabeçalho por perfil", () => {
+    expect(cabecalhoDaFolha(true)).toBe("Folha no faturamento");
+    expect(cabecalhoDaFolha(false)).toBe("Custo de pessoal");
+  });
+});
+
+describe("partesDaExplicacao (spec 051)", () => {
+  it("devolve os trechos e o texto corrido, com o negrito preservado", () => {
+    const r = partesDaExplicacao({ explicacao: { partes: [{ texto: "Sem contratar ninguém. " }, { texto: "Mesmo assim, ainda faltariam 17 h de farmacêutico por semana.", negrito: true }, { texto: " Entre em Analisar." }] } });
+    expect(r.partes[1].negrito).toBe(true);
+    expect(r.texto).toBe("Sem contratar ninguém. Mesmo assim, ainda faltariam 17 h de farmacêutico por semana. Entre em Analisar.");
+  });
+  it("sem frase (ou com trechos vazios) devolve nulo", () => {
+    expect(partesDaExplicacao({})).toBeNull();
+    expect(partesDaExplicacao({ explicacao: null })).toBeNull();
+    expect(partesDaExplicacao({ explicacao: { partes: [{ texto: "" }] } })).toBeNull();
+  });
+  it("a frase não usa p.p., pontos nem Personalizar", () => {
+    const r = partesDaExplicacao({ explicacao: { partes: [{ texto: "Entre em Analisar para escolher quais." }] } });
+    expect(r.texto).not.toMatch(/p\.p\.|pontos|Personalizar/);
   });
 });

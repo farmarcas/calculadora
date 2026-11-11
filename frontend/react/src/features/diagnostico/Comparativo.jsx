@@ -3,7 +3,7 @@ import { api } from "../../api/client.js";
 import { Aviso } from "../../components/ui/index.jsx";
 import LinhaDeCenario from "./cartao/LinhaDeCenario.jsx";
 import { diasDasAbas, sugerirTurnosDasVagas, turnosParaGravar, vagaSemTurnos } from "../simulacao/escala/escala-regras.js";
-import { palavraDaRegua } from "../regua.js";
+import { cabecalhoDaFolha } from "./cartao/linha-regras.js";
 
 // As vagas do cenário para o simulador: inteiras na jornada cheia e o parcial com as horas dele (a vaga pede 4 a 44 h inteiras).
 const vagasDeCenario = (c) =>
@@ -81,7 +81,7 @@ export default function Comparativo({ comparativo, cenarios, lojaId, podeEscreve
       <div>
         <h2 className="m-0 text-xl leading-[26px] font-bold text-[var(--text-strong)]">Cenários</h2>
         <p className="mt-1 mb-0 text-sm leading-5 text-[var(--text-secondary)]">
-          Estimativas para a regra de {cenarios?.regra?.nome ?? "referência"}, com o quadro{dono ? ", os salários" : ""} e a base comercial importados. Cada hora nova de funcionamento vale, por estimativa, 50% da {palavraDaRegua(comparativo.regua)} da hora vizinha. As variações são em relação ao horário e ao custo de pessoal de hoje. Nada altera o cadastro.
+          Estimativas para a regra de {cenarios?.regra?.nome ?? "referência"}, com o quadro{dono ? ", os salários" : ""} e a base comercial importados. Compare cada cenário com o horário e a folha de hoje. Nada altera o cadastro.
         </p>
       </div>
       {erro && <Aviso>{erro}</Aviso>}
@@ -91,12 +91,12 @@ export default function Comparativo({ comparativo, cenarios, lojaId, podeEscreve
         </p>
       ) : (
         <div role="group" aria-label="Lista de cenários" className="overflow-hidden rounded-card border border-[var(--border-subtle)] shadow-card">
-          <div aria-hidden="true" className="linha-cabecalho bg-[var(--surface-subtle)] py-3 text-[11px] leading-4 font-bold tracking-wide text-[var(--neutral-mid-300)]">
+          <div aria-hidden="true" className="linha-cabecalho border-b border-[var(--border-subtle)] bg-[var(--surface-subtle)] text-xs leading-4 font-bold tracking-wider text-[var(--text-secondary)]">
             <span>CENÁRIO</span>
             <span>CONTRATAR</span>
             <span>HORÁRIO</span>
             <span>VENDA</span>
-            <span>CUSTO DE PESSOAL</span>
+            <span>{cabecalhoDaFolha(dono).toUpperCase()}</span>
             <span />
           </div>
           {linhas.map((l) => (

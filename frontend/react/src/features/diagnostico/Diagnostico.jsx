@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Aviso, Botao, Cartao } from "../../components/ui/index.jsx";
+import { Botao, Cartao } from "../../components/ui/index.jsx";
 import QuadroCentral from "./QuadroCentral.jsx";
 import OndeVemSecao from "./onde-vem/OndeVemSecao.jsx";
 import Comparativo from "./Comparativo.jsx";
@@ -10,7 +10,6 @@ export default function Diagnostico({ diag, podeEscrever, onEnviar, onSimular, o
   if (diag.status === "pendente")
     return (
       <div className="flex flex-col gap-6">
-      {diag.avisoEstimativa && <Aviso tom="atencao">{diag.avisoEstimativa}</Aviso>}
       <Cartao>
         <div className="p-10 text-center">
           <p className="m-0 text-base font-medium">{diag.mensagem}</p>
@@ -23,7 +22,6 @@ export default function Diagnostico({ diag, podeEscrever, onEnviar, onSimular, o
 
   return (
     <div className="flex flex-col gap-6">
-      {diag.avisoEstimativa && <Aviso tom="atencao">{diag.avisoEstimativa}</Aviso>}
       <QuadroCentral diag={diag} regraId={regraId} onRegra={setRegraId} podeEscrever={podeEscrever} onEnviar={onEnviar} onRecarregar={onRecarregar} onDefinirFuncao={onDefinirFuncao} />
 
       {/* Logo depois do diagnóstico: os caminhos lado a lado (o detalhe de cada cenário saiu da página). */}

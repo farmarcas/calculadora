@@ -253,3 +253,14 @@
   --escala-tom-2: var(--system-500);
   --escala-tom-3: var(--system-900);
 }
+
+/* Escala da semana (spec 041): cor de cada função na célula do dia, só com tokens do DS. */
+:root {
+  --escala-semana-farmaceutico-fundo: var(--func-success-100);
+  --escala-semana-farmaceutico-texto: var(--text-success-strong);
+  --escala-semana-atendimento-fundo: var(--system-50);
+  --escala-semana-atendimento-texto: var(--system-900);
+  --escala-semana-caixa-fundo: var(--func-attention-100);
+  --escala-semana-caixa-texto: var(--neutral-dark-900);
+  --escala-semana-atencao: var(--text-danger);
+}

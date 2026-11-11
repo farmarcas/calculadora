@@ -11,10 +11,14 @@ const NOMES_LONGOS = ["segunda", "terça", "quarta", "quinta", "sexta", "sábado
 
 // "Escala por hora" (spec 039), dentro da Simulação: a grade do dia com venda e clientes por hora, a cobertura por função e
 // os turnos de cada pessoa. A contratação e os turnos valem só para esta simulação; nada vai ao Cadastro.
-export default function EscalaPorHora({ sim, editavel, dono, calculando = false, erro = null, onLimparErro, onSalvar }) {
+export default function EscalaPorHora({ sim, editavel, dono, calculando = false, erro = null, onLimparErro, onSalvar, irParaDia = null }) {
   const abas = useMemo(() => diasDasAbas(sim.diasAbertos), [sim.diasAbertos]);
   const [dia, setDia] = useState(abas[0]?.dia ?? 0);
   const [selecionado, setSelecionado] = useState(null);
+  // A "Escala da semana" pede um dia (spec 041): { dia, n }; o n muda a cada clique, mesmo no mesmo dia.
+  useEffect(() => {
+    if (irParaDia && abas.some((a) => a.dia === irParaDia.dia)) setDia(irParaDia.dia);
+  }, [irParaDia]); // eslint-disable-line react-hooks/exhaustive-deps
   const [recolhidas, setRecolhidas] = useState(() => new Set());
   // Turnos com o ajuste em andamento (arrastar): a cobertura responde na hora; volta ao do servidor quando a simulação muda.
   const [tentou, setTentou] = useState(false); // houve uma gravação de turno: o erro, se vier, aparece aqui
@@ -142,7 +146,7 @@ export default function EscalaPorHora({ sim, editavel, dono, calculando = false,
   const alternar = (f) => setRecolhidas((r) => { const n = new Set(r); if (n.has(f)) n.delete(f); else n.add(f); return n; });
 
   return (
-    <section aria-label="Escala por hora" className="rounded-card border border-[var(--border-subtle)] bg-[var(--surface-card)] shadow-card">
+    <section id="escala-por-hora" aria-label="Escala por hora" className="rounded-card border border-[var(--border-subtle)] bg-[var(--surface-card)] shadow-card">
       <div className="flex flex-wrap items-start justify-between gap-4 p-6 pb-4">
         <div className="min-w-0 max-w-[560px]">
           <h2 className="m-0 text-xl leading-[26px] font-bold text-[var(--text-strong)]">Escala por hora</h2>

@@ -226,7 +226,8 @@ describe('escala (rotas)', () => {
       .set(admin)
       .send({ salarioMedio: { Farmacêutico: 8000 }, encargosPct: 40 });
 
-    // 66h abertas por semana; 1 farmacêutica de 40h: faltam 26h → 1 parcial de 26h (até 30h): 1 pessoa, sem sobra
+    // 66h abertas por semana; 1 farmacêutica de 40h: faltam 26h → 1 parcial de 26h (até 30h): 1 pessoa, sem sobra.
+    // Spec 043: a falta vem da cobertura real (ela folga 1 dia e trabalha 5 de 8h) e dá as mesmas 26h.
     const dono = (await reqGe().get(url).set(admin)).body.cenarios;
     expect(Object.keys(dono)).toEqual(['r42', 'r40']);
     expect(dono.r40.manter.contratacoes).toEqual([

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { pessoasParaFolgar, sugerirFolgas, textoDoRodizio } from "./folgas-regras.js";
+import { ajustarJornada, pessoasParaFolgar, sugerirFolgas, textoDoRodizio } from "./folgas-regras.js";
 
 const horas = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17];
 const abas = (n = 7) => Array.from({ length: n }, (_, dia) => ({ dia, abre: 8, fecha: 18 }));
@@ -91,5 +91,21 @@ describe("textoDoRodizio", () => {
   it("explica o rodízio e a pendência do jurídico", () => {
     expect(textoDoRodizio()).toMatch(/1 em cada 3/);
     expect(textoDoRodizio()).toMatch(/jurídico/);
+  });
+});
+
+describe("ajustarJornada", () => {
+  const regra = { dias: 5, maxDia: 8, teto: 42 };
+  it("corta o fim do turno que passa do máximo do dia e do teto da semana", () => {
+    const q = gente("A");
+    const ts = semana("A", 5).map((x) => ({ ...x, entrada: 8, saida: 17 })); // 9 h por dia, 5 dias
+    const r = ajustarJornada(ts, q, regra);
+    expect(r.every((x) => x.entrada === 8 && x.saida - x.entrada <= 8)).toBe(true);
+    expect(r.reduce((s, x) => s + (x.saida - x.entrada), 0)).toBeLessThanOrEqual(40);
+  });
+  it("não mexe em quem já cabe e em vagas simuladas", () => {
+    const q = [...gente("A"), { matricula: "V", nome: "V", funcao: "Caixa", cargaH: 16, vaga: true }];
+    const ts = [...semana("A", 5).map((x) => ({ ...x, saida: 16 })), ...semana("V", 2).map((x) => ({ ...x, matricula: "V", saida: 19 }))];
+    expect(ajustarJornada(ts, q, regra)).toEqual(ts);
   });
 });

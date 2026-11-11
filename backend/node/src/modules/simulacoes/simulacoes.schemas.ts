@@ -80,6 +80,10 @@ export const criarReq = req(
         .default('escala_atual'),
       // Já nasce com as contratações que o diagnóstico sugere para a regra escolhida.
       comVagasSugeridas: z.boolean().default(false),
+      // Horário simulado já na criação (o do cenário clicado, que pode abrir ou fechar dias); sem ele vale o da loja.
+      horarios: horariosEntrada
+        .refine((h) => h.dias.some((d) => d.aberta), { message: 'Deixe ao menos um dia aberto' })
+        .optional(),
     })
     .strict(),
   id,

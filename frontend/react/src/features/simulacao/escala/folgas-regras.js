@@ -20,6 +20,42 @@ export const pessoasParaFolgar = ({ quadro = [], turnos = [], limiteDias }) =>
 export const textoDoRodizio = () =>
   "Domingo: ao menos 1 em cada 3 pessoas de cada função folga no domingo desta semana; repetindo o rodízio, cada pessoa folga um domingo a cada 3 semanas. São regras de referência: o jurídico da Farmarcas confirma os detalhes.";
 
+
+const EPS = 1e-9;
+const liquidaDe = (t) => t.saida - t.entrada - (t.iniIntervalo != null && t.fimIntervalo != null ? t.fimIntervalo - t.iniIntervalo : 0);
+const quarto = (h) => Math.ceil(h * 4 - EPS) / 4;
+const cortaFim = (t, corte) => {
+  const saida = Math.max(t.entrada + 1, t.saida - corte);
+  const fora = t.fimIntervalo != null && t.fimIntervalo > saida - EPS;
+  return { ...t, saida, iniIntervalo: fora ? null : t.iniIntervalo, fimIntervalo: fora ? null : t.fimIntervalo };
+};
+
+// Cada pessoa da equipe cabe na regra: até o máximo de horas por dia e até o teto da semana (e a carga contratada). O que
+// passa sai do fim do turno, igual em todos os dias da pessoa, em quartos de hora. Vagas simuladas ficam como estão.
+export const ajustarJornada = (turnos, quadro, regra) => {
+  if (!regra?.maxDia) return turnos;
+  const teto = Math.min(regra.teto ?? Infinity, (regra.dias ?? 7) * regra.maxDia);
+  const pessoas = new Map(quadro.map((p) => [p.matricula, p]));
+  const porPessoa = new Map();
+  for (const t of turnos) porPessoa.set(t.matricula, [...(porPessoa.get(t.matricula) ?? []), t]);
+  const saida = [];
+  for (const [m, ts] of porPessoa) {
+    if (pessoas.get(m)?.vaga) {
+      saida.push(...ts);
+      continue;
+    }
+    let lista = ts.map((t) => (liquidaDe(t) > regra.maxDia + EPS ? cortaFim(t, quarto(liquidaDe(t) - regra.maxDia)) : t));
+    const semana = lista.reduce((s, t) => s + liquidaDe(t), 0);
+    const limite = Math.min(pessoas.get(m)?.cargaH ?? teto, teto);
+    if (semana > limite + EPS && lista.length) {
+      const corte = quarto((semana - limite) / lista.length);
+      lista = lista.map((t) => cortaFim(t, corte));
+    }
+    saida.push(...lista);
+  }
+  return saida;
+};
+
 // Sugere as folgas. `cobertura` é a cobertura por dia e função ({ [dia]: [{ funcao, porHora }] }) e `abas` os dias abertos.
 export const sugerirFolgas = ({ quadro = [], turnos = [], cobertura = {}, abas = [], regra }) => {
   const limite = regra?.dias ?? 7;
@@ -42,6 +78,14 @@ export const sugerirFolgas = ({ quadro = [], turnos = [], cobertura = {}, abas =
     const resto = atuais.filter((t) => t.dia === dia && funcaoDe.get(t.matricula) === funcao && t.matricula !== matricula);
     const nova = recalcularCobertura(base, resto);
     return Math.min(...nova.porHora.map((c) => c.pessoas - c.exigido));
+  };
+  // Quantas horas de falta a saída da pessoa abre neste dia (0 quando a função tem sobra em todas as horas dela).
+  const faltaNova = (funcao, matricula, dia) => {
+    const base = cobertura?.[dia]?.find((c) => c.funcao === funcao);
+    if (!base) return 0;
+    const doDia = atuais.filter((t) => t.dia === dia && funcaoDe.get(t.matricula) === funcao);
+    const falta = (ts) => recalcularCobertura(base, ts).porHora.reduce((s, c) => s + Math.max(0, c.exigido - c.pessoas), 0);
+    return falta(doDia.filter((t) => t.matricula !== matricula)) - falta(doDia);
   };
   const retirar = (p, dia) => {
     atuais = atuais.filter((t) => !(t.matricula === p.matricula && t.dia === dia));
@@ -82,9 +126,10 @@ export const sugerirFolgas = ({ quadro = [], turnos = [], cobertura = {}, abas =
       while ((falta.get(p.matricula) ?? 0) > 0) {
         const dias = [...diasDe(atuais, p.matricula)].filter((d) => diasAbertos.has(d));
         if (!dias.length) break;
+        // Escolhe o dia que abre menos falta nova (zero quando sobra gente); depois espalha entre as pessoas da função.
         const opcoes = dias
-          .map((d) => ({ d, sobra: sobraSem(funcao, p.matricula, d), junto: contar(funcao, d) }))
-          .sort((a, b) => (b.sobra >= 0) - (a.sobra >= 0) || a.junto - b.junto || b.sobra - a.sobra || a.d - b.d);
+          .map((d) => ({ d, novaFalta: faltaNova(funcao, p.matricula, d), sobra: sobraSem(funcao, p.matricula, d), junto: contar(funcao, d) }))
+          .sort((a, b) => a.novaFalta - b.novaFalta || a.junto - b.junto || b.sobra - a.sobra || a.d - b.d);
         retirar(p, opcoes[0].d);
         falta.set(p.matricula, falta.get(p.matricula) - 1);
       }
@@ -103,5 +148,6 @@ export const sugerirFolgas = ({ quadro = [], turnos = [], cobertura = {}, abas =
     }
   }
 
+  atuais = ajustarJornada(atuais, quadro, regra);
   return { turnos: atuais, retirados, avisos, domingoSugerido };
 };

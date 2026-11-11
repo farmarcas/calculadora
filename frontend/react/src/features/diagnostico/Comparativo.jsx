@@ -19,14 +19,12 @@ const vagasDeCenario = (c) =>
 
 // Os três cenários em linhas (Equilíbrio, Manter horários, Sem contratações) para a regra escolhida, sem valores em reais:
 // o horário, o que contratar e a variação de venda e de custo de pessoal em %. As linhas vêm prontas do servidor, iguais
-// para dono, gestor e consulta; só o dono recebe o selo de cenário sugerido.
+// para dono, gestor e consulta. Nenhum cenário vem destacado como sugerido.
 export default function Comparativo({ comparativo, cenarios, lojaId, podeEscrever, onSimular }) {
   const [ocupado, setOcupado] = useState(false);
   const [erro, setErro] = useState(null);
   if (!comparativo) return null;
   const linhas = cenarios?.linhas ?? [];
-  // O selo "Cenário sugerido" só vai ao dono (o servidor só devolve `sugerido` para ele).
-  const sugeridoId = comparativo.sugerido !== undefined ? comparativo.sugerido : comparativo.destaque;
   const dono = comparativo.cenarios?.[0]?.custoFolhaMensal !== undefined;
   const antes = cenarios?.manter?.horarioSemana ?? [];
 
@@ -77,9 +75,9 @@ export default function Comparativo({ comparativo, cenarios, lojaId, podeEscreve
   const podePersonalizar = podeEscrever && !!lojaId && !!cenarios?.regra;
 
   return (
-    <section aria-label="Cenários sugeridos" className="linhas-conteiner flex flex-col gap-4">
+    <section aria-label="Cenários" className="linhas-conteiner flex flex-col gap-4">
       <div>
-        <h2 className="m-0 text-xl leading-[26px] font-bold text-[var(--text-strong)]">Cenários sugeridos</h2>
+        <h2 className="m-0 text-xl leading-[26px] font-bold text-[var(--text-strong)]">Cenários</h2>
         <p className="mt-1 mb-0 text-sm leading-5 text-[var(--text-secondary)]">
           Estimativas para a regra de {cenarios?.regra?.nome ?? "referência"}, com o quadro{dono ? ", os salários" : ""} e a base comercial importados. Cada hora nova de funcionamento vale, por estimativa, 50% da {palavraDaRegua(comparativo.regua)} da hora vizinha. As variações são em relação ao horário e ao custo de pessoal de hoje. Nada altera o cadastro.
         </p>
@@ -90,7 +88,7 @@ export default function Comparativo({ comparativo, cenarios, lojaId, podeEscreve
           A equipe atual cobre todos os dias. Não há o que contratar nem reduzir.
         </p>
       ) : (
-        <div role="group" aria-label="Cenários" className="overflow-hidden rounded-card border border-[var(--border-subtle)] shadow-card">
+        <div role="group" aria-label="Lista de cenários" className="overflow-hidden rounded-card border border-[var(--border-subtle)] shadow-card">
           <div aria-hidden="true" className="linha-cabecalho bg-[var(--surface-subtle)] py-3 text-[11px] leading-4 font-bold tracking-wide text-[var(--neutral-mid-300)]">
             <span>CENÁRIO</span>
             <span>CONTRATAR</span>
@@ -104,7 +102,6 @@ export default function Comparativo({ comparativo, cenarios, lojaId, podeEscreve
               key={l.id}
               linha={l}
               antes={antes}
-              sugerido={sugeridoId === l.id}
               dono={dono}
               podeEscrever={podePersonalizar}
               ocupado={ocupado}

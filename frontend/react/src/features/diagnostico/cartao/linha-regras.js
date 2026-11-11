@@ -82,7 +82,7 @@ export const textoContratar = (contratar = []) => {
   return linhas.length ? linhas : ["Nenhuma contratação"];
 };
 
-// ---- Status, selo e estado visual ------------------------------------------------------------------------------------
+// ---- Status e estado visual ------------------------------------------------------------------------------------
 
 // Texto curto da pill, o tom e o ícone. A cor nunca vai sozinha: o ícone e o texto acompanham.
 export const ROTULOS_DE_STATUS = {
@@ -98,14 +98,12 @@ export const rotuloDoStatus = (status) => ROTULOS_DE_STATUS[status] ?? null;
 
 const REBAIXADOS = new Set(["inviavel", "nao_resolve", "nao_recomendado"]);
 
-// "indisponivel" (sem dados), "rebaixado" (não resolve), "sugerido" (só o dono) ou "alternativa".
-export const estadoVisual = (linha, { sugerido = false } = {}) => {
+// "indisponivel" (sem dados), "rebaixado" (não resolve) ou "normal". Nenhum cenário é destacado como sugerido.
+export const estadoVisual = (linha) => {
   if (linha.indisponivel) return "indisponivel";
   if (REBAIXADOS.has(linha.status)) return "rebaixado";
-  return sugerido ? "sugerido" : "alternativa";
+  return "normal";
 };
-
-export const seloDaLinha = (sugerido) => (sugerido ? "CENÁRIO SUGERIDO" : "ALTERNATIVA");
 
 export const textoIndisponivel = ({ dono }) =>
   dono ? "Informe as vendas por dia ou por hora e os salários para calcular este cenário." : "O dono ainda não informou os custos.";

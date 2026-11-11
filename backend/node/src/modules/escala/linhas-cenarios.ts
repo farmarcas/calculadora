@@ -160,7 +160,8 @@ export const montarLinhas = (
         ? {
             hoje: arred1(pesoHoje),
             depois: arred1(pesoDepois),
-            aumentoPp: semZeroNegativo(pesoDepois - pesoHoje),
+            // A diferença dos pesos JÁ arredondados (9,7 − 8,0 = 1,7), para a conta bater com o que aparece na tela.
+            aumentoPp: semZeroNegativo(arred1(pesoDepois) - arred1(pesoHoje)),
             aumentoMensal: Math.round(adicional),
           }
         : null;

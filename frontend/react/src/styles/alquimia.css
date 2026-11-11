@@ -264,3 +264,17 @@
   --escala-semana-caixa-texto: var(--neutral-dark-900);
   --escala-semana-atencao: var(--text-danger);
 }
+
+/* Coluna "Folha no faturamento" (spec 050): o chip da variação. Âmbar e verde não existem no DS; o texto é escurecido para
+   passar do contraste AA (4,5:1) em texto pequeno sobre o fundo claro. */
+:root {
+  --chip-aumenta-fundo: #FFE9C7;
+  --chip-aumenta-texto: #8F4A00;
+  --chip-aumenta-borda: #B45F00;
+  --chip-diminui-fundo: #DFF0C0;
+  --chip-diminui-texto: #3E7500;
+  --chip-diminui-borda: #3E7500;
+  --chip-igual-fundo: var(--surface-card);
+  --chip-igual-texto: var(--text-strong);
+  --chip-igual-borda: var(--border-default);
+}

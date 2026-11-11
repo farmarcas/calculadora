@@ -305,6 +305,28 @@ describe('montarLinhas', () => {
         aumentoMensal: 11112,
       });
     });
+    it('reduz equipe: 8,0% → 7,4%, −0,6 e R$ −2.340 por mês', () => {
+      const l = montarLinhas(
+        comp([col({ id: 'manter', folhaAdicionalMensal: -2340 }), col({ id: 'economia' }), equilibrio]),
+        cen(null, 36037.6, 450567),
+        true,
+      );
+      expect(l[1]!.custoPctFaturamento).toEqual({ hoje: 8, depois: 7.5, aumentoPp: -0.5, aumentoMensal: -2340 });
+      expect(l[1]!.custoSentido).toBe('diminui');
+    });
+    it('a diferença usa os pesos já arredondados (8,04 → 9,66 mostra 8,0, 9,7 e +1,7, e não 1,6)', () => {
+      // folha 36.180 ÷ 450.000 = 8,04% (mostra 8,0); com +7.290 = 9,66% (mostra 9,7): a diferença exibida é 1,7, não 1,62
+      const l = montarLinhas(
+        comp([col({ id: 'manter', folhaAdicionalMensal: 7290 }), col({ id: 'economia' }), equilibrio]),
+        cen(null, 36180, 450000),
+        true,
+      );
+      const c = l[1]!.custoPctFaturamento!;
+      expect(c.hoje).toBe(8);
+      expect(c.depois).toBe(9.7);
+      expect(c.aumentoPp).toBe(1.7);
+      expect(Math.round((c.depois - c.hoje) * 10) / 10).toBe(c.aumentoPp);
+    });
     it('sem custo adicional: 0 p.p., R$ 0 e sentido igual', () => {
       const ec = cosmopolis()[2]!;
       expect(ec.custoPctFaturamento).toEqual({

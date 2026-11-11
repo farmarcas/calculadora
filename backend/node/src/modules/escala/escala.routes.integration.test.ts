@@ -327,6 +327,14 @@ describe('escala (rotas)', () => {
     expect(dono.faturamentoMensal).toEqual({ valor: 100000, origem: 'mensal' });
     expect(dono.folhaMensal.mensal).toBe(12976);
     expect(dono.folhaMensal.pctDoFaturamento).toBe(13);
+    // Cada cenário mostra quanto o custo de pessoal pesa no faturamento: (folha + custo adicional) ÷ faturamento (só o dono)
+    const cenarios = dono.cenarios.r40;
+    const manter = cenarios.linhas.find((l: { id: string }) => l.id === 'manter');
+    expect(manter.custoPctFaturamento.hoje).toBe(13);
+    const esperado =
+      Math.round(((12976 + cenarios.manter.custoAdicionalMensal) / 100000) * 1000) / 10;
+    expect(manter.custoPctFaturamento.depois).toBe(esperado);
+    expect(manter.custoPctFaturamento.depois).toBeGreaterThan(13);
     for (const h of [
       { 'X-Perfil': 'SCHEDULE_MANAGER', 'X-GE': GE_INICIAL_ID },
       { 'X-Perfil': 'SCHEDULE_VIEWER', 'X-GE': GE_INICIAL_ID },
@@ -334,6 +342,7 @@ describe('escala (rotas)', () => {
       const r = (await reqGe().get(url).set(h)).body;
       expect('faturamentoMensal' in r).toBe(false);
       expect('folhaMensal' in r).toBe(false);
+      for (const l of r.cenarios.r40.linhas) expect('custoPctFaturamento' in l).toBe(false);
     }
   });
 
@@ -1509,14 +1518,26 @@ describe('escala (rotas)', () => {
       }
     });
 
-    it('linhas dos cenários (spec 037): iguais para dono, gestor e consulta, só com % e sem reais nem salário', async () => {
+    it('linhas dos cenários (spec 037): iguais para dono, gestor e consulta, só com % e sem reais nem salário (o dono ainda recebe o custo sobre o faturamento)', async () => {
       await preparar(cmvDe(70));
       const consulta = { 'X-Perfil': 'SCHEDULE_VIEWER', 'X-GE': GE_INICIAL_ID };
       const [dono, ges, con] = await Promise.all(
         [admin, gestor, consulta].map(async (h) => (await reqGe().get(url()).set(h)).body),
       );
       for (const id of ['r42', 'r40']) {
-        const linhas = dono.cenarios[id].linhas;
+        const linhasDoDono = dono.cenarios[id].linhas;
+        // O dono recebe, a mais, o peso do custo de pessoal no faturamento; as demais linhas são idênticas.
+        const linhas = linhasDoDono.map(
+          ({
+            custoPctFaturamento: _c,
+            custoPct: _p,
+            ...resto
+          }: {
+            custoPctFaturamento?: unknown;
+            custoPct?: unknown;
+          }) => resto,
+        );
+        expect(linhasDoDono.every((l: object) => 'custoPctFaturamento' in l)).toBe(true);
         expect(linhas.map((l: { id: string }) => l.id)).toEqual([
           'equilibrio',
           'manter',
@@ -1534,7 +1555,7 @@ describe('escala (rotas)', () => {
               'contratacoes',
               'contratar',
               'custoEstado',
-              'custoPct',
+              'custoSentido',
               'diasFechar',
               'horarioSemana',
               'horasDiferenca',

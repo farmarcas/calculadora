@@ -474,7 +474,7 @@ export const montarDiagnostico = (a: {
           ...cenarios,
           ...montarExtras(entrada, cenarios),
           comparativo,
-          linhas: montarLinhas(completo.comparativo, completo.cenarios),
+          linhas: montarLinhas(completo.comparativo, completo.cenarios, a.dono === true),
         },
       ];
     }),

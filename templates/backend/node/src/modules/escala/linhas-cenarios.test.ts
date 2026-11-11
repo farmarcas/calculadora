@@ -35,10 +35,11 @@ const col = (p: Partial<ColunaComparativo> & Pick<ColunaComparativo, 'id'>): Col
 const cen = (
   equilibrioIndisponivel: 'custos' | 'vendas' | null = null,
   folha: number | null = 50000,
+  faturamento: number | null = null,
 ) =>
   ({
     atual: { horasSemana: 98, pessoas: 6, folhaMensal: folha },
-    manter: { horasSemana: 98, horarioSemana: dias() },
+    manter: { horasSemana: 98, horarioSemana: dias(), faturamentoMensalRef: faturamento },
     economia: { horasSemana: 85, horarioSemana: dias(12) },
     equilibrio: {
       horasSemana: 103,
@@ -167,7 +168,11 @@ describe('montarLinhas', () => {
   });
 
   it('variações em % à mão: venda (ganho − perda sobre o faturamento) e custo (adicional ÷ folha)', () => {
-    const [eq, ma, ec] = montarLinhas(comp([manter, economia, equilibrio]), cen());
+    const [eq, ma, ec] = montarLinhas(
+      comp([manter, economia, equilibrio]),
+      cen(null, 50000, 450000),
+      true,
+    );
     expect(eq).toMatchObject({
       vendaPct: 1.7,
       vendaEstado: 'ok',
@@ -182,7 +187,7 @@ describe('montarLinhas', () => {
   });
 
   it('Manter horários leva o que contratar e o horário de hoje', () => {
-    const [, ma] = montarLinhas(comp([manter, economia, equilibrio]), cen());
+    const [, ma] = montarLinhas(comp([manter, economia, equilibrio]), cen(), true);
     expect(ma!.contratar).toEqual([{ funcao: 'Farmacêutico', inteiras: 0, parcialHoras: 20 }]);
     expect(ma!.horarioSemana).toHaveLength(7);
   });
@@ -194,7 +199,7 @@ describe('montarLinhas', () => {
       faturamentoPerdidoPct: null,
       faturamentoPerdidoMensal: null,
     });
-    const [, , ec] = montarLinhas(comp([manter, semVenda, equilibrio]), cen());
+    const [, , ec] = montarLinhas(comp([manter, semVenda, equilibrio]), cen(), true);
     expect(ec).toMatchObject({
       vendaPct: null,
       vendaEstado: 'nao_estimada',
@@ -203,6 +208,7 @@ describe('montarLinhas', () => {
     const semSalario = montarLinhas(
       comp([{ ...manter, folhaAdicionalMensal: null }, economia, equilibrio]),
       cen(null, null),
+      true,
     );
     expect(semSalario[1]).toMatchObject({ custoPct: null, custoEstado: 'sem_salarios' });
   });
@@ -215,7 +221,7 @@ describe('montarLinhas', () => {
       faturamentoPerdidoPct: null,
       vendaAdicionalPct: null,
     });
-    const [eq] = montarLinhas(comp([manter, economia, indisp]), cen('custos'));
+    const [eq] = montarLinhas(comp([manter, economia, indisp]), cen('custos'), true);
     expect(eq).toMatchObject({
       status: null,
       causa: null,
@@ -252,5 +258,86 @@ describe('montarLinhas', () => {
     ]) {
       expect(json).not.toContain(chave);
     }
+  });
+
+  // Spec 048: o peso do custo de pessoal no faturamento (só o dono) e o sentido da mudança (todos os perfis)
+  describe('peso no faturamento', () => {
+    // Cosmópolis (r42): folha 36.037,60, faturamento 450.567, 1 farmacêutico a R$ 7.659,08 por mês
+    const cosmopolis = () =>
+      montarLinhas(
+        comp([
+          col({ id: 'manter', folhaAdicionalMensal: 7659.08 }),
+          col({
+            id: 'economia',
+            folhaAdicionalMensal: 0,
+            vendaAdicionalPct: 0,
+            faturamentoPerdidoPct: 0,
+          }),
+          equilibrio,
+        ]),
+        cen(null, 36037.6, 450567),
+        true,
+      );
+    it('Cosmópolis: 8,0% → 9,7% do faturamento, +1,7 p.p. e R$ 7.659 por mês', () => {
+      const ma = cosmopolis()[1]!;
+      expect(ma.custoPctFaturamento).toEqual({
+        hoje: 8,
+        depois: 9.7,
+        aumentoPp: 1.7,
+        aumentoMensal: 7659,
+      });
+      expect(ma.custoSentido).toBe('aumenta');
+    });
+    it('Paulínia: 10,3% → 14,7%, +4,4 p.p. e R$ 11.112 por mês', () => {
+      const l = montarLinhas(
+        comp([
+          col({ id: 'manter', folhaAdicionalMensal: 11112.32 }),
+          col({ id: 'economia' }),
+          equilibrio,
+        ]),
+        cen(null, 25677.88, 249921),
+        true,
+      );
+      expect(l[1]!.custoPctFaturamento).toEqual({
+        hoje: 10.3,
+        depois: 14.7,
+        aumentoPp: 4.4,
+        aumentoMensal: 11112,
+      });
+    });
+    it('sem custo adicional: 0 p.p., R$ 0 e sentido igual', () => {
+      const ec = cosmopolis()[2]!;
+      expect(ec.custoPctFaturamento).toEqual({
+        hoje: 8,
+        depois: 8,
+        aumentoPp: 0,
+        aumentoMensal: 0,
+      });
+      expect(ec.custoSentido).toBe('igual');
+    });
+    it('sem faturamento: sem o peso e com o estado que diz o que falta; sem salários: sem_salarios', () => {
+      const [, ma] = montarLinhas(
+        comp([manter, economia, equilibrio]),
+        cen(null, 50000, null),
+        true,
+      );
+      expect(ma!.custoPctFaturamento).toBeNull();
+      expect(ma!.custoEstado).toBe('sem_faturamento');
+      const [, sem] = montarLinhas(
+        comp([{ ...manter, folhaAdicionalMensal: null }, economia, equilibrio]),
+        cen(null, null, 450567),
+        true,
+      );
+      expect(sem!.custoEstado).toBe('sem_salarios');
+    });
+    it('gestor e consulta: só o sentido, nenhum número de custo, folha ou faturamento', () => {
+      const l = montarLinhas(comp([manter, economia, equilibrio]), cen(null, 50000, 450000), false);
+      for (const x of l) {
+        expect(x).not.toHaveProperty('custoPct');
+        expect(x).not.toHaveProperty('custoPctFaturamento');
+      }
+      expect(l[1]!.custoSentido).toBe('aumenta');
+      expect(l[2]!.custoSentido).toBe('igual');
+    });
   });
 });

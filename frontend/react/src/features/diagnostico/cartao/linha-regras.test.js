@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { estadoVisual, faixaDosDias, rotuloDoStatus, ROTULOS_DE_STATUS, textoContratar, textoDaVariacao, textoDoTotal, textoIndisponivel } from "./linha-regras.js";
+import { estadoVisual, faixaDosDias, rotuloDoStatus, ROTULOS_DE_STATUS, textoContratar, textoDaVariacao, textoDoPeso, textoDoTotal, textoIndisponivel } from "./linha-regras.js";
 
 const dia = (d, abre, fecha) => ({ dia: d, aberto: !!abre, abre: abre ?? null, fecha: fecha ?? null });
 const semana = (...faixas) => faixas.map((f, i) => dia(i, ...(f ?? [])));
@@ -87,5 +87,30 @@ describe("status e estado visual", () => {
   it("texto de indisponível por perfil", () => {
     expect(textoIndisponivel({ dono: true })).toBe("Informe as vendas por dia ou por hora e os salários para calcular este cenário.");
     expect(textoIndisponivel({ dono: false })).toBe("O dono ainda não informou os custos.");
+  });
+});
+
+describe("textoDoPeso (spec 048)", () => {
+  const base = { custoEstado: "ok", custoSentido: "aumenta" };
+  it("dono: % hoje → depois do faturamento, aumento em p.p. e R$ por mês", () => {
+    const t = textoDoPeso({ ...base, custoPctFaturamento: { hoje: 8, depois: 9.7, aumentoPp: 1.7, aumentoMensal: 7659 } }, true);
+    expect(t.texto).toBe("8,0% → 9,7% do faturamento");
+    expect(t.aumento).toBe("+1,7 p.p.");
+    expect(t.reais).toBe("(R$ 7.659/mês)");
+  });
+  it("sem aumento: 0 p.p. e R$ 0", () => {
+    const t = textoDoPeso({ ...base, custoSentido: "igual", custoPctFaturamento: { hoje: 8, depois: 8, aumentoPp: 0, aumentoMensal: 0 } }, true);
+    expect(t.aumento).toBe("0,0 p.p.");
+    expect(t.reais).toBe("(R$ 0/mês)");
+  });
+  it("sem faturamento e sem salários dizem o que falta", () => {
+    expect(textoDoPeso({ custoEstado: "sem_faturamento" }, true).apoio).toBe("Informe o faturamento para ver o peso da folha");
+    expect(textoDoPeso({ custoEstado: "sem_salarios" }, true).apoio).toBe("Informe os salários para calcular");
+  });
+  it("gestor e consulta: só o sentido, sem número", () => {
+    expect(textoDoPeso({ ...base, custoPctFaturamento: { hoje: 8, depois: 9.7, aumentoPp: 1.7, aumentoMensal: 7659 } }, false).texto).toBe("▲ Aumenta");
+    expect(textoDoPeso({ custoEstado: "ok", custoSentido: "igual" }, false).texto).toBe("● Igual");
+    expect(textoDoPeso({ custoEstado: "ok", custoSentido: "diminui" }, false).texto).toBe("▼ Diminui");
+    expect(JSON.stringify(textoDoPeso({ ...base, custoPctFaturamento: { hoje: 8, depois: 9.7, aumentoPp: 1.7, aumentoMensal: 7659 } }, false))).not.toMatch(/7\.659|9,7/);
   });
 });

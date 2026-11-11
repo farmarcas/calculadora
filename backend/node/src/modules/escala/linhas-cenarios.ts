@@ -32,6 +32,9 @@ export type LinhaDeCenario = {
   vendaEstado: 'ok' | 'nao_estimada' | 'sem_calculo';
   custoPct: number | null;
   custoEstado: 'ok' | 'sem_salarios' | 'sem_calculo';
+  // Só o dono: quanto o custo de pessoal pesa no faturamento mensal, hoje e depois do cenário (em %, uma casa). Nulo sem folha ou
+  // sem faturamento; o campo nem existe para gestor e consulta.
+  custoPctFaturamento?: { hoje: number; depois: number } | null;
   // O que o Personalizar leva para a simulação (sem valores em reais).
   contratacoes: ColunaComparativo['contratacoes'];
   ajustes: HorarioAjustado[];
@@ -95,8 +98,13 @@ const igualA = (c: ColunaComparativo) =>
   c.recolher === 'manter' ? 'Manter horários' : c.recolher === 'economia' ? 'Sem contratações' : null;
 
 // Monta as três linhas a partir do comparativo e dos cenários CALCULADOS COM OS CUSTOS (qualquer perfil).
-export const montarLinhas = (comp: Comparativo, cen: CenariosRegra): LinhaDeCenario[] => {
+export const montarLinhas = (
+  comp: Comparativo,
+  cen: CenariosRegra,
+  dono = false,
+): LinhaDeCenario[] => {
   const folha = cen.atual.folhaMensal ?? null;
+  const faturamento = cen.manter.faturamentoMensalRef ?? null;
   const horasHoje = cen.manter.horasSemana;
   const motivoIndisponivel = cen.equilibrio.indisponivel?.motivo ?? null;
   const porId = new Map(comp.cenarios.map((c) => [c.id, c]));
@@ -117,6 +125,19 @@ export const montarLinhas = (comp: Comparativo, cen: CenariosRegra): LinhaDeCena
     const custoOk = !indisponivel && adicional != null && folha !== null && folha > 0;
     const custoPct = custoOk ? semZeroNegativo(((adicional as number) / (folha as number)) * 100) : null;
 
+    // Custo de pessoal sobre o faturamento: (folha de hoje + custo adicional) ÷ (faturamento de hoje + variação da venda do cenário).
+    const custoPctFaturamento =
+      dono && !indisponivel && folha !== null && faturamento !== null && faturamento > 0
+        ? {
+            hoje: arred1((folha / faturamento) * 100),
+            depois: arred1(
+              (((folha as number) + (adicional ?? 0)) /
+                (faturamento * (1 + (vendaPct ?? 0) / 100))) *
+                100,
+            ),
+          }
+        : null;
+
     const colunaDoCenario = cen[id];
     return [
       {
@@ -133,6 +154,7 @@ export const montarLinhas = (comp: Comparativo, cen: CenariosRegra): LinhaDeCena
         vendaPct,
         vendaEstado: vendaPct !== null ? 'ok' : c.semVendaHoraria ? 'nao_estimada' : 'sem_calculo',
         custoPct,
+        ...(dono ? { custoPctFaturamento } : {}),
         custoEstado: custoPct !== null ? 'ok' : adicional == null || folha === null ? 'sem_salarios' : 'sem_calculo',
         contratacoes: c.contratacoes,
         ajustes: c.ajustes,

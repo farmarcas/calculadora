@@ -22,6 +22,8 @@ const Variacao = ({ v }) => (
 
 // Uma linha por cenário, sem nenhum valor em reais: cenário (nome e status), contratar, horário (total e os sete dias),
 // variação da venda e do custo de pessoal em %, e o botão. A faixa amarela diz a causa quando há consequência.
+const pctBr = (n) => `${String(n).replace(".", ",")}%`;
+
 export default function LinhaDeCenario({ linha, antes, dono, podeEscrever, ocupado, onPersonalizar }) {
   const estado = estadoVisual(linha);
   const status = rotuloDoStatus(linha.status);
@@ -59,7 +61,16 @@ export default function LinhaDeCenario({ linha, antes, dono, podeEscrever, ocupa
             <div className="mt-2"><FaixaDosDias dias={faixaDosDias(linha.horarioSemana, antes)} /></div>
           </Celula>
           <Celula rotulo="Venda"><Variacao v={textoDaVariacao(linha.vendaPct, linha.vendaEstado, "venda")} /></Celula>
-          <Celula rotulo="Custo de pessoal"><Variacao v={textoDaVariacao(linha.custoPct, linha.custoEstado, "custo")} /></Celula>
+          <Celula rotulo="Custo de pessoal">
+            <Variacao v={textoDaVariacao(linha.custoPct, linha.custoEstado, "custo")} />
+            {linha.custoPctFaturamento && (
+              <div className="mt-1 text-[11px] leading-4 text-[var(--text-secondary)]" data-testid="custo-pct-faturamento">
+                <strong className="text-[var(--text-strong)]">{pctBr(linha.custoPctFaturamento.depois)}</strong> do faturamento
+                <br />
+                (hoje {pctBr(linha.custoPctFaturamento.hoje)})
+              </div>
+            )}
+          </Celula>
         </>
       )}
 

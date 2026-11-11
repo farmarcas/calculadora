@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api } from "../../api/client.js";
 import { Abas, Aviso, Cartao } from "../../components/ui/index.jsx";
 import Diagnostico from "./Diagnostico.jsx";
+import EsqueletoDoCard from "./tabela-cargos/EsqueletoDoCard.jsx";
 import GradeTab from "../grade/GradeTab.jsx";
 import { cuidaDoGrupo } from "../../api/perfis.js";
 
@@ -51,7 +52,7 @@ export default function EscalaPage({ perfil, lojaId, semLojas, secao, versaoDado
 
       {erro && <Aviso>{erro}</Aviso>}
 
-      {!diag && !erro && aba !== "grade" && <p className="text-sm text-ink-500">Carregando…</p>}
+      {!diag && !erro && aba !== "grade" && (aba === "diagnostico" ? <EsqueletoDoCard /> : <p className="text-sm text-ink-500">Carregando…</p>)}
       {diag && aba === "diagnostico" && <Diagnostico diag={diag} podeEscrever={podeEscrever} onEnviar={onImportar} onRecarregar={carregar} onDefinirFuncao={onIrCadastros} onSimular={(id, aviso) => { setAbrirSim(id); setAvisoSim(aviso ?? null); onSecao("grade"); }} />}
       {aba === "grade" && <GradeTab lojaId={lojaId} perfil={perfil} podeEscrever={podeEscrever} abrirId={abrirSim} avisoInicial={avisoSim} />}
     </>

@@ -1,4 +1,5 @@
 import type { ColunaComparativo, Comparativo, IdColuna } from './comparativo.js';
+import { pesoDaFolha } from './peso-folha.js';
 import type { CenariosRegra, DiaCenario, HorarioAjustado } from './cenarios.js';
 
 // Linhas de cenário (spec 037): o que a tela precisa para desenhar cada cenário numa linha, igual para dono, gestor e
@@ -14,6 +15,8 @@ export type StatusLinha =
   | 'equipe_menor'
   | 'cobre';
 
+export type Explicacao = { partes: { texto: string; negrito?: boolean }[] };
+
 export type LinhaDeCenario = {
   id: IdColuna;
   nome: string;
@@ -22,6 +25,9 @@ export type LinhaDeCenario = {
   // Nulo quando o cenário está indisponível.
   status: StatusLinha | null;
   causa: string | null;
+  // Spec 051: a frase que conduz a decisão, em trechos (um pode vir em negrito). Só Manter horários e Sem contratações; já vem
+  // montada para o perfil (o dono tem pesos e reais; gestor e consulta, a mesma ideia sem números).
+  explicacao: Explicacao | null;
   indisponivel: { motivo: 'custos' | 'vendas' } | null;
   contratar: { funcao: string; inteiras: number; parcialHoras: number }[];
   horasSemana: number;
@@ -105,6 +111,101 @@ export const causaDaLinha = (c: ColunaComparativo, status: StatusLinha | null): 
   return null;
 };
 
+const pctBr = (n: number) => `${n.toFixed(1).replace('.', ',')}%`;
+const reaisBr = (n: number) => Math.abs(Math.round(n)).toLocaleString('pt-BR');
+
+// Faltas por função (maior primeiro). O farmacêutico sem cobertura entra se ainda não estiver na lista.
+const faltasDaColuna = (c: ColunaComparativo) => {
+  const lista = (c.faltaPorFuncao ?? []).map((f) => ({ funcao: f.funcao, horas: f.horasSemana }));
+  if (
+    (c.semFarmaceuticoH ?? 0) > 0 &&
+    !lista.some((f) => f.funcao.toLowerCase().startsWith('farmac'))
+  )
+    lista.push({ funcao: 'Farmacêutico', horas: c.semFarmaceuticoH! });
+  return lista.filter((f) => f.horas > 0).sort((a, b) => b.horas - a.horas);
+};
+
+// "ainda faltariam 17 h de farmacêutico por semana" (a função de mais horas; o resto agrupado).
+const faltaEmTexto = (faltas: { funcao: string; horas: number }[]) => {
+  const [maior, ...resto] = faltas;
+  if (!maior) return null;
+  const outras = resto.reduce((s, f) => s + f.horas, 0);
+  return `${horasTxt(maior.horas)} de ${minusculo(nomeDaFuncao(maior.funcao))}${outras > 0 ? ` e mais ${horasTxt(outras)} de outras funções` : ''} por semana`;
+};
+
+// Spec 051: a frase de cada cenário. Sem "p.p." nem "pontos"; reais e percentuais só quando `dono`.
+export const explicacaoDaLinha = (
+  c: ColunaComparativo,
+  status: StatusLinha | null,
+  dono: boolean,
+  custo: { hoje: number; depois: number; aumentoMensal: number } | null,
+  sentido: 'aumenta' | 'igual' | 'diminui' | null,
+): Explicacao | null => {
+  if (status === null) return null;
+  const faltas = faltasDaColuna(c);
+  const cobre = status !== 'nao_resolve' && status !== 'inviavel' && faltas.length === 0;
+  const faltaTxt = faltaEmTexto(faltas);
+
+  if (c.id === 'manter') {
+    const base = 'Para manter todos os seus horários e a venda de hoje';
+    let frase: string;
+    if (sentido === null)
+      frase =
+        c.contratacoes.length > 0
+          ? `${base}, é preciso contratar.`
+          : `${base}, a folha não precisa mudar.`;
+    else if (sentido === 'igual') frase = `${base}, a folha não muda.`;
+    else if (dono && custo)
+      frase =
+        sentido === 'aumenta'
+          ? `${base}, a folha sobe de ${pctBr(custo.hoje)} para ${pctBr(custo.depois)} do faturamento (R$ ${reaisBr(custo.aumentoMensal)} por mês).`
+          : `${base}, a folha cai de ${pctBr(custo.hoje)} para ${pctBr(custo.depois)} do faturamento (R$ ${reaisBr(custo.aumentoMensal)} por mês).`;
+    else
+      frase =
+        sentido === 'aumenta' ? `${base}, a folha precisa aumentar.` : `${base}, a folha diminui.`;
+    const fim = cobre
+      ? ' Este é o caminho recomendado.'
+      : faltaTxt
+        ? ` Ainda faltariam ${faltaTxt}.`
+        : c.faltaH
+          ? ` Ainda faltariam ${horasTxt(c.faltaH)} de cobertura por semana.`
+          : '';
+    return { partes: [{ texto: frase + fim }] };
+  }
+
+  if (c.id === 'economia') {
+    const inicio = 'Sem contratar ninguém, ';
+    const fechar = 'Entre em Analisar para escolher quais';
+    if (status === 'inviavel')
+      return {
+        partes: [
+          { texto: `${inicio}você vai precisar fechar a loja em alguns horários. ` },
+          { texto: 'Mesmo assim, a loja ficaria sem farmacêutico.', negrito: true },
+          { texto: ` ${fechar} horários fechar.` },
+        ],
+      };
+    if (faltaTxt || status === 'nao_resolve')
+      return {
+        partes: [
+          { texto: `${inicio}você vai precisar fechar a loja em alguns horários. ` },
+          {
+            texto: `Mesmo assim, ainda faltariam ${faltaTxt ?? `${horasTxt(c.faltaH ?? 0)} de cobertura por semana`}.`,
+            negrito: true,
+          },
+          { texto: ` ${fechar} horários fechar.` },
+        ],
+      };
+    return {
+      partes: [
+        {
+          texto: `${inicio}é possível cobrir tudo fechando em alguns horários. ${fechar}.`,
+        },
+      ],
+    };
+  }
+  return null;
+};
+
 const igualA = (c: ColunaComparativo) =>
   c.recolher === 'manter'
     ? 'Manter horários'
@@ -145,24 +246,15 @@ export const montarLinhas = (
       ? semZeroNegativo(((adicional as number) / (folha as number)) * 100)
       : null;
 
-    // Custo de pessoal sobre o faturamento: (folha de hoje + custo adicional) ÷ (faturamento de hoje + variação da venda do cenário).
-    const pesoHoje =
-      folha !== null && faturamento !== null && faturamento > 0
-        ? (folha / faturamento) * 100
-        : null;
-    const pesoDepois =
-      folha !== null && faturamento !== null && faturamento > 0
-        ? (((folha as number) + (adicional ?? 0)) / (faturamento * (1 + (vendaPct ?? 0) / 100))) *
-          100
-        : null;
+    // Custo de pessoal sobre o faturamento: a conta única de peso-folha.ts (a mesma da Simulação).
     const custoPctFaturamento =
-      dono && !indisponivel && pesoHoje !== null && pesoDepois !== null && adicional != null
-        ? {
-            hoje: arred1(pesoHoje),
-            depois: arred1(pesoDepois),
-            aumentoPp: semZeroNegativo(pesoDepois - pesoHoje),
-            aumentoMensal: Math.round(adicional),
-          }
+      dono && !indisponivel
+        ? pesoDaFolha({
+            folhaHoje: folha,
+            custoAdicional: adicional ?? null,
+            faturamento,
+            vendaPct,
+          })
         : null;
     const custoSentido =
       indisponivel || adicional == null
@@ -181,6 +273,9 @@ export const montarLinhas = (
         igualA: indisponivel ? null : igualA(c),
         status,
         causa: indisponivel ? null : causaDaLinha(c, status),
+        explicacao: indisponivel
+          ? null
+          : explicacaoDaLinha(c, status, dono, custoPctFaturamento, custoSentido),
         indisponivel,
         contratar: c.contratacoes.map((x) => ({
           funcao: x.funcao,

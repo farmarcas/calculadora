@@ -605,13 +605,20 @@ export const turnosParaVaga = (a: {
 // No fim do turno e, se não couber, no começo; sem passar do horário da loja nem das 11 h de descanso entre os dias. Minutos inteiros.
 const completarJornadaDaVaga = (
   turnos: TurnoDeVaga[],
-  a: { cargaH: number; cobertura: CoberturaFuncao; dias: DiaAberto[]; regra: Pick<Regra, 'dias' | 'maxDia'> },
+  a: {
+    cargaH: number;
+    cobertura: CoberturaFuncao;
+    dias: DiaAberto[];
+    regra: Pick<Regra, 'dias' | 'maxDia'>;
+  },
 ) => {
   const { cargaH, cobertura, dias, regra } = a;
   const jornadaDia = Math.min(regra.maxDia, cargaH / regra.dias);
   const minuto = (h: number) => Math.floor(h * 60 + 1e-6) / 60;
   const liquida = (t: TurnoDeVaga) =>
-    t.saida - t.entrada - (t.iniIntervalo != null && t.fimIntervalo != null ? t.fimIntervalo - t.iniIntervalo : 0);
+    t.saida -
+    t.entrada -
+    (t.iniIntervalo != null && t.fimIntervalo != null ? t.fimIntervalo - t.iniIntervalo : 0);
   const semana = () => turnos.reduce((s, t) => s + liquida(t), 0);
   const doDia = (dia: number) => turnos.find((t) => t.dia === (dia + 7) % 7);
   const folgaDeDescanso = (dia: number) => {
@@ -635,7 +642,8 @@ const completarJornadaDaVaga = (
     const net = liquida(t);
     if (!d || resta <= EPS || net >= jornadaDia - EPS) continue;
     const alvo = Math.min(jornadaDia, net + resta);
-    const iv = t.iniIntervalo != null && t.fimIntervalo != null ? t.fimIntervalo - t.iniIntervalo : 0;
+    const iv =
+      t.iniIntervalo != null && t.fimIntervalo != null ? t.fimIntervalo - t.iniIntervalo : 0;
     const grossAlvo = alvo + (iv > 0 ? iv : alvo > HORAS_SEM_INTERVALO + EPS ? 1 : 0);
     let preciso = minuto(grossAlvo - (t.saida - t.entrada));
     if (preciso <= EPS) continue;
@@ -669,7 +677,15 @@ const completarJornadaDaVaga = (
     const primeira = (cobertura[d.dia] ?? []).find((c) => c.pessoas < c.exigido)?.hora;
     let entrada = primeira !== undefined ? Math.max(ini, Math.min(primeira, fim - gross)) : ini;
     entrada = minuto(entrada);
-    turnos.push(comIntervalo({ dia: d.dia, entrada, saida: entrada + gross, iniIntervalo: null, fimIntervalo: null }));
+    turnos.push(
+      comIntervalo({
+        dia: d.dia,
+        entrada,
+        saida: entrada + gross,
+        iniIntervalo: null,
+        fimIntervalo: null,
+      }),
+    );
   }
 };
 

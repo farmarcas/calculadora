@@ -25,7 +25,8 @@ export const pesoDaFolha = (a: {
   if (folhaHoje === null || faturamento === null || faturamento <= 0 || custoAdicional === null)
     return null;
   const pesoHoje = (folhaHoje / faturamento) * 100;
-  const pesoDepois = ((folhaHoje + custoAdicional) / (faturamento * (1 + (a.vendaPct ?? 0) / 100))) * 100;
+  const pesoDepois =
+    ((folhaHoje + custoAdicional) / (faturamento * (1 + (a.vendaPct ?? 0) / 100))) * 100;
   return {
     hoje: arred1(pesoHoje),
     depois: arred1(pesoDepois),

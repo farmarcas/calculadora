@@ -271,7 +271,13 @@ describe('calcularResultado', () => {
 });
 
 describe('calcularResultado: peso da folha (spec 052)', () => {
-  const vaga: PessoaSim = { matricula: 'VAGA-1', nome: 'Vaga 1', funcao: 'Farmacêutico', cargaH: 40, vaga: true };
+  const vaga: PessoaSim = {
+    matricula: 'VAGA-1',
+    nome: 'Vaga 1',
+    funcao: 'Farmacêutico',
+    cargaH: 40,
+    vaga: true,
+  };
 
   it('dono: peso da folha, folha por mês antes e depois e o mesmo cálculo dos Cenários', () => {
     const r = base({ quadro: [...quadro, vaga], faturamentoMensalRef: 100000 });
@@ -309,7 +315,11 @@ describe('calcularResultado: peso da folha (spec 052)', () => {
 
   it('sem salários e sem faturamento: o estado diz o que falta, sem número inventado', () => {
     const semSal = base({ custos: null, faturamentoMensalRef: 100000 });
-    expect(semSal.custoDoDono).toMatchObject({ estado: 'sem_salarios', peso: null, folhaHoje: null });
+    expect(semSal.custoDoDono).toMatchObject({
+      estado: 'sem_salarios',
+      peso: null,
+      folhaHoje: null,
+    });
     const semFat = base({ faturamentoMensalRef: null });
     expect(semFat.custoDoDono).toMatchObject({ estado: 'sem_faturamento', peso: null });
     expect(semFat.emHoras.custoEstado).toBe('sem_faturamento');

@@ -3,7 +3,7 @@ import {
   intervaloSemCobertura, posicaoDoIntervalo, quemEstaEmIntervalo, textoDoIntervalo, turnosParaGravar, avisosDaPessoa, novoTurnoNaFolga, semTurnoNoDia, sugerirTurnosDasVagas, turnoHabitual, turnosParaVaga, vagaSemTurnos,
   cargaDaContratacao, celulasDaFuncao, contratacoesSimuladas, diasDasAbas, efeitoDaContratacao, erroDoFormulario, faixaDeAviso,
   faltasDaFuncao, horasDoDia, horasReforcadas, mediaDoDia, minimoDaFuncao, quartis, recalcularCobertura, sugerirContratacao,
-  diasPorExtenso, faixaDasFaltas, opcoesDeHora, textoDaSugestao, textoDoEfeito, textoDoTurno, tomDoQuartil, totalDaSemana, turnosDoFormulario,
+  diasPorExtenso, faixaDasFaltas, horaTxt, jornadaBrutaDoDia, opcoesDeEntrada, opcoesDeHora, opcoesDeSaida, textoDaSugestao, textoDoEfeito, textoDoTurno, tomDoQuartil, totalDaSemana, turnosDoFormulario,
 } from "./escala-regras.js";
 
 const REGRA = { teto: 42, dias: 5, maxDia: 8 }; // teto efetivo 40
@@ -377,5 +377,50 @@ describe("só se contrata integral (spec 044)", () => {
     expect(s.tipo).toBe("integral");
     expect(s.cargaH).toBe(40);
     expect(s.dias.length).toBeLessThanOrEqual(5);
+  });
+});
+
+describe("entrada e saída da contratação com a jornada cheia", () => {
+  const r42 = { dias: 5, maxDia: 8.4, teto: 42 };
+  const r44 = { dias: 6, maxDia: 8, teto: 44 };
+  const grade = opcoesDeHora(7, 22);
+
+  it("a jornada cheia do dia em horas de relógio: 8h24 mais 1 h de intervalo", () => {
+    expect(jornadaBrutaDoDia(r42)).toBeCloseTo(9.4, 5);
+    expect(jornadaBrutaDoDia(r44)).toBeCloseTo(44 / 6 + 1, 5);
+    expect(jornadaBrutaDoDia({ dias: 5, maxDia: 8, teto: 40 })).toBe(9);
+  });
+
+  it("a hora mostra os minutos só quando não é cheia", () => {
+    expect(horaTxt(12)).toBe("12h");
+    expect(horaTxt(21.4)).toBe("21h24");
+    expect(horaTxt(7.25)).toBe("7h15");
+  });
+
+  it("a saída tem a jornada cheia (12:00 → 21:24) e o campo nunca mostra um horário que não é o valor dele", () => {
+    const o = opcoesDeSaida(grade, { entra: 12, sai: 21.4, regra: r42, maxFecha: 22 });
+    expect(o.find((x) => Math.round(x.valor * 60) === Math.round(21.4 * 60))).toMatchObject({ texto: "21:24 · jornada cheia" });
+    // a grade de 15 em 15 minutos continua lá
+    expect(o.some((x) => x.texto === "21:15")).toBe(true);
+    // sem repetir valor e em ordem
+    const valores = o.map((x) => Math.round(x.valor * 60));
+    expect(new Set(valores).size).toBe(valores.length);
+    expect(valores).toEqual([...valores].sort((a, b) => a - b));
+  });
+
+  it("um valor fora da grade (a saída atual) entra na lista", () => {
+    const o = opcoesDeSaida(grade, { entra: 8, sai: 15.1, regra: r42, maxFecha: 22 });
+    expect(o.some((x) => x.texto === "15:06")).toBe(true);
+    expect(opcoesDeEntrada(grade, 12.1).some((x) => x.texto === "12:06")).toBe(true);
+  });
+
+  it("a jornada cheia que passa do fechamento da loja não é oferecida", () => {
+    const o = opcoesDeSaida(grade, { entra: 15, sai: 22, regra: r42, maxFecha: 22 });
+    expect(o.some((x) => /jornada cheia/.test(x.texto))).toBe(false);
+  });
+
+  it("a sugestão escreve a saída com os minutos (12h às 21h24, e não 21h)", () => {
+    const sugestao = { entra: 12, sai: 21.4, dias: [0, 1, 2, 5, 6], semFalta: false };
+    expect(textoDaSugestao({ sugestao, funcao: "Atendimento", coberturaPorDia: {} })).toContain("12h–21h24");
   });
 });

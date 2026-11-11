@@ -4,7 +4,7 @@ import { Botao, entrada } from "../../../components/ui/index.jsx";
 import { textoDaVariacao } from "../../diagnostico/cartao/linha-regras.js";
 import { COR_DO_TOM } from "../../diagnostico/cartao/tom.js";
 import {
-  NOMES_DIA, cargaDaContratacao, efeitoDaContratacao, erroDoFormulario, opcoesDeHora, sugerirContratacao, textoDaSugestao, textoDoEfeito,
+  NOMES_DIA, cargaDaContratacao, efeitoDaContratacao, erroDoFormulario, jornadaBrutaDoDia, opcoesDeEntrada, opcoesDeHora, opcoesDeSaida, sugerirContratacao, textoDaSugestao, textoDoEfeito,
   turnosDoFormulario,
 } from "./escala-regras.js";
 
@@ -19,13 +19,17 @@ export default function FormularioContratar({ simId, funcao, abas, coberturaPorD
   const { dias, entra, sai } = valor;
   const tipo = "integral";
   const jornadaCheia = Math.min(44, Math.floor(Math.min(regra.teto, regra.dias * regra.maxDia)));
-  const setEntra = (v) => onMudar({ entra: v });
+  // Ao mudar a entrada, a saída acompanha quando a jornada estava cheia (a mesma duração), para continuar cheia.
+  const bruta = jornadaBrutaDoDia(regra);
+  const setEntra = (v) => onMudar({ entra: v, ...(Math.abs(sai - entra - bruta) < 1 / 60 ? { sai: Math.min(v + bruta, maxFecha) } : {}) });
   const setSai = (v) => onMudar({ sai: v });
   const [custo, setCusto] = useState(null);
 
   const minAbre = Math.min(...abas.map((a) => a.abre));
   const maxFecha = Math.max(...abas.map((a) => a.fecha));
   const opcoes = useMemo(() => opcoesDeHora(minAbre, maxFecha), [minAbre, maxFecha]);
+  const opcoesEntra = useMemo(() => opcoesDeEntrada(opcoes, entra), [opcoes, entra]);
+  const opcoesSai = useMemo(() => opcoesDeSaida(opcoes, { entra, sai, regra, maxFecha }), [opcoes, entra, sai, regra, maxFecha]);
   const sugestaoDoTipo = useMemo(() => sugerir(), [coberturaPorDia]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const aplicarSugestao = () => {
@@ -90,13 +94,13 @@ export default function FormularioContratar({ simId, funcao, abas, coberturaPorD
         <label className="flex flex-col gap-1 text-[11px] leading-4 text-[var(--text-secondary)]">
           Entra
           <select value={entra} onChange={(e) => setEntra(Number(e.target.value))} className={`${entrada} w-[96px] text-sm text-[var(--text-strong)]`}>
-            {opcoes.map((o) => <option key={o.valor} value={o.valor}>{o.texto}</option>)}
+            {opcoesEntra.map((o) => <option key={o.valor} value={o.valor}>{o.texto}</option>)}
           </select>
         </label>
         <label className="flex flex-col gap-1 text-[11px] leading-4 text-[var(--text-secondary)]">
           Sai
-          <select value={sai} onChange={(e) => setSai(Number(e.target.value))} className={`${entrada} w-[96px] text-sm text-[var(--text-strong)]`}>
-            {opcoes.map((o) => <option key={o.valor} value={o.valor}>{o.texto}</option>)}
+          <select value={sai} onChange={(e) => setSai(Number(e.target.value))} className={`${entrada} w-[176px] text-sm text-[var(--text-strong)]`} data-testid="campo-sai">
+            {opcoesSai.map((o) => <option key={o.valor} value={o.valor}>{o.texto}</option>)}
           </select>
         </label>
       </div>

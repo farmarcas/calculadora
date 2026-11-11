@@ -71,8 +71,8 @@ export default function LinhaDeCenario({ linha, antes, dono, podeEscrever, ocupa
 
       <div className="linha-acao flex items-start">
         {podeEscrever && (
-          <Botao tipo={indisponivel || rebaixado ? "neutro" : "secundario"} className="w-full" disabled={ocupado || indisponivel} aria-label={`Personalizar ${linha.nome}`} onClick={onPersonalizar}>
-            Personalizar
+          <Botao tipo={indisponivel || rebaixado ? "neutro" : "secundario"} className="w-full" disabled={ocupado || indisponivel} aria-label={`Analisar ${linha.nome}`} onClick={onPersonalizar}>
+            Analisar
           </Botao>
         )}
       </div>

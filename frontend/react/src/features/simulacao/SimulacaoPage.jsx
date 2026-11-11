@@ -10,7 +10,7 @@ import { diasDasAbas, turnosParaGravar } from "./escala/escala-regras.js";
 import { pessoasParaFolgar, sugerirFolgas, textoDoRodizio } from "./escala/folgas-regras.js";
 import useSimulacao from "./useSimulacao.js";
 
-// Simulação de um cenário (abre em "Personalizar"): parâmetros, 3 passos e o painel de resultado.
+// Simulação de um cenário (abre pelo botão "Analisar" do cenário): parâmetros, 3 passos e o painel de resultado.
 export default function SimulacaoPage({ id, perfil, podeEscrever, aviso, onVoltar, onMudou, onAbrir }) {
   const { sim, erro, setErro, calculando, salvar } = useSimulacao(id);
   const [salvando, setSalvando] = useState(false);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { estadoVisual, faixaDosDias, rotuloDoStatus, ROTULOS_DE_STATUS, seloDaLinha, textoContratar, textoDaVariacao, textoDoTotal, textoIndisponivel } from "./linha-regras.js";
+import { estadoVisual, faixaDosDias, rotuloDoStatus, ROTULOS_DE_STATUS, textoContratar, textoDaVariacao, textoDoTotal, textoIndisponivel } from "./linha-regras.js";
 
 const dia = (d, abre, fecha) => ({ dia: d, aberto: !!abre, abre: abre ?? null, fecha: fecha ?? null });
 const semana = (...faixas) => faixas.map((f, i) => dia(i, ...(f ?? [])));
@@ -68,7 +68,7 @@ describe("contratar", () => {
   });
 });
 
-describe("status, selo e estado visual", () => {
+describe("status e estado visual", () => {
   it("cada status tem pill curta (até 4 palavras, uma linha), ícone e tom", () => {
     expect(Object.keys(ROTULOS_DE_STATUS)).toHaveLength(7);
     for (const r of Object.values(ROTULOS_DE_STATUS)) {
@@ -79,15 +79,12 @@ describe("status, selo e estado visual", () => {
     expect(rotuloDoStatus("vende_mais").tom).toBe("sucesso");
     expect(rotuloDoStatus(null)).toBeNull();
   });
-  it("estado visual: indisponível, rebaixado, sugerido (só o dono) ou alternativa", () => {
+  it("estado visual: indisponível, rebaixado ou normal (nenhum cenário é destacado como sugerido)", () => {
     expect(estadoVisual({ indisponivel: { motivo: "custos" }, status: null })).toBe("indisponivel");
-    for (const s of ["inviavel", "nao_resolve", "nao_recomendado"]) expect(estadoVisual({ status: s }, { sugerido: true })).toBe("rebaixado");
-    expect(estadoVisual({ status: "vende_mais" }, { sugerido: true })).toBe("sugerido");
-    expect(estadoVisual({ status: "vende_mais" })).toBe("alternativa");
+    for (const s of ["inviavel", "nao_resolve", "nao_recomendado"]) expect(estadoVisual({ status: s })).toBe("rebaixado");
+    expect(estadoVisual({ status: "vende_mais" })).toBe("normal");
   });
-  it("selo e texto de indisponível por perfil", () => {
-    expect(seloDaLinha(true)).toBe("CENÁRIO SUGERIDO");
-    expect(seloDaLinha(false)).toBe("ALTERNATIVA");
+  it("texto de indisponível por perfil", () => {
     expect(textoIndisponivel({ dono: true })).toBe("Informe as vendas por dia ou por hora e os salários para calcular este cenário.");
     expect(textoIndisponivel({ dono: false })).toBe("O dono ainda não informou os custos.");
   });

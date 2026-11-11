@@ -30,8 +30,15 @@ export type LinhaDeCenario = {
   // Variação em % (uma casa, com sinal) e o estado que explica quando não há número.
   vendaPct: number | null;
   vendaEstado: 'ok' | 'nao_estimada' | 'sem_calculo';
-  custoPct: number | null;
-  custoEstado: 'ok' | 'sem_salarios' | 'sem_calculo';
+  // Spec 048: só o dono recebe o número (% sobre a folha); a tela não o mostra mais e usa o peso no faturamento.
+  custoPct?: number | null;
+  custoEstado: 'ok' | 'sem_salarios' | 'sem_faturamento' | 'sem_calculo';
+  // O sentido da mudança do custo de pessoal, para todos os perfis e sem número.
+  custoSentido: 'aumenta' | 'igual' | 'diminui' | null;
+  // Só o dono: quanto o custo de pessoal pesa no faturamento mensal, hoje e depois do cenário (em %, uma casa). Nulo sem folha ou
+  // sem faturamento; o campo nem existe para gestor e consulta.
+  // Spec 048: o aumento em pontos percentuais do faturamento e em R$ por mês (nova − atual).
+  custoPctFaturamento?: { hoje: number; depois: number; aumentoPp: number; aumentoMensal: number } | null;
   // O que o Personalizar leva para a simulação (sem valores em reais).
   contratacoes: ColunaComparativo['contratacoes'];
   ajustes: HorarioAjustado[];
@@ -95,8 +102,13 @@ const igualA = (c: ColunaComparativo) =>
   c.recolher === 'manter' ? 'Manter horários' : c.recolher === 'economia' ? 'Sem contratações' : null;
 
 // Monta as três linhas a partir do comparativo e dos cenários CALCULADOS COM OS CUSTOS (qualquer perfil).
-export const montarLinhas = (comp: Comparativo, cen: CenariosRegra): LinhaDeCenario[] => {
+export const montarLinhas = (
+  comp: Comparativo,
+  cen: CenariosRegra,
+  dono = false,
+): LinhaDeCenario[] => {
   const folha = cen.atual.folhaMensal ?? null;
+  const faturamento = cen.manter.faturamentoMensalRef ?? null;
   const horasHoje = cen.manter.horasSemana;
   const motivoIndisponivel = cen.equilibrio.indisponivel?.motivo ?? null;
   const porId = new Map(comp.cenarios.map((c) => [c.id, c]));
@@ -117,6 +129,30 @@ export const montarLinhas = (comp: Comparativo, cen: CenariosRegra): LinhaDeCena
     const custoOk = !indisponivel && adicional != null && folha !== null && folha > 0;
     const custoPct = custoOk ? semZeroNegativo(((adicional as number) / (folha as number)) * 100) : null;
 
+    // Custo de pessoal sobre o faturamento: (folha de hoje + custo adicional) ÷ (faturamento de hoje + variação da venda do cenário).
+    const pesoHoje = folha !== null && faturamento !== null && faturamento > 0 ? (folha / faturamento) * 100 : null;
+    const pesoDepois =
+      folha !== null && faturamento !== null && faturamento > 0
+        ? (((folha as number) + (adicional ?? 0)) / (faturamento * (1 + (vendaPct ?? 0) / 100))) * 100
+        : null;
+    const custoPctFaturamento =
+      dono && !indisponivel && pesoHoje !== null && pesoDepois !== null && adicional != null
+        ? {
+            hoje: arred1(pesoHoje),
+            depois: arred1(pesoDepois),
+            aumentoPp: semZeroNegativo(pesoDepois - pesoHoje),
+            aumentoMensal: Math.round(adicional),
+          }
+        : null;
+    const custoSentido =
+      indisponivel || adicional == null
+        ? null
+        : adicional > ZERO
+          ? ('aumenta' as const)
+          : adicional < -ZERO
+            ? ('diminui' as const)
+            : ('igual' as const);
+
     const colunaDoCenario = cen[id];
     return [
       {
@@ -132,8 +168,16 @@ export const montarLinhas = (comp: Comparativo, cen: CenariosRegra): LinhaDeCena
         horarioSemana: colunaDoCenario.horarioSemana,
         vendaPct,
         vendaEstado: vendaPct !== null ? 'ok' : c.semVendaHoraria ? 'nao_estimada' : 'sem_calculo',
-        custoPct,
-        custoEstado: custoPct !== null ? 'ok' : adicional == null || folha === null ? 'sem_salarios' : 'sem_calculo',
+        ...(dono ? { custoPct, custoPctFaturamento } : {}),
+        custoSentido,
+        custoEstado:
+          custoPct !== null
+            ? dono && (faturamento === null || faturamento <= 0)
+              ? 'sem_faturamento'
+              : 'ok'
+            : adicional == null || folha === null
+              ? 'sem_salarios'
+              : 'sem_calculo',
         contratacoes: c.contratacoes,
         ajustes: c.ajustes,
         diasFechar: c.diasFechar,

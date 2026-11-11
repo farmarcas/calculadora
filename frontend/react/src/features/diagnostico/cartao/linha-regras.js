@@ -26,6 +26,29 @@ export const textoDaVariacao = (pct, estado, tipo) => {
   return { texto, tom, apoio: null };
 };
 
+// Spec 048: o peso do custo de pessoal no faturamento. Dono: "8,0% → 9,7% do faturamento", "+1,7 p.p." e "(R$ 7.659/mês)".
+// Gestor e consulta: só o sentido ("Aumenta", "Igual" ou "Diminui"), sem número. `tom` é o da cor do texto.
+const MILHAR = (n) => Math.round(n).toLocaleString("pt-BR");
+const umaCasa = (n) => n.toFixed(1).replace(".", ",");
+export const textoDoPeso = (linha, dono) => {
+  if (linha.custoEstado === "sem_salarios") return { texto: "—", tom: "neutro", apoio: dono ? "Informe os salários para calcular" : null };
+  if (dono && linha.custoEstado === "sem_faturamento") return { texto: "—", tom: "neutro", apoio: "Informe o faturamento para ver o peso da folha" };
+  const c = dono ? linha.custoPctFaturamento : null;
+  if (dono && c) {
+    const pp = Math.abs(c.aumentoPp) < 0.05 ? 0 : c.aumentoPp;
+    return {
+      texto: `${umaCasa(c.hoje)}% → ${umaCasa(c.depois)}% do faturamento`,
+      tom: "neutro",
+      aumento: pp === 0 ? "0,0 p.p." : `${pp > 0 ? "+" : MENOS}${umaCasa(Math.abs(pp))} p.p.`,
+      reais: `(R$ ${c.aumentoMensal < 0 ? MENOS : ""}${MILHAR(Math.abs(c.aumentoMensal))}/mês)`,
+      apoio: null,
+    };
+  }
+  const SENTIDOS = { aumenta: { texto: "▲ Aumenta", tom: "neutro" }, igual: { texto: "● Igual", tom: "neutro" }, diminui: { texto: "▼ Diminui", tom: "sucesso" } };
+  const s = SENTIDOS[linha.custoSentido];
+  return s ? { ...s, apoio: null } : { texto: "—", tom: "neutro", apoio: null };
+};
+
 // ---- Horário ---------------------------------------------------------------------------------------------------------
 
 const minutos = (t) => {

@@ -14,6 +14,7 @@ import type { PessoaSim } from './avaliar.js';
 import { montarEmHoras, type EmHoras } from './resultado-em-horas.js';
 import { saldoDaSimulacao } from './saldo-simulacao.js';
 import { horasNovas, vendaEstimadaDasHorasNovas } from './venda-estimada.js';
+import { calcularHorarioEstendido, type HorarioEstendido } from './resultado-horario-estendido.js';
 
 const arred = (n: number) => Math.round(n * 100) / 100;
 const hhmm = (h: number) =>
@@ -60,6 +61,8 @@ export type ResultadoSimulacao = {
   vendaQueSai?: number | null;
   // Venda estimada das horas novas, por mês (só dono): 0 quando nenhum horário aumenta; nulo sem base comercial.
   vendaEstimada?: number | null;
+  // Spec 049: o resultado do horário estendido (só dono, e só quando a simulação abre horas a mais).
+  horarioEstendido?: HorarioEstendido;
   saldoMensal?: number | null;
   saldoAnual?: number | null;
   // Saldo ÷ faturamento mensal médio (vendas da base × 52 ÷ 12); nulo sem base.
@@ -365,8 +368,25 @@ export const calcularResultado = (a: {
   // Saldo contra a folha atual (a regra dos cartões): −folha extra − hora extra + venda estimada − venda que deixa de entrar.
   const saldo = saldoDaSimulacao({ folhaExtra, horaExtra, vendaEstimada, vendaQueSai });
   const faturamento = totalVenda * SEMANAS_NO_MES;
+  // Spec 049: as horas a mais da simulação (por semana). Com a base trazendo o CMV (régua de margem), o lucro bruto é a venda
+  // estimada na régua; senão, venda × (1 − CMV médio). Sem horas novas, o bloco não existe.
+  const horasNovasSemana = horasNovas(a.diasCadastro, a.dias).reduce(
+    (s, dia) => s + dia.filter(Boolean).length,
+    0,
+  );
+  const horarioEstendido =
+    horasNovasSemana > 0
+      ? calcularHorarioEstendido({
+          horasNovasSemana,
+          vendaAdicionalMensal: vendaGanhaReal,
+          lucroBrutoMensal: regua?.tipo === 'margem' ? vendaEstimada : null,
+          cmvMedioPct: a.cmvMedioPct ?? null,
+          aumentoFolhaMensal: custoAdicional,
+        })
+      : undefined;
   return {
     ...base,
+    ...(horarioEstendido ? { horarioEstendido } : {}),
     folhaExtra,
     horaExtra,
     custoAdicional,

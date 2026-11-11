@@ -60,9 +60,15 @@ export const totalDaSemana = (turnos, matricula) => {
   return { horas, dias, texto: dias ? `${virgula(horas)}h · ${dias} ${dias === 1 ? "dia" : "dias"}` : "sem turnos" };
 };
 
+// Intervalo que não precisa de cobertura (spec 045): até 2 horas a pessoa segue contando como presente; acima disso desconta.
+// É o mesmo limite do servidor (regras/intervalo.ts). Regra de referência: o jurídico confirma.
+export const LIMITE_INTERVALO_SEM_COBERTURA_H = 2;
+export const intervaloSemCobertura = (t) => !!t && t.iniIntervalo != null && t.fimIntervalo != null && t.fimIntervalo - t.iniIntervalo <= LIMITE_INTERVALO_SEM_COBERTURA_H + EPS;
+const intervaloDesconta = (t) => t.iniIntervalo != null && t.fimIntervalo != null && !intervaloSemCobertura(t);
+
 const presente = (t, h) =>
   t.entrada <= h + EPS && t.saida >= h + 1 - EPS &&
-  !(t.iniIntervalo != null && t.fimIntervalo != null && t.iniIntervalo < h + 1 - EPS && t.fimIntervalo > h + EPS);
+  !(intervaloDesconta(t) && t.iniIntervalo < h + 1 - EPS && t.fimIntervalo > h + EPS);
 
 // ---- Cobertura -------------------------------------------------------------------------------------------------------
 

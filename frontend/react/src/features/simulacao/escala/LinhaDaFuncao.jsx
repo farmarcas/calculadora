@@ -2,9 +2,10 @@ import { celulasDaFuncao, minimoDaFuncao } from "./escala-regras.js";
 
 export const COR_DA_FUNCAO = { Farmacêutico: "var(--escala-farmaceutico)", Atendimento: "var(--escala-atendimento)", Caixa: "var(--escala-caixa)" };
 // A dica da célula: o que a hora tem e, quando há, quem está no intervalo (a razão de faltar com a barra passando por cima).
+const textoDoIntervaloNaHora = (c, emIntervalo) => (c.ok ? `Em intervalo (não precisa de cobertura): ${emIntervalo.join(", ")}` : `Em intervalo: ${emIntervalo.join(", ")}`);
 const dicaDaHora = (c, emIntervalo) => {
   const base = c.ok ? `${c.pessoas} de ${c.exigido} pessoas` : `Abaixo do mínimo: ${c.pessoas} de ${c.exigido}`;
-  return emIntervalo?.length ? `${base}. Em intervalo: ${emIntervalo.join(", ")}` : base;
+  return emIntervalo?.length ? `${base}. ${textoDoIntervaloNaHora(c, emIntervalo)}` : base;
 };
 const corDe = (f) => COR_DA_FUNCAO[f] ?? "var(--escala-caixa)";
 
@@ -28,7 +29,7 @@ export default function LinhaDaFuncao({ funcao, pessoas, cobertura, reforcadas, 
           key={c.hora}
           role="cell"
           title={dicaDaHora(c, intervalos[c.hora])}
-          aria-label={`${c.ok ? `${c.hora}h: ${c.pessoas} ${c.pessoas === 1 ? "pessoa" : "pessoas"}` : `${c.hora}h: ${c.pessoas} de ${c.exigido} pessoas, abaixo do mínimo`}${intervalos[c.hora]?.length ? `. Em intervalo: ${intervalos[c.hora].join(", ")}` : ""}`}
+          aria-label={`${c.ok ? `${c.hora}h: ${c.pessoas} ${c.pessoas === 1 ? "pessoa" : "pessoas"}` : `${c.hora}h: ${c.pessoas} de ${c.exigido} pessoas, abaixo do mínimo`}${intervalos[c.hora]?.length ? `. ${textoDoIntervaloNaHora(c, intervalos[c.hora])}` : ""}`}
           className={`rounded-btn py-1.5 text-center text-xs leading-4 font-bold ${c.reforcada ? "border border-dashed border-[var(--system-500)]" : "border border-transparent"}`}
           style={c.ok ? { background: "var(--func-success-100)", color: "var(--text-success-strong)", ...(c.reforcada ? {} : {}) } : { background: "var(--func-warning-100)", color: "var(--neutral-dark-900)", borderColor: "var(--func-warning-300)", borderStyle: "solid" }}
         >

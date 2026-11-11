@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  posicaoDoIntervalo, quemEstaEmIntervalo, textoDoIntervalo, turnosParaGravar, avisosDaPessoa, novoTurnoNaFolga, semTurnoNoDia, sugerirTurnosDasVagas, turnoHabitual, turnosParaVaga, vagaSemTurnos,
+  intervaloSemCobertura, posicaoDoIntervalo, quemEstaEmIntervalo, textoDoIntervalo, turnosParaGravar, avisosDaPessoa, novoTurnoNaFolga, semTurnoNoDia, sugerirTurnosDasVagas, turnoHabitual, turnosParaVaga, vagaSemTurnos,
   cargaDaContratacao, celulasDaFuncao, contratacoesSimuladas, diasDasAbas, efeitoDaContratacao, erroDoFormulario, faixaDeAviso,
   faltasDaFuncao, horasDoDia, horasReforcadas, mediaDoDia, minimoDaFuncao, quartis, recalcularCobertura, sugerirContratacao,
   diasPorExtenso, faixaDasFaltas, opcoesDeHora, textoDaSugestao, textoDoEfeito, textoDoTurno, tomDoQuartil, totalDaSemana, turnosDoFormulario,
@@ -74,8 +74,11 @@ describe("cobertura", () => {
     const c = cob("Farmacêutico", horas(8, 12, 0));
     const r = recalcularCobertura(c, [{ entrada: 9, saida: 11, iniIntervalo: null, fimIntervalo: null }]);
     expect(r.porHora.map((x) => [x.hora, x.pessoas, x.ok])).toEqual([[8, 0, false], [9, 1, true], [10, 1, true], [11, 0, false], [12, 0, false]]);
+    // Spec 045: intervalo de até 2 h não desconta; o de 3 h desconta
     const comIntervalo = recalcularCobertura(c, [{ entrada: 8, saida: 12, iniIntervalo: 10, fimIntervalo: 11 }]);
-    expect(comIntervalo.porHora.map((x) => x.pessoas)).toEqual([1, 1, 0, 1, 0]);
+    expect(comIntervalo.porHora.map((x) => x.pessoas)).toEqual([1, 1, 1, 1, 0]);
+    const longo = recalcularCobertura(c, [{ entrada: 8, saida: 12, iniIntervalo: 9, fimIntervalo: 12 }]);
+    expect(longo.porHora.map((x) => x.pessoas)).toEqual([1, 0, 0, 0, 0]);
   });
 });
 
@@ -343,5 +346,23 @@ describe("turnosParaGravar (só quartos de hora)", () => {
     const [t] = turnosParaGravar([{ matricula: "A", dia: 0, entrada: 7, saida: 14 + 38 / 60, iniIntervalo: 11.1, fimIntervalo: 12.1, extra: "x" }]);
     expect(t).toEqual({ matricula: "A", dia: 0, entrada: 7, saida: 14.75, iniIntervalo: 11, fimIntervalo: 12 });
     expect(turnosParaGravar([{ matricula: "A", dia: 0, entrada: 9, saida: 9.05, iniIntervalo: null, fimIntervalo: null }])[0].saida).toBe(9.25);
+  });
+});
+
+describe("intervalo de até 2 horas não precisa de cobertura (spec 045)", () => {
+  const cobBase = { funcao: "Caixa", porHora: [9, 10, 11, 12, 13].map((hora) => ({ hora, pessoas: 0, ok: false, exigido: 1 })) };
+  const t = (ini, fim) => ({ matricula: "A", dia: 0, entrada: 9, saida: 14, iniIntervalo: ini, fimIntervalo: fim });
+  const pessoas = (ts) => recalcularCobertura(cobBase, ts).porHora.map((c) => c.pessoas);
+  it("1 h e 2 h de intervalo contam; 3 h desconta; sem intervalo conta", () => {
+    expect(pessoas([t(11, 12)])).toEqual([1, 1, 1, 1, 1]);
+    expect(pessoas([t(11, 13)])).toEqual([1, 1, 1, 1, 1]);
+    expect(pessoas([t(10, 13)])).toEqual([1, 0, 0, 0, 1]);
+    expect(pessoas([t(null, null)])).toEqual([1, 1, 1, 1, 1]);
+  });
+  it("intervaloSemCobertura: só até 2 horas", () => {
+    expect(intervaloSemCobertura(t(11, 12))).toBe(true);
+    expect(intervaloSemCobertura(t(11, 13))).toBe(true);
+    expect(intervaloSemCobertura(t(11, 13.25))).toBe(false);
+    expect(intervaloSemCobertura(t(null, null))).toBe(false);
   });
 });

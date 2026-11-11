@@ -41,12 +41,15 @@ describe('distribuirParcial', () => {
     expect(r.blocos).toEqual([{ dia: 1, de: '12:00', ate: '18:00', horas: 6 }]);
   });
 
-  it('usa a maior faixa contínua do dia e respeita o intervalo', () => {
-    // farmacêutico 8h–22h com intervalo 12h–13h: só 12h–13h descoberta
-    const t = { ...turno([0], 8, 22), iniIntervalo: 12, fimIntervalo: 13 };
-    const r = distribuirParcial([dia(0)], [t], 4);
-    expect(r.blocos).toEqual([{ dia: 0, de: '12:00', ate: '13:00', horas: 1 }]);
-    expect(r.semLugarH).toBe(3);
+  it('usa a maior faixa contínua do dia e respeita o intervalo longo (spec 045: só acima de 2 h desconta)', () => {
+    // farmacêutico 8h–22h com intervalo de 1 h (12h–13h): não desconta, nada descoberto
+    const curto = { ...turno([0], 8, 22), iniIntervalo: 12, fimIntervalo: 13 };
+    expect(distribuirParcial([dia(0)], [curto], 4).blocos).toEqual([]);
+    // com intervalo de 3 h (12h–15h): a faixa de 12h às 15h fica descoberta
+    const longo = { ...turno([0], 8, 22), iniIntervalo: 12, fimIntervalo: 15 };
+    const r = distribuirParcial([dia(0)], [longo], 4);
+    expect(r.blocos).toEqual([{ dia: 0, de: '12:00', ate: '15:00', horas: 3 }]);
+    expect(r.semLugarH).toBe(1);
   });
 
   it('nunca passa de 5 dias nem de 8 h por dia: 30 h em 7 dias de 14 h = 5 blocos (8+8+8+6)', () => {

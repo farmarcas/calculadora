@@ -4,7 +4,7 @@ import { Botao, entrada } from "../../../components/ui/index.jsx";
 import { textoDaVariacao } from "../../diagnostico/cartao/linha-regras.js";
 import { COR_DO_TOM } from "../../diagnostico/cartao/tom.js";
 import {
-  NOMES_DIA, cargaDaContratacao, efeitoDaContratacao, erroDoFormulario, jornadaBrutaDoDia, opcoesDeEntrada, opcoesDeHora, opcoesDeSaida, sugerirContratacao, textoDaSugestao, textoDoEfeito,
+  cargaDaContratacao, diasPorExtenso, efeitoDaContratacao, erroDoFormulario, jornadaBrutaDoDia, opcoesDeEntrada, opcoesDeHora, opcoesDeSaida, sugerirContratacao, textoDaSugestao, textoDoEfeito,
   turnosDoFormulario,
 } from "./escala-regras.js";
 
@@ -59,7 +59,6 @@ export default function FormularioContratar({ simId, funcao, abas, coberturaPorD
     };
   }, [dono, erro, cargaH, funcao, simId]);
 
-  const alternarDia = (d) => onMudar({ dias: dias.includes(d) ? dias.filter((y) => y !== d) : [...dias, d].sort((a, b) => a - b) });
   const custoTxt = custo ? textoDaVariacao(custo.custoPct, custo.custoEstado, "custo") : null;
 
   const adicionar = (e) => {
@@ -83,14 +82,6 @@ export default function FormularioContratar({ simId, funcao, abas, coberturaPorD
           Contratação
           <div className={`${entrada} flex min-w-[200px] items-center text-sm font-bold text-[var(--text-strong)]`} data-testid="contratacao-integral">Integral · {jornadaCheia}h por semana</div>
         </div>
-        <fieldset className="m-0 flex flex-col gap-1 border-0 p-0">
-          <legend className="p-0 text-[11px] leading-4 text-[var(--text-secondary)]">Dias</legend>
-          <div className="flex gap-1">
-            {abas.map((a) => (
-              <button key={a.dia} type="button" aria-pressed={dias.includes(a.dia)} onClick={() => alternarDia(a.dia)} className={`h-9 min-w-[40px] cursor-pointer rounded-btn border px-2 text-xs ${dias.includes(a.dia) ? "border-[var(--system-500)] bg-[var(--color-primary-soft)] font-bold text-[var(--color-primary)]" : "border-[var(--border-default)] bg-transparent text-[var(--text-strong)]"}`}>{NOMES_DIA[a.dia]}</button>
-            ))}
-          </div>
-        </fieldset>
         <label className="flex flex-col gap-1 text-[11px] leading-4 text-[var(--text-secondary)]">
           Entra
           <select value={entra} onChange={(e) => setEntra(Number(e.target.value))} className={`${entrada} w-[96px] text-sm text-[var(--text-strong)]`}>
@@ -104,6 +95,10 @@ export default function FormularioContratar({ simId, funcao, abas, coberturaPorD
           </select>
         </label>
       </div>
+
+      <p className="m-0 mt-3 text-xs leading-5 text-[var(--text-secondary)]" data-testid="dias-da-contratacao">
+        Contratação integral: a pessoa fica à disposição da loja a semana toda e trabalha {dias.length} {dias.length === 1 ? "dia" : "dias"} ({diasPorExtenso(dias)}), nos dias de maior necessidade. As folgas giram e entram depois, na escala.
+      </p>
 
       {sugestaoDoTipo && (
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-btn bg-[var(--func-success-100)] px-3 py-2 text-xs leading-4 font-bold text-[var(--text-success-strong)]">

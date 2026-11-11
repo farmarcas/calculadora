@@ -1,4 +1,5 @@
 import PDFDocument from 'pdfkit';
+import { LOGO_RADAR_PNG, PROPORCAO_DO_LOGO } from './logo-radar.js';
 import type { SecaoDoParecer } from './parecer.js';
 
 // O PDF do parecer (spec 056): o mesmo conteúdo da tela, só texto, em Helvetica (fonte padrão do PDF, com os acentos do português).
@@ -60,6 +61,12 @@ export const gerarPdf = (p: ParecerParaPdf): Promise<Buffer> =>
     doc.on('error', reject);
 
     const t = textoParaPdf;
+    // O logo do Radar no topo, à esquerda; o texto começa logo abaixo dele.
+    const larguraDoLogo = 110;
+    const alturaDoLogo = larguraDoLogo / PROPORCAO_DO_LOGO;
+    doc.image(LOGO_RADAR_PNG, doc.page.margins.left, doc.page.margins.top, { width: larguraDoLogo });
+    doc.x = doc.page.margins.left;
+    doc.y = doc.page.margins.top + alturaDoLogo + 18;
     doc.font('Helvetica-Bold').fontSize(18).fillColor('#1D2433').text(t(`Parecer: ${p.nome}`));
     doc.moveDown(0.3);
     doc

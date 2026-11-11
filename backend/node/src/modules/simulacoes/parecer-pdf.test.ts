@@ -31,5 +31,7 @@ describe('parecer em PDF (spec 056)', () => {
     expect(buffer.subarray(0, 5).toString()).toBe('%PDF-');
     expect(buffer.length).toBeGreaterThan(1500);
     expect(buffer.subarray(buffer.length - 8).toString()).toContain('%%EOF');
+    // o logo do Radar vai como imagem no PDF
+    expect(buffer.toString('latin1')).toContain('/Subtype /Image');
   });
 });

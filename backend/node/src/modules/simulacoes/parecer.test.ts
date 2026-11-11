@@ -86,6 +86,23 @@ describe('montarParecer (spec 056)', () => {
     expect(t).toContain('Horário igual ao do Cadastro.');
   });
 
+  it('só o farmacêutico é obrigatório: as outras contratações aparecem como desejáveis, nas decisões e no resumo', () => {
+    const atendente: PessoaSim = {
+      matricula: 'VAGA-2',
+      nome: 'Vaga 2',
+      funcao: 'Atendimento',
+      cargaH: 40,
+      vaga: true,
+    };
+    const p = parecer({ quadro: [...quadro, vaga, atendente] });
+    const decisoes = p.dono.decisoes[0]!.itens;
+    expect(decisoes.find((t) => t.includes('farmacêutico'))).not.toContain('desejável');
+    expect(decisoes.find((t) => t.includes('atendente'))).toContain('(jornada cheia · desejável)');
+    expect(p.dono.resumo[0]).toContain('1 atendente, 40 h por semana (desejável)');
+    expect(p.dono.resumo[0]).not.toContain('farmacêutico, 40 h por semana (desejável)');
+    expect(p.publico.decisoes).toEqual(p.dono.decisoes);
+  });
+
   it('versão pública: mesma estrutura, só o sentido (sem R$ nem %)', () => {
     const p = parecer({ quadro: [...quadro, vaga] });
     const t = textoTodo(p.publico);

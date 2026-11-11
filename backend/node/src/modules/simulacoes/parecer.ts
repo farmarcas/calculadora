@@ -126,8 +126,11 @@ const rotuloDaContratacao = (r: ResultadoSimulacao, quadro: PessoaSim[]) =>
   r.funcoes.flatMap((f) =>
     f.contratacoes.map((c) => {
       const v = quadro.find((p) => p.matricula === c.matricula);
-      const nome = singular(v?.funcao ?? f.funcao);
-      return `1 ${nome}, ${horas(c.cargaH)} por semana (${c.tipo === 'integral' ? 'jornada cheia' : 'parcial'}).`;
+      const funcao = v?.funcao ?? f.funcao;
+      const nome = singular(funcao);
+      // Só o farmacêutico é obrigatório; as demais contratações são desejáveis (mantêm o nível de hoje).
+      const desejavel = funcao !== 'Farmacêutico' ? ' · desejável' : '';
+      return `1 ${nome}, ${horas(c.cargaH)} por semana (${c.tipo === 'integral' ? 'jornada cheia' : 'parcial'}${desejavel}).`;
     }),
   );
 
@@ -252,7 +255,12 @@ export const montarParecer = (e: EntradaParecer): ParecerGuardado => {
   const decidiu: string[] = [];
   if (contratacoes.length)
     decidiu.push(
-      `contrata ${lista(contratacoes.map((t) => t.replace(/\.$/, '').replace(/ \(.*\)$/, '')))}`,
+      `contrata ${lista(
+        contratacoes.map((t) => {
+          const base = t.replace(/\.$/, '').replace(/ \(.*\)$/, '');
+          return t.includes('desejável') ? `${base} (desejável)` : base;
+        }),
+      )}`,
     );
   else decidiu.push('não contrata ninguém');
   if (desligados.length)

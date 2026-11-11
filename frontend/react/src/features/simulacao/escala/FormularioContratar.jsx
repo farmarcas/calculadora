@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../../../api/client.js";
 import { Botao, entrada } from "../../../components/ui/index.jsx";
-import { textoDaVariacao } from "../../diagnostico/cartao/linha-regras.js";
+import { ehDesejavel, textoDaVariacao } from "../../diagnostico/cartao/linha-regras.js";
 import { COR_DO_TOM } from "../../diagnostico/cartao/tom.js";
 import {
   cargaDaContratacao, diasPorExtenso, efeitoDaContratacao, erroDoFormulario, jornadaBrutaDoDia, opcoesDeEntrada, opcoesDeHora, opcoesDeSaida, sugerirContratacao, textoDaSugestao, textoDoEfeito,
@@ -72,7 +72,7 @@ export default function FormularioContratar({ simId, funcao, abas, coberturaPorD
       <div className="flex items-start justify-between gap-3">
         <div>
           <h3 className="m-0 text-sm leading-5 font-bold text-[var(--text-strong)]">Contratar {funcao}</h3>
-          <p className="m-0 text-xs leading-4 text-[var(--text-secondary)]">A contratação entra só na simulação. O Cadastro não muda.</p>
+          <p className="m-0 text-xs leading-4 text-[var(--text-secondary)]">A contratação entra só na simulação. O Cadastro não muda.{ehDesejavel(funcao) ? " Contratação desejável: mantém o nível de atendimento de hoje; o que a lei exige é o farmacêutico." : ""}</p>
         </div>
         <button type="button" onClick={onCancelar} className="cursor-pointer border-0 bg-transparent p-0 text-xs text-[var(--text-secondary)] hover:underline">Fechar ✕</button>
       </div>

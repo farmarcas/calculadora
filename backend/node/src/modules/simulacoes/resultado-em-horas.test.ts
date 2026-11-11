@@ -183,7 +183,9 @@ describe('montarEmHoras: sentido do custo e faturamento (spec 052)', () => {
     expect(montarEmHoras(entrada({ custoAdicional: null })).custoSentido).toBeNull();
   });
   it('sem faturamento de referência o custo fica "sem_faturamento"; com faturamento, "ok"', () => {
-    expect(montarEmHoras(entrada({ faturamentoMensalRef: null })).custoEstado).toBe('sem_faturamento');
+    expect(montarEmHoras(entrada({ faturamentoMensalRef: null })).custoEstado).toBe(
+      'sem_faturamento',
+    );
     expect(montarEmHoras(entrada({ faturamentoMensalRef: 450567 })).custoEstado).toBe('ok');
   });
 });

@@ -245,7 +245,10 @@ describe('montarLinhas', () => {
   it('nenhuma chave de valor em reais na saída', () => {
     // A frase explicativa (spec 051) é texto para leitura e pode dizer "folha"; o guarda vale para as chaves.
     const json = JSON.stringify(
-      montarLinhas(comp([manter, economia, equilibrio]), cen()).map((l) => ({ ...l, explicacao: null })),
+      montarLinhas(comp([manter, economia, equilibrio]), cen()).map((l) => ({
+        ...l,
+        explicacao: null,
+      })),
     );
     for (const chave of [
       'Mensal',
@@ -310,17 +313,30 @@ describe('montarLinhas', () => {
     });
     it('reduz equipe: 8,0% → 7,4%, −0,6 e R$ −2.340 por mês', () => {
       const l = montarLinhas(
-        comp([col({ id: 'manter', folhaAdicionalMensal: -2340 }), col({ id: 'economia' }), equilibrio]),
+        comp([
+          col({ id: 'manter', folhaAdicionalMensal: -2340 }),
+          col({ id: 'economia' }),
+          equilibrio,
+        ]),
         cen(null, 36037.6, 450567),
         true,
       );
-      expect(l[1]!.custoPctFaturamento).toEqual({ hoje: 8, depois: 7.5, aumentoPp: -0.5, aumentoMensal: -2340 });
+      expect(l[1]!.custoPctFaturamento).toEqual({
+        hoje: 8,
+        depois: 7.5,
+        aumentoPp: -0.5,
+        aumentoMensal: -2340,
+      });
       expect(l[1]!.custoSentido).toBe('diminui');
     });
     it('a diferença usa os pesos já arredondados (8,04 → 9,66 mostra 8,0, 9,7 e +1,7, e não 1,6)', () => {
       // folha 36.180 ÷ 450.000 = 8,04% (mostra 8,0); com +7.290 = 9,66% (mostra 9,7): a diferença exibida é 1,7, não 1,62
       const l = montarLinhas(
-        comp([col({ id: 'manter', folhaAdicionalMensal: 7290 }), col({ id: 'economia' }), equilibrio]),
+        comp([
+          col({ id: 'manter', folhaAdicionalMensal: 7290 }),
+          col({ id: 'economia' }),
+          equilibrio,
+        ]),
         cen(null, 36180, 450000),
         true,
       );
@@ -370,7 +386,13 @@ describe('montarLinhas', () => {
 describe('explicacaoDaLinha (spec 051)', () => {
   const equilibrio = col({ id: 'equilibrio' });
   const texto = (e: Explicacao | null) => e?.partes.map((x) => x.texto).join('') ?? null;
-  const linhas = (manter: Partial<ColunaComparativo>, economia: Partial<ColunaComparativo>, dono: boolean, folha = 36037.6, fat = 450567) =>
+  const linhas = (
+    manter: Partial<ColunaComparativo>,
+    economia: Partial<ColunaComparativo>,
+    dono: boolean,
+    folha = 36037.6,
+    fat = 450567,
+  ) =>
     montarLinhas(
       comp([col({ id: 'manter', ...manter }), col({ id: 'economia', ...economia }), equilibrio]),
       cen(null, folha, fat),
@@ -386,7 +408,9 @@ describe('explicacaoDaLinha (spec 051)', () => {
 
   it('Paulínia, dono: 10,3% → 14,7% e R$ 11.112', () => {
     const l = linhas({ folhaAdicionalMensal: 11112.32 }, {}, true, 25677.88, 249921);
-    expect(texto(l[1]!.explicacao)).toContain('de 10,3% para 14,7% do faturamento (R$ 11.112 por mês)');
+    expect(texto(l[1]!.explicacao)).toContain(
+      'de 10,3% para 14,7% do faturamento (R$ 11.112 por mês)',
+    );
   });
 
   it('gestor e consulta: a mesma ideia, sem R$ nem %', () => {
@@ -399,15 +423,23 @@ describe('explicacaoDaLinha (spec 051)', () => {
   });
 
   it('folha igual: "a folha não muda"; folha cai: "cai de … para …"', () => {
-    expect(texto(linhas({ folhaAdicionalMensal: 0 }, {}, true)[1]!.explicacao)).toContain('a folha não muda');
+    expect(texto(linhas({ folhaAdicionalMensal: 0 }, {}, true)[1]!.explicacao)).toContain(
+      'a folha não muda',
+    );
     const cai = texto(linhas({ folhaAdicionalMensal: -2340 }, {}, true)[1]!.explicacao)!;
     expect(cai).toContain('a folha cai de 8,0% para 7,5% do faturamento (R$ 2.340 por mês)');
-    expect(texto(linhas({ folhaAdicionalMensal: -2340 }, {}, false)[1]!.explicacao)).toContain('a folha diminui');
+    expect(texto(linhas({ folhaAdicionalMensal: -2340 }, {}, false)[1]!.explicacao)).toContain(
+      'a folha diminui',
+    );
   });
 
   it('Manter que não cobre tudo: sem "caminho recomendado" e diz o que falta', () => {
     const l = linhas(
-      { folhaAdicionalMensal: 7659.08, status: 'nao_resolve', faltaPorFuncao: [{ funcao: 'Atendimento', horasSemana: 8 }] },
+      {
+        folhaAdicionalMensal: 7659.08,
+        status: 'nao_resolve',
+        faltaPorFuncao: [{ funcao: 'Atendimento', horasSemana: 8 }],
+      },
       {},
       true,
     );
@@ -417,8 +449,17 @@ describe('explicacaoDaLinha (spec 051)', () => {
   });
 
   it('dono sem salários: a frase de Manter omite o custo', () => {
-    const l = linhas({ folhaAdicionalMensal: null, contratacoes: [{ funcao: 'Farmacêutico', inteiras: 1, parcial: null }] as never }, {}, true);
-    expect(texto(l[1]!.explicacao)).toBe('Para manter todos os seus horários e a venda de hoje, é preciso contratar. Este é o caminho recomendado.');
+    const l = linhas(
+      {
+        folhaAdicionalMensal: null,
+        contratacoes: [{ funcao: 'Farmacêutico', inteiras: 1, parcial: null }] as never,
+      },
+      {},
+      true,
+    );
+    expect(texto(l[1]!.explicacao)).toBe(
+      'Para manter todos os seus horários e a venda de hoje, é preciso contratar. Este é o caminho recomendado.',
+    );
   });
 
   it('Sem contratações com falta de farmacêutico: o trecho do "mesmo assim" vem em negrito', () => {
@@ -432,14 +473,22 @@ describe('explicacaoDaLinha (spec 051)', () => {
   });
 
   it('falta de outra função e de várias funções', () => {
-    const outra = linhas({}, { status: 'nao_resolve', faltaPorFuncao: [{ funcao: 'Atendimento', horasSemana: 12 }] }, false);
+    const outra = linhas(
+      {},
+      { status: 'nao_resolve', faltaPorFuncao: [{ funcao: 'Atendimento', horasSemana: 12 }] },
+      false,
+    );
     expect(outra[2]!.explicacao!.partes[1]).toEqual({
       texto: 'Mesmo assim, ainda faltariam 12 h de atendente por semana.',
       negrito: true,
     });
     const varias = linhas(
       {},
-      { status: 'nao_resolve', semFarmaceuticoH: 17, faltaPorFuncao: [{ funcao: 'Atendimento', horasSemana: 8 }] },
+      {
+        status: 'nao_resolve',
+        semFarmaceuticoH: 17,
+        faltaPorFuncao: [{ funcao: 'Atendimento', horasSemana: 8 }],
+      },
       true,
     );
     expect(varias[2]!.explicacao!.partes[1]!.texto).toBe(
@@ -455,10 +504,18 @@ describe('explicacaoDaLinha (spec 051)', () => {
   });
 
   it('Equilíbrio e cenário indisponível não têm frase; nenhuma frase usa p.p., pontos nem Personalizar', () => {
-    const l = linhas({ folhaAdicionalMensal: 7659.08 }, { status: 'nao_resolve', semFarmaceuticoH: 17 }, true);
+    const l = linhas(
+      { folhaAdicionalMensal: 7659.08 },
+      { status: 'nao_resolve', semFarmaceuticoH: 17 },
+      true,
+    );
     expect(l[0]!.explicacao).toBeNull();
     for (const x of l) expect(texto(x.explicacao) ?? '').not.toMatch(/p\.p\.|pontos|Personalizar/);
-    const ind = montarLinhas(comp([col({ id: 'manter' }), col({ id: 'economia' }), equilibrio]), cen('custos'), true);
+    const ind = montarLinhas(
+      comp([col({ id: 'manter' }), col({ id: 'economia' }), equilibrio]),
+      cen('custos'),
+      true,
+    );
     expect(ind[0]!.explicacao).toBeNull();
   });
 });

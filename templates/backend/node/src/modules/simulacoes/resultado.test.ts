@@ -269,3 +269,67 @@ describe('calcularResultado', () => {
     });
   });
 });
+
+describe('calcularResultado: peso da folha (spec 052)', () => {
+  const vaga: PessoaSim = {
+    matricula: 'VAGA-1',
+    nome: 'Vaga 1',
+    funcao: 'Farmacêutico',
+    cargaH: 40,
+    vaga: true,
+  };
+
+  it('dono: peso da folha, folha por mês antes e depois e o mesmo cálculo dos Cenários', () => {
+    const r = base({ quadro: [...quadro, vaga], faturamentoMensalRef: 100000 });
+    const c = r.custoDoDono!;
+    expect(c.estado).toBe('ok');
+    expect(c.peso!.aumentoMensal).toBe(Math.round(r.custoAdicional!));
+    expect(c.folhaDepois! - c.folhaHoje!).toBeCloseTo(r.custoAdicional!, 0);
+    expect(c.peso!.depois - c.peso!.hoje).toBeCloseTo(c.peso!.aumentoPp, 1);
+    expect(r.emHoras.pessoas).toEqual({ hoje: 2, simulacao: 3 });
+    expect(r.emHoras.custoSentido).toBe('aumenta');
+  });
+
+  // Uma loja pequena (segunda, 8h): as duas farmacêuticas cobrem tudo, sem hora extra.
+  const pequena: DiaAberto[] = [{ dia: 0, abre: 8, fecha: 16 }];
+
+  it('sem contratação: folha igual', () => {
+    const r = base({ dias: pequena, diasCadastro: pequena, faturamentoMensalRef: 100000 });
+    expect(r.emHoras.custoSentido).toBe('igual');
+    expect(r.custoDoDono!.peso!.aumentoMensal).toBe(0);
+  });
+
+  it('desligar uma pessoa: a folha cai e "hoje" ainda conta quem sai', () => {
+    const r = base({
+      dias: pequena,
+      diasCadastro: pequena,
+      quadro: [quadro[0]!, { ...quadro[1]!, desligado: true }],
+      faturamentoMensalRef: 100000,
+    });
+    expect(r.emHoras.pessoas).toEqual({ hoje: 2, simulacao: 1 });
+    expect(r.emHoras.horasContratadas).toEqual({ hoje: 80, simulacao: 40 });
+    expect(r.emHoras.custoSentido).toBe('diminui');
+    expect(r.custoDoDono!.peso!.aumentoMensal).toBeLessThan(0);
+    expect(r.custoDoDono!.folhaDepois!).toBeLessThan(r.custoDoDono!.folhaHoje!);
+  });
+
+  it('sem salários e sem faturamento: o estado diz o que falta, sem número inventado', () => {
+    const semSal = base({ custos: null, faturamentoMensalRef: 100000 });
+    expect(semSal.custoDoDono).toMatchObject({
+      estado: 'sem_salarios',
+      peso: null,
+      folhaHoje: null,
+    });
+    const semFat = base({ faturamentoMensalRef: null });
+    expect(semFat.custoDoDono).toMatchObject({ estado: 'sem_faturamento', peso: null });
+    expect(semFat.emHoras.custoEstado).toBe('sem_faturamento');
+  });
+
+  it('gestor e consulta: só o sentido, sem custoDoDono nem % do custo', () => {
+    const r = base({ quadro: [...quadro, vaga], faturamentoMensalRef: 100000, dono: false });
+    expect(r.custoDoDono).toBeUndefined();
+    expect(r.emHoras.custoSentido).toBe('aumenta');
+    expect('custoPct' in r.emHoras).toBe(false);
+    expect(JSON.stringify(r)).not.toMatch(/custoDoDono|folhaHoje|pesoHoje/);
+  });
+});

@@ -311,8 +311,15 @@ describe('esticarTurnos (spec 046)', () => {
 
 describe('turnosParaVaga: a contratação integral trabalha a jornada cheia (spec 053)', () => {
   const lojaDias = Array.from({ length: 7 }, (_, dia) => ({ dia, abre: 7, fecha: 22 }));
-  const liquida = (t: { entrada: number; saida: number; iniIntervalo?: number | null; fimIntervalo?: number | null }) =>
-    t.saida - t.entrada - (t.iniIntervalo != null && t.fimIntervalo != null ? t.fimIntervalo - t.iniIntervalo : 0);
+  const liquida = (t: {
+    entrada: number;
+    saida: number;
+    iniIntervalo?: number | null;
+    fimIntervalo?: number | null;
+  }) =>
+    t.saida -
+    t.entrada -
+    (t.iniIntervalo != null && t.fimIntervalo != null ? t.fimIntervalo - t.iniIntervalo : 0);
   // Falta de farmacêutico só das 07h às 13h, em 4 dias (seg a qui): antes só isso virava turno (6 h por dia).
   const cobertura = () => {
     const c: Record<number, { hora: number; pessoas: number; exigido: number }[]> = {};
@@ -367,7 +374,10 @@ describe('turnosParaVaga: a contratação integral trabalha a jornada cheia (spe
     const curta = Array.from({ length: 7 }, (_, dia) => ({ dia, abre: 9, fecha: 15 }));
     // a cobertura só tem as horas abertas (09h às 15h), como no cálculo real
     const cob = Object.fromEntries(
-      Object.entries(cobertura()).map(([dia, hs]) => [dia, hs.filter((c) => c.hora >= 9 && c.hora < 15).map((c) => ({ ...c, pessoas: 0 }))]),
+      Object.entries(cobertura()).map(([dia, hs]) => [
+        dia,
+        hs.filter((c) => c.hora >= 9 && c.hora < 15).map((c) => ({ ...c, pessoas: 0 })),
+      ]),
     );
     const ts = turnosParaVaga({ cargaH: 42, cobertura: cob, dias: curta, regra });
     for (const t of ts) {
@@ -380,10 +390,18 @@ describe('turnosParaVaga: a contratação integral trabalha a jornada cheia (spe
 describe('aplicarFolgas: folgas intercaladas (spec 055)', () => {
   const r40 = regraPara('r40', false);
   const equipe = (n: number, funcao = 'Caixa') =>
-    Array.from({ length: n }, (_, i) => h(String.fromCharCode(65 + i), funcao, todos, { nome: `Pessoa ${String.fromCharCode(65 + i)}` }));
+    Array.from({ length: n }, (_, i) =>
+      h(String.fromCharCode(65 + i), funcao, todos, {
+        nome: `Pessoa ${String.fromCharCode(65 + i)}`,
+      }),
+    );
   const folgasPorPessoa = (retirados: { matricula: string; dia: number }[]) => {
     const por = new Map<string, number[]>();
-    for (const r of retirados) por.set(r.matricula, [...(por.get(r.matricula) ?? []), r.dia].sort((a, b) => a - b));
+    for (const r of retirados)
+      por.set(
+        r.matricula,
+        [...(por.get(r.matricula) ?? []), r.dia].sort((a, b) => a - b),
+      );
     return por;
   };
   const vizinhos = (a: number, b: number) => Math.min(Math.abs(a - b), 7 - Math.abs(a - b)) === 1;
@@ -429,7 +447,12 @@ describe('aplicarFolgas: folgas intercaladas (spec 055)', () => {
   });
 
   it('cobertura primeiro: 3 pessoas com mínimo 2 folgam em dias diferentes, sem abrir falta', () => {
-    const r = aplicarFolgas({ horarios: equipe(3), dias: dias(), regra: r40, minimos: { Caixa: 2 } });
+    const r = aplicarFolgas({
+      horarios: equipe(3),
+      dias: dias(),
+      regra: r40,
+      minimos: { Caixa: 2 },
+    });
     expect(r.avisos.filter((a) => a.includes('vai faltar'))).toEqual([]);
     const contagem = new Map<number, number>();
     for (const x of r.retirados) contagem.set(x.dia, (contagem.get(x.dia) ?? 0) + 1);
@@ -437,7 +460,12 @@ describe('aplicarFolgas: folgas intercaladas (spec 055)', () => {
   });
 
   it('quem só tem 1 folga a receber continua escolhendo pelo dia que abre menos falta', () => {
-    const r = aplicarFolgas({ horarios: equipe(3), dias: dias(), regra: r44, minimos: { Caixa: 2 } });
+    const r = aplicarFolgas({
+      horarios: equipe(3),
+      dias: dias(),
+      regra: r44,
+      minimos: { Caixa: 2 },
+    });
     const por = folgasPorPessoa(r.retirados);
     for (const [, d] of por) expect(d).toHaveLength(1);
     expect(r.avisos.filter((a) => a.includes('afastar'))).toEqual([]);
@@ -448,7 +476,10 @@ describe('aplicarFolgas: folgas intercaladas (spec 055)', () => {
     const a = h('A', 'Caixa', todos, { nome: 'Cristina' });
     const b = h('B', 'Caixa', [0, 1], { nome: 'Bruno' });
     const r = aplicarFolgas({ horarios: [a, b], dias: dias(), regra: r40, minimos });
-    const diasDeA = r.retirados.filter((x) => x.matricula === 'A').map((x) => x.dia).sort();
+    const diasDeA = r.retirados
+      .filter((x) => x.matricula === 'A')
+      .map((x) => x.dia)
+      .sort();
     expect(diasDeA).toEqual([0, 1]);
     expect(r.avisos).toContain('Cristina: não deu para afastar as folgas sem faltar gente.');
     expect(r.avisos.filter((x) => x.includes('vai faltar'))).toEqual([]);
@@ -462,7 +493,12 @@ describe('aplicarFolgas: folgas intercaladas (spec 055)', () => {
   });
 
   it('função com uma pessoa só: nada para espalhar, a folga segue a regra de hoje', () => {
-    const r = aplicarFolgas({ horarios: [h('A', 'Caixa', todos)], dias: dias(), regra: r44, minimos: {} });
+    const r = aplicarFolgas({
+      horarios: [h('A', 'Caixa', todos)],
+      dias: dias(),
+      regra: r44,
+      minimos: {},
+    });
     expect(r.retirados).toHaveLength(1);
   });
 });

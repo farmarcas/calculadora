@@ -1518,6 +1518,9 @@ describe('escala (rotas)', () => {
       }
     });
 
+    const semFrase = (ls: object[]) =>
+      ls.map(({ explicacao: _x, ...r }: { explicacao?: unknown }) => r);
+
     it('linhas dos cenários (spec 037): iguais para dono, gestor e consulta, só com % e sem reais nem salário (o dono ainda recebe o custo sobre o faturamento)', async () => {
       await preparar(cmvDe(70));
       const consulta = { 'X-Perfil': 'SCHEDULE_VIEWER', 'X-GE': GE_INICIAL_ID };
@@ -1531,20 +1534,36 @@ describe('escala (rotas)', () => {
           ({
             custoPctFaturamento: _c,
             custoPct: _p,
+            explicacao: _e,
             ...resto
           }: {
             custoPctFaturamento?: unknown;
             custoPct?: unknown;
+            explicacao?: unknown;
           }) => resto,
         );
+        // Spec 051: a frase explicativa é por perfil. O dono lê pesos e reais; gestor e consulta, a mesma ideia sem números.
+        const textoDe = (
+          ls: { id: string; explicacao: { partes: { texto: string }[] } | null }[],
+        ) =>
+          ls
+            .map((l) => l.explicacao?.partes.map((x: { texto: string }) => x.texto).join('') ?? '')
+            .join(' ');
+        expect(textoDe(dono.cenarios[id].linhas)).toMatch(/R\$ [\d.]+ por mês|a folha não muda/);
+        for (const outro of [ges, con]) {
+          const t = textoDe(outro.cenarios[id].linhas);
+          expect(t).not.toMatch(/R\$|%/);
+          expect(t).not.toMatch(/p\.p\.|pontos|Personalizar/);
+        }
+
         expect(linhasDoDono.every((l: object) => 'custoPctFaturamento' in l)).toBe(true);
         expect(linhas.map((l: { id: string }) => l.id)).toEqual([
           'equilibrio',
           'manter',
           'economia',
         ]);
-        expect(ges.cenarios[id].linhas).toEqual(linhas);
-        expect(con.cenarios[id].linhas).toEqual(linhas);
+        expect(semFrase(ges.cenarios[id].linhas)).toEqual(linhas);
+        expect(semFrase(con.cenarios[id].linhas)).toEqual(linhas);
         // com os custos informados pelo dono, o Equilíbrio é calculado para todos (nada em reais sai)
         expect(linhas[0].indisponivel).toBeNull();
         for (const l of linhas) {
@@ -1575,7 +1594,7 @@ describe('escala (rotas)', () => {
         expect(con.cenarios[id].comparativo.sugerido).toBeUndefined();
       }
       // nenhum salário nem valor em reais nas linhas do gestor
-      const json = JSON.stringify(ges.cenarios.r42.linhas);
+      const json = JSON.stringify(semFrase(ges.cenarios.r42.linhas));
       expect(json).not.toMatch(/8000|folha|saldo|salario|Mensal/);
     });
 

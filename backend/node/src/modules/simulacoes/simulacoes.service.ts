@@ -118,7 +118,8 @@ export const makeSimulacoesService = (
       quadro: s.quadro,
       vendas,
       cmvMedioPct: l.faturamento?.cmvPct ?? null,
-      faturamentoMensalRef: faturamentoMensalDe({ faturamento: l.faturamento, vendasBase: vendas })?.valor ?? null,
+      faturamentoMensalRef:
+        faturamentoMensalDe({ faturamento: l.faturamento, vendasBase: vendas })?.valor ?? null,
       custos: custosDaSimulacao(c.premissas.custos, l),
       parametros: tabela,
       dono,

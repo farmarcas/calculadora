@@ -1543,7 +1543,9 @@ describe('escala (rotas)', () => {
           }) => resto,
         );
         // Spec 051: a frase explicativa é por perfil. O dono lê pesos e reais; gestor e consulta, a mesma ideia sem números.
-        const textoDe = (ls: { id: string; explicacao: { partes: { texto: string }[] } | null }[]) =>
+        const textoDe = (
+          ls: { id: string; explicacao: { partes: { texto: string }[] } | null }[],
+        ) =>
           ls
             .map((l) => l.explicacao?.partes.map((x: { texto: string }) => x.texto).join('') ?? '')
             .join(' ');

@@ -350,7 +350,9 @@ export const calcularResultado = (a: {
 
   // O % do custo sobre a folha só vai para o dono (gestor e consulta recebem o sentido, sem número).
   const { custoPct: custoPctDoDono, ...emHorasSemCusto } = emHorasCompleto;
-  const emHoras: EmHoras = a.dono ? { ...emHorasSemCusto, custoPct: custoPctDoDono ?? null } : emHorasSemCusto;
+  const emHoras: EmHoras = a.dono
+    ? { ...emHorasSemCusto, custoPct: custoPctDoDono ?? null }
+    : emHorasSemCusto;
   const peso = pesoDaFolha({
     folhaHoje: folhaTodos,
     custoAdicional: custoDoCard,
@@ -366,7 +368,8 @@ export const calcularResultado = (a: {
           : 'ok',
     peso,
     folhaHoje: folhaTodos == null ? null : Math.round(folhaTodos),
-    folhaDepois: folhaTodos == null || custoDoCard == null ? null : Math.round(folhaTodos + custoDoCard),
+    folhaDepois:
+      folhaTodos == null || custoDoCard == null ? null : Math.round(folhaTodos + custoDoCard),
   };
 
   const base: ResultadoSimulacao = {

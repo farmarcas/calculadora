@@ -117,7 +117,10 @@ const reaisBr = (n: number) => Math.abs(Math.round(n)).toLocaleString('pt-BR');
 // Faltas por função (maior primeiro). O farmacêutico sem cobertura entra se ainda não estiver na lista.
 const faltasDaColuna = (c: ColunaComparativo) => {
   const lista = (c.faltaPorFuncao ?? []).map((f) => ({ funcao: f.funcao, horas: f.horasSemana }));
-  if ((c.semFarmaceuticoH ?? 0) > 0 && !lista.some((f) => f.funcao.toLowerCase().startsWith('farmac')))
+  if (
+    (c.semFarmaceuticoH ?? 0) > 0 &&
+    !lista.some((f) => f.funcao.toLowerCase().startsWith('farmac'))
+  )
     lista.push({ funcao: 'Farmacêutico', horas: c.semFarmaceuticoH! });
   return lista.filter((f) => f.horas > 0).sort((a, b) => b.horas - a.horas);
 };
@@ -147,14 +150,19 @@ export const explicacaoDaLinha = (
     const base = 'Para manter todos os seus horários e a venda de hoje';
     let frase: string;
     if (sentido === null)
-      frase = c.contratacoes.length > 0 ? `${base}, é preciso contratar.` : `${base}, a folha não precisa mudar.`;
+      frase =
+        c.contratacoes.length > 0
+          ? `${base}, é preciso contratar.`
+          : `${base}, a folha não precisa mudar.`;
     else if (sentido === 'igual') frase = `${base}, a folha não muda.`;
     else if (dono && custo)
       frase =
         sentido === 'aumenta'
           ? `${base}, a folha sobe de ${pctBr(custo.hoje)} para ${pctBr(custo.depois)} do faturamento (R$ ${reaisBr(custo.aumentoMensal)} por mês).`
           : `${base}, a folha cai de ${pctBr(custo.hoje)} para ${pctBr(custo.depois)} do faturamento (R$ ${reaisBr(custo.aumentoMensal)} por mês).`;
-    else frase = sentido === 'aumenta' ? `${base}, a folha precisa aumentar.` : `${base}, a folha diminui.`;
+    else
+      frase =
+        sentido === 'aumenta' ? `${base}, a folha precisa aumentar.` : `${base}, a folha diminui.`;
     const fim = cobre
       ? ' Este é o caminho recomendado.'
       : faltaTxt
@@ -241,7 +249,12 @@ export const montarLinhas = (
     // Custo de pessoal sobre o faturamento: a conta única de peso-folha.ts (a mesma da Simulação).
     const custoPctFaturamento =
       dono && !indisponivel
-        ? pesoDaFolha({ folhaHoje: folha, custoAdicional: adicional ?? null, faturamento, vendaPct })
+        ? pesoDaFolha({
+            folhaHoje: folha,
+            custoAdicional: adicional ?? null,
+            faturamento,
+            vendaPct,
+          })
         : null;
     const custoSentido =
       indisponivel || adicional == null

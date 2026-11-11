@@ -19,6 +19,7 @@ import { coberturaDaSimulacao } from './cobertura-simulacao.js';
 import { avaliarSimulacao, type PessoaSim, type TurnoSim } from './avaliar.js';
 import {
   aplicarVagasEDesligados,
+  emQuartosDeHora,
   exigirVagasIntegrais,
   vagasSugeridas,
   type VagaEntrada,
@@ -266,7 +267,7 @@ export const makeSimulacoesService = (
       iniIntervalo: t.iniIntervalo,
       fimIntervalo: t.fimIntervalo,
     }));
-    return { quadro, turnos, equipe };
+    return { quadro, turnos: emQuartosDeHora(turnos), equipe };
   };
 
   const validarTurnos = (s: SimulacaoRegistro, turnos: TurnoSim[]) => {
@@ -377,7 +378,10 @@ export const makeSimulacoesService = (
           const sugeridas: VagaEntrada[] = Object.values(semana.funcoes).flatMap((f) =>
             f.vagas.map((v) => ({ funcao: v.funcao, cargaH: v.cargaH, turnos: v.turnos })),
           );
-          base = { ...base, ...aplicarVagasEDesligados(base.quadro, semana.turnos, sugeridas) };
+          base = {
+            ...base,
+            ...aplicarVagasEDesligados(base.quadro, emQuartosDeHora(semana.turnos), sugeridas),
+          };
         } else {
           // Dia aberto que o Cadastro não escala (cenário que abre um dia hoje fechado): a conta volta a ser por horas.
           const sugeridas = vagasSugeridas(regra, diasDaSimulacao, minimos, base.quadro);

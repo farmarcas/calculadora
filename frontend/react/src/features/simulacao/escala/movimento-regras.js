@@ -11,9 +11,10 @@ export const moverTurno = (t, delta, { min, max }) => {
   return {
     ...t,
     entrada,
-    saida: entrada + len,
-    iniIntervalo: t.iniIntervalo == null ? null : t.iniIntervalo + d,
-    fimIntervalo: t.fimIntervalo == null ? null : t.fimIntervalo + d,
+    // Um turno do Cadastro pode ter minutos fora dos quartos de hora (14h38): a saída também vai para o quarto mais perto.
+    saida: quarto(entrada + len),
+    iniIntervalo: t.iniIntervalo == null ? null : quarto(t.iniIntervalo + d),
+    fimIntervalo: t.fimIntervalo == null ? null : quarto(t.fimIntervalo + d),
   };
 };
 

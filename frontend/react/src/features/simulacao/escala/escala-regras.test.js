@@ -338,6 +338,14 @@ describe("intervalo na escala", () => {
   });
 });
 
+describe("turnosParaGravar (só quartos de hora)", () => {
+  it("leva um horário do Cadastro como 14h38 ao quarto mais perto, sem tirar a saída de depois da entrada", () => {
+    const [t] = turnosParaGravar([{ matricula: "A", dia: 0, entrada: 7, saida: 14 + 38 / 60, iniIntervalo: 11.1, fimIntervalo: 12.1, extra: "x" }]);
+    expect(t).toEqual({ matricula: "A", dia: 0, entrada: 7, saida: 14.75, iniIntervalo: 11, fimIntervalo: 12 });
+    expect(turnosParaGravar([{ matricula: "A", dia: 0, entrada: 9, saida: 9.05, iniIntervalo: null, fimIntervalo: null }])[0].saida).toBe(9.25);
+  });
+});
+
 describe("só se contrata integral (spec 044)", () => {
   it("a sugestão do formulário é integral por padrão, com a jornada cheia da regra e até os dias da regra", () => {
     const abas = [0, 1, 2, 3, 4, 5].map((dia) => ({ dia, abre: 8, fecha: 22 }));

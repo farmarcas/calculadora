@@ -8,10 +8,13 @@ import type { Minimos } from '../regras/requisitos.js';
 import { SEMANAS_NO_MES } from '../escala/cenarios-dias.js';
 import { linhasNaRegua, preencherComCmvMedio, reguaDaBase, type Regua } from '../escala/regua.js';
 import { diaDaSemana, vendasPorDiaEHora, type VendaLinha } from '../escala/vendas.js';
-import { contratacoesDe, custoDasVagas } from '../escala/cenarios.js';
+import { contratacoesDe, custoDasVagas, folhaAtual } from '../escala/cenarios.js';
+import { FARMACEUTICO } from '../regras/gap-horas.js';
 import type { PessoaSim } from './avaliar.js';
+import { montarEmHoras, type EmHoras } from './resultado-em-horas.js';
 import { saldoDaSimulacao } from './saldo-simulacao.js';
 import { horasNovas, vendaEstimadaDasHorasNovas } from './venda-estimada.js';
+import { calcularHorarioEstendido, type HorarioEstendido } from './resultado-horario-estendido.js';
 
 const arred = (n: number) => Math.round(n * 100) / 100;
 const hhmm = (h: number) =>
@@ -58,6 +61,8 @@ export type ResultadoSimulacao = {
   vendaQueSai?: number | null;
   // Venda estimada das horas novas, por mês (só dono): 0 quando nenhum horário aumenta; nulo sem base comercial.
   vendaEstimada?: number | null;
+  // Spec 049: o resultado do horário estendido (só dono, e só quando a simulação abre horas a mais).
+  horarioEstendido?: HorarioEstendido;
   saldoMensal?: number | null;
   saldoAnual?: number | null;
   // Saldo ÷ faturamento mensal médio (vendas da base × 52 ÷ 12); nulo sem base.
@@ -67,6 +72,8 @@ export type ResultadoSimulacao = {
   regua: Regua | null;
   horasAbertas: number;
   horasAbertasAntes: number;
+  // Resultado em horas e porcentagem (spec 038), igual para todos os perfis e sem valores em reais.
+  emHoras: EmHoras;
   // `dias` é o horário simulado; `cadastro` o da loja (para restaurar e para saber quais dias abrem).
   horario: {
     mudou: boolean;
@@ -259,11 +266,66 @@ export const calcularResultado = (a: {
     return { dias: pega(porDia), horas: pega(porHora) };
   })();
 
+  // Custo adicional da simulação (folha das vagas + hora extra): serve ao saldo do dono e à variação em % do bloco em horas.
+  // Sem salário informado o valor fica nulo, nunca parcial.
+  const custosVagas = ativos.filter((p) => p.vaga).map(custoVaga);
+  const folhaExtra = custosVagas.some((c) => c == null)
+    ? null
+    : arred(custosVagas.reduce<number>((s, c) => s + (c ?? 0), 0));
+  let horaExtra: number | null = 0;
+  for (const l of depois) {
+    const falta = faltaDepois(l.funcao);
+    if (falta <= 0) continue;
+    const s = sal(l.funcao);
+    if (!s) {
+      horaExtra = null;
+      break;
+    }
+    horaExtra +=
+      falta * SEMANAS_DA_FOLHA * (s / tabela[a.regraId].divisor) * ADICIONAL_HORA_EXTRA * fator;
+  }
+  if (horaExtra !== null) horaExtra = arred(horaExtra);
+
+  // Resultado em horas e porcentagem (spec 038): a venda é a REAL, mesmo quando a medida dos cenários é a margem.
+  const vendaPerdidaReal = vb
+    ? arred(
+        fechadas.reduce(
+          (soma, dia, d) => soma + dia.reduce((x, f, h) => x + (f ? vb.venda[d]![h]! : 0), 0),
+          0,
+        ) * SEMANAS_NO_MES,
+      )
+    : null;
+  const vendaGanhaReal = vendaEstimadaDasHorasNovas(a.diasCadastro, a.dias, vb)?.vendaMes ?? null;
+  const horarioMudou = horarioDias.some((d) => d.alterado);
+  const emHoras = montarEmHoras({
+    semFarmaceutico: !ativos.some((p) => p.funcao === FARMACEUTICO),
+    temBase: !!vb,
+    horarioMudou,
+    vendaPerdidaReal,
+    vendaGanhaReal,
+    faturamentoMensalReal: totalVenda * SEMANAS_NO_MES,
+    folhaHoje: folhaAtual(pessoasDe(atuais), a.custos, a.parametros),
+    custoAdicional: folhaExtra == null || horaExtra == null ? null : arred(folhaExtra + horaExtra),
+    pessoas: { hoje: atuais.length, simulacao: ativos.length },
+    horasContratadas: {
+      hoje: atuais.reduce((s, p) => s + p.cargaH, 0),
+      simulacao: ativos.reduce((s, p) => s + p.cargaH, 0),
+    },
+    horasAbertas: { hoje: horasAbertasAntes, simulacao: horasAbertas },
+    faltas: depois
+      .map((l) => ({ funcao: l.funcao, horas: faltaDepois(l.funcao) }))
+      .filter((f) => f.horas > 0),
+    vagas: funcoes.flatMap((f) =>
+      f.contratacoes.map((c) => ({ funcao: f.funcao, cargaH: c.cargaH, tipo: c.tipo })),
+    ),
+  });
+
   const base: ResultadoSimulacao = {
     temBase: !!vb,
     regua,
     horasAbertas,
     horasAbertasAntes,
+    emHoras,
     horario: {
       mudou: horarioDias.some((d) => d.alterado),
       dias: horarioDias,
@@ -285,24 +347,7 @@ export const calcularResultado = (a: {
   };
   if (!a.dono) return base;
 
-  // Valores em reais: só o dono. Sem salário informado o valor fica nulo, nunca parcial.
-  const custosVagas = funcoes.flatMap((f) => f.contratacoes.map((c) => c.custoMensal));
-  const folhaExtra = custosVagas.some((c) => c == null)
-    ? null
-    : arred(custosVagas.reduce<number>((s, c) => s + (c ?? 0), 0));
-  let horaExtra: number | null = 0;
-  for (const l of depois) {
-    const falta = faltaDepois(l.funcao);
-    if (falta <= 0) continue;
-    const s = sal(l.funcao);
-    if (!s) {
-      horaExtra = null;
-      break;
-    }
-    horaExtra +=
-      falta * SEMANAS_DA_FOLHA * (s / tabela[a.regraId].divisor) * ADICIONAL_HORA_EXTRA * fator;
-  }
-  if (horaExtra !== null) horaExtra = arred(horaExtra);
+  // Valores em reais: só o dono (a folha extra e a hora extra já foram calculadas acima, para o bloco em horas).
   const vendaQueSai = vbRegua ? arred(venda * SEMANAS_NO_MES) : null;
   const custoAdicional =
     folhaExtra == null || horaExtra == null ? null : arred(folhaExtra + horaExtra);
@@ -327,8 +372,25 @@ export const calcularResultado = (a: {
   // Saldo contra a folha atual (a regra dos cartões): −folha extra − hora extra + venda estimada − venda que deixa de entrar.
   const saldo = saldoDaSimulacao({ folhaExtra, horaExtra, vendaEstimada, vendaQueSai });
   const faturamento = totalVenda * SEMANAS_NO_MES;
+  // Spec 049: as horas a mais da simulação (por semana). Com a base trazendo o CMV (régua de margem), o lucro bruto é a venda
+  // estimada na régua; senão, venda × (1 − CMV médio). Sem horas novas, o bloco não existe.
+  const horasNovasSemana = horasNovas(a.diasCadastro, a.dias).reduce(
+    (s, dia) => s + dia.filter(Boolean).length,
+    0,
+  );
+  const horarioEstendido =
+    horasNovasSemana > 0
+      ? calcularHorarioEstendido({
+          horasNovasSemana,
+          vendaAdicionalMensal: vendaGanhaReal,
+          lucroBrutoMensal: regua?.tipo === 'margem' ? vendaEstimada : null,
+          cmvMedioPct: a.cmvMedioPct ?? null,
+          aumentoFolhaMensal: custoAdicional,
+        })
+      : undefined;
   return {
     ...base,
+    ...(horarioEstendido ? { horarioEstendido } : {}),
     folhaExtra,
     horaExtra,
     custoAdicional,

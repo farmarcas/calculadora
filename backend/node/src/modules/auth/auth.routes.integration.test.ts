@@ -10,6 +10,7 @@ import { cnpjValido, limparGes } from '../../shared/testing/ge.js';
 import {
   loginInvalido,
   radarIndisponivel,
+  type GrupoDoRadar,
   type LojaDoRadar,
   type RadarClient,
   type UsuarioDoRadar,
@@ -27,6 +28,7 @@ const sso: ConfigSso = {
 
 const codigos = new Map<string, UsuarioDoRadar>();
 const acessos = new Map<string, UsuarioDoRadar>();
+const gruposDoCodigo = new Map<string, GrupoDoRadar[] | undefined>();
 let radarFora = false;
 
 const radar: RadarClient = {
@@ -37,7 +39,7 @@ const radar: RadarClient = {
     codigos.delete(code);
     const accessToken = randomUUID();
     acessos.set(accessToken, achado);
-    return accessToken;
+    return { accessToken, economicGroups: gruposDoCodigo.get(code) };
   },
   async lerUsuario(accessToken) {
     return acessos.get(accessToken)!;
@@ -68,10 +70,11 @@ const lojaRadar = (grupo: number, over: Partial<LojaDoRadar> = {}): LojaDoRadar 
   ...over,
 });
 
-const entrar = async (u: UsuarioDoRadar) => {
+const entrar = async (u: UsuarioDoRadar, economicGroups?: GrupoDoRadar[]) => {
   const agente = request.agent(app);
   const code = randomUUID();
   codigos.set(code, u);
+  gruposDoCodigo.set(code, economicGroups);
   const resposta = await agente.post('/api/v1/auth/sso/exchange').send({ code });
   return { agente, resposta, code };
 };
@@ -163,6 +166,7 @@ describe('login pelo Radar', () => {
     radarFora = false;
     codigos.clear();
     acessos.clear();
+    gruposDoCodigo.clear();
     await prisma.sessao.deleteMany();
     await prisma.auditoria.deleteMany();
     await prisma.simulacao.deleteMany();
@@ -295,7 +299,7 @@ describe('login pelo Radar', () => {
       },
     );
 
-    it('ninguém vira operador: Admin só vê os grupos das suas lojas', async () => {
+    it('sem a lista do Radar, Admin só vê os grupos das suas lojas e não vira operador', async () => {
       await criarGrupo('900');
 
       const { agente } = await entrar(
@@ -319,8 +323,131 @@ describe('login pelo Radar', () => {
       expect(await prisma.loja.count()).toBe(0);
     });
 
-    it('com a permissão mas sem nenhuma loja não entra', async () => {
+    it('com a permissão, sem nenhuma loja e sem a lista do Radar não entra', async () => {
       const { resposta } = await entrar(usuario({ role: { name: 'Admin' }, stores: [] }));
+
+      expect(resposta.status).toBe(403);
+      expect(resposta.body.error.code).toBe('SEM_ACESSO');
+    });
+  });
+
+  describe('Admin com todos os grupos (lista do Radar)', () => {
+    const ADMIN = { name: 'Admin' };
+    const inteiro = (n: number, name = `Grupo ${n}`): GrupoDoRadar => ({
+      id: String(n),
+      name,
+      fullAccess: true,
+    });
+    const nomes = (body: { data: { nome: string }[] }) => body.data.map((g) => g.nome);
+
+    it('entra sem lojas vinculadas e vê todos os grupos em ordem alfabética', async () => {
+      const { resposta, agente } = await entrar(usuario({ role: ADMIN, stores: [] }), [
+        inteiro(300, 'Zeta'),
+        inteiro(301, 'Alfa'),
+        inteiro(302, 'Meio'),
+      ]);
+
+      expect(resposta.status).toBe(200);
+      expect(resposta.body.operador).toBe(false);
+      expect(nomes((await agente.get('/api/v1/ge')).body)).toEqual(['Alfa', 'Meio', 'Zeta']);
+      expect(
+        resposta.body.grupos.every(
+          (g: { perfil: string; acessoTotal: boolean }) =>
+            g.perfil === 'TENANT_ADMIN' && g.acessoTotal,
+        ),
+      ).toBe(true);
+      expect((await agente.get('/api/v1/users')).status).toBe(403);
+    });
+
+    it('cria o grupo que falta sem lojas e não troca o nome do que já existe', async () => {
+      await criarGrupo('300');
+
+      await entrar(usuario({ role: ADMIN }), [inteiro(300, 'Outro nome'), inteiro(301, 'Novo')]);
+
+      const grupos = await prisma.grupoEconomico.findMany({
+        where: { identificacao: { in: ['300', '301'] } },
+        orderBy: { identificacao: 'asc' },
+        select: { identificacao: true, nome: true, _count: { select: { lojas: true } } },
+      });
+      expect(grupos).toEqual([
+        { identificacao: '300', nome: 'Grupo 300', _count: { lojas: 0 } },
+        { identificacao: '301', nome: 'Novo', _count: { lojas: 0 } },
+      ]);
+    });
+
+    it('grupo desativado na calculadora fica fora', async () => {
+      const ge = await criarGrupo('300');
+      await prisma.grupoEconomico.update({ where: { id: ge.id }, data: { ativo: false } });
+
+      const { agente } = await entrar(usuario({ role: ADMIN }), [inteiro(300), inteiro(301)]);
+
+      const lista = await agente.get('/api/v1/ge');
+      expect(lista.body.data.map((g: { identificacao: string }) => g.identificacao)).toEqual([
+        '301',
+      ]);
+      const fora = await agente.get('/api/v1/lojas').set('X-GE', ge.id);
+      expect(fora.status).toBe(403);
+      expect(fora.body.error.code).toBe('GE_INDISPONIVEL');
+    });
+
+    it('vinculado a 1 de 3 lojas do grupo, vê e abre as 3', async () => {
+      const ge = await criarGrupo('250');
+      const minha = await criarLoja(ge.id, 'L1');
+      const outra = await criarLoja(ge.id, 'L2');
+      await criarLoja(ge.id, 'L3');
+
+      const { agente } = await entrar(
+        usuario({ role: ADMIN, stores: [lojaRadar(250, { cnpj: minha.cnpj })] }),
+        [inteiro(250)],
+      );
+
+      const lojas = await agente.get('/api/v1/lojas').set('X-GE', ge.id);
+      expect(lojas.body.meta.total).toBe(3);
+      expect((await agente.get(`/api/v1/lojas/${outra.id}/painel`).set('X-GE', ge.id)).status).toBe(
+        200,
+      );
+    });
+
+    it('sem a permissão Gestão de Escala não entra, mesmo com a lista', async () => {
+      const { resposta } = await entrar(usuario({ role: ADMIN, permissions: [] }), [inteiro(300)]);
+
+      expect(resposta.status).toBe(403);
+      expect(await prisma.grupoEconomico.count({ where: { identificacao: '300' } })).toBe(0);
+    });
+
+    it('associado com a lista sem acesso inteiro continua só com as suas lojas', async () => {
+      const ge = await criarGrupo('250');
+      const minha = await criarLoja(ge.id, 'L1');
+      await criarLoja(ge.id, 'L2');
+      await criarGrupo('251');
+
+      const { agente } = await entrar(usuario({ stores: [lojaRadar(250, { cnpj: minha.cnpj })] }), [
+        { id: '250', name: 'Grupo 250', fullAccess: false },
+        { id: '251', name: 'Grupo 251', fullAccess: false },
+      ]);
+
+      const lista = await agente.get('/api/v1/ge');
+      expect(lista.body.data.map((g: { identificacao: string }) => g.identificacao)).toEqual([
+        '250',
+      ]);
+      const lojas = await agente.get('/api/v1/lojas').set('X-GE', ge.id);
+      expect(lojas.body.data.map((l: { id: string }) => l.id)).toEqual([minha.id]);
+    });
+
+    it('entra com 2.000 grupos em menos de 5 segundos', async () => {
+      const lista = Array.from({ length: 2000 }, (_, i) => inteiro(10000 + i));
+
+      const inicio = Date.now();
+      const { resposta, agente } = await entrar(usuario({ role: ADMIN }), lista);
+      const tempo = Date.now() - inicio;
+
+      expect(resposta.status).toBe(200);
+      expect(tempo).toBeLessThan(5000);
+      expect((await agente.get('/api/v1/ge')).body.data).toHaveLength(2000);
+    });
+
+    it('lista vazia e nenhuma loja não entra', async () => {
+      const { resposta } = await entrar(usuario({ role: ADMIN, stores: [] }), []);
 
       expect(resposta.status).toBe(403);
       expect(resposta.body.error.code).toBe('SEM_ACESSO');

@@ -81,7 +81,11 @@ export const contratarDe = (vagas: EntradaEmHoras['vagas']): EmHoras['contratar'
     else a.parciaisHoras.push(arred2(v.cargaH));
     porFuncao.set(v.funcao, a);
   }
-  return [...porFuncao].map(([funcao, a]) => ({ funcao, inteiras: a.inteiras, parciaisHoras: a.parciaisHoras.sort((x, y) => y - x) }));
+  return [...porFuncao].map(([funcao, a]) => ({
+    funcao,
+    inteiras: a.inteiras,
+    parciaisHoras: a.parciaisHoras.sort((x, y) => y - x),
+  }));
 };
 
 export const montarEmHoras = (e: EntradaEmHoras): EmHoras => {
@@ -90,13 +94,17 @@ export const montarEmHoras = (e: EntradaEmHoras): EmHoras => {
   // Venda: (ganho estimado − perda) ÷ faturamento mensal real. Sem venda por hora não se estima.
   const vendaOk = e.temBase && e.faturamentoMensalReal > 0;
   const vendaPct = vendaOk
-    ? semZeroNegativo((((e.vendaGanhaReal ?? 0) - (e.vendaPerdidaReal ?? 0)) / e.faturamentoMensalReal) * 100)
+    ? semZeroNegativo(
+        (((e.vendaGanhaReal ?? 0) - (e.vendaPerdidaReal ?? 0)) / e.faturamentoMensalReal) * 100,
+      )
     : null;
 
   // Custo de pessoal: custo adicional ÷ folha do quadro de hoje.
   const semSalarios = e.folhaHoje === null || e.custoAdicional === null;
   const custoOk = !semSalarios && (e.folhaHoje as number) > 0;
-  const custoPct = custoOk ? semZeroNegativo(((e.custoAdicional as number) / (e.folhaHoje as number)) * 100) : null;
+  const custoPct = custoOk
+    ? semZeroNegativo(((e.custoAdicional as number) / (e.folhaHoje as number)) * 100)
+    : null;
 
   return {
     status,
@@ -106,7 +114,10 @@ export const montarEmHoras = (e: EntradaEmHoras): EmHoras => {
     custoPct,
     custoEstado: custoPct !== null ? 'ok' : semSalarios ? 'sem_salarios' : 'sem_calculo',
     pessoas: e.pessoas,
-    horasContratadas: { hoje: arred2(e.horasContratadas.hoje), simulacao: arred2(e.horasContratadas.simulacao) },
+    horasContratadas: {
+      hoje: arred2(e.horasContratadas.hoje),
+      simulacao: arred2(e.horasContratadas.simulacao),
+    },
     horasAbertas: e.horasAbertas,
     horaExtraH: arred2(e.faltas.reduce((s, f) => s + f.horas, 0)),
     contratar: contratarDe(e.vagas),

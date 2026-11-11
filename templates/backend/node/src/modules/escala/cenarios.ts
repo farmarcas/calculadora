@@ -1,3 +1,4 @@
+import type { HorarioPessoa } from './semana-com-folgas.js';
 import { passa, verificarRegra, type DiaAberto, type LinhaFuncao } from '../regras/capacidade.js';
 import { regraPara, type Regra, type RegraId } from '../regras/perfis.js';
 import { PARAMETROS_PADRAO } from '../regras/parametros.js';
@@ -196,6 +197,8 @@ export type CenariosRegra = {
 };
 
 export type EntradaCenarios = {
+  // Horários da equipe no Cadastro (spec 043): com eles, a falta vem da cobertura real, com folgas e domingo em rodízio.
+  horarios?: HorarioPessoa[];
   regraId: Extract<RegraId, 'r42' | 'r40'>;
   convencao8h24: boolean;
   dias: DiaAberto[];
@@ -249,6 +252,7 @@ export const horasDaSemana = (dias: DiaAberto[]) =>
 // O que o motor precisa saber além do quadro: a regra de hoje (nível de hoje dos demais cargos), as horas abertas de
 // hoje (a meta acompanha o horário do cenário), os custos e o divisor da regra.
 export const opcoesDoMotor = (e: EntradaCenarios, regra: Regra) => ({
+  horarios: e.horarios,
   limiteParcial: e.limiteParcial,
   regraAtual: regraPara('atual', e.convencao8h24, e.parametros),
   horasAbertasHoje: horasDaSemana(e.dias),

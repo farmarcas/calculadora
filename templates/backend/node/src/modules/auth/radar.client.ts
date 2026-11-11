@@ -7,7 +7,16 @@ const LIMITE_MS = 10_000;
 
 const id = z.union([z.number(), z.string()]).transform(String);
 
-const trocaSchema = z.object({ accessToken: z.string().min(1) });
+const grupoDoRadarSchema = z.object({
+  id,
+  name: z.string().nullish(),
+  fullAccess: z.boolean().nullish(),
+});
+
+const trocaSchema = z.object({
+  accessToken: z.string().min(1),
+  economicGroups: z.array(grupoDoRadarSchema).nullish(),
+});
 
 const lojaSchema = z.object({
   id,
@@ -29,10 +38,12 @@ const usuarioSchema = z.object({
 });
 
 export type LojaDoRadar = z.infer<typeof lojaSchema>;
+export type GrupoDoRadar = z.infer<typeof grupoDoRadarSchema>;
+export type LoginDoRadar = { accessToken: string; economicGroups?: GrupoDoRadar[] | null };
 export type UsuarioDoRadar = z.infer<typeof usuarioSchema>;
 
 export type RadarClient = {
-  trocarCodigo: (code: string) => Promise<string>;
+  trocarCodigo: (code: string) => Promise<LoginDoRadar>;
   lerUsuario: (accessToken: string) => Promise<UsuarioDoRadar>;
 };
 
@@ -78,7 +89,7 @@ export const radarClient = (sso: ConfigSso): RadarClient => {
       });
       if (resposta.status === 400) throw loginInvalido();
       const troca = await ler(resposta, trocaSchema, 'Sso/Exchange');
-      return troca.accessToken;
+      return { accessToken: troca.accessToken, economicGroups: troca.economicGroups };
     },
 
     async lerUsuario(accessToken) {

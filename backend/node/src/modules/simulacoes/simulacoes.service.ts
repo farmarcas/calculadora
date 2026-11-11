@@ -345,8 +345,7 @@ export const makeSimulacoesService = (
         const r = await doEscalaAtual(lojaId);
         base = { quadro: r.quadro, turnos: r.turnos };
         equipe = r.equipe;
-      }
-      else if (b.origem === 'vazia') {
+      } else if (b.origem === 'vazia') {
         const quadro = await cadastro.funcionariosDaLoja(lojaId);
         if (quadro.length === 0)
           throw new ValidationError(
@@ -376,7 +375,12 @@ export const makeSimulacoesService = (
         );
         if (todosOsDiasTemEscala) {
           // A equipe já com as folgas e o rodízio de domingo, e as contratações nos turnos que cobrem o que falta (spec 043).
-          const semana = semanaComFolgas({ regra, dias: diasDaSimulacao, minimos, horarios: equipe });
+          const semana = semanaComFolgas({
+            regra,
+            dias: diasDaSimulacao,
+            minimos,
+            horarios: equipe,
+          });
           const sugeridas: VagaEntrada[] = Object.values(semana.funcoes).flatMap((f) =>
             f.vagas.map((v) => ({ funcao: v.funcao, cargaH: v.cargaH, turnos: v.turnos })),
           );
@@ -432,7 +436,10 @@ export const makeSimulacoesService = (
       if (b.vagas || b.desligados) {
         if (b.vagas?.some((v) => !v.matricula)) {
           const l = await loja(s.lojaId);
-          exigirVagasIntegrais(b.vagas, regraPara((b.regra ?? s.regra) as RegraId, l.convencao8h24, tabela));
+          exigirVagasIntegrais(
+            b.vagas,
+            regraPara((b.regra ?? s.regra) as RegraId, l.convencao8h24, tabela),
+          );
         }
         const r = aplicarVagasEDesligados(s.quadro, b.turnos ?? s.turnos, b.vagas, b.desligados);
         quadro = r.quadro;
@@ -489,7 +496,10 @@ export const makeSimulacoesService = (
       if (perfil !== 'TENANT_ADMIN') return {};
       const s = await simulacao(id);
       const l = await loja(s.lojaId);
-      exigirVagasIntegrais([{ funcao: b.funcao, cargaH: b.cargaH }], regraPara(s.regra as RegraId, l.convencao8h24, tabela));
+      exigirVagasIntegrais(
+        [{ funcao: b.funcao, cargaH: b.cargaH }],
+        regraPara(s.regra as RegraId, l.convencao8h24, tabela),
+      );
       const base = await lojas.baseAtiva(s.lojaId);
       const vendas = base?.vendas ?? [];
       const antes = resultadoDe(s, l, vendas, true).emHoras;

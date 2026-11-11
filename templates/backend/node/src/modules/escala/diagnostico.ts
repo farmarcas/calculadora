@@ -8,7 +8,8 @@ import { faixasDaSemana, normalizarHorarios, type HorariosSemana } from '../cada
 import type { Custos } from '../custos/custos.schemas.js';
 import type { ResultadoEncargos } from '../regras/encargos.js';
 import { cobertura, type TurnoPessoa } from './cobertura.js';
-import { montarCenarios } from './cenarios.js';
+import { montarCenarios, type EntradaCenarios } from './cenarios.js';
+import { montarLinhas, type LinhaDeCenario } from './linhas-cenarios.js';
 import { montarExtras, type ExtrasRegra } from './cenarios-extras.js';
 import type { TabelaParametros } from '../regras/parametros.js';
 import { montarQuadroTurnos } from './quadro-turnos.js';
@@ -67,6 +68,11 @@ const CHAVES_DE_VENDA = new Set([
   'saldoMensal',
   'vendaCortadaMes',
 ]);
+const calcularCompleto = (entrada: EntradaCenarios) => {
+  const cenarios = montarCenarios(entrada);
+  return { cenarios, comparativo: montarComparativo(entrada, cenarios) };
+};
+
 const semValoresDeVenda = (v: unknown): unknown =>
   Array.isArray(v)
     ? v.map(semValoresDeVenda)
@@ -174,11 +180,29 @@ export const montarDiagnostico = (a: {
   }
 
   const noCalculo = turnos.filter((t) => t.funcao);
-  const pessoas = noCalculo.map((t) => ({ funcao: t.funcao!, cargaH: t.cargaH }));
+  const pessoas = noCalculo.map((t) => ({
+    funcao: t.funcao!,
+    cargaH: t.cargaH,
+    matricula: t.matricula,
+  }));
+  // Os horários do Cadastro: o motor mede a cobertura real, com folgas e domingo em rodízio (spec 043).
+  const horarios = noCalculo.map((t) => ({
+    matricula: t.matricula,
+    funcao: t.funcao!,
+    cargaH: t.cargaH,
+    dias: t.dias,
+    entrada: t.entrada,
+    saida: t.saida,
+    iniIntervalo: t.iniIntervalo,
+    fimIntervalo: t.fimIntervalo,
+    // Horário fixo no Cadastro: o esticamento (spec 046) não mexe no turno.
+    fixo: a.horarioFixo?.has(t.matricula) ?? false,
+  }));
 
   const regras = REGRA_IDS.map((id: RegraId) => {
     const regra = regraPara(id, loja.convencao8h24, a.parametros);
     const brutas = verificarRegra(regra, dias, exigencias, pessoas, {
+      horarios,
       limiteParcial: prem.limiteParcial,
       regraAtual: regraPara('atual', loja.convencao8h24, a.parametros),
       // Só o dono vê o custo da sugestão.
@@ -235,6 +259,7 @@ export const montarDiagnostico = (a: {
               exigencias,
               pessoas,
               {
+                horarios,
                 limiteParcial: prem.limiteParcial,
                 regraAtual: regraPara('atual', loja.convencao8h24, a.parametros),
                 divisor: (a.parametros ?? PARAMETROS_PADRAO)[id].divisor,
@@ -421,6 +446,7 @@ export const montarDiagnostico = (a: {
         dias,
         minimos: exigencias,
         pessoas,
+        horarios,
         vendas: origemVendas === 'base' ? vendasComCmv : vendasUsadas,
         regua,
         vendasDoCadastro: origemVendas === 'cadastro',
@@ -436,18 +462,26 @@ export const montarDiagnostico = (a: {
         limiteParcial: prem.limiteParcial,
       };
       const cenarios = montarCenarios(entrada);
+      const comparativo = montarComparativo(entrada, cenarios);
+      // Linhas dos cenários (spec 037): iguais para todos os perfis e só com porcentagens, horas e textos. Para quem não é
+      // dono, o cálculo das linhas parte dos números completos (com os custos da loja); nada em reais sai.
+      const completo = a.dono
+        ? { cenarios, comparativo }
+        : calcularCompleto({ ...entrada, dono: true });
       return [
         regraId,
         {
           ...cenarios,
           ...montarExtras(entrada, cenarios),
-          comparativo: montarComparativo(entrada, cenarios),
+          comparativo,
+          linhas: montarLinhas(completo.comparativo, completo.cenarios, a.dono === true),
         },
       ];
     }),
   ) as Record<
     'r42' | 'r40',
-    ReturnType<typeof montarCenarios> & ExtrasRegra & { comparativo: Comparativo }
+    ReturnType<typeof montarCenarios> &
+      ExtrasRegra & { comparativo: Comparativo; linhas: LinhaDeCenario[] }
   >;
   // A venda é valor em reais: só o dono vê, venha a venda da base comercial ou do cadastro.
   const cenariosSaida = (

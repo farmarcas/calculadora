@@ -61,8 +61,16 @@ describe('sugestão por horas (só integral)', () => {
   });
 
   it('múltiplos exatos da jornada não deixam ociosidade', () => {
-    expect(sug(40)!.principal).toMatchObject({ inteiras: 1, horasOciosas: 0, custoMensal: 7465.26 });
-    expect(sug(80)!.principal).toMatchObject({ inteiras: 2, horasOciosas: 0, custoMensal: 14930.51 });
+    expect(sug(40)!.principal).toMatchObject({
+      inteiras: 1,
+      horasOciosas: 0,
+      custoMensal: 7465.26,
+    });
+    expect(sug(80)!.principal).toMatchObject({
+      inteiras: 2,
+      horasOciosas: 0,
+      custoMensal: 14930.51,
+    });
     // Regra atual (44 h, divisor 220): 4722 × 44 × 5 ÷ 220 = 4722 × 1,66 = 7838,52
     expect(sug(44, { jornadaIntegralH: 44, divisor: 220 })!.principal.custoMensal).toBe(7838.52);
   });

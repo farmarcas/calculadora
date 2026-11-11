@@ -331,7 +331,8 @@ describe('escala (rotas)', () => {
     const cenarios = dono.cenarios.r40;
     const manter = cenarios.linhas.find((l: { id: string }) => l.id === 'manter');
     expect(manter.custoPctFaturamento.hoje).toBe(13);
-    const esperado = Math.round(((12976 + cenarios.manter.custoAdicionalMensal) / 100000) * 1000) / 10;
+    const esperado =
+      Math.round(((12976 + cenarios.manter.custoAdicionalMensal) / 100000) * 1000) / 10;
     expect(manter.custoPctFaturamento.depois).toBe(esperado);
     expect(manter.custoPctFaturamento.depois).toBeGreaterThan(13);
     for (const h of [
@@ -1527,10 +1528,21 @@ describe('escala (rotas)', () => {
         const linhasDoDono = dono.cenarios[id].linhas;
         // O dono recebe, a mais, o peso do custo de pessoal no faturamento; as demais linhas são idênticas.
         const linhas = linhasDoDono.map(
-          ({ custoPctFaturamento: _c, custoPct: _p, ...resto }: { custoPctFaturamento?: unknown; custoPct?: unknown }) => resto,
+          ({
+            custoPctFaturamento: _c,
+            custoPct: _p,
+            ...resto
+          }: {
+            custoPctFaturamento?: unknown;
+            custoPct?: unknown;
+          }) => resto,
         );
         expect(linhasDoDono.every((l: object) => 'custoPctFaturamento' in l)).toBe(true);
-        expect(linhas.map((l: { id: string }) => l.id)).toEqual(['equilibrio', 'manter', 'economia']);
+        expect(linhas.map((l: { id: string }) => l.id)).toEqual([
+          'equilibrio',
+          'manter',
+          'economia',
+        ]);
         expect(ges.cenarios[id].linhas).toEqual(linhas);
         expect(con.cenarios[id].linhas).toEqual(linhas);
         // com os custos informados pelo dono, o Equilíbrio é calculado para todos (nada em reais sai)
@@ -1538,8 +1550,23 @@ describe('escala (rotas)', () => {
         for (const l of linhas) {
           expect(Object.keys(l).sort()).toEqual(
             [
-              'ajustes', 'causa', 'contratacoes', 'contratar', 'custoEstado', 'custoSentido', 'diasFechar', 'horarioSemana',
-              'horasDiferenca', 'horasSemana', 'id', 'igualA', 'indisponivel', 'nome', 'status', 'vendaEstado', 'vendaPct',
+              'ajustes',
+              'causa',
+              'contratacoes',
+              'contratar',
+              'custoEstado',
+              'custoSentido',
+              'diasFechar',
+              'horarioSemana',
+              'horasDiferenca',
+              'horasSemana',
+              'id',
+              'igualA',
+              'indisponivel',
+              'nome',
+              'status',
+              'vendaEstado',
+              'vendaPct',
             ].sort(),
           );
         }

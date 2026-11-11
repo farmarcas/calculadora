@@ -209,9 +209,10 @@ const montarReduzir = (e: EntradaCenarios, c: CenariosRegra): CenarioReduzir => 
   const linhaDe = (pessoas: EntradaCenarios['pessoas'], funcao: string) =>
     // Sobra de gente se mede por capacidade em horas (supõe os horários refeitos); a cobertura real, com os turnos de hoje,
     // só vale para o que a equipe atual deixa descoberto.
-    verificarRegra(regra, e.dias, e.minimos, pessoas, { ...opcoesDoMotor(e, regra), horarios: undefined }).find(
-      (l) => l.funcao === funcao,
-    );
+    verificarRegra(regra, e.dias, e.minimos, pessoas, {
+      ...opcoesDoMotor(e, regra),
+      horarios: undefined,
+    }).find((l) => l.funcao === funcao);
   const req = requisitos(e.minimos);
   const funcoes = [...new Set(e.pessoas.map((p) => p.funcao))].filter((f) => req.pico(f) > 0);
 

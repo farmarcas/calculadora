@@ -115,9 +115,9 @@ O que a pessoa pode fazer na calculadora passa a vir do cadastro dela no Radar. 
 
 **Grupos, lojas e papel**
 
-- **FR-010**: No login, a API da calculadora MUST obter do Radar, com o token recebido, os grupos econômicos e as lojas da pessoa, e guardá-los como o acesso daquela sessão.
+- **FR-010** *(alterado pela spec 037 para o papel Admin)*: No login, a API da calculadora MUST obter do Radar, com o token recebido, os grupos econômicos e as lojas da pessoa, e guardá-los como o acesso daquela sessão.
 - **FR-011**: A ligação com a calculadora MUST usar o número do grupo econômico do Radar (a "identificação" do grupo) e o CNPJ da loja.
-- **FR-012**: Só entra quem tem, no Radar, a permissão "Gestão de Escala" (`Management` / `ManagementWorkSchedule`), e sempre como Dono do grupo, nos grupos das suas lojas, qualquer que seja o papel ou a ocupação no Radar. Sem a permissão, não entra. Nenhum outro perfil é atribuído pelo login.
+- **FR-012** *(alterado pela spec 037: o Admin recebe todos os grupos)*: Só entra quem tem, no Radar, a permissão "Gestão de Escala" (`Management` / `ManagementWorkSchedule`), e sempre como Dono do grupo, nos grupos das suas lojas, qualquer que seja o papel ou a ocupação no Radar. Sem a permissão, não entra. Nenhum outro perfil é atribuído pelo login.
 - **FR-013**: Grupos e lojas do Radar que ainda não existem na calculadora MUST ser criados no login, só com número, nome e CNPJ; a loja criada assim MUST aparecer com os dados pendentes para o dono completar, e o que já existe na calculadora MUST NOT ser sobrescrito.
 - **FR-014**: O filtro de Grupo e o filtro de Loja no topo das telas MUST listar só o acesso da pessoa; ao trocar de grupo, a loja e a tela MUST ser atualizadas.
 - **FR-015**: Em todo pedido, o servidor MUST conferir grupo e loja contra o acesso da sessão, e registro fora dele MUST responder como "não encontrado".
@@ -158,7 +158,7 @@ O que a pessoa pode fazer na calculadora passa a vir do cadastro dela no Radar. 
 - Decision: o filtro de Grupo fica ao lado do filtro de Loja no topo da Escala e aparece sozinho no topo de Cadastros. Why: sem o bloco "Demonstração", Cadastros ficaria sem nenhum lugar para trocar de grupo.
 - Decision: quem tem só parte das lojas de um grupo não usa as importações que valem para o grupo inteiro (cadastro e base de vendas). Why: um arquivo pode trazer lojas fora do acesso da pessoa.
 - Decision: uma loja excluída na calculadora não volta sozinha no login, mesmo que o Radar ainda a traga. Why: a exclusão foi uma decisão do operador.
-- Decision: quem tem a permissão entra como Dono do grupo mesmo sendo Admin ou Angel. Why: pedido do negócio; a pessoa interna só vê os grupos das lojas ligadas a ela no Radar.
+- Decision: quem tem a permissão entra como Dono do grupo mesmo sendo Admin ou Angel. Why: pedido do negócio; a pessoa interna só vê os grupos das lojas ligadas a ela no Radar. Alterado pela spec 037: o Admin passa a ver todos os grupos.
 - Com o login pelo Radar ligado, ninguém usa as telas do operador (Grupos, carga de lojas, parâmetros legais, encargos, usuários).
 - A carga de lojas por planilha continua existindo para o operador; ela completa os dados que o Radar não traz (horários, faturamento, custos).
 - A ligação entre a loja da calculadora e a do Radar depende do CNPJ; lojas antigas com "CNPJ pendente" só aparecem para quem tem acesso depois de receberem o CNPJ.

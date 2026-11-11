@@ -3,7 +3,11 @@ import { duracaoTurno, regraPara, tetoEfetivo, type Regra } from './perfis.js';
 import { camadasDoDia, requisitos, type Minimos } from './requisitos.js';
 import { sugerirContratacao, type Sugestao } from './contratacao-horas.js';
 import { FARMACEUTICO, metaNivelDeHoje } from './gap-horas.js';
-import { semanaComFolgas, type HorarioPessoa, type SemanaComFolgas } from '../escala/semana-com-folgas.js';
+import {
+  semanaComFolgas,
+  type HorarioPessoa,
+  type SemanaComFolgas,
+} from '../escala/semana-com-folgas.js';
 
 export type DiaAberto = { dia: number; abre: number; fecha: number }; // dia 0 = segunda
 export type Pessoa = { funcao: string; cargaH: number; matricula?: string };
@@ -102,7 +106,9 @@ export const verificarRegra = (
   // cenário que abre um dia hoje fechado), ninguém foi escalado ainda e a conta volta a ser por horas.
   // Os horários são só os de quem está na lista de pessoas (cenários que tiram gente da conta, como o de reduzir a equipe).
   const matriculas = new Set(pessoas.map((p) => p.matricula).filter((m): m is string => !!m));
-  const horarios = (opcoes.horarios ?? []).filter((h) => matriculas.size === 0 || matriculas.has(h.matricula));
+  const horarios = (opcoes.horarios ?? []).filter(
+    (h) => matriculas.size === 0 || matriculas.has(h.matricula),
+  );
   const todosOsDiasTemEscala = dias.every((d) => horarios.some((h) => h.dias.includes(d.dia)));
   const semana =
     horarios.length && todosOsDiasTemEscala ? semanaDe(regra, dias, minimos, horarios) : null;
@@ -188,7 +194,9 @@ export const verificarRegra = (
         );
     }
     if (real && !real.resolve && real.faltaH > EPS)
-      avisos.push('Mesmo com as contratações e as folgas, ainda falta cobertura em alguns horários.');
+      avisos.push(
+        'Mesmo com as contratações e as folgas, ainda falta cobertura em alguns horários.',
+      );
     // Com a cobertura real, as horas usadas são as da falta de verdade; o resto da contratação é folga de horário.
     const usadasReal = real ? arred(Math.min(parcial?.horasContratadas ?? 0, real.faltaH)) : null;
     const sugestao = parcial
@@ -199,7 +207,11 @@ export const verificarRegra = (
                 horasUsadas: usadasReal,
                 horasOciosas: arred(Math.max(0, parcial.horasContratadas - usadasReal)),
                 ociosidadePct:
-                  Math.round((Math.max(0, parcial.horasContratadas - usadasReal) / parcial.horasContratadas) * 1000) / 10,
+                  Math.round(
+                    (Math.max(0, parcial.horasContratadas - usadasReal) /
+                      parcial.horasContratadas) *
+                      1000,
+                  ) / 10,
               }
             : {}),
           avisos,

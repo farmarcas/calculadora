@@ -174,3 +174,16 @@ describe('montarEmHoras', () => {
     }
   });
 });
+
+describe('montarEmHoras: sentido do custo e faturamento (spec 052)', () => {
+  it('o sentido vem do custo em R$: aumenta, igual ou diminui', () => {
+    expect(montarEmHoras(entrada({ custoAdicional: 7659 })).custoSentido).toBe('aumenta');
+    expect(montarEmHoras(entrada({ custoAdicional: 0 })).custoSentido).toBe('igual');
+    expect(montarEmHoras(entrada({ custoAdicional: -2340 })).custoSentido).toBe('diminui');
+    expect(montarEmHoras(entrada({ custoAdicional: null })).custoSentido).toBeNull();
+  });
+  it('sem faturamento de referência o custo fica "sem_faturamento"; com faturamento, "ok"', () => {
+    expect(montarEmHoras(entrada({ faturamentoMensalRef: null })).custoEstado).toBe('sem_faturamento');
+    expect(montarEmHoras(entrada({ faturamentoMensalRef: 450567 })).custoEstado).toBe('ok');
+  });
+});

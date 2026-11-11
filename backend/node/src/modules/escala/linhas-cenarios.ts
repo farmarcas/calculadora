@@ -1,4 +1,5 @@
 import type { ColunaComparativo, Comparativo, IdColuna } from './comparativo.js';
+import { pesoDaFolha } from './peso-folha.js';
 import type { CenariosRegra, DiaCenario, HorarioAjustado } from './cenarios.js';
 
 // Linhas de cenário (spec 037): o que a tela precisa para desenhar cada cenário numa linha, igual para dono, gestor e
@@ -237,25 +238,10 @@ export const montarLinhas = (
       ? semZeroNegativo(((adicional as number) / (folha as number)) * 100)
       : null;
 
-    // Custo de pessoal sobre o faturamento: (folha de hoje + custo adicional) ÷ (faturamento de hoje + variação da venda do cenário).
-    const pesoHoje =
-      folha !== null && faturamento !== null && faturamento > 0
-        ? (folha / faturamento) * 100
-        : null;
-    const pesoDepois =
-      folha !== null && faturamento !== null && faturamento > 0
-        ? (((folha as number) + (adicional ?? 0)) / (faturamento * (1 + (vendaPct ?? 0) / 100))) *
-          100
-        : null;
+    // Custo de pessoal sobre o faturamento: a conta única de peso-folha.ts (a mesma da Simulação).
     const custoPctFaturamento =
-      dono && !indisponivel && pesoHoje !== null && pesoDepois !== null && adicional != null
-        ? {
-            hoje: arred1(pesoHoje),
-            depois: arred1(pesoDepois),
-            // A diferença dos pesos JÁ arredondados (9,7 − 8,0 = 1,7), para a conta bater com o que aparece na tela.
-            aumentoPp: semZeroNegativo(arred1(pesoDepois) - arred1(pesoHoje)),
-            aumentoMensal: Math.round(adicional),
-          }
+      dono && !indisponivel
+        ? pesoDaFolha({ folhaHoje: folha, custoAdicional: adicional ?? null, faturamento, vendaPct })
         : null;
     const custoSentido =
       indisponivel || adicional == null

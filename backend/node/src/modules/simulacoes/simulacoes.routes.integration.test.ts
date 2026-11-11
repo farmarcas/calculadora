@@ -1037,7 +1037,7 @@ describe('simulações (rotas)', () => {
     const detalhe = async (id: string, h: Record<string, string>) =>
       (await reqGe().get(`/api/v1/simulacoes/${id}`).set(h)).body.resultado;
 
-    it('igual para dono, gestor e consulta, sem valor em reais nem salário', async () => {
+    it('gestor e consulta iguais entre si; o dono só tem a mais o % do custo e o peso da folha (spec 052)', async () => {
       const sim = (await criar()).body;
       const [dono, ges, con] = await Promise.all([
         detalhe(sim.id, admin),
@@ -1045,14 +1045,25 @@ describe('simulações (rotas)', () => {
         detalhe(sim.id, consulta),
       ]);
       expect(dono.emHoras).toBeDefined();
-      expect(ges.emHoras).toEqual(dono.emHoras);
-      expect(con.emHoras).toEqual(dono.emHoras);
+      const { custoPct: _p, ...doDonoSemCusto } = dono.emHoras;
+      expect(ges.emHoras).toEqual(doDonoSemCusto);
+      expect(con.emHoras).toEqual(doDonoSemCusto);
+      expect(dono.emHoras).toHaveProperty('custoPct');
+      expect(ges.emHoras).not.toHaveProperty('custoPct');
+      // o peso da folha no faturamento e a folha por mês são só do dono; gestor e consulta recebem só o sentido
+      expect(dono).toHaveProperty('custoDoDono');
+      for (const outro of [ges, con]) {
+        expect(outro).not.toHaveProperty('custoDoDono');
+        expect(['aumenta', 'igual', 'diminui', null]).toContain(outro.emHoras.custoSentido);
+        expect(JSON.stringify(outro)).not.toMatch(/custoDoDono|folhaHoje|folhaDepois|pesoHoje/);
+      }
       expect(Object.keys(dono.emHoras).sort()).toEqual(
         [
           'causa',
           'contratar',
           'custoEstado',
           'custoPct',
+          'custoSentido',
           'horaExtraH',
           'horasAbertas',
           'horasContratadas',

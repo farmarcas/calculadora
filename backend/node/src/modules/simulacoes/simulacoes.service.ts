@@ -7,6 +7,7 @@ import { soNoCalculo } from '../cadastros/funcoes.js';
 import { normalizarHorarios } from '../cadastros/horarios.js';
 import { calcularResultado } from './resultado.js';
 import { diasAbertos, type LojaDiag } from '../escala/diagnostico.js';
+import { faturamentoMensalDe } from '../escala/vendas.js';
 import type { EscalaRepository } from '../escala/escala.repository.js';
 import { FUNCOES_PADRAO_MINIMO, regraPara, type RegraId } from '../regras/perfis.js';
 import { exigenciasDaLoja } from '../regras/turnos.js';
@@ -117,6 +118,7 @@ export const makeSimulacoesService = (
       quadro: s.quadro,
       vendas,
       cmvMedioPct: l.faturamento?.cmvPct ?? null,
+      faturamentoMensalRef: faturamentoMensalDe({ faturamento: l.faturamento, vendasBase: vendas })?.valor ?? null,
       custos: custosDaSimulacao(c.premissas.custos, l),
       parametros: tabela,
       dono,
@@ -512,7 +514,7 @@ export const makeSimulacoesService = (
       };
       const depois = resultadoDe({ ...s, quadro: [...s.quadro, vaga] }, l, vendas, true).emHoras;
       const custoPct =
-        antes.custoPct === null || depois.custoPct === null
+        antes.custoPct == null || depois.custoPct == null
           ? null
           : Math.round((depois.custoPct - antes.custoPct) * 10) / 10;
       return { custoPct, custoEstado: custoPct !== null ? 'ok' : depois.custoEstado };

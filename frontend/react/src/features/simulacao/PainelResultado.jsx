@@ -10,7 +10,7 @@ const tipoDeSolucao = (r) => {
   return "Sem alterações";
 };
 
-export default function PainelResultado({ sim, calculando, podeEscrever, salvando, onSalvar, onClonar }) {
+export default function PainelResultado({ sim, calculando, podeEscrever, salvando, onSalvar, onClonar, dono }) {
   const r = sim.resultado;
   const editavel = sim.editavel && podeEscrever;
 
@@ -21,9 +21,9 @@ export default function PainelResultado({ sim, calculando, podeEscrever, salvand
         <Ficha>{tipoDeSolucao(r)}</Ficha>
       </div>
 
-      <ResultadoEmHoras r={r} calculando={calculando} />
+      <ResultadoEmHoras r={r} calculando={calculando} dono={dono} />
 
-      {r.horarioEstendido && <BlocoHorarioEstendido h={r.horarioEstendido} />}
+      {r.horarioEstendido && <BlocoHorarioEstendido h={r.horarioEstendido} horario={r.horario} />}
 
       <div className="mt-4">
         {editavel ? (

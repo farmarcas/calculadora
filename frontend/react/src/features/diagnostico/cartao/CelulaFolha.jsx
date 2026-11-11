@@ -7,7 +7,7 @@ const ESTILO_DO_CHIP = {
 };
 
 // O chip: o sinal ou o texto sempre acompanham a cor (aumenta "+1,7%", diminui "−0,6%", igual "folha igual").
-const Chip = ({ chip, ariaLabel }) => (
+export const Chip = ({ chip, ariaLabel }) => (
   <span
     role="img"
     aria-label={ariaLabel}

@@ -11,6 +11,7 @@ import { diaDaSemana, vendasPorDiaEHora, type VendaLinha } from '../escala/venda
 import { contratacoesDe, custoDasVagas, folhaAtual } from '../escala/cenarios.js';
 import { FARMACEUTICO } from '../regras/gap-horas.js';
 import type { PessoaSim } from './avaliar.js';
+import { pesoDaFolha, type PesoDaFolha } from '../escala/peso-folha.js';
 import { montarEmHoras, type EmHoras } from './resultado-em-horas.js';
 import { saldoDaSimulacao } from './saldo-simulacao.js';
 import { horasNovas, vendaEstimadaDasHorasNovas } from './venda-estimada.js';
@@ -72,8 +73,17 @@ export type ResultadoSimulacao = {
   regua: Regua | null;
   horasAbertas: number;
   horasAbertasAntes: number;
-  // Resultado em horas e porcentagem (spec 038), igual para todos os perfis e sem valores em reais.
+  // Resultado em horas e porcentagem (spec 038), sem valores em reais. Para gestor e consulta não leva o % do custo (spec 052):
+  // só o sentido (`custoSentido`).
   emHoras: EmHoras;
+  // Spec 052 (só o dono): o peso da folha no faturamento (a conta única de escala/peso-folha.ts) e a folha por mês, antes e
+  // depois. `peso` é nulo sem salários ou sem faturamento.
+  custoDoDono?: {
+    estado: 'ok' | 'sem_salarios' | 'sem_faturamento';
+    peso: PesoDaFolha | null;
+    folhaHoje: number | null;
+    folhaDepois: number | null;
+  };
   // `dias` é o horário simulado; `cadastro` o da loja (para restaurar e para saber quais dias abrem).
   horario: {
     mudou: boolean;
@@ -126,6 +136,8 @@ export const calcularResultado = (a: {
   vendas: VendaLinha[];
   // CMV médio da loja (%): lucro bruto das horas sem CMV na base; sem ele, essas horas ficam sem lucro bruto.
   cmvMedioPct?: number | null;
+  // Faturamento mensal de referência da loja (o mesmo dos Cenários). Ausente: usa a base comercial × 52 ÷ 12.
+  faturamentoMensalRef?: number | null;
   custos: Custos | null;
   parametros?: TabelaParametros;
   dono: boolean;
@@ -297,18 +309,34 @@ export const calcularResultado = (a: {
     : null;
   const vendaGanhaReal = vendaEstimadaDasHorasNovas(a.diasCadastro, a.dias, vb)?.vendaMes ?? null;
   const horarioMudou = horarioDias.some((d) => d.alterado);
-  const emHoras = montarEmHoras({
+  // Spec 052: "hoje" é o quadro do Cadastro INTEIRO (inclusive quem a simulação desliga); a folha depois é o quadro sem os
+  // desligados mais o custo das vagas e da hora extra. Sem desligamentos, é a mesma conta de antes.
+  const todosAtuais = a.quadro.filter((p) => !p.vaga && funcaoNoCalculo(p.funcao));
+  const folhaTodos = folhaAtual(pessoasDe(todosAtuais), a.custos, a.parametros);
+  const folhaSemDesligados = folhaAtual(pessoasDe(atuais), a.custos, a.parametros);
+  const custoDoCard =
+    folhaExtra == null || horaExtra == null || folhaTodos == null || folhaSemDesligados == null
+      ? null
+      : arred(folhaExtra + horaExtra - (folhaTodos - folhaSemDesligados));
+  const faturamentoRef =
+    a.faturamentoMensalRef === undefined
+      ? totalVenda > 0
+        ? totalVenda * SEMANAS_NO_MES
+        : null
+      : a.faturamentoMensalRef;
+  const emHorasCompleto = montarEmHoras({
     semFarmaceutico: !ativos.some((p) => p.funcao === FARMACEUTICO),
     temBase: !!vb,
     horarioMudou,
     vendaPerdidaReal,
     vendaGanhaReal,
     faturamentoMensalReal: totalVenda * SEMANAS_NO_MES,
-    folhaHoje: folhaAtual(pessoasDe(atuais), a.custos, a.parametros),
-    custoAdicional: folhaExtra == null || horaExtra == null ? null : arred(folhaExtra + horaExtra),
-    pessoas: { hoje: atuais.length, simulacao: ativos.length },
+    faturamentoMensalRef: faturamentoRef,
+    folhaHoje: folhaTodos,
+    custoAdicional: custoDoCard,
+    pessoas: { hoje: todosAtuais.length, simulacao: ativos.length },
     horasContratadas: {
-      hoje: atuais.reduce((s, p) => s + p.cargaH, 0),
+      hoje: todosAtuais.reduce((s, p) => s + p.cargaH, 0),
       simulacao: ativos.reduce((s, p) => s + p.cargaH, 0),
     },
     horasAbertas: { hoje: horasAbertasAntes, simulacao: horasAbertas },
@@ -319,6 +347,27 @@ export const calcularResultado = (a: {
       f.contratacoes.map((c) => ({ funcao: f.funcao, cargaH: c.cargaH, tipo: c.tipo })),
     ),
   });
+
+  // O % do custo sobre a folha só vai para o dono (gestor e consulta recebem o sentido, sem número).
+  const { custoPct: custoPctDoDono, ...emHorasSemCusto } = emHorasCompleto;
+  const emHoras: EmHoras = a.dono ? { ...emHorasSemCusto, custoPct: custoPctDoDono ?? null } : emHorasSemCusto;
+  const peso = pesoDaFolha({
+    folhaHoje: folhaTodos,
+    custoAdicional: custoDoCard,
+    faturamento: faturamentoRef,
+    vendaPct: emHorasCompleto.vendaPct,
+  });
+  const custoDoDono: ResultadoSimulacao['custoDoDono'] = {
+    estado:
+      folhaTodos == null || custoDoCard == null
+        ? 'sem_salarios'
+        : faturamentoRef == null || faturamentoRef <= 0
+          ? 'sem_faturamento'
+          : 'ok',
+    peso,
+    folhaHoje: folhaTodos == null ? null : Math.round(folhaTodos),
+    folhaDepois: folhaTodos == null || custoDoCard == null ? null : Math.round(folhaTodos + custoDoCard),
+  };
 
   const base: ResultadoSimulacao = {
     temBase: !!vb,
@@ -390,6 +439,7 @@ export const calcularResultado = (a: {
       : undefined;
   return {
     ...base,
+    custoDoDono,
     ...(horarioEstendido ? { horarioEstendido } : {}),
     folhaExtra,
     horaExtra,

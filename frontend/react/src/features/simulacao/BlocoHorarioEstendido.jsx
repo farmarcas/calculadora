@@ -2,22 +2,24 @@ import { useState } from "react";
 import { Modal } from "../../components/ui/index.jsx";
 import { blocoDoHorarioEstendido } from "./resultado-regras.js";
 
-const COR = { azul: "var(--system-500)", vermelho: "var(--func-warning-300)", neutro: "var(--text-strong)" };
+const COR = { verde: "var(--text-success-strong)", vermelho: "var(--text-danger)", neutro: "var(--text-strong)" };
+// Selo: verde claro com texto verde escuro (Recomendado) ou vermelho com texto branco (Não recomendado). Sempre com ✓ ou ✕.
+const SELO = { verde: { background: "var(--chip-diminui-fundo)", color: "var(--chip-diminui-texto)", border: "1px solid var(--chip-diminui-borda)" }, vermelho: { background: "var(--func-warning-300)", color: "#fff", border: "1px solid var(--func-warning-300)" } };
 
-// "Resultado do horário estendido" (spec 049), só para o dono e só quando a simulação abre horas a mais: venda adicional, CMV,
-// lucro bruto, aumento de folha e resultado, com o selo "Recomendado" (azul) ou "Não recomendado" (vermelho) e o modal
-// "Como calculamos" com a conta aberta. A conta vem pronta do servidor.
-export default function BlocoHorarioEstendido({ h }) {
+// "Horário a mais" (specs 049 e 052), só para o dono e só quando a simulação abre horas a mais: quadro cinza com venda adicional,
+// custo da mercadoria, lucro bruto, aumento de folha e resultado, o selo "Recomendado" (verde) ou "Não recomendado" (vermelho) e
+// o modal "Como calculamos" com a conta aberta. A conta vem pronta do servidor.
+export default function BlocoHorarioEstendido({ h, horario }) {
   const [aberto, setAberto] = useState(false);
-  const b = blocoDoHorarioEstendido(h);
+  const b = blocoDoHorarioEstendido(h, horario);
   if (!b) return null;
   return (
-    <section aria-label={b.titulo} data-testid="horario-estendido" className="mt-4 rounded-card border border-[var(--border-subtle)] p-4" style={{ borderLeft: `4px solid ${COR[b.tom]}` }}>
+    <section aria-label={b.titulo} data-testid="horario-estendido" className="mt-4 rounded-card bg-[var(--surface-subtle)] p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="m-0 text-sm leading-5 font-bold text-[var(--text-strong)]">{b.titulo}</h3>
         {b.selo && (
-          <span data-testid="selo-horario-estendido" className="rounded-full px-3 py-0.5 text-xs leading-4 font-bold text-white" style={{ background: COR[b.selo.tom] }}>
-            {b.selo.tom === "azul" ? "✓ " : "✕ "}
+          <span data-testid="selo-horario-estendido" className="rounded-full px-3 py-0.5 text-xs leading-4 font-bold" style={SELO[b.selo.tom]}>
+            {b.selo.tom === "verde" ? "✓ " : "✕ "}
             {b.selo.texto}
           </span>
         )}
@@ -39,7 +41,7 @@ export default function BlocoHorarioEstendido({ h }) {
           <ol className="m-0 flex flex-col gap-2 pl-5 text-sm leading-5 text-[var(--text-strong)]">
             {b.passos.map((p, i) => <li key={i}>{p}</li>)}
           </ol>
-          <p className="m-0 mt-3 text-xs leading-4 text-[var(--text-secondary)]">Estimativa: a venda das horas novas é estimada e o CMV é o real da loja. Nada disso altera o Cadastro.</p>
+          <p className="m-0 mt-3 text-xs leading-4 text-[var(--text-secondary)]">Estimativa: a venda das horas novas é estimada e o custo da mercadoria é o real da loja. Nada disso altera o Cadastro.</p>
         </Modal>
       )}
     </section>

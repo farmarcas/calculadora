@@ -5,7 +5,7 @@ import { aplicarMovimento, movimentoPorTecla } from "./movimento-regras.js";
 
 // Uma pessoa no dia: o turno em barra sobre as colunas das horas, "Função · 44h" e o total da semana. Folga mostra a barra
 // tracejada. A contratação simulada é a linha azul, com "Remover" em vermelho.
-export default function LinhaDaPessoa({ pessoa, turno, turnosDaPessoa, ini, fim, colunas, simulada = false, selecionado = false, onSelecionar, onRemover, rotuloSimulada, editavel = false, onMudar, onCriarTurno, onSugerir, previa = false, limiteH = null }) {
+export default function LinhaDaPessoa({ pessoa, turno, turnosDaPessoa, ini, fim, colunas, simulada = false, selecionado = false, onSelecionar, onRemover, rotuloSimulada, editavel = false, onMudar, onCriarTurno, onSugerir, previa = false, limiteH = null, onDesligar }) {
   const trilha = useRef(null);
   const [emGesto, setEmGesto] = useState(false); // durante o arrasto o turno ganha destaque e mostra o horário novo
   const janela = { min: ini, max: fim };
@@ -64,6 +64,7 @@ export default function LinhaDaPessoa({ pessoa, turno, turnosDaPessoa, ini, fim,
       <div className="min-w-0 pl-9">
         <div className={`truncate text-[13px] leading-4 font-bold ${simulada ? "text-[var(--color-primary)]" : "text-[var(--text-strong)]"}`}>{simulada ? (previa ? "Turno sugerido" : "Contratação simulada") : pessoa.nome}</div>
         <div className="truncate text-[11px] leading-4 text-[var(--text-secondary)]">{simulada ? rotuloSimulada : `${pessoa.funcao} · ${pessoa.cargaH}h`}</div>
+        {!simulada && onDesligar && <button type="button" onClick={onDesligar} aria-label={`Desligar ${pessoa.nome}`} className="cursor-pointer border-0 bg-transparent p-0 text-[11px] leading-4 font-bold text-[var(--text-danger)] hover:underline">Desligar</button>}
         {simulada && onRemover && <button type="button" onClick={onRemover} className="cursor-pointer border-0 bg-transparent p-0 text-[11px] leading-4 font-bold text-[var(--text-danger)] hover:underline">Remover</button>}
       </div>
       <div ref={trilha} role="cell" className="relative h-7" style={{ gridColumn: `span ${Math.round(largura)}` }}>

@@ -7,13 +7,14 @@ const NOMES_LONGOS = ["segunda", "terça", "quarta", "quinta", "sexta", "sábado
 
 // Uma pessoa na semana: nome, sete células (turno, folga ou fechada) e o total. A Contratação simulada tem borda tracejada e
 // nome em azul. Clicar na célula só existe para quem pode editar: leva à Escala por hora do dia.
-export default function LinhaDaSemana({ linha, colunas, editavel, onDia }) {
+export default function LinhaDaSemana({ linha, colunas, editavel, onDia, onDesligar }) {
   const cor = CORES[linha.funcao] ?? CORES.Caixa;
   return (
     <div role="row" className="grid items-center gap-x-2 border-t border-[var(--border-subtle)] py-2 pr-6" style={{ gridTemplateColumns: colunas }}>
       <div role="rowheader" className="sticky left-0 z-[1] min-w-0 bg-[var(--surface-card)] py-1 pr-2 pl-6">
         <div className={`truncate text-[13px] leading-4 font-bold ${linha.simulada ? "text-[var(--color-primary)]" : "text-[var(--text-strong)]"}`}>{linha.simulada ? "Contratação simulada" : linha.nome}</div>
         <div className="truncate text-[11px] leading-4 text-[var(--text-secondary)]">{linha.funcao} · {linha.cargaH}h</div>
+        {!linha.simulada && onDesligar && <button type="button" onClick={onDesligar} aria-label={`Desligar ${linha.nome}`} className="cursor-pointer border-0 bg-transparent p-0 text-[11px] leading-4 font-bold text-[var(--text-danger)] hover:underline">Desligar</button>}
       </div>
       {linha.celulas.map((c) => {
         const rotulo = c.estado === "turno" ? `${c.texto}${c.intervalo ? `, intervalo ${c.intervalo}` : ""}` : c.estado === "folga" ? "folga" : "loja fechada";

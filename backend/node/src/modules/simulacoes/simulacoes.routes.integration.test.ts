@@ -889,10 +889,11 @@ describe('simulações (rotas)', () => {
     const consulta = { 'X-Perfil': 'SCHEDULE_VIEWER', 'X-GE': GE_INICIAL_ID };
     const obter = async (id: string, h: Record<string, string> = admin) =>
       (await reqGe().get(`/api/v1/simulacoes/${id}`).set(h)).body;
-    const pessoasFarmaceuticoNaHora = (sim: any, dia: number, hora: number) =>
-      sim.avaliacao.cobertura[dia]
-        .find((f: { funcao: string }) => f.funcao === 'Farmacêutico')
-        .porHora.find((c: { hora: number }) => c.hora === hora);
+    type Cobertura = Record<number, { funcao: string; porHora: { hora: number; pessoas: number }[] }[]>;
+    const pessoasFarmaceuticoNaHora = (sim: { avaliacao: { cobertura: Cobertura } }, dia: number, hora: number) =>
+      sim.avaliacao.cobertura[dia]!
+        .find((f) => f.funcao === 'Farmacêutico')!
+        .porHora.find((c) => c.hora === hora)!;
 
     it('a cobertura de cada hora traz o mínimo exigido, para todos os perfis', async () => {
       const sim = (await criar()).body;

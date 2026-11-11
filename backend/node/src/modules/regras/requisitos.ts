@@ -74,5 +74,18 @@ export const minimosIguais = (a: Minimos, b: Minimos) => {
     return [...new Set([...Object.keys(a), ...Object.keys(b)])].every(
       (f) => (a[f] ?? 0) === (b[f] ?? 0),
     );
-  return JSON.stringify(a) === JSON.stringify(b);
+  // Compara o conteúdo, não a ordem das chaves: o Postgres devolve o JSON com as chaves em outra ordem (por tamanho), e o
+  // mesmo mínimo gravado numa simulação parecia diferente do da loja, marcando toda simulação como "desatualizada".
+  return JSON.stringify(comChavesOrdenadas(a)) === JSON.stringify(comChavesOrdenadas(b));
 };
+
+const comChavesOrdenadas = (v: unknown): unknown =>
+  Array.isArray(v)
+    ? v.map(comChavesOrdenadas)
+    : v && typeof v === 'object'
+      ? Object.fromEntries(
+          Object.entries(v)
+            .sort(([x], [y]) => (x < y ? -1 : x > y ? 1 : 0))
+            .map(([k, x]) => [k, comChavesOrdenadas(x)]),
+        )
+      : v;

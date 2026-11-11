@@ -57,7 +57,7 @@ export default function GradeTab({ lojaId, perfil, podeEscrever, abrirId, avisoI
   const [descartadas, setDescartadas] = useState(false);
   const [aberta, setAberta] = useState(null);
   const [nova, setNova] = useState(false);
-  const [parecerId, setParecerId] = useState(null);
+  const [parecer, setParecer] = useState(null); // { id, abridor }: o parecer aberto e o botão que o abriu (o foco volta a ele)
   const [erro, setErro] = useState(null);
   const [marcadas, setMarcadas] = useState([]);
   const [comparando, setComparando] = useState(false);
@@ -98,7 +98,7 @@ export default function GradeTab({ lojaId, perfil, podeEscrever, abrirId, avisoI
   }, [abrirId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Spec 056: o parecer do cenário salvo abre numa janela, a partir da lista ou da comparação.
-  const janelaDoParecer = parecerId ? <ParecerDoCenario id={parecerId} onFechar={() => setParecerId(null)} /> : null;
+  const janelaDoParecer = parecer ? <ParecerDoCenario id={parecer.id} abridor={parecer.abridor} onFechar={() => setParecer(null)} /> : null;
 
   if (comparando)
     return (
@@ -107,7 +107,7 @@ export default function GradeTab({ lojaId, perfil, podeEscrever, abrirId, avisoI
         lojaId={lojaId}
         ids={marcadas}
         lista={lista}
-        onParecer={setParecerId}
+        onParecer={(id, abridor) => setParecer({ id, abridor })}
         onVoltar={(mensagem) => { setComparando(false); setMarcadas(mensagem ? [] : marcadas); setAvisoLista(mensagem ?? null); carregar(); }}
       />
       {janelaDoParecer}
@@ -137,7 +137,7 @@ export default function GradeTab({ lojaId, perfil, podeEscrever, abrirId, avisoI
           marcadas={marcadas}
           onAlternar={alternar}
           onAbrir={setAberta}
-          onParecer={setParecerId}
+          onParecer={(id, abridor) => setParecer({ id, abridor })}
           podeEscrever={podeEscrever}
           onNova={() => setNova(true)}
           descartadas={descartadas}

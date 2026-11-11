@@ -1,4 +1,5 @@
-import { forwardRef, useEffect } from "react";
+import { forwardRef, useEffect, useRef } from "react";
+import { SELETOR_FOCAVEL, focoPreso } from "./foco.js";
 
 // Alquimia DS · Button: 40 px (normal) ou 32 px (pequeno), 14 px / 12 px em negrito, raio de 4 px.
 // primario = primary-filled · secundario = primary-outline · texto = primary-unfilled (ação de linha: pequeno).
@@ -181,26 +182,55 @@ export const Passo = ({ numero, titulo, subtitulo, semMargem = false, children }
 export const TH = "text-left bg-surface-subtle text-sm font-bold text-ink-900 whitespace-nowrap";
 export const TD = "text-sm text-ink-900 border-t border-line";
 
-export function Modal({ titulo, onClose, children, largo = false }) {
+// Janela de diálogo: fecha com Esc e pelo ×, prende o foco dentro dela (Tab e Shift+Tab) e devolve o foco ao botão que a abriu ao
+// fechar (spec 057). `subtitulo` e `rodape` são opcionais: o rodapé fica fora da rolagem, então os botões nunca somem.
+export function Modal({ titulo, subtitulo = null, rodape = null, onClose, children, largo = false, devolverFocoPara = null }) {
+  const janela = useRef(null);
+  // O fechar mais recente, sem refazer o efeito a cada renderização do pai (senão o foco "anterior" seria o da própria janela).
+  const fechar = useRef(onClose);
+  fechar.current = onClose;
   useEffect(() => {
-    const f = (e) => e.key === "Escape" && onClose();
+    // Quem abriu a janela: o elemento passado pelo pai (clicar num botão nem sempre o deixa com o foco, como no Safari) ou o que tem o foco.
+    const anterior = devolverFocoPara ?? document.activeElement;
+    janela.current?.focus();
+    const f = (e) => {
+      if (e.key === "Escape") return fechar.current();
+      if (e.key !== "Tab" || !janela.current) return;
+      const focaveis = [...janela.current.querySelectorAll(SELETOR_FOCAVEL)].filter((el) => el.offsetParent !== null || el === document.activeElement);
+      // O foco na própria janela (ao abrir) conta como "fora da lista": entra pelo primeiro ou pelo último.
+      const alvo = focoPreso(focaveis, document.activeElement, e.shiftKey);
+      if (alvo) {
+        e.preventDefault();
+        alvo.focus();
+      } else if (!focaveis.length) e.preventDefault();
+    };
     window.addEventListener("keydown", f);
-    return () => window.removeEventListener("keydown", f);
-  }, [onClose]);
+    return () => {
+      window.removeEventListener("keydown", f);
+      // Devolve o foco ao que abriu a janela (se ainda existe na página).
+      if (anterior && typeof anterior.focus === "function" && document.contains(anterior)) anterior.focus();
+    };
+  }, []);
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(6,25,56,.4)" }} onClick={onClose}>
       <div
+        ref={janela}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label={titulo}
         onClick={(e) => e.stopPropagation()}
-        className={`bg-white border border-line rounded-card shadow-pop w-full max-h-[90vh] overflow-auto ${largo ? "max-w-5xl" : "max-w-lg"}`}
+        className={`flex flex-col overflow-hidden bg-white border border-line rounded-card shadow-pop w-full max-h-[90vh] outline-none ${largo ? "max-w-5xl" : "max-w-lg"}`}
       >
-        <header className="flex items-center justify-between px-6 pt-6">
-          <h2 className="m-0 text-2xl font-bold text-ink-900">{titulo}</h2>
-          <button aria-label="Fechar" onClick={onClose} className="text-ink-500 text-xl leading-none">×</button>
+        <header className="flex shrink-0 items-start justify-between gap-4 px-6 pt-6">
+          <div className="min-w-0">
+            <h2 className="m-0 text-2xl font-bold text-ink-900">{titulo}</h2>
+            {subtitulo}
+          </div>
+          <button type="button" aria-label="Fechar" onClick={onClose} className="shrink-0 cursor-pointer border-0 bg-transparent text-ink-500 text-xl leading-none">×</button>
         </header>
-        <div className="p-6">{children}</div>
+        <div className="min-h-0 flex-1 overflow-auto p-6">{children}</div>
+        {rodape && <footer className="shrink-0 border-t border-line px-6 py-4">{rodape}</footer>}
       </div>
     </div>
   );

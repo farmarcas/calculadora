@@ -88,7 +88,7 @@ export default function ListaDeSimulacoes({ lista, marcadas, onAlternar, onAbrir
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-xs text-[var(--text-secondary)]">{dataBR(String(s.criadaEm).slice(0, 10))} · por {s.criadaPor}</span>
                     <span className="flex items-center">
-                      {onParecer && temParecer(s) && <button type="button" onClick={() => onParecer(s.id)} aria-label={`Ver parecer de ${s.nome}`} className="min-h-11 cursor-pointer rounded-[4px] border-0 bg-transparent px-3 text-sm font-bold text-[var(--text-link)] hover:underline">Ver parecer</button>}
+                      {onParecer && temParecer(s) && <button type="button" onClick={(e) => onParecer(s.id, e.currentTarget)} aria-label={`Ver parecer de ${s.nome}`} className="min-h-11 cursor-pointer rounded-[4px] border-0 bg-transparent px-3 text-sm font-bold text-[var(--text-link)] hover:underline">Ver parecer</button>}
                       <button type="button" onClick={() => onAbrir(s.id)} aria-label={`Abrir ${s.nome}`} className="min-h-11 cursor-pointer rounded-[4px] border-0 bg-transparent px-3 text-sm font-bold text-[var(--text-link)] hover:underline">Abrir</button>
                     </span>
                   </div>
@@ -138,7 +138,7 @@ export default function ListaDeSimulacoes({ lista, marcadas, onAlternar, onAbrir
                       <div className="text-xs text-[var(--text-secondary)]">por {s.criadaPor}</div>
                     </td>
                     <td className="px-4 py-3 pr-6 text-right whitespace-nowrap">
-                      {onParecer && temParecer(s) && <Botao tipo="texto" onClick={() => onParecer(s.id)} aria-label={`Ver parecer de ${s.nome}`}>Ver parecer</Botao>}
+                      {onParecer && temParecer(s) && <Botao tipo="texto" onClick={(e) => onParecer(s.id, e.currentTarget)} aria-label={`Ver parecer de ${s.nome}`}>Ver parecer</Botao>}
                       <Botao tipo="texto" onClick={() => onAbrir(s.id)}>Abrir</Botao>
                     </td>
                   </tr>

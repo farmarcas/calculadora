@@ -569,15 +569,16 @@ export const makeSimulacoesService = (
       return detalhe(await simulacao(id), perfil);
     },
 
-    // Spec 056: o parecer do cenário salvo, na versão do perfil (dono completa; gestor e consulta sem valores). Cenário salvo antes
-    // do parecer: montado agora, sem observação.
+    // Specs 056 e 057: o parecer do cenário salvo, na versão do perfil (dono completa; gestor e consulta sem valores). Cenário salvo
+    // antes do parecer, ou com o parecer da versão 1, é montado agora no layout novo, sem observação.
     async parecer(id: string, perfil: string) {
       const s = await simulacao(id);
       if (s.status === 'rascunho')
         throw new ConflictError('Só cenário salvo tem parecer.', 'SEM_PARECER');
       const l = await loja(s.lojaId);
       const dono = perfil === 'TENANT_ADMIN';
-      let guardado = s.parecer as ParecerGuardado | null;
+      const anterior = s.parecer as { versao?: number; salvoPor?: string } | null;
+      let guardado = anterior?.versao === 2 ? (s.parecer as ParecerGuardado) : null;
       const montadoAgora = !guardado;
       if (!guardado) {
         const base = await lojas.baseAtiva(s.lojaId);
@@ -593,13 +594,14 @@ export const makeSimulacoesService = (
         id: s.id,
         nome: s.nome,
         loja: l.nome,
-        regra: c.regra.nome,
+        regra: `Regra de ${c.regra.nome.replace(/ \(regra atual\)/, '')}`,
+        numeroCenario: s.numeroCenario,
         salvoEm: s.gravadaEm ?? s.criadaEm,
-        salvoPor: guardado.salvoPor ?? null,
+        salvoPor: guardado.salvoPor ?? anterior?.salvoPor ?? null,
         observacao: s.observacao,
-        resumo: texto.resumo,
-        decisoes: texto.decisoes,
-        efeitos: texto.efeitos,
+        ...texto,
+        // A versão do dono nem sai do servidor para os outros perfis; o PDF segue a mesma regra.
+        semValoresEmReais: !dono,
         montadoAgora,
       };
     },
@@ -607,16 +609,26 @@ export const makeSimulacoesService = (
     async parecerPdf(id: string, perfil: string) {
       const p = await this.parecer(id, perfil);
       const rotulo: Record<string, string> = {
-        TENANT_ADMIN: 'Dono',
-        SCHEDULE_MANAGER: 'Gestor',
-        SCHEDULE_VIEWER: 'Consulta',
+        TENANT_ADMIN: 'dono',
+        SCHEDULE_MANAGER: 'gestor',
+        SCHEDULE_VIEWER: 'consulta',
       };
       const buffer = await gerarPdf({
-        ...p,
+        loja: p.loja,
+        regra: p.regra,
+        numeroCenario: p.numeroCenario,
         salvoEm: new Date(p.salvoEm),
         salvoPor: p.salvoPor ? (rotulo[p.salvoPor] ?? null) : null,
+        observacao: p.observacao,
+        montadoAgora: p.montadoAgora,
+        status: p.status,
+        paragrafo: p.paragrafo,
+        cartoes: p.cartoes,
+        tabela: p.tabela,
+        horarioAMais: p.horarioAMais,
+        semValoresEmReais: p.semValoresEmReais,
       });
-      return { buffer, nome: nomeDoArquivo(p.nome) };
+      return { buffer, nome: nomeDoArquivo(p.loja, p.numeroCenario) };
     },
 
     // Compara 2 a 3 simulações da mesma loja, cada uma pelos seus próprios números.

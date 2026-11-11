@@ -122,7 +122,7 @@ export default function ComparacaoDeSimulacoes({ lojaId, ids, lista, onVoltar, o
                   return (
                     <th key={s.id} scope="col" className={`${CABECALHO_FIXO} min-w-[170px] px-3 py-3 text-left md:min-w-[200px] md:px-4`}>
                       <div className="font-bold text-[var(--text-strong)]">{s.nome}</div>
-                      {onParecer && temParecer(s) && <button type="button" onClick={() => onParecer(s.id)} aria-label={`Ver parecer de ${s.nome}`} className="mt-1 min-h-11 cursor-pointer border-0 bg-transparent p-0 text-xs font-bold text-[var(--text-link,#006ff7)] hover:underline md:min-h-0">Ver parecer</button>}
+                      {onParecer && temParecer(s) && <button type="button" onClick={(e) => onParecer(s.id, e.currentTarget)} aria-label={`Ver parecer de ${s.nome}`} className="mt-1 min-h-11 cursor-pointer border-0 bg-transparent p-0 text-xs font-bold text-[var(--text-link,#006ff7)] hover:underline md:min-h-0">Ver parecer</button>}
                       <div className="mt-1.5 flex flex-wrap gap-1.5 font-normal">
                         {i === 0 && <span className="inline-flex h-7 items-center rounded-full bg-[var(--color-primary-soft)] px-3.5 text-xs font-bold text-[var(--system-800)]">Base</span>}
                         <Ficha tom={tom}>{rotulo}</Ficha>

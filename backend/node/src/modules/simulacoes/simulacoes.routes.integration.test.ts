@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { inflateSync } from 'node:zlib';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import ExcelJS from 'exceljs';
 import { GE_INICIAL_ID } from '../../shared/ge.js';
@@ -1575,7 +1576,7 @@ describe('simulações (rotas)', () => {
       return { id: sim.id as string, g };
     };
 
-    it('salva com o nome e a observação que a pessoa deu; o parecer do dono tem as seções e os valores', async () => {
+    it('salva com o nome e a observação que a pessoa deu; o parecer do dono tem o layout novo (spec 057) e os valores', async () => {
       const { id, g } = await salvo();
       expect(g.body).toMatchObject({
         nome: 'Plano reforço',
@@ -1587,25 +1588,20 @@ describe('simulações (rotas)', () => {
       expect(p.body).toMatchObject({
         nome: 'Plano reforço',
         loja: 'Centro',
+        regra: 'Regra de 40h',
         observacao: 'Aprovado pelo regional.',
         salvoPor: 'TENANT_ADMIN',
+        semValoresEmReais: false,
         montadoAgora: false,
       });
-      expect(p.body.resumo).toHaveLength(3);
-      expect(p.body.decisoes.map((x: { titulo: string }) => x.titulo)).toEqual([
-        'Contratações',
-        'Desligamentos',
-        'Horário',
-        'Folgas',
-      ]);
-      expect(p.body.efeitos.map((x: { titulo: string }) => x.titulo)).toEqual([
-        'Cobertura',
-        'Venda',
-        'Equipe',
-        'Custo',
-      ]);
+      expect(typeof p.body.numeroCenario).toBe('number');
+      expect(p.body.status).toEqual({ texto: expect.any(String), tom: expect.any(String) });
+      expect(p.body.paragrafo).toContain('Contratando 1 atendente (desejável), 40h por semana');
+      expect(Object.keys(p.body.cartoes)).toEqual(['folha', 'equipe', 'farmaceutico']);
+      expect(p.body.cartoes.folha.titulo).toBe('Folha no faturamento');
+      expect(p.body.tabela.map((l: { rotulo: string }) => l.rotulo)).toContain('Folha por mês');
       expect(JSON.stringify(p.body)).toContain('R$');
-      expect(JSON.stringify(p.body.decisoes)).toContain('1 atendente, 40 h por semana');
+      expect(JSON.stringify(p.body)).not.toMatch(/jornada cheia/);
     });
 
     it('gestor e consulta leem a mesma estrutura sem valores em reais nem percentual de custo', async () => {
@@ -1615,7 +1611,16 @@ describe('simulações (rotas)', () => {
         expect(p.status).toBe(200);
         const json = JSON.stringify(p.body);
         expect(json).not.toMatch(/R\$|%|custoDoDono|folhaHoje|folhaDepois/);
-        expect(p.body.efeitos[3].itens).toEqual(['A folha de pessoal aumenta em relação a hoje.']);
+        expect(p.body.semValoresEmReais).toBe(true);
+        expect(p.body.cartoes.folha).toMatchObject({
+          titulo: 'Custo de pessoal',
+          valor: '—',
+          chip: { texto: 'Aumenta' },
+          apoio: 'sem valores em reais',
+        });
+        expect(p.body.tabela.map((l: { rotulo: string }) => l.rotulo)).not.toContain(
+          'Folha por mês',
+        );
         expect(p.body.observacao).toBe('Aprovado pelo regional.');
       }
     });
@@ -1665,11 +1670,12 @@ describe('simulações (rotas)', () => {
         .set(admin)
         .send({ salarioMedio: { Farmacêutico: 30000, Atendimento: 9000 } });
       const depois = (await parecer(id)).body;
-      expect(depois.efeitos).toEqual(antes.efeitos);
-      expect(depois.resumo).toEqual(antes.resumo);
+      expect(depois.paragrafo).toEqual(antes.paragrafo);
+      expect(depois.cartoes).toEqual(antes.cartoes);
+      expect(depois.tabela).toEqual(antes.tabela);
     });
 
-    it('cenário salvo antes do parecer abre, com o texto montado agora e sem observação', async () => {
+    it('cenário salvo antes do parecer, ou com o parecer da versão 1, abre no layout novo, montado agora e sem observação', async () => {
       const { id } = await salvo();
       await prisma.$executeRawUnsafe(
         'update simulacoes set parecer = null, observacao = null where id = $1::uuid',
@@ -1679,9 +1685,18 @@ describe('simulações (rotas)', () => {
       expect(p.status).toBe(200);
       expect(p.body.montadoAgora).toBe(true);
       expect(p.body.observacao).toBeNull();
-      expect(p.body.resumo.length).toBeGreaterThan(0);
-      const g = await parecer(id, gestor);
-      expect(JSON.stringify(g.body)).not.toMatch(/R\$|%/);
+      expect(p.body.paragrafo.length).toBeGreaterThan(0);
+      expect(JSON.stringify((await parecer(id, gestor)).body)).not.toMatch(/R\$|%/);
+      // o parecer da versão 1 (spec 056) também é remontado
+      await prisma.$executeRawUnsafe(
+        `update simulacoes set parecer = '{"versao":1,"montadoEm":"2026-11-11T00:00:00Z","salvoPor":"TENANT_ADMIN","dono":{},"publico":{}}'::jsonb where id = $1::uuid`,
+        id,
+      );
+      const v1 = await parecer(id);
+      expect(v1.status).toBe(200);
+      expect(v1.body.montadoAgora).toBe(true);
+      expect(v1.body.salvoPor).toBe('TENANT_ADMIN');
+      expect(v1.body.cartoes.equipe.titulo).toBe('Equipe');
     });
 
     it('rascunho não tem parecer', async () => {
@@ -1689,8 +1704,26 @@ describe('simulações (rotas)', () => {
       expect((await parecer(sim.id)).status).toBe(409);
     });
 
-    it('o PDF baixa para os três perfis, com o nome do cenário no arquivo', async () => {
+    it('o PDF baixa para os três perfis, com o nome da loja e do cenário no arquivo; o do gestor não tem valores em reais', async () => {
       const { id } = await salvo('Plano reforço');
+      const numero = (await parecer(id)).body.numeroCenario;
+      const textoDoPdf = (pdf: Buffer) =>
+        [...pdf.toString('latin1').matchAll(/stream\r?\n([\s\S]*?)\r?\nendstream/g)]
+          .flatMap((m) => {
+            try {
+              return [inflateSync(Buffer.from(m[1]!, 'latin1')).toString('latin1')];
+            } catch {
+              return [];
+            }
+          })
+          .flatMap((c) =>
+            [...c.matchAll(/\[(.*?)\]\s*TJ/gs)].map((t) =>
+              [...t[1]!.matchAll(/<([0-9a-fA-F]*)>/g)]
+                .map((h) => Buffer.from(h[1]!, 'hex').toString('latin1'))
+                .join(''),
+            ),
+          )
+          .join('\n');
       for (const h of [admin, gestor, consulta]) {
         const r = await reqGe()
           .get(`/api/v1/simulacoes/${id}/parecer.pdf`)
@@ -1703,8 +1736,17 @@ describe('simulações (rotas)', () => {
           });
         expect(r.status).toBe(200);
         expect(r.headers['content-type']).toContain('application/pdf');
-        expect(r.headers['content-disposition']).toContain('parecer-plano-reforco.pdf');
-        expect((r.body as Buffer).subarray(0, 5).toString()).toBe('%PDF-');
+        expect(r.headers['content-disposition']).toContain(`parecer-centro-cenario-${numero}.pdf`);
+        const pdf = r.body as Buffer;
+        expect(pdf.subarray(0, 5).toString()).toBe('%PDF-');
+        const texto = textoDoPdf(pdf);
+        expect(texto).toContain('Parecer do cenário · Centro');
+        expect(texto).toContain('Página 1 de 1');
+        if (h === admin) expect(texto).toMatch(/R\$ \d/);
+        else {
+          expect(texto).not.toMatch(/R\$ \d|%/);
+          expect(texto).toContain('Valores em reais aparecem só para o dono do grupo.');
+        }
       }
     });
   });

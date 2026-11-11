@@ -26,6 +26,8 @@ export const turnoSchema = z
     saida: hora,
     iniIntervalo: hora.nullable(),
     fimIntervalo: hora.nullable(),
+    // O horário de antes de o turno ser esticado até o limite da regra (spec 046).
+    antes: z.object({ entrada: hora, saida: hora }).strict().optional(),
   })
   .strict();
 

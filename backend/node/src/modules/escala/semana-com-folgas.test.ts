@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { regraPara } from '../regras/perfis.js';
 import {
+  esticarTurnos,
   aplicarFolgas,
   coberturaDaFuncao,
   semanaComFolgas,
+  faltaDaFuncao,
   turnosDosHorarios,
   type HorarioPessoa,
 } from './semana-com-folgas.js';
@@ -145,5 +147,88 @@ describe('ajustarJornada (a pessoa cabe na regra)', () => {
     expect(a.turnos).toHaveLength(5);
     expect(total).toBeLessThanOrEqual(40 + 1e-9);
     expect(a.turnos.every((t) => t.entrada === 8 && t.saida - t.entrada <= 8)).toBe(true);
+  });
+});
+
+describe('esticarTurnos (spec 046)', () => {
+  const regra = { dias: 5, maxDia: 8.4, teto: 42 }; // regra de 42h com a convenção de 8h24
+  const lojaAberta = [0, 1, 2, 3, 4].map((dia) => ({ dia, abre: 7, fecha: 22 }));
+  const fm = (m: string, extra: Partial<HorarioPessoa> = {}) =>
+    h(m, 'Farmacêutico', [0, 1, 2, 3, 4], { entrada: 7, saida: 15, iniIntervalo: 11, fimIntervalo: 12, cargaH: 44, ...extra });
+  const rodar = (horarios: HorarioPessoa[], dias = lojaAberta) =>
+    esticarTurnos({ turnos: turnosDosHorarios(horarios), horarios, dias, regra, minimos: {} });
+  const liquida = (t: { entrada: number; saida: number; iniIntervalo: number | null; fimIntervalo: number | null }) =>
+    t.saida - t.entrada - (t.iniIntervalo != null && t.fimIntervalo != null ? t.fimIntervalo - t.iniIntervalo : 0);
+
+  it('estica o fim do turno onde falta cobertura, guarda o horário de antes e não passa do máximo do dia', () => {
+    // um farmacêutico das 7h às 15h (7 h líquidas); a loja abre até 22h: falta de 15h em diante
+    const r = rodar([fm('A')]);
+    const t = r.turnos.filter((x) => x.matricula === 'A');
+    expect(t).toHaveLength(5);
+    for (const x of t) {
+      expect(x.saida).toBeGreaterThan(15);
+      expect(liquida(x)).toBeLessThanOrEqual(8.4 + 1e-9);
+      expect(x.antes).toEqual({ entrada: 7, saida: 15 });
+    }
+    expect(r.esticados.length).toBeGreaterThan(0);
+  });
+
+  it('para quando a semana chega ao limite da pessoa (carga de 36 h não passa de 36 h)', () => {
+    const r = rodar([fm('A', { cargaH: 36 })]);
+    const total = r.turnos.reduce((s, x) => s + liquida(x), 0);
+    expect(total).toBeLessThanOrEqual(36 + 1e-9);
+    expect(total).toBeGreaterThan(35); // era 35 h
+  });
+
+  it('não passa do teto da regra mesmo com carga maior', () => {
+    const r = rodar([fm('A', { cargaH: 60 })]);
+    expect(r.turnos.reduce((s, x) => s + liquida(x), 0)).toBeLessThanOrEqual(42 + 1e-9);
+  });
+
+  it('não sai do horário da loja', () => {
+    const curta = [0, 1, 2, 3, 4].map((dia) => ({ dia, abre: 7, fecha: 16 }));
+    const r = rodar([fm('A')], curta);
+    expect(r.turnos.every((x) => x.saida <= 16 + 1e-9 && x.entrada >= 7 - 1e-9)).toBe(true);
+  });
+
+  it('quem tem horário fixo não é esticado', () => {
+    const r = rodar([fm('A', { fixo: true })]);
+    expect(r.esticados).toEqual([]);
+    expect(r.turnos.every((x) => x.saida === 15 && x.antes === undefined)).toBe(true);
+  });
+
+  it('sem falta de cobertura ninguém é esticado', () => {
+    const horarios = [fm('A'), fm('B', { entrada: 14, saida: 22, iniIntervalo: 17, fimIntervalo: 18 })];
+    const r = rodar(horarios);
+    // A cobre 7h–15h e B 14h–22h: não há falta
+    expect(r.esticados).toEqual([]);
+  });
+
+  it('respeita o descanso de 11 h entre os dias', () => {
+    // dia seguinte começa às 7h: o turno do dia anterior só pode ir até as 20h
+    const r = rodar([fm('A')]);
+    for (let d = 0; d < 4; d++) {
+      const hoje = r.turnos.find((x) => x.dia === d)!;
+      const amanha = r.turnos.find((x) => x.dia === d + 1)!;
+      expect(24 - hoje.saida + amanha.entrada).toBeGreaterThanOrEqual(11 - 1e-9);
+    }
+  });
+
+  it('a falta só diminui e o resultado é o mesmo em duas rodadas (determinístico)', () => {
+    const horarios = [fm('A'), fm('B', { cargaH: 40 })];
+    const antes = faltaDaFuncao(coberturaDaFuncao('Farmacêutico', turnosDosHorarios(horarios), lojaAberta, {}));
+    const r1 = rodar(horarios);
+    const r2 = rodar(horarios);
+    const depois = faltaDaFuncao(coberturaDaFuncao('Farmacêutico', r1.turnos, lojaAberta, {}));
+    expect(depois).toBeLessThanOrEqual(antes);
+    expect(r2.turnos).toEqual(r1.turnos);
+  });
+
+  it('a conta dos cenários usa os turnos esticados e pede menos contratação', () => {
+    const horarios = [fm('A')];
+    const semEsticar = semanaComFolgas({ regra: r42, dias: lojaAberta, minimos: {}, horarios: horarios.map((x) => ({ ...x, fixo: true })) });
+    const comEsticar = semanaComFolgas({ regra: r42, dias: lojaAberta, minimos: {}, horarios });
+    expect(comEsticar.funcoes['Farmacêutico']!.faltaH).toBeLessThan(semEsticar.funcoes['Farmacêutico']!.faltaH);
+    expect(comEsticar.esticados.length).toBeGreaterThan(0);
   });
 });

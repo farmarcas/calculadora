@@ -484,6 +484,50 @@ describe('simulações (rotas)', () => {
       expect(mantida.status).toBe(200);
     });
 
+    it('Personalizar estica os turnos de quem trabalha menos que o limite onde falta cobertura (spec 046), sem passar do limite', async () => {
+      // A loja passa a abrir até as 22h (segunda a sexta): Bia (14h–20h, 6 h) cobre até as 20h e faltam 2 horas no fim do dia
+      await prisma.loja.update({
+        where: { id: lojaId },
+        data: {
+          horarios: {
+            versao: 2,
+            dias: [0, 1, 2, 3, 4, 5, 6].map((d) =>
+              d < 5 ? { aberta: true, abre: '08:00', fecha: '22:00' } : { aberta: false },
+            ),
+          },
+        },
+      });
+      const sim = (await criar({ nome: 'Estica', regra: 'r40', comVagasSugeridas: true })).body;
+      const turnos = sim.turnos as {
+        matricula: string;
+        dia: number;
+        entrada: number;
+        saida: number;
+        iniIntervalo: number | null;
+        fimIntervalo: number | null;
+        antes?: { entrada: number; saida: number };
+      }[];
+      const bia = turnos.filter((t) => t.matricula === 'F2');
+      expect(bia).toHaveLength(5);
+      for (const t of bia) {
+        expect(t.antes).toEqual({ entrada: 14, saida: 20 });
+        expect(t.saida).toBe(22);
+      }
+      // Ninguém passa do limite de horas por semana (40 h) nem do máximo por dia (8 h)
+      for (const m of ['F1', 'F2']) {
+        const meus = turnos.filter((t) => t.matricula === m);
+        const liq = (t: (typeof turnos)[number]) =>
+          t.saida - t.entrada - (t.iniIntervalo != null ? (t.fimIntervalo ?? 0) - t.iniIntervalo : 0);
+        expect(meus.reduce((s, t) => s + liq(t), 0)).toBeLessThanOrEqual(40);
+        for (const t of meus) expect(liq(t)).toBeLessThanOrEqual(8);
+      }
+      // O esticamento cobre a falta: nenhuma vaga
+      expect((sim.quadro as { vaga?: boolean }[]).filter((p) => p.vaga)).toHaveLength(0);
+      // Os turnos esticados voltam no PUT sem erro (o campo `antes` é aceito)
+      const r = await reqGe().put(`/api/v1/simulacoes/${sim.id}`).set(admin).send({ turnos });
+      expect(r.status).toBe(200);
+    });
+
     it('o mesmo número de contratações no quadro central, no Cenário 1 e nas vagas sugeridas', async () => {
       await reqGe()
         .put(`/api/v1/lojas/${lojaId}/configuracao`)

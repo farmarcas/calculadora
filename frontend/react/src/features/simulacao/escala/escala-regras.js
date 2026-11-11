@@ -426,11 +426,20 @@ export const avisosDaPessoa = (avaliacao, matricula) =>
 // de qualquer turno não ser recusada por causa de outro.
 const emQuarto = (h) => Math.round(h * 4) / 4;
 export const turnosParaGravar = (turnos) =>
-  turnos.map(({ matricula, dia, entrada, saida, iniIntervalo, fimIntervalo }) => {
+  turnos.map(({ matricula, dia, entrada, saida, iniIntervalo, fimIntervalo, antes }) => {
     const e = emQuarto(entrada);
     const sa = Math.max(emQuarto(saida), e + 0.25);
-    return { matricula, dia, entrada: e, saida: sa, iniIntervalo: iniIntervalo == null ? null : emQuarto(iniIntervalo), fimIntervalo: fimIntervalo == null ? null : emQuarto(fimIntervalo) };
+    // `antes`: o horário do Cadastro de antes de o turno ser esticado (spec 046); só vai se for diferente do de agora.
+    const volta = antes && (emQuarto(antes.entrada) !== e || emQuarto(antes.saida) !== sa) ? { antes: { entrada: emQuarto(antes.entrada), saida: emQuarto(antes.saida) } } : {};
+    return { matricula, dia, entrada: e, saida: sa, iniIntervalo: iniIntervalo == null ? null : emQuarto(iniIntervalo), fimIntervalo: fimIntervalo == null ? null : emQuarto(fimIntervalo), ...volta };
   });
+
+// O turno foi esticado até o limite da regra (spec 046)? Vale quando guarda o horário de antes e ele é diferente do de agora.
+export const turnoEsticado = (t) => !!t?.antes && (t.antes.entrada !== t.entrada || t.antes.saida !== t.saida);
+
+// "Turno aumentado de 07h–15h para 07h–16h para cobrir a falta, dentro do limite de 42h".
+export const textoDoEsticamento = (t, limiteH) =>
+  turnoEsticado(t) ? `Turno aumentado de ${textoDoTurno(t.antes)} para ${textoDoTurno(t)} para cobrir a falta${limiteH ? `, dentro do limite de ${virgula(limiteH)}h` : ""}` : "";
 
 // ---- Intervalo na escala (almoço) -----------------------------------------------------------------------------------
 

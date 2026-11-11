@@ -256,7 +256,8 @@ export const makeSimulacoesService = (
         fimIntervalo: t.fimIntervalo,
       })),
     );
-    // Os horários de cada pessoa no Cadastro: a base da semana com folgas (spec 043).
+    // Os horários de cada pessoa no Cadastro: a base da semana com folgas (spec 043); quem tem horário fixo não é esticado.
+    const fixos = await lojas.matriculasHorarioFixo(lojaId);
     const equipe: HorarioPessoa[] = ts.map((t) => ({
       matricula: t.matricula,
       funcao: t.funcao!,
@@ -266,6 +267,7 @@ export const makeSimulacoesService = (
       saida: t.saida,
       iniIntervalo: t.iniIntervalo,
       fimIntervalo: t.fimIntervalo,
+      fixo: fixos.has(t.matricula),
     }));
     return { quadro, turnos: emQuartosDeHora(turnos), equipe };
   };

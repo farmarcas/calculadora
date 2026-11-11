@@ -2,7 +2,7 @@ import { useState } from "react";
 import { api } from "../../api/client.js";
 import { Aviso } from "../../components/ui/index.jsx";
 import LinhaDeCenario from "./cartao/LinhaDeCenario.jsx";
-import { diasDasAbas, sugerirTurnosDasVagas, turnosParaGravar } from "../simulacao/escala/escala-regras.js";
+import { diasDasAbas, sugerirTurnosDasVagas, turnosParaGravar, vagaSemTurnos } from "../simulacao/escala/escala-regras.js";
 import { palavraDaRegua } from "../regua.js";
 
 // As vagas do cenário para o simulador: inteiras na jornada cheia e o parcial com as horas dele (a vaga pede 4 a 44 h inteiras).
@@ -35,31 +35,32 @@ export default function Comparativo({ comparativo, cenarios, lojaId, podeEscreve
       const corpo = { nome: c.nome.slice(0, 80), regra: cenarios.regra.id };
       let s;
       let aviso = null;
+      // O horário do cenário clicado (o Cenário 1 mantém o do Cadastro): vai já na criação, para o servidor montar a semana com
+      // as folgas e as contratações nos turnos que cobrem o que falta (spec 043).
+      const baseSemana = cenarios?.manter?.horarioSemana;
+      const horarios = c.ajustes?.length && baseSemana?.length === 7
+        ? { versao: 2, dias: baseSemana.map((h, i) => {
+            const aj = c.ajustes.find((a) => a.dia === i);
+            if (aj) return aj.depois ? { aberta: true, abre: aj.depois.abre, fecha: aj.depois.fecha } : { aberta: false };
+            return h.aberto ? { aberta: true, abre: h.abre, fecha: h.fecha } : { aberta: false };
+          }) }
+        : null;
       try {
-        s = await api(`/lojas/${lojaId}/simulacoes`, { method: "POST", body: { ...corpo, origem: "escala_atual" } });
+        s = await api(`/lojas/${lojaId}/simulacoes`, { method: "POST", body: { ...corpo, origem: "escala_atual", comVagasSugeridas: true, ...(horarios ? { horarios } : {}) } });
       } catch (e) {
         // Nenhum funcionário com horário no Cadastro: a simulação parte do quadro do Cadastro, sem horários.
         if (e.code !== "SEM_HORARIO_NO_CADASTRO") throw e;
         s = await api(`/lojas/${lojaId}/simulacoes`, { method: "POST", body: { ...corpo, origem: "vazia" } });
         aviso = "Esta loja ainda não tem funcionários com horário no Cadastro: a simulação parte do quadro do Cadastro, sem horários. Contratações, horários e impacto já funcionam; para ver a cobertura de quem já trabalha, cadastre o horário dos funcionários em Cadastros › Equipe.";
+        const vagas = vagasDeCenario(c);
+        if (vagas.length || horarios) s = await api(`/simulacoes/${s.id}`, { method: "PUT", body: { ...(vagas.length ? { vagas } : {}), ...(horarios ? { horarios } : {}) } });
       }
-      const vagas = vagasDeCenario(c);
-      // A simulação já nasce com as contratações e os horários do cenário clicado (o Cenário 1 mantém o horário do Cadastro).
-      const cadastro = s.resultado?.horario?.cadastro;
-      const horarios = c.ajustes?.length && cadastro?.length === 7
-        ? { versao: 2, dias: cadastro.map((h, i) => {
-            const aj = c.ajustes.find((a) => a.dia === i);
-            if (aj) return aj.depois ? { aberta: true, abre: aj.depois.abre, fecha: aj.depois.fecha } : { aberta: false };
-            return h.aberta ? { aberta: true, abre: h.abre, fecha: h.fecha } : { aberta: false };
-          }) }
-        : null;
-      const gravada = vagas.length || horarios ? await api(`/simulacoes/${s.id}`, { method: "PUT", body: { ...(vagas.length ? { vagas } : {}), ...(horarios ? { horarios } : {}) } }) : s;
-      // As contratações já chegam com turnos sobre as horas sem cobertura (spec 040), calculados com o horário do cenário.
-      // Se esta segunda gravação falhar, a simulação abre mesmo assim: "Sugerir turno" faz o mesmo na escala.
-      if (vagas.length) {
+      // Se alguma contratação ainda ficou sem turno (um cenário que abre um dia que o Cadastro não escala), "Sugerir turno" na
+      // escala faz o mesmo; aqui só tenta encaixar, e a simulação abre mesmo se isso falhar.
+      if (vagaSemTurnos(s.quadro, s.turnos).length) {
         try {
-          const novos = sugerirTurnosDasVagas({ quadro: gravada.quadro, turnos: gravada.turnos, cobertura: gravada.avaliacao?.cobertura, abas: diasDasAbas(gravada.diasAbertos), regra: gravada.regraInfo });
-          if (novos.length) await api(`/simulacoes/${s.id}`, { method: "PUT", body: { turnos: turnosParaGravar([...gravada.turnos, ...novos]) } });
+          const novos = sugerirTurnosDasVagas({ quadro: s.quadro, turnos: s.turnos, cobertura: s.avaliacao?.cobertura, abas: diasDasAbas(s.diasAbertos), regra: s.regraInfo });
+          if (novos.length) await api(`/simulacoes/${s.id}`, { method: "PUT", body: { turnos: turnosParaGravar([...s.turnos, ...novos]) } });
         } catch {
           /* segue sem os turnos sugeridos */
         }

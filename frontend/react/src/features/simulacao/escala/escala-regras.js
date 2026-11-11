@@ -328,6 +328,8 @@ export const turnosParaVaga = ({ cargaH, coberturaPorDia, abas, regra }) => {
   const maxFecha = Math.ceil(Math.max(...abas.map((a) => a.fecha)));
   const candidatos = new Set(abas.map((a) => a.abre));
   for (let s = minAbre; s + bruta <= maxFecha + EPS; s++) candidatos.add(s);
+  // Também a janela que termina na hora de fechar (a última hora só se cobre assim).
+  for (const a of abas) if (a.fecha - bruta >= a.abre - EPS) candidatos.add(a.fecha - bruta);
   let inicio = null;
   let melhor = 0;
   for (const s of [...candidatos].sort((a, b) => a - b)) {

@@ -401,6 +401,35 @@ describe('simulações (rotas)', () => {
       expect(vagas.every((v: { funcao: string }) => v.funcao === 'Caixa')).toBe(true);
     });
 
+    it('Personalizar abre com as folgas aplicadas e as contratações cobrindo, sem erro de regra (spec 043)', async () => {
+      // Equipe do Cadastro com 7 dias por semana (como nas lojas reais) e a loja aberta todos os dias.
+      await prisma.funcionario.updateMany({ where: { lojaId }, data: { dias: [0, 1, 2, 3, 4, 5, 6] } });
+      await prisma.loja.update({
+        where: { id: lojaId },
+        data: {
+          horarios: {
+            versao: 2,
+            dias: Array.from({ length: 7 }, () => ({ aberta: true, abre: '08:00', fecha: '20:00' })),
+          },
+        },
+      });
+      for (const [regra, limite] of [['r42', 5], ['r40', 5]] as const) {
+        const sim = (await criar({ nome: `Folgas ${regra}`, regra, comVagasSugeridas: true })).body;
+        const turnos = sim.turnos as { matricula: string; dia: number }[];
+        for (const p of sim.quadro as { matricula: string }[]) {
+          const dias = new Set(turnos.filter((t) => t.matricula === p.matricula).map((t) => t.dia));
+          expect(dias.size).toBeLessThanOrEqual(limite);
+        }
+        // As vagas já vêm com turnos.
+        const vagas = (sim.quadro as { matricula: string; vaga?: boolean }[]).filter((p) => p.vaga);
+        for (const v of vagas) expect(turnos.some((t) => t.matricula === v.matricula)).toBe(true);
+        // Nada de aviso de dias a mais, jornada, intervalo ou descanso entre turnos.
+        const regrasDeTurno = ['folgas', 'jornada-diaria', 'jornada-semanal', 'intervalo', 'interjornada'];
+        const achados = [...sim.avaliacao.erros, ...sim.avaliacao.avisos] as { regra: string; texto: string }[];
+        expect(achados.filter((a) => regrasDeTurno.includes(a.regra))).toEqual([]);
+      }
+    });
+
     it('o mesmo número de contratações no quadro central, no Cenário 1 e nas vagas sugeridas', async () => {
       await reqGe()
         .put(`/api/v1/lojas/${lojaId}/configuracao`)

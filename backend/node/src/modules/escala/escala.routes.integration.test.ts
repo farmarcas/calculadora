@@ -226,46 +226,38 @@ describe('escala (rotas)', () => {
       .set(admin)
       .send({ salarioMedio: { Farmacêutico: 8000 }, encargosPct: 40 });
 
-    // 66h abertas por semana; 1 farmacêutica de 40h: faltam 26h → 1 parcial de 26h (até 30h): 1 pessoa, sem sobra.
-    // Spec 043: a falta vem da cobertura real (ela folga 1 dia e trabalha 5 de 8h) e dá as mesmas 26h.
+    // 66h abertas por semana; 1 farmacêutica de 40h: faltam 26h (spec 043: da cobertura real; ela folga 1 dia e trabalha 5 de 8h).
+    // Spec 044: só contratação integral → 1 pessoa de 40h, 26h usadas e 14h ociosas.
     const dono = (await reqGe().get(url).set(admin)).body.cenarios;
     expect(Object.keys(dono)).toEqual(['r42', 'r40']);
     expect(dono.r40.manter.contratacoes).toEqual([
       {
         funcao: 'Farmacêutico',
         pessoas: 1,
-        inteiras: 0,
-        parcial: { turnos: 4, horas: 26 },
-        parcialH: 26,
-        horasContratadas: 26,
+        inteiras: 1,
+        parcial: null,
+        parcialH: null,
+        horasContratadas: 40,
         horasUsadas: 26,
-        horasOciosas: 0,
+        horasOciosas: 14,
         motivo: 'obrigatoria',
-        ociosidadePct: 0,
+        ociosidadePct: 35,
         ajustado: false,
       },
     ]);
     expect(dono.r40.manter.horasSemana).toBe(66);
     expect(dono.r40.manter.horarioSemana[6].aberto).toBe(false);
-    // parcial de 26h: 8000 × 26 × 5 ÷ 200 × 1,622 = 8434,4; folha atual 8000 × 1,622 = 12976 → acréscimo de 65%
-    expect(dono.r40.manter.custoAdicionalMensal).toBe(8434.4);
-    expect(dono.r40.manter.acrescimoPct).toBe(65);
+    // 1 integral de 40h: 8000 × 40 × 5 ÷ 200 × 1,622 = 12976; folha atual 8000 × 1,622 = 12976 → acréscimo de 100%
+    expect(dono.r40.manter.custoAdicionalMensal).toBe(12976);
+    expect(dono.r40.manter.acrescimoPct).toBe(100);
     expect(dono.r40.atual).toMatchObject({ horasSemana: 66, pessoas: 1, folhaMensal: 12976 });
     expect(dono.r40.vendasBase).toBeNull();
 
-    // Dias e horários do parcial: a farmacêutica é redistribuída em 5 dias de 8 h (segunda a sexta, 08h–16h); descoberto de
-    // segunda a sexta das 16h às 20h (4 h por dia) e o sábado inteiro (08h–14h, 6 h) = 26 h. O parcial cabe em até 5 dias:
-    // sábado (6 h) e quatro dias de 4 h = 22 h; 4 h não têm lugar.
+    // A farmacêutica é redistribuída em 5 dias de 8 h (segunda a sexta, 08h–16h); descoberto de segunda a sexta das 16h às 20h
+    // (4 h por dia) e o sábado inteiro (08h–14h, 6 h) = 26 h. Spec 044: sem parcial, não há distribuição de parcial.
     const regras = (await reqGe().get(url).set(admin)).body.regras;
     const r40 = regras.find((r: { id: string }) => r.id === 'r40');
-    expect(r40.funcoes[0].sugestao.distribuicao).toEqual({
-      blocos: [
-        ...[0, 1, 2, 3].map((dia) => ({ dia, de: '16:00', ate: '20:00', horas: 4 })),
-        { dia: 5, de: '08:00', ate: '14:00', horas: 6 },
-      ],
-      estimativa: false,
-      semLugarH: 4,
-    });
+    expect(r40.funcoes[0].sugestao.distribuicao).toBeUndefined();
     expect(r40.redistribuicao.remanejados).toBe(1);
     // Loja sem atendente nem caixa: o Cenário 2 não fica inviável por falta desses cargos (só o farmacêutico conta)
     const c2 = dono.r40.economia;
@@ -285,7 +277,7 @@ describe('escala (rotas)', () => {
       expect(r.cenarios.r40.manter.contratacoes[0].pessoas).toBe(1);
       expect('custoAdicionalMensal' in r.cenarios.r40.manter).toBe(false);
       expect('folhaMensal' in r.cenarios.r40.atual).toBe(false);
-      expect(JSON.stringify(r)).not.toContain('8434');
+      expect(JSON.stringify(r)).not.toContain('12976');
     }
 
     // com três farmacêuticas (120h, 15 turnos) o quadro já cobre as 66h da loja
@@ -542,9 +534,9 @@ describe('escala (rotas)', () => {
     expect(e.indisponivel).toBeNull();
     expect(e.semVendaHoraria).toBe(false);
     expect(e.diasFechar).toEqual([]);
-    // O Cenário 1 é a base (folha de 8000 × 1,622 por 26 h de parcial = 8434,4); os outros cenários valem pelo saldo
+    // O Cenário 1 é a base (folha de 8000 × 1,622 por 1 integral = 12976); os outros cenários valem pelo saldo
     // = economia de folha − venda perdida + venda adicional das horas novas.
-    expect(dono.manter.impactoMensal).toBe(8434.4);
+    expect(dono.manter.impactoMensal).toBe(12976);
     expect(dono.comparativo.cenarios.map((c: { id: string }) => c.id)).toEqual([
       'manter',
       'economia',
@@ -553,8 +545,8 @@ describe('escala (rotas)', () => {
     const por = Object.fromEntries(dono.comparativo.cenarios.map((c: { id: string }) => [c.id, c]));
     expect(por.manter).toMatchObject({
       status: 'viavel',
-      custoFolhaMensal: 21410.4,
-      folhaAdicionalMensal: 8434.4,
+      custoFolhaMensal: 25952,
+      folhaAdicionalMensal: 12976,
       economiaFolhaMensal: 0,
       saldoMensal: 0,
       saldoAnual: 0,
@@ -565,10 +557,10 @@ describe('escala (rotas)', () => {
       status: 'nao_resolve',
       diasFechar: [],
       custoFolhaMensal: 12976,
-      economiaFolhaMensal: 8434.4,
+      economiaFolhaMensal: 12976,
     });
     expect(por.economia.faturamentoPerdidoMensal).toBeCloseTo(577.78, 0);
-    expect(por.economia.saldoMensal).toBeCloseTo(8434.4 - 577.78, 0);
+    expect(por.economia.saldoMensal).toBeCloseTo(12976 - 577.78, 0);
     expect(por.economia.vendaPerdidaPorDia).toMatchObject([{ dia: 5, horasFechadas: 1, ate: 13 }]);
     // Cenário 3: o saldo fecha com a conta aberta
     const eq3 = por.equilibrio;
@@ -623,7 +615,7 @@ describe('escala (rotas)', () => {
         for (const d of c.vendaPerdidaPorDia ?? []) expect('vendaMes' in d).toBe(false);
       }
       const texto = JSON.stringify(r);
-      for (const valor of ['8434', '21410', '12976', 'R$']) expect(texto).not.toContain(valor);
+      for (const valor of ['25952', '12976', 'R$']) expect(texto).not.toContain(valor);
     }
   });
 
@@ -1029,10 +1021,10 @@ describe('escala (rotas)', () => {
     // Limite do parcial: desde a spec 013 o limite é legal (30 h) e esta premissa não muda mais a conta
     const semParcial = await r40('?limiteParcial=0');
     expect(semParcial.cenarios.r40.manter.contratacoes[0]).toMatchObject({
-      inteiras: 0,
-      parcialH: 26,
+      inteiras: 1,
+      parcialH: null,
     });
-    expect(semParcial.cenarios.r40.manter.custoAdicionalMensal).toBe(8434.4);
+    expect(semParcial.cenarios.r40.manter.custoAdicionalMensal).toBe(12976);
     expect(semParcial.regras.find((r: { id: string }) => r.id === 'r40').resumo.contratar).toBe(1);
 
     // Dias protegidos 0: nenhum dia é protegido; o Cenário 2 não fecha dia útil de qualquer jeito e segue sem resolver

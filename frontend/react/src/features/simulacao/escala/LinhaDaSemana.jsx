@@ -13,7 +13,7 @@ export default function LinhaDaSemana({ linha, colunas, editavel, onDia }) {
     <div role="row" className="grid items-center gap-x-2 border-t border-[var(--border-subtle)] py-2 pr-6" style={{ gridTemplateColumns: colunas }}>
       <div role="rowheader" className="sticky left-0 z-[1] min-w-0 bg-[var(--surface-card)] py-1 pr-2 pl-6">
         <div className={`truncate text-[13px] leading-4 font-bold ${linha.simulada ? "text-[var(--color-primary)]" : "text-[var(--text-strong)]"}`}>{linha.simulada ? "Contratação simulada" : linha.nome}</div>
-        <div className="truncate text-[11px] leading-4 text-[var(--text-secondary)]">{linha.funcao} · {linha.simulada ? `${linha.cargaH}h parcial` : `${linha.cargaH}h`}</div>
+        <div className="truncate text-[11px] leading-4 text-[var(--text-secondary)]">{linha.funcao} · {linha.cargaH}h</div>
       </div>
       {linha.celulas.map((c) => {
         const rotulo = c.estado === "turno" ? `${c.texto}${c.intervalo ? `, intervalo ${c.intervalo}` : ""}` : c.estado === "folga" ? "folga" : "loja fechada";

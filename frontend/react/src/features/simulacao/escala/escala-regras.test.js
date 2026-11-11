@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  posicaoDoIntervalo, quemEstaEmIntervalo, textoDoIntervalo, turnosParaGravar, avisosDaPessoa, novoTurnoNaFolga, semTurnoNoDia, sugerirTurnosDasVagas, turnoHabitual, turnosParaVaga, vagaSemTurnos,
+  intervaloSemCobertura, posicaoDoIntervalo, quemEstaEmIntervalo, textoDoIntervalo, turnosParaGravar, avisosDaPessoa, novoTurnoNaFolga, semTurnoNoDia, sugerirTurnosDasVagas, turnoHabitual, turnosParaVaga, vagaSemTurnos,
   cargaDaContratacao, celulasDaFuncao, contratacoesSimuladas, diasDasAbas, efeitoDaContratacao, erroDoFormulario, faixaDeAviso,
   faltasDaFuncao, horasDoDia, horasReforcadas, mediaDoDia, minimoDaFuncao, quartis, recalcularCobertura, sugerirContratacao,
   diasPorExtenso, faixaDasFaltas, opcoesDeHora, textoDaSugestao, textoDoEfeito, textoDoTurno, tomDoQuartil, totalDaSemana, turnosDoFormulario,
@@ -74,8 +74,11 @@ describe("cobertura", () => {
     const c = cob("Farmacêutico", horas(8, 12, 0));
     const r = recalcularCobertura(c, [{ entrada: 9, saida: 11, iniIntervalo: null, fimIntervalo: null }]);
     expect(r.porHora.map((x) => [x.hora, x.pessoas, x.ok])).toEqual([[8, 0, false], [9, 1, true], [10, 1, true], [11, 0, false], [12, 0, false]]);
+    // Spec 045: intervalo de até 2 h não desconta; o de 3 h desconta
     const comIntervalo = recalcularCobertura(c, [{ entrada: 8, saida: 12, iniIntervalo: 10, fimIntervalo: 11 }]);
-    expect(comIntervalo.porHora.map((x) => x.pessoas)).toEqual([1, 1, 0, 1, 0]);
+    expect(comIntervalo.porHora.map((x) => x.pessoas)).toEqual([1, 1, 1, 1, 0]);
+    const longo = recalcularCobertura(c, [{ entrada: 8, saida: 12, iniIntervalo: 9, fimIntervalo: 12 }]);
+    expect(longo.porHora.map((x) => x.pessoas)).toEqual([1, 0, 0, 0, 0]);
   });
 });
 
@@ -175,7 +178,7 @@ describe("efeito e contratações simuladas", () => {
     expect(horasReforcadas([t], 4).size).toBe(0);
     const lista = contratacoesSimuladas([{ matricula: "VAGA-1", nome: "Vaga 1", funcao: "Farmacêutico", cargaH: 16, vaga: true }, { matricula: "A", nome: "Ana", funcao: "Farmacêutico", cargaH: 44 }], [t], "Farmacêutico");
     expect(lista).toHaveLength(1);
-    expect(lista[0]).toMatchObject({ texto: "Farmacêutico · 16h parcial", matricula: "VAGA-1" });
+    expect(lista[0]).toMatchObject({ texto: "Farmacêutico · 16h", matricula: "VAGA-1" });
   });
 });
 
@@ -338,10 +341,41 @@ describe("intervalo na escala", () => {
   });
 });
 
-describe("turnosParaGravar (só quartos de hora)", () => {
-  it("leva um horário do Cadastro como 14h38 ao quarto mais perto, sem tirar a saída de depois da entrada", () => {
+describe("turnosParaGravar (minutos inteiros, spec 047)", () => {
+  it("mantém um horário do Cadastro como 14h38 e arredonda só a fração de minuto", () => {
     const [t] = turnosParaGravar([{ matricula: "A", dia: 0, entrada: 7, saida: 14 + 38 / 60, iniIntervalo: 11.1, fimIntervalo: 12.1, extra: "x" }]);
-    expect(t).toEqual({ matricula: "A", dia: 0, entrada: 7, saida: 14.75, iniIntervalo: 11, fimIntervalo: 12 });
-    expect(turnosParaGravar([{ matricula: "A", dia: 0, entrada: 9, saida: 9.05, iniIntervalo: null, fimIntervalo: null }])[0].saida).toBe(9.25);
+    expect(t).toEqual({ matricula: "A", dia: 0, entrada: 7, saida: 14 + 38 / 60, iniIntervalo: 11.1, fimIntervalo: 12.1 });
+    // 8h24 (8,4) segue exato; fração de minuto some
+    expect(turnosParaGravar([{ matricula: "A", dia: 0, entrada: 7, saida: 15.4, iniIntervalo: null, fimIntervalo: null }])[0].saida).toBe(15.4);
+    expect(turnosParaGravar([{ matricula: "A", dia: 0, entrada: 9, saida: 9.00001, iniIntervalo: null, fimIntervalo: null }])[0].saida).toBe(9 + 1 / 60);
+  });
+});
+
+describe("intervalo de até 2 horas não precisa de cobertura (spec 045)", () => {
+  const cobBase = { funcao: "Caixa", porHora: [9, 10, 11, 12, 13].map((hora) => ({ hora, pessoas: 0, ok: false, exigido: 1 })) };
+  const t = (ini, fim) => ({ matricula: "A", dia: 0, entrada: 9, saida: 14, iniIntervalo: ini, fimIntervalo: fim });
+  const pessoas = (ts) => recalcularCobertura(cobBase, ts).porHora.map((c) => c.pessoas);
+  it("1 h e 2 h de intervalo contam; 3 h desconta; sem intervalo conta", () => {
+    expect(pessoas([t(11, 12)])).toEqual([1, 1, 1, 1, 1]);
+    expect(pessoas([t(11, 13)])).toEqual([1, 1, 1, 1, 1]);
+    expect(pessoas([t(10, 13)])).toEqual([1, 0, 0, 0, 1]);
+    expect(pessoas([t(null, null)])).toEqual([1, 1, 1, 1, 1]);
+  });
+  it("intervaloSemCobertura: só até 2 horas", () => {
+    expect(intervaloSemCobertura(t(11, 12))).toBe(true);
+    expect(intervaloSemCobertura(t(11, 13))).toBe(true);
+    expect(intervaloSemCobertura(t(11, 13.25))).toBe(false);
+    expect(intervaloSemCobertura(t(null, null))).toBe(false);
+  });
+});
+
+describe("só se contrata integral (spec 044)", () => {
+  it("a sugestão do formulário é integral por padrão, com a jornada cheia da regra e até os dias da regra", () => {
+    const abas = [0, 1, 2, 3, 4, 5].map((dia) => ({ dia, abre: 8, fecha: 22 }));
+    const cob = Object.fromEntries(abas.map((a) => [a.dia, { funcao: "Farmacêutico", porHora: horasDoDia(a).map((hora) => ({ hora, pessoas: 0, ok: false, exigido: 1 })) }]));
+    const s = sugerirContratacao({ funcao: "Farmacêutico", coberturaPorDia: cob, abas, regra: { dias: 5, maxDia: 8, teto: 42 } });
+    expect(s.tipo).toBe("integral");
+    expect(s.cargaH).toBe(40);
+    expect(s.dias.length).toBeLessThanOrEqual(5);
   });
 });

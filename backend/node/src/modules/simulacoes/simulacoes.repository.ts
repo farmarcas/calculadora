@@ -75,6 +75,10 @@ const mapear = (s: Linha): SimulacaoRegistro => ({
     saida: t.saida,
     iniIntervalo: t.iniIntervalo,
     fimIntervalo: t.fimIntervalo,
+    // Spec 046: o horário de antes do esticamento, quando houve
+    ...(t.antesEntrada != null && t.antesSaida != null
+      ? { antes: { entrada: t.antesEntrada, saida: t.antesSaida } }
+      : {}),
   })),
 });
 
@@ -86,6 +90,8 @@ const turnosCreate = (ts: TurnoSim[]) =>
     saida: t.saida,
     iniIntervalo: t.iniIntervalo,
     fimIntervalo: t.fimIntervalo,
+    antesEntrada: t.antes?.entrada ?? null,
+    antesSaida: t.antes?.saida ?? null,
   }));
 
 export type SimulacoesRepository = ReturnType<typeof simulacoesRepository>;

@@ -19,7 +19,8 @@ import { coberturaDaSimulacao } from './cobertura-simulacao.js';
 import { avaliarSimulacao, type PessoaSim, type TurnoSim } from './avaliar.js';
 import {
   aplicarVagasEDesligados,
-  emQuartosDeHora,
+  emMinutosDeHora,
+  exigirVagasIntegrais,
   vagasSugeridas,
   type VagaEntrada,
 } from './vagas.js';
@@ -255,7 +256,8 @@ export const makeSimulacoesService = (
         fimIntervalo: t.fimIntervalo,
       })),
     );
-    // Os horários de cada pessoa no Cadastro: a base da semana com folgas (spec 043).
+    // Os horários de cada pessoa no Cadastro: a base da semana com folgas (spec 043); quem tem horário fixo não é esticado.
+    const fixos = await lojas.matriculasHorarioFixo(lojaId);
     const equipe: HorarioPessoa[] = ts.map((t) => ({
       matricula: t.matricula,
       funcao: t.funcao!,
@@ -265,8 +267,9 @@ export const makeSimulacoesService = (
       saida: t.saida,
       iniIntervalo: t.iniIntervalo,
       fimIntervalo: t.fimIntervalo,
+      fixo: fixos.has(t.matricula),
     }));
-    return { quadro, turnos: emQuartosDeHora(turnos), equipe };
+    return { quadro, turnos: emMinutosDeHora(turnos), equipe };
   };
 
   const validarTurnos = (s: SimulacaoRegistro, turnos: TurnoSim[]) => {
@@ -379,7 +382,7 @@ export const makeSimulacoesService = (
           );
           base = {
             ...base,
-            ...aplicarVagasEDesligados(base.quadro, emQuartosDeHora(semana.turnos), sugeridas),
+            ...aplicarVagasEDesligados(base.quadro, emMinutosDeHora(semana.turnos), sugeridas),
           };
         } else {
           // Dia aberto que o Cadastro não escala (cenário que abre um dia hoje fechado): a conta volta a ser por horas.
@@ -427,6 +430,10 @@ export const makeSimulacoesService = (
       let quadro: PessoaSim[] | undefined;
       let turnos = b.turnos;
       if (b.vagas || b.desligados) {
+        if (b.vagas?.some((v) => !v.matricula)) {
+          const l = await loja(s.lojaId);
+          exigirVagasIntegrais(b.vagas, regraPara((b.regra ?? s.regra) as RegraId, l.convencao8h24, tabela));
+        }
         const r = aplicarVagasEDesligados(s.quadro, b.turnos ?? s.turnos, b.vagas, b.desligados);
         quadro = r.quadro;
         turnos = r.turnos;
@@ -482,6 +489,7 @@ export const makeSimulacoesService = (
       if (perfil !== 'TENANT_ADMIN') return {};
       const s = await simulacao(id);
       const l = await loja(s.lojaId);
+      exigirVagasIntegrais([{ funcao: b.funcao, cargaH: b.cargaH }], regraPara(s.regra as RegraId, l.convencao8h24, tabela));
       const base = await lojas.baseAtiva(s.lojaId);
       const vendas = base?.vendas ?? [];
       const antes = resultadoDe(s, l, vendas, true).emHoras;

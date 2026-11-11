@@ -43,16 +43,15 @@ describe('farmacêutico: único cargo obrigatório', () => {
       faltaH: 4,
       cargaCheiaH: 40,
     });
-    expect(l).toMatchObject({ contratar: 1, contratarInteiras: 0, parcialH: 4, falta: true });
+    // Spec 044: só contratação integral: 4 h de falta = 1 pessoa de 40 h (36 h ociosas), sem parcial e sem aviso do CRF.
+    expect(l).toMatchObject({ contratar: 1, contratarInteiras: 1, parcialH: null, falta: true });
     expect(l.sugestao).toMatchObject({
-      tipo: 'parcial',
-      parcialH: 4,
-      horasContratadas: 4,
-      horasOciosas: 0,
-      ociosidadePct: 0,
+      tipo: 'integral',
+      parcialH: null,
+      horasContratadas: 40,
+      horasOciosas: 36,
     });
-    expect(l.sugestao!.avisos).toContain(AVISO_CRF);
-    expect(l.sugestao!.avisos.join(' ')).toContain('ainda podem faltar 1 turno(s)');
+    expect(l.sugestao!.avisos).not.toContain(AVISO_CRF);
   });
 
   it('42 h sem convenção vale 40 h; com convenção as horas passam, mas faltam turnos', () => {
@@ -68,7 +67,7 @@ describe('farmacêutico: único cargo obrigatório', () => {
     expect(com.capacidadeH).toBe(84);
     // as horas passam, mas 2 pessoas em 5 dias dão 10 turnos para 12: 2 turnos de 8,4 h = 16,8 h de gap
     expect(com).toMatchObject({ okH: true, okT: false, saldoT: -2, gapH: 16.8 });
-    expect(com.sugestao).toMatchObject({ tipo: 'parcial', parcialH: 16.8 });
+    expect(com.sugestao).toMatchObject({ tipo: 'integral', parcialH: null, inteiras: 1 });
   });
 
   it('sem nenhum farmacêutico o gap é a necessidade inteira, mesmo sem mínimo escrito', () => {
@@ -81,12 +80,12 @@ describe('farmacêutico: único cargo obrigatório', () => {
       gapH: 84,
       falta: true,
     });
-    // 84 h com jornada de 40 h: 2 integrais (80 h) não bastam; 3 integrais (120 h)? não: 2 integrais + parcial de 4 h
+    // 84 h com jornada de 40 h: 2 integrais (80 h) não bastam; 3 integrais (120 h), 36 h ociosas (sem parcial, spec 044)
     expect(l.sugestao).toMatchObject({
-      tipo: 'integral_parcial',
-      inteiras: 2,
-      parcialH: 4,
-      horasOciosas: 0,
+      tipo: 'integral',
+      inteiras: 3,
+      parcialH: null,
+      horasOciosas: 36,
     });
   });
 
@@ -117,7 +116,7 @@ describe('demais cargos: sem mínimo', () => {
     expect(passa(linhas)).toBe(true);
   });
 
-  it('meta é manter o nível de hoje: 4 atendentes de 44 h na regra de 40 h → gap de 16 h e parcial de 16 h', () => {
+  it('meta é manter o nível de hoje: 4 atendentes de 44 h na regra de 40 h → gap de 16 h e 1 integral', () => {
     const atendentes = [1, 2, 3, 4].map(() => ({ funcao: 'Atendimento', cargaH: 44 }));
     const l = de(
       verificarRegra(regraPara('r40', false), dias, { Farmacêutico: 1 }, [
@@ -135,7 +134,7 @@ describe('demais cargos: sem mínimo', () => {
       gapH: 16,
       falta: false, // nível de hoje nunca "falta"
       contratar: 1,
-      parcialH: 16,
+      parcialH: null,
     });
   });
 
@@ -217,7 +216,7 @@ describe('contratação por horas na linha do cargo', () => {
   const portoFeliz = [...dias, { dia: 6, abre: 8, fecha: 18 }];
   const custos = { salarioMedio: { Farmacêutico: 4722 }, encargosPct: 66 };
 
-  it('gap de 54 h (regra de 42 h): 1 integral de 40 h + 1 parcial de 14 h, custo e avisos', () => {
+  it('gap de 54 h (regra de 42 h): 2 integrais de 40 h (26 h ociosas), custo e avisos', () => {
     const l = de(
       verificarRegra(regraPara('r42', false), portoFeliz, { Farmacêutico: 1 }, farm(44), {
         custos,
@@ -231,23 +230,20 @@ describe('contratação por horas na linha do cargo', () => {
       saldoT: -9,
       gapH: 54,
       contratar: 2,
-      contratarInteiras: 1,
-      parcialH: 14,
+      contratarInteiras: 2,
+      parcialH: null,
     });
     expect(l.sugestao).toMatchObject({
-      tipo: 'integral_parcial',
-      inteiras: 1,
-      parcialH: 14,
-      horasContratadas: 54,
+      tipo: 'integral',
+      inteiras: 2,
+      parcialH: null,
+      horasContratadas: 80,
       horasUsadas: 54,
-      horasOciosas: 0,
-      ociosidadePct: 0,
-      custoMensal: 10078.1, // 7465,2571 + 2612,84
+      horasOciosas: 26,
+      custoMensal: 14930.51, // 2 × 7465,2571
     });
-    // o parcial de farmacêutico leva o aviso do CRF; as horas fecham, mas pela conta de turnos faltam 2 turnos
-    // (9 faltantes − 5 do integral − 2 do parcial de 14 h)
-    expect(l.sugestao!.avisos).toContain(AVISO_CRF);
-    expect(l.sugestao!.avisos.join(' ')).toContain('ainda podem faltar 2 turno(s)');
+    // Sem parcial não há aviso do CRF; as horas fecham e a conta de turnos confirma com as 2 pessoas integrais.
+    expect(l.sugestao!.avisos).not.toContain(AVISO_CRF);
   });
 
   it('a regra de 40 h dá o mesmo gap; sem custos o custo fica nulo e as horas aparecem', () => {
@@ -256,10 +252,10 @@ describe('contratação por horas na linha do cargo', () => {
       'Farmacêutico',
     );
     expect(l.gapH).toBe(54);
-    expect(l.sugestao).toMatchObject({ inteiras: 1, parcialH: 14, custoMensal: null });
+    expect(l.sugestao).toMatchObject({ inteiras: 2, parcialH: null, custoMensal: null });
   });
 
-  it('gap de 10 h de farmacêutico: parcial de 10 h; de 35 h: integral', () => {
+  it('gap de 10 h de farmacêutico: 1 integral (30 h ociosas); de 35 h: integral', () => {
     // Loja de 90 h: 1 farmacêutico de 40 h e 1 integral de 40 h → 80 h; gap 10 h
     const dez = [0, 1, 2, 3, 4, 5].map((dia) => ({ dia, abre: 8, fecha: 23 })); // 6 × 15 = 90 h
     expect(
@@ -267,7 +263,7 @@ describe('contratação por horas na linha do cargo', () => {
         verificarRegra(regraPara('r40', false), dez, { Farmacêutico: 1 }, farm(40, 40)),
         'Farmacêutico',
       ).sugestao,
-    ).toMatchObject({ tipo: 'parcial', parcialH: 10 });
+    ).toMatchObject({ tipo: 'integral', parcialH: null, inteiras: 1, horasOciosas: 30 });
     // 75 h abertas (5 × 15) com 1 farmacêutico de 40 h: gap 35 h → integral
     const setenta5 = [0, 1, 2, 3, 4].map((dia) => ({ dia, abre: 8, fecha: 23 }));
     expect(
@@ -278,7 +274,7 @@ describe('contratação por horas na linha do cargo', () => {
     ).toMatchObject({ tipo: 'integral', inteiras: 1, horasOciosas: 5 });
   });
 
-  it('loja 24 horas: 168 h por semana, 2 farmacêuticos de 40 h → gap de 88 h = 2 integrais + parcial de 8 h', () => {
+  it('loja 24 horas: 168 h por semana, 2 farmacêuticos de 40 h → gap de 88 h = 3 integrais (32 h ociosas)', () => {
     const d24 = [0, 1, 2, 3, 4, 5, 6].map((dia) => ({ dia, abre: 0, fecha: 24 }));
     const l = de(
       verificarRegra(regraPara('r40', false), d24, { Farmacêutico: 1 }, farm(40, 40)),
@@ -286,31 +282,25 @@ describe('contratação por horas na linha do cargo', () => {
     );
     expect(l).toMatchObject({ necessidadeH: 168, capacidadeH: 80, gapH: 88 });
     expect(l.sugestao).toMatchObject({
-      tipo: 'integral_parcial',
-      inteiras: 2,
-      parcialH: 8,
-      horasOciosas: 0,
+      tipo: 'integral',
+      inteiras: 3,
+      parcialH: null,
+      horasOciosas: 32,
     });
   });
 
-  it('a variante de 26 h + 6 h extras aparece como alternativa quando reduz a ociosidade', () => {
-    // gap de 32 h: 1 farmacêutico de 40 h e loja de 72 h (6 × 12)
+  it('não há mais a variante de 26 h + 6 h extras: gap de 32 h = 1 integral e nenhuma alternativa', () => {
     const doze = [0, 1, 2, 3, 4, 5].map((dia) => ({ dia, abre: 8, fecha: 20 }));
     const l = de(
       verificarRegra(regraPara('r40', false), doze, { Farmacêutico: 1 }, farm(40)),
       'Farmacêutico',
     );
     expect(l.gapH).toBe(32);
-    expect(l.sugestao).toMatchObject({ tipo: 'integral', horasOciosas: 8 });
-    expect(l.alternativa).toMatchObject({
-      variante: 'com_hora_extra',
-      parcialH: 26,
-      extrasH: 6,
-      horasOciosas: 0,
-    });
+    expect(l.sugestao).toMatchObject({ tipo: 'integral', inteiras: 1, horasOciosas: 8 });
+    expect(l.alternativa).toBeNull();
   });
 
-  it('parcial de outro cargo não leva o aviso do CRF', () => {
+  it('contratação de outro cargo não leva o aviso do CRF', () => {
     const atendentes = [1, 2, 3, 4].map(() => ({ funcao: 'Atendimento', cargaH: 44 }));
     const l = de(
       verificarRegra(regraPara('r40', false), dias, { Farmacêutico: 1 }, [

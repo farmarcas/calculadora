@@ -1,6 +1,7 @@
 import type { DiaAberto } from '../regras/capacidade.js';
 import { tetoEfetivo, type Regra } from '../regras/perfis.js';
 import { requisitos, type Minimos } from '../regras/requisitos.js';
+import { intervaloDesconta } from '../regras/intervalo.js';
 
 export type PessoaSim = {
   matricula: string;
@@ -18,6 +19,8 @@ export type TurnoSim = {
   saida: number;
   iniIntervalo: number | null;
   fimIntervalo: number | null;
+  // Spec 046: o horário do Cadastro de antes de o turno ser esticado até o limite da regra (ausente quando não foi esticado).
+  antes?: { entrada: number; saida: number };
 };
 
 export type Achado = {
@@ -59,11 +62,11 @@ const faixas = (horas: number[]) => {
 const presente = (t: TurnoSim, h: number) =>
   t.entrada <= h + EPS &&
   t.saida >= h + 1 - EPS &&
+  // Spec 045: intervalo de até 2 horas não tira a pessoa da cobertura.
   !(
-    t.iniIntervalo != null &&
-    t.fimIntervalo != null &&
-    t.iniIntervalo < h + 1 - EPS &&
-    t.fimIntervalo > h + EPS
+    intervaloDesconta(t.iniIntervalo, t.fimIntervalo) &&
+    t.iniIntervalo! < h + 1 - EPS &&
+    t.fimIntervalo! > h + EPS
   );
 
 // Quem conta na simulação: tira os desligados simulados e os turnos deles.

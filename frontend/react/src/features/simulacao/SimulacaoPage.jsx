@@ -4,6 +4,7 @@ import { Aviso, Botao } from "../../components/ui/index.jsx";
 import BarraParametros from "./BarraParametros.jsx";
 import PainelResultado from "./PainelResultado.jsx";
 import PassoHorario from "./PassoHorario.jsx";
+import EscalaDaSemana from "./escala/EscalaDaSemana.jsx";
 import EscalaPorHora from "./escala/EscalaPorHora.jsx";
 import useSimulacao from "./useSimulacao.js";
 
@@ -11,6 +12,7 @@ import useSimulacao from "./useSimulacao.js";
 export default function SimulacaoPage({ id, perfil, podeEscrever, aviso, onVoltar, onMudou, onAbrir }) {
   const { sim, erro, setErro, calculando, salvar } = useSimulacao(id);
   const [salvando, setSalvando] = useState(false);
+  const [irParaDia, setIrParaDia] = useState(null); // pedido da Escala da semana: abrir a Escala por hora neste dia
   const dono = perfil === "TENANT_ADMIN";
 
   if (erro && !sim) return <Aviso>{erro}</Aviso>;
@@ -45,6 +47,12 @@ export default function SimulacaoPage({ id, perfil, podeEscrever, aviso, onVolta
     }
   };
 
+  // Clicar num dia da Escala da semana: a Escala por hora mostra o dia e a tela rola até ela.
+  const abrirDia = (dia) => {
+    setIrParaDia((a) => ({ dia, n: (a?.n ?? 0) + 1 }));
+    document.getElementById("escala-por-hora")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   return (
     <div className="sim-conteiner flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -68,7 +76,9 @@ export default function SimulacaoPage({ id, perfil, podeEscrever, aviso, onVolta
         <PainelResultado sim={sim} calculando={calculando} dono={dono} podeEscrever={podeEscrever} salvando={salvando} onSalvar={salvarComoCenario} onClonar={clonar} />
       </div>
 
-      <EscalaPorHora sim={sim} editavel={editavel} dono={dono} calculando={calculando} erro={erro} onLimparErro={() => setErro(null)} onSalvar={salvar} />
+      <EscalaPorHora sim={sim} editavel={editavel} dono={dono} calculando={calculando} erro={erro} onLimparErro={() => setErro(null)} onSalvar={salvar} irParaDia={irParaDia} />
+
+      <EscalaDaSemana sim={sim} editavel={editavel} onDia={abrirDia} onCadastrar={() => window.location.assign("/?tela=cadastros")} />
     </div>
   );
 }

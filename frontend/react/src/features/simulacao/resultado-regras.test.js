@@ -96,7 +96,9 @@ describe("listaOQueMuda (spec 052)", () => {
 describe("contratar com as horas do parcial", () => {
   it("inteiras, parcial com horas e nenhuma", () => {
     expect(textoContratarSimulacao([{ funcao: "Farmacêutico", inteiras: 0, parciaisHoras: [20] }])).toEqual(["1 farmacêutico · parcial de 20h"]);
-    expect(textoContratarSimulacao([{ funcao: "Atendimento", inteiras: 1, parciaisHoras: [18.5] }, { funcao: "Caixa", inteiras: 2, parciaisHoras: [] }])).toEqual(["1 atendente", "1 atendente · parcial de 18,5h", "2 caixas"]);
+    expect(textoContratarSimulacao([{ funcao: "Atendimento", inteiras: 1, parciaisHoras: [18.5] }, { funcao: "Caixa", inteiras: 2, parciaisHoras: [] }])).toEqual(["1 atendente · desejável", "1 atendente · parcial de 18,5h · desejável", "2 caixas · desejável"]);
+    // só o farmacêutico é obrigatório: ele não leva a marca
+    expect(textoContratarSimulacao([{ funcao: "Farmacêutico", inteiras: 1, parciaisHoras: [] }, { funcao: "Atendimento", inteiras: 1, parciaisHoras: [] }])).toEqual(["1 farmacêutico", "1 atendente · desejável"]);
     expect(textoContratarSimulacao([])).toEqual(["Nenhuma contratação"]);
   });
   it("conta as vagas", () => {

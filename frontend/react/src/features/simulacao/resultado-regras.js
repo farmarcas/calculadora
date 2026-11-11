@@ -1,5 +1,5 @@
 // Regras de exibição do card "Resultado da simulação" (spec 038), puras e sem React. A tela só desenha o que sai daqui.
-import { MENOS, horasTxt, nomeDaFuncao, textoDaFolha } from "../diagnostico/cartao/linha-regras.js";
+import { MENOS, ROTULO_DESEJAVEL, ehDesejavel, horasTxt, nomeDaFuncao, textoDaFolha } from "../diagnostico/cartao/linha-regras.js";
 
 // Adapta o horário da simulação (`horario.dias` e `horario.cadastro`, com `aberta`) ao formato da faixa dos 7 dias
 // (`faixaDosDias`, com `aberto`): `novos` é o horário simulado e `antes` o do Cadastro.
@@ -70,9 +70,10 @@ export const listaOQueMuda = (r, dono) => {
 
 // "1 atendente", "2 caixas", "1 farmacêutico · parcial de 20h". Sem contratação: "Nenhuma contratação".
 export const textoContratarSimulacao = (contratar = []) => {
+  const marca = (f) => (ehDesejavel(f) ? ` · ${ROTULO_DESEJAVEL}` : "");
   const linhas = contratar.flatMap((c) => [
-    ...(c.inteiras > 0 ? [`${c.inteiras} ${nomeDaFuncao(c.funcao)}${c.inteiras > 1 ? "s" : ""}`] : []),
-    ...(c.parciaisHoras ?? []).map((h) => `1 ${nomeDaFuncao(c.funcao)} · parcial de ${horasTxt(h)}`),
+    ...(c.inteiras > 0 ? [`${c.inteiras} ${nomeDaFuncao(c.funcao)}${c.inteiras > 1 ? "s" : ""}${marca(c.funcao)}`] : []),
+    ...(c.parciaisHoras ?? []).map((h) => `1 ${nomeDaFuncao(c.funcao)} · parcial de ${horasTxt(h)}${marca(c.funcao)}`),
   ]);
   return linhas.length ? linhas : ["Nenhuma contratação"];
 };

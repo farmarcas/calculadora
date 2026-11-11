@@ -199,6 +199,7 @@ describe('escala (rotas)', () => {
     ]) {
       const r = (await reqGe().get(url).set(h)).body;
       expect(r.folhaMensal).toBeUndefined();
+      expect(r.faturamentoMensal).toBeUndefined();
       expect(JSON.stringify(r)).not.toContain('12976');
     }
     expect(dono.numeros).toMatchObject({ colaboradoresNoCalculo: 1 });

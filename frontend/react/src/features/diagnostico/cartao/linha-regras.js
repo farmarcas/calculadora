@@ -112,10 +112,15 @@ export const NOME_DA_FUNCAO = { Farmacêutico: "farmacêutico", Atendimento: "at
 export const nomeDaFuncao = (f) => NOME_DA_FUNCAO[f] ?? String(f).toLowerCase();
 
 // Uma linha por contratação: "1 atendente", "2 caixas", "1 farmacêutico · parcial". Sem contratação: "Nenhuma contratação".
+// Só o farmacêutico é obrigatório (cobre o horário da loja); as demais contratações são desejáveis: mantêm o nível de atendimento de hoje.
+export const ehDesejavel = (funcao) => funcao !== "Farmacêutico";
+export const ROTULO_DESEJAVEL = "desejável";
+const marca = (funcao) => (ehDesejavel(funcao) ? ` · ${ROTULO_DESEJAVEL}` : "");
+
 export const textoContratar = (contratar = []) => {
   const linhas = contratar.flatMap((c) => [
-    ...(c.inteiras > 0 ? [`${c.inteiras} ${nomeDaFuncao(c.funcao)}${c.inteiras > 1 ? "s" : ""}`] : []),
-    ...(c.parcialHoras > 0 ? [`1 ${nomeDaFuncao(c.funcao)} · parcial`] : []),
+    ...(c.inteiras > 0 ? [`${c.inteiras} ${nomeDaFuncao(c.funcao)}${c.inteiras > 1 ? "s" : ""}${marca(c.funcao)}`] : []),
+    ...(c.parcialHoras > 0 ? [`1 ${nomeDaFuncao(c.funcao)} · parcial${marca(c.funcao)}`] : []),
   ]);
   return linhas.length ? linhas : ["Nenhuma contratação"];
 };

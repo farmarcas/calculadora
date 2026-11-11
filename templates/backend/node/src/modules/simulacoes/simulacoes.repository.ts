@@ -46,6 +46,9 @@ export type SimulacaoRegistro = {
   // Horário simulado do rascunho; nulo = igual ao Cadastro.
   horarios: unknown;
   numeroCenario: number | null;
+  // Spec 056: a observação da pessoa e o parecer guardado ao salvar (nulos nos cenários salvos antes).
+  observacao: string | null;
+  parecer: unknown;
   criadaEm: Date;
   gravadaEm: Date | null;
   turnos: TurnoSim[];
@@ -66,6 +69,8 @@ const mapear = (s: Linha): SimulacaoRegistro => ({
   resultado: s.resultado,
   horarios: s.horarios,
   numeroCenario: s.numeroCenario,
+  observacao: s.observacao,
+  parecer: s.parecer,
   criadaEm: s.criadaEm,
   gravadaEm: s.gravadaEm,
   turnos: s.turnos.map((t) => ({
@@ -198,6 +203,7 @@ export const simulacoesRepository = (geId: string) => ({
     premissas: Premissas,
     resultado: unknown,
     cenario?: { numero: number; nome: string },
+    parecer?: { observacao: string | null; parecer: unknown },
   ) {
     await prisma.simulacao.update({
       where: { id },
@@ -207,8 +213,28 @@ export const simulacoesRepository = (geId: string) => ({
         premissas: premissas as unknown as Prisma.InputJsonValue,
         resultado: resultado as Prisma.InputJsonValue,
         gravadaEm: new Date(),
+        ...(parecer
+          ? {
+              observacao: parecer.observacao,
+              parecer: parecer.parecer as unknown as Prisma.InputJsonValue,
+            }
+          : {}),
       },
     });
+  },
+
+  // Spec 056: já existe outro cenário (não descartado) da loja com este nome? Sem diferenciar maiúsculas e minúsculas.
+  async nomeJaUsado(lojaId: string, nome: string, ignorarId: string) {
+    const n = await prisma.simulacao.count({
+      where: {
+        lojaId,
+        loja: { geId },
+        id: { not: ignorarId },
+        status: { not: 'DESCARTADA' },
+        nome: { equals: nome, mode: 'insensitive' },
+      },
+    });
+    return n > 0;
   },
 
   async mudarStatus(id: string, status: SimulacaoStatus) {

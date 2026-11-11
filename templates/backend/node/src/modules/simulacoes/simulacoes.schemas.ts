@@ -67,8 +67,26 @@ export const listarReq = req(
 );
 export const porIdReq = req(vazio.default({}), id);
 // "Salvar como cenário N": grava e dá o nome "Cenário N"; sem isso, grava com o nome que já tem.
+// Spec 056: com `nome` o cenário leva o nome que a pessoa deu (1 a 60 caracteres, único na loja) e, opcionalmente, uma observação
+// (até 1000) que entra no parecer.
 export const gravarReq = req(
-  z.object({ comoCenario: z.boolean().optional() }).strict().default({}),
+  z
+    .object({
+      comoCenario: z.boolean().optional(),
+      nome: z
+        .string()
+        .trim()
+        .min(1, 'Dê um nome ao cenário')
+        .max(60, 'O nome pode ter até 60 caracteres')
+        .optional(),
+      observacao: z
+        .string()
+        .trim()
+        .max(1000, 'A observação pode ter até 1000 caracteres')
+        .optional(),
+    })
+    .strict()
+    .default({}),
   id,
 );
 export const criarReq = req(

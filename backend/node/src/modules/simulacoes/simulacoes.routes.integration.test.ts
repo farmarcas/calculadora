@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { inflateSync } from 'node:zlib';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import ExcelJS from 'exceljs';
 import { GE_INICIAL_ID } from '../../shared/ge.js';
@@ -1548,6 +1549,205 @@ describe('simulações (rotas)', () => {
       const depois = (await reqGe().get(`/api/v1/simulacoes/${id}`).set(admin)).body.resultado;
       expect(depois.regua).toEqual({ tipo: 'margem' });
       expect(depois.vendaQueSai).toBeLessThan(antes.vendaQueSai);
+    });
+  });
+  describe('nome e parecer do cenário salvo (spec 056)', () => {
+    const gestor = { 'X-Perfil': 'SCHEDULE_MANAGER', 'X-GE': GE_INICIAL_ID };
+    const consulta = { 'X-Perfil': 'SCHEDULE_VIEWER', 'X-GE': GE_INICIAL_ID };
+    const salarios = () =>
+      reqGe()
+        .put(`/api/v1/lojas/${lojaId}/custos`)
+        .set(admin)
+        .send({ salarioMedio: { Farmacêutico: 8000, Atendimento: 2000 } });
+    const gravar = (id: string, corpo: object, h: Record<string, string> = admin) =>
+      reqGe().post(`/api/v1/simulacoes/${id}/gravar`).set(h).send(corpo);
+    const parecer = (id: string, h: Record<string, string> = admin) =>
+      reqGe().get(`/api/v1/simulacoes/${id}/parecer`).set(h);
+    // Um rascunho com uma contratação (muda a folha) e salvo com nome e observação.
+    const salvo = async (nome = 'Plano reforço', observacao = 'Aprovado pelo regional.') => {
+      await salarios();
+      const sim = (await criar()).body;
+      await reqGe()
+        .put(`/api/v1/simulacoes/${sim.id}`)
+        .set(admin)
+        .send({ vagas: [{ funcao: 'Atendimento', cargaH: 40 }] });
+      const g = await gravar(sim.id, { comoCenario: true, nome, observacao });
+      expect(g.status).toBe(200);
+      return { id: sim.id as string, g };
+    };
+
+    it('salva com o nome e a observação que a pessoa deu; o parecer do dono tem o layout novo (spec 057) e os valores', async () => {
+      const { id, g } = await salvo();
+      expect(g.body).toMatchObject({
+        nome: 'Plano reforço',
+        observacao: 'Aprovado pelo regional.',
+        status: 'gravada',
+      });
+      const p = await parecer(id);
+      expect(p.status).toBe(200);
+      expect(p.body).toMatchObject({
+        nome: 'Plano reforço',
+        loja: 'Centro',
+        regra: 'Regra de 40h',
+        observacao: 'Aprovado pelo regional.',
+        salvoPor: 'TENANT_ADMIN',
+        semValoresEmReais: false,
+        montadoAgora: false,
+      });
+      expect(typeof p.body.numeroCenario).toBe('number');
+      expect(p.body.status).toEqual({ texto: expect.any(String), tom: expect.any(String) });
+      expect(p.body.paragrafo).toContain('Contratando 1 atendente (desejável), 40h por semana');
+      expect(Object.keys(p.body.cartoes)).toEqual(['folha', 'equipe', 'farmaceutico']);
+      expect(p.body.cartoes.folha.titulo).toBe('Folha no faturamento');
+      expect(p.body.tabela.map((l: { rotulo: string }) => l.rotulo)).toContain('Folha por mês');
+      expect(JSON.stringify(p.body)).toContain('R$');
+      expect(JSON.stringify(p.body)).not.toMatch(/jornada cheia/);
+    });
+
+    it('gestor e consulta leem a mesma estrutura sem valores em reais nem percentual de custo', async () => {
+      const { id } = await salvo();
+      for (const h of [gestor, consulta]) {
+        const p = await parecer(id, h);
+        expect(p.status).toBe(200);
+        const json = JSON.stringify(p.body);
+        expect(json).not.toMatch(/R\$|%|custoDoDono|folhaHoje|folhaDepois/);
+        expect(p.body.semValoresEmReais).toBe(true);
+        expect(p.body.cartoes.folha).toMatchObject({
+          titulo: 'Custo de pessoal',
+          valor: '—',
+          chip: { texto: 'Aumenta' },
+          apoio: 'sem valores em reais',
+        });
+        expect(p.body.tabela.map((l: { rotulo: string }) => l.rotulo)).not.toContain(
+          'Folha por mês',
+        );
+        expect(p.body.observacao).toBe('Aprovado pelo regional.');
+      }
+    });
+
+    it('nome vazio, nome com mais de 60 e observação com mais de 1000 são recusados', async () => {
+      const sim = (await criar()).body;
+      expect((await gravar(sim.id, { comoCenario: true, nome: '   ' })).status).toBe(400);
+      expect((await gravar(sim.id, { comoCenario: true, nome: 'x'.repeat(61) })).status).toBe(400);
+      expect(
+        (await gravar(sim.id, { comoCenario: true, nome: 'Ok', observacao: 'y'.repeat(1001) }))
+          .status,
+      ).toBe(400);
+      // nada foi gravado
+      expect((await reqGe().get(`/api/v1/simulacoes/${sim.id}`).set(admin)).body.status).toBe(
+        'rascunho',
+      );
+    });
+
+    it('nome repetido na loja (sem diferenciar maiúsculas) é recusado e o rascunho segue rascunho', async () => {
+      await salvo('Plano A');
+      const outra = (await criar({ nome: 'Outra', regra: 'r40' })).body;
+      const r = await gravar(outra.id, { comoCenario: true, nome: 'plano a' });
+      expect(r.status).toBe(409);
+      expect(r.body.error.code).toBe('NOME_REPETIDO');
+      expect((await reqGe().get(`/api/v1/simulacoes/${outra.id}`).set(admin)).body.status).toBe(
+        'rascunho',
+      );
+      // um nome diferente passa
+      expect((await gravar(outra.id, { comoCenario: true, nome: 'Plano B' })).status).toBe(200);
+    });
+
+    it('salvar sem observação funciona e salvar duas vezes não cria dois cenários', async () => {
+      const sim = (await criar()).body;
+      const a = await gravar(sim.id, { comoCenario: true, nome: 'Sem observação' });
+      expect(a.status).toBe(200);
+      expect(a.body.observacao).toBeNull();
+      expect((await gravar(sim.id, { comoCenario: true, nome: 'Sem observação' })).status).toBe(
+        409,
+      );
+    });
+
+    it('o parecer fica como estava quando o Cadastro muda depois (retrato do momento de salvar)', async () => {
+      const { id } = await salvo();
+      const antes = (await parecer(id)).body;
+      await reqGe()
+        .put(`/api/v1/lojas/${lojaId}/custos`)
+        .set(admin)
+        .send({ salarioMedio: { Farmacêutico: 30000, Atendimento: 9000 } });
+      const depois = (await parecer(id)).body;
+      expect(depois.paragrafo).toEqual(antes.paragrafo);
+      expect(depois.cartoes).toEqual(antes.cartoes);
+      expect(depois.tabela).toEqual(antes.tabela);
+    });
+
+    it('cenário salvo antes do parecer, ou com o parecer da versão 1, abre no layout novo, montado agora e sem observação', async () => {
+      const { id } = await salvo();
+      await prisma.$executeRawUnsafe(
+        'update simulacoes set parecer = null, observacao = null where id = $1::uuid',
+        id,
+      );
+      const p = await parecer(id);
+      expect(p.status).toBe(200);
+      expect(p.body.montadoAgora).toBe(true);
+      expect(p.body.observacao).toBeNull();
+      expect(p.body.paragrafo.length).toBeGreaterThan(0);
+      expect(JSON.stringify((await parecer(id, gestor)).body)).not.toMatch(/R\$|%/);
+      // o parecer da versão 1 (spec 056) também é remontado
+      await prisma.$executeRawUnsafe(
+        `update simulacoes set parecer = '{"versao":1,"montadoEm":"2026-11-11T00:00:00Z","salvoPor":"TENANT_ADMIN","dono":{},"publico":{}}'::jsonb where id = $1::uuid`,
+        id,
+      );
+      const v1 = await parecer(id);
+      expect(v1.status).toBe(200);
+      expect(v1.body.montadoAgora).toBe(true);
+      expect(v1.body.salvoPor).toBe('TENANT_ADMIN');
+      expect(v1.body.cartoes.equipe.titulo).toBe('Equipe');
+    });
+
+    it('rascunho não tem parecer', async () => {
+      const sim = (await criar()).body;
+      expect((await parecer(sim.id)).status).toBe(409);
+    });
+
+    it('o PDF baixa para os três perfis, com o nome da loja e do cenário no arquivo; o do gestor não tem valores em reais', async () => {
+      const { id } = await salvo('Plano reforço');
+      const numero = (await parecer(id)).body.numeroCenario;
+      const textoDoPdf = (pdf: Buffer) =>
+        [...pdf.toString('latin1').matchAll(/stream\r?\n([\s\S]*?)\r?\nendstream/g)]
+          .flatMap((m) => {
+            try {
+              return [inflateSync(Buffer.from(m[1]!, 'latin1')).toString('latin1')];
+            } catch {
+              return [];
+            }
+          })
+          .flatMap((c) =>
+            [...c.matchAll(/\[(.*?)\]\s*TJ/gs)].map((t) =>
+              [...t[1]!.matchAll(/<([0-9a-fA-F]*)>/g)]
+                .map((h) => Buffer.from(h[1]!, 'hex').toString('latin1'))
+                .join(''),
+            ),
+          )
+          .join('\n');
+      for (const h of [admin, gestor, consulta]) {
+        const r = await reqGe()
+          .get(`/api/v1/simulacoes/${id}/parecer.pdf`)
+          .set(h)
+          .buffer(true)
+          .parse((res, cb) => {
+            const partes: Buffer[] = [];
+            res.on('data', (b: Buffer) => partes.push(b));
+            res.on('end', () => cb(null, Buffer.concat(partes)));
+          });
+        expect(r.status).toBe(200);
+        expect(r.headers['content-type']).toContain('application/pdf');
+        expect(r.headers['content-disposition']).toContain(`parecer-centro-cenario-${numero}.pdf`);
+        const pdf = r.body as Buffer;
+        expect(pdf.subarray(0, 5).toString()).toBe('%PDF-');
+        const texto = textoDoPdf(pdf);
+        expect(texto).toContain('Parecer do cenário · Centro');
+        expect(texto).toContain('Página 1 de 1');
+        if (h === admin) expect(texto).toMatch(/R\$ \d/);
+        else {
+          expect(texto).not.toMatch(/R\$ \d|%/);
+          expect(texto).toContain('Valores em reais aparecem só para o dono do grupo.');
+        }
+      }
     });
   });
 });

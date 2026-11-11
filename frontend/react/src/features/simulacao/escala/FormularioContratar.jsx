@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../../../api/client.js";
 import { Botao, entrada } from "../../../components/ui/index.jsx";
-import { textoDaVariacao } from "../../diagnostico/cartao/linha-regras.js";
+import { ehDesejavel, textoDaVariacao } from "../../diagnostico/cartao/linha-regras.js";
 import { COR_DO_TOM } from "../../diagnostico/cartao/tom.js";
 import {
-  NOMES_DIA, cargaDaContratacao, efeitoDaContratacao, erroDoFormulario, opcoesDeHora, sugerirContratacao, textoDaSugestao, textoDoEfeito,
+  cargaDaContratacao, diasPorExtenso, efeitoDaContratacao, erroDoFormulario, jornadaBrutaDoDia, opcoesDeEntrada, opcoesDeHora, opcoesDeSaida, sugerirContratacao, textoDaSugestao, textoDoEfeito,
   turnosDoFormulario,
 } from "./escala-regras.js";
 
@@ -19,13 +19,17 @@ export default function FormularioContratar({ simId, funcao, abas, coberturaPorD
   const { dias, entra, sai } = valor;
   const tipo = "integral";
   const jornadaCheia = Math.min(44, Math.floor(Math.min(regra.teto, regra.dias * regra.maxDia)));
-  const setEntra = (v) => onMudar({ entra: v });
+  // Ao mudar a entrada, a saída acompanha quando a jornada estava cheia (a mesma duração), para continuar cheia.
+  const bruta = jornadaBrutaDoDia(regra);
+  const setEntra = (v) => onMudar({ entra: v, ...(Math.abs(sai - entra - bruta) < 1 / 60 ? { sai: Math.min(v + bruta, maxFecha) } : {}) });
   const setSai = (v) => onMudar({ sai: v });
   const [custo, setCusto] = useState(null);
 
   const minAbre = Math.min(...abas.map((a) => a.abre));
   const maxFecha = Math.max(...abas.map((a) => a.fecha));
   const opcoes = useMemo(() => opcoesDeHora(minAbre, maxFecha), [minAbre, maxFecha]);
+  const opcoesEntra = useMemo(() => opcoesDeEntrada(opcoes, entra), [opcoes, entra]);
+  const opcoesSai = useMemo(() => opcoesDeSaida(opcoes, { entra, sai, regra, maxFecha }), [opcoes, entra, sai, regra, maxFecha]);
   const sugestaoDoTipo = useMemo(() => sugerir(), [coberturaPorDia]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const aplicarSugestao = () => {
@@ -55,7 +59,6 @@ export default function FormularioContratar({ simId, funcao, abas, coberturaPorD
     };
   }, [dono, erro, cargaH, funcao, simId]);
 
-  const alternarDia = (d) => onMudar({ dias: dias.includes(d) ? dias.filter((y) => y !== d) : [...dias, d].sort((a, b) => a - b) });
   const custoTxt = custo ? textoDaVariacao(custo.custoPct, custo.custoEstado, "custo") : null;
 
   const adicionar = (e) => {
@@ -69,7 +72,7 @@ export default function FormularioContratar({ simId, funcao, abas, coberturaPorD
       <div className="flex items-start justify-between gap-3">
         <div>
           <h3 className="m-0 text-sm leading-5 font-bold text-[var(--text-strong)]">Contratar {funcao}</h3>
-          <p className="m-0 text-xs leading-4 text-[var(--text-secondary)]">A contratação entra só na simulação. O Cadastro não muda.</p>
+          <p className="m-0 text-xs leading-4 text-[var(--text-secondary)]">A contratação entra só na simulação. O Cadastro não muda.{ehDesejavel(funcao) ? " Contratação desejável: mantém o nível de atendimento de hoje; o que a lei exige é o farmacêutico." : ""}</p>
         </div>
         <button type="button" onClick={onCancelar} className="cursor-pointer border-0 bg-transparent p-0 text-xs text-[var(--text-secondary)] hover:underline">Fechar ✕</button>
       </div>
@@ -79,27 +82,23 @@ export default function FormularioContratar({ simId, funcao, abas, coberturaPorD
           Contratação
           <div className={`${entrada} flex min-w-[200px] items-center text-sm font-bold text-[var(--text-strong)]`} data-testid="contratacao-integral">Integral · {jornadaCheia}h por semana</div>
         </div>
-        <fieldset className="m-0 flex flex-col gap-1 border-0 p-0">
-          <legend className="p-0 text-[11px] leading-4 text-[var(--text-secondary)]">Dias</legend>
-          <div className="flex gap-1">
-            {abas.map((a) => (
-              <button key={a.dia} type="button" aria-pressed={dias.includes(a.dia)} onClick={() => alternarDia(a.dia)} className={`h-9 min-w-[40px] cursor-pointer rounded-btn border px-2 text-xs ${dias.includes(a.dia) ? "border-[var(--system-500)] bg-[var(--color-primary-soft)] font-bold text-[var(--color-primary)]" : "border-[var(--border-default)] bg-transparent text-[var(--text-strong)]"}`}>{NOMES_DIA[a.dia]}</button>
-            ))}
-          </div>
-        </fieldset>
         <label className="flex flex-col gap-1 text-[11px] leading-4 text-[var(--text-secondary)]">
           Entra
           <select value={entra} onChange={(e) => setEntra(Number(e.target.value))} className={`${entrada} w-[96px] text-sm text-[var(--text-strong)]`}>
-            {opcoes.map((o) => <option key={o.valor} value={o.valor}>{o.texto}</option>)}
+            {opcoesEntra.map((o) => <option key={o.valor} value={o.valor}>{o.texto}</option>)}
           </select>
         </label>
         <label className="flex flex-col gap-1 text-[11px] leading-4 text-[var(--text-secondary)]">
           Sai
-          <select value={sai} onChange={(e) => setSai(Number(e.target.value))} className={`${entrada} w-[96px] text-sm text-[var(--text-strong)]`}>
-            {opcoes.map((o) => <option key={o.valor} value={o.valor}>{o.texto}</option>)}
+          <select value={sai} onChange={(e) => setSai(Number(e.target.value))} className={`${entrada} w-[176px] text-sm text-[var(--text-strong)]`} data-testid="campo-sai">
+            {opcoesSai.map((o) => <option key={o.valor} value={o.valor}>{o.texto}</option>)}
           </select>
         </label>
       </div>
+
+      <p className="m-0 mt-3 text-xs leading-5 text-[var(--text-secondary)]" data-testid="dias-da-contratacao">
+        Contratação integral: a pessoa fica à disposição da loja a semana toda e trabalha {dias.length} {dias.length === 1 ? "dia" : "dias"} ({diasPorExtenso(dias)}), nos dias de maior necessidade. As folgas giram e entram depois, na escala.
+      </p>
 
       {sugestaoDoTipo && (
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-btn bg-[var(--func-success-100)] px-3 py-2 text-xs leading-4 font-bold text-[var(--text-success-strong)]">

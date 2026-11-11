@@ -63,7 +63,8 @@ describe("total de horas e faixa dos 7 dias", () => {
 describe("contratar", () => {
   it("inteiras, parcial e nenhuma", () => {
     expect(textoContratar([{ funcao: "Farmacêutico", inteiras: 0, parcialHoras: 20 }])).toEqual(["1 farmacêutico · parcial"]);
-    expect(textoContratar([{ funcao: "Atendimento", inteiras: 1, parcialHoras: 18 }, { funcao: "Caixa", inteiras: 2, parcialHoras: 0 }])).toEqual(["1 atendente", "1 atendente · parcial", "2 caixas"]);
+    expect(textoContratar([{ funcao: "Atendimento", inteiras: 1, parcialHoras: 18 }, { funcao: "Caixa", inteiras: 2, parcialHoras: 0 }])).toEqual(["1 atendente · desejável", "1 atendente · parcial · desejável", "2 caixas · desejável"]);
+    expect(textoContratar([{ funcao: "Farmacêutico", inteiras: 1, parcialHoras: 0 }, { funcao: "Atendimento", inteiras: 1, parcialHoras: 0 }])).toEqual(["1 farmacêutico", "1 atendente · desejável"]);
     expect(textoContratar([])).toEqual(["Nenhuma contratação"]);
   });
 });

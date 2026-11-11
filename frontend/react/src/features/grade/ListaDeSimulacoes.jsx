@@ -4,6 +4,25 @@ import { dataBR } from "../../components/importacao/formato.js";
 import { DICA_DESATUALIZADA, SITUACOES, VAZIO, horasPorSemana, reais, reaisComSinal, tipoTexto } from "./formato.js";
 import { fraseDaRegua } from "../regua.js";
 import { podeMarcar } from "./selecao.js";
+import { temParecer } from "./parecer-regras.js";
+import { podeExcluir, rotuloDoBotaoExcluir } from "./exclusao-regras.js";
+
+// Lixeira (Lucide "trash-2"): a ação de excluir no fim da linha. Decorativa: o nome acessível está no botão.
+const IconeLixeira = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+    <path d="M3 6h18" />
+    <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+    <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+    <path d="M10 11v6" />
+    <path d="M14 11v6" />
+  </svg>
+);
+
+const BotaoExcluir = ({ s, onExcluir, className = "" }) => (
+  <button type="button" onClick={(e) => onExcluir(s, e.currentTarget)} aria-label={rotuloDoBotaoExcluir(s.nome)} title="Excluir" data-testid="excluir-simulacao" className={`inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-btn border-0 bg-transparent text-[var(--text-secondary)] hover:bg-[var(--surface-subtle)] hover:text-[var(--text-danger)] focus-visible:outline-2 focus-visible:outline-[var(--border-focus)] md:h-9 md:w-9 ${className}`}>
+    <IconeLixeira />
+  </button>
+);
 
 const CABECALHO = "bg-[var(--surface-subtle)] px-4 py-3 text-[11px] font-bold uppercase tracking-wide text-[var(--text-secondary)]";
 
@@ -25,7 +44,7 @@ function Saldo({ valor }) {
 }
 
 // Tabela "Simulações da loja": uma linha por simulação, com o resultado de cada uma. Os valores em reais só vêm da API para o dono.
-export default function ListaDeSimulacoes({ lista, marcadas, onAlternar, onAbrir, podeEscrever, onNova, descartadas, onDescartadas }) {
+export default function ListaDeSimulacoes({ lista, marcadas, onAlternar, onAbrir, onParecer, onExcluir, podeEscrever, onNova, descartadas, onDescartadas }) {
   const comReais = lista.some((s) => "saldoMensal" in s);
   return (
     <section aria-labelledby="titulo-lista" className="overflow-hidden rounded-[8px] border border-[var(--border-subtle)] bg-[var(--surface-card)]">
@@ -86,7 +105,11 @@ export default function ListaDeSimulacoes({ lista, marcadas, onAlternar, onAbrir
                   )}
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-xs text-[var(--text-secondary)]">{dataBR(String(s.criadaEm).slice(0, 10))} · por {s.criadaPor}</span>
-                    <button type="button" onClick={() => onAbrir(s.id)} aria-label={`Abrir ${s.nome}`} className="min-h-11 cursor-pointer rounded-[4px] border-0 bg-transparent px-3 text-sm font-bold text-[var(--text-link)] hover:underline">Abrir</button>
+                    <span className="flex items-center">
+                      {onParecer && temParecer(s) && <button type="button" onClick={(e) => onParecer(s.id, e.currentTarget)} aria-label={`Ver parecer de ${s.nome}`} className="min-h-11 cursor-pointer rounded-[4px] border-0 bg-transparent px-3 text-sm font-bold text-[var(--text-link)] hover:underline">Ver parecer</button>}
+                      <button type="button" onClick={() => onAbrir(s.id)} aria-label={`Abrir ${s.nome}`} className="min-h-11 cursor-pointer rounded-[4px] border-0 bg-transparent px-3 text-sm font-bold text-[var(--text-link)] hover:underline">Abrir</button>
+                      {onExcluir && podeExcluir(s, podeEscrever) && <BotaoExcluir s={s} onExcluir={onExcluir} />}
+                    </span>
                   </div>
                 </div>
               </li>
@@ -105,6 +128,7 @@ export default function ListaDeSimulacoes({ lista, marcadas, onAlternar, onAbrir
                 {comReais && <th scope="col" className={`${CABECALHO} text-right`}>Folha extra</th>}
                 <th scope="col" className={`${CABECALHO} text-left`}>Criada</th>
                 <th scope="col" className={CABECALHO}><span className="sr-only">Abrir</span></th>
+                <th scope="col" className={`${CABECALHO} w-14 pr-4`}><span className="sr-only">Excluir</span></th>
               </tr>
             </thead>
             <tbody>
@@ -133,7 +157,11 @@ export default function ListaDeSimulacoes({ lista, marcadas, onAlternar, onAbrir
                       <div className="text-[var(--text-strong)]">{dataBR(String(s.criadaEm).slice(0, 10))}</div>
                       <div className="text-xs text-[var(--text-secondary)]">por {s.criadaPor}</div>
                     </td>
-                    <td className="px-4 py-3 pr-6 text-right"><Botao tipo="texto" onClick={() => onAbrir(s.id)}>Abrir</Botao></td>
+                    <td className="px-4 py-3 pr-6 text-right whitespace-nowrap">
+                      {onParecer && temParecer(s) && <Botao tipo="texto" onClick={(e) => onParecer(s.id, e.currentTarget)} aria-label={`Ver parecer de ${s.nome}`}>Ver parecer</Botao>}
+                      <Botao tipo="texto" onClick={() => onAbrir(s.id)}>Abrir</Botao>
+                    </td>
+                    <td className="py-3 pr-4 text-right">{onExcluir && podeExcluir(s, podeEscrever) && <BotaoExcluir s={s} onExcluir={onExcluir} />}</td>
                   </tr>
                 );
               })}

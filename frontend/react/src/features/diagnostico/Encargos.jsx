@@ -65,7 +65,7 @@ export function AlertaRegime({ lojaId, texto, onSalvo }) {
 
 // Composição do encargo como dica ("i") ao lado do rótulo da folha: abre ao passar o mouse, ao focar (teclado) e ao tocar.
 // Fica num portal com posição fixa para não ser cortada pelo quadro de números.
-export function DicaComposicao({ encargos }) {
+export function DicaComposicao({ encargos, rotulo = "Ver composição dos encargos" }) {
   const id = useId();
   const botao = useRef(null);
   const [pos, setPos] = useState(null);
@@ -81,7 +81,7 @@ export function DicaComposicao({ encargos }) {
       <button
         ref={botao}
         type="button"
-        aria-label="Ver composição dos encargos"
+        aria-label={rotulo}
         aria-describedby={pos ? id : undefined}
         aria-expanded={!!pos}
         onMouseEnter={abrir}

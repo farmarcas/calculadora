@@ -288,7 +288,7 @@ export const textoDaSugestao = ({ sugestao, funcao, coberturaPorDia }) => {
   if (sugestao.semFalta) return "Nenhuma hora está abaixo do mínimo agora. Escolha os dias e o horário da nova pessoa.";
   const alvo = funcao === "Farmacêutico" ? "sem farmacêutico" : `abaixo do mínimo de ${funcao.toLowerCase()}`;
   const faixa = faixaDasFaltas(coberturaPorDia, sugestao.dias, { de: sugestao.entra, ate: sugestao.sai });
-  return `Sugestão: ${Math.floor(sugestao.entra)}h–${Math.floor(sugestao.sai)}h ${diasPorExtenso(sugestao.dias)} cobre as horas ${alvo}${faixa ? ` (${faixa})` : ""}.`;
+  return `Sugestão: ${horaTxt(sugestao.entra)}–${horaTxt(sugestao.sai)} ${diasPorExtenso(sugestao.dias)} cobre as horas ${alvo}${faixa ? ` (${faixa})` : ""}.`;
 };
 
 // As opções de hora do formulário (de 15 em 15 minutos): [{ valor: 16, texto: "16:00" }].
@@ -300,6 +300,41 @@ export const opcoesDeHora = (min, max) => {
     opcoes.push({ valor: h, texto: `${String(horas).padStart(2, "0")}:${String(minutos).padStart(2, "0")}` });
   }
   return opcoes;
+};
+
+// A jornada cheia de um dia em horas de relógio: a líquida (8h24 com a convenção, 8h sem ela) mais 1 h de intervalo quando passa de
+// 6 h. É a duração que "Entra" e "Sai" devem ter para a contratação integral trabalhar a jornada cheia (ex.: 12:00 às 21:24).
+export const jornadaBrutaDoDia = (regra) => {
+  const liquida = Math.min(regra.maxDia, tetoEfetivo(regra) / regra.dias);
+  return liquida + (liquida > HORAS_SEM_INTERVALO + EPS ? 1 : 0);
+};
+
+// "12h" ou "21h24": a hora com os minutos quando não é cheia.
+export const horaTxt = (h) => {
+  const m = Math.round(h * 60);
+  const mm = m % 60;
+  return mm ? `${Math.floor(m / 60)}h${String(mm).padStart(2, "0")}` : `${Math.floor(m / 60)}h`;
+};
+const relogio = (h) => {
+  const m = Math.round(h * 60);
+  return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+};
+
+// As opções de "Entra" e "Sai": a grade de 15 minutos mais os valores que precisam estar na lista (o que já está escolhido e,
+// na saída, a jornada cheia a partir da entrada), para o campo nunca mostrar um horário que não é o valor dele.
+const comValores = (opcoes, extras) => {
+  const mapa = new Map(opcoes.map((o) => [Math.round(o.valor * 60), o]));
+  for (const e of extras) if (e && !mapa.has(Math.round(e.valor * 60))) mapa.set(Math.round(e.valor * 60), e);
+  return [...mapa.values()].sort((a, b) => a.valor - b.valor);
+};
+export const opcoesDeEntrada = (opcoes, entra) => comValores(opcoes, [{ valor: entra, texto: relogio(entra) }]);
+export const opcoesDeSaida = (opcoes, { entra, sai, regra, maxFecha }) => {
+  const cheia = entra + jornadaBrutaDoDia(regra);
+  const extras = [{ valor: sai, texto: relogio(sai) }];
+  if (cheia <= maxFecha + EPS) extras.push({ valor: cheia, texto: relogio(cheia) });
+  const lista = comValores(opcoes, extras);
+  // A saída que completa a jornada cheia leva a marca, mesmo quando já é um horário da grade.
+  return lista.map((o) => (Math.round(o.valor * 60) === Math.round(cheia * 60) && cheia <= maxFecha + EPS ? { ...o, texto: `${o.texto} · jornada cheia` } : o));
 };
 
 // ---- Turnos sugeridos para as vagas, folga e avisos da pessoa (spec 040) ---------------------------------------------

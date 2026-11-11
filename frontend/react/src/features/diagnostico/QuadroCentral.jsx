@@ -1,13 +1,13 @@
 import { useRef } from "react";
-import { AlertaRegime, DicaComposicao, NOME_REGIME, pct } from "./Encargos.jsx";
-import { corDaFuncao } from "../simulacao/formato.js";
-import { calculoDaRegra, estadoDoCard, hojeSP, horas, isoDeVigencia, saldoTxt } from "./cardDiagnostico.js";
+import { AlertaRegime } from "./Encargos.jsx";
+import { calculoDaRegra, estadoDoCard, hojeSP, isoDeVigencia } from "./cardDiagnostico.js";
+import BarrasDeFalta from "./tabela-cargos/BarrasDeFalta.jsx";
+import TabelaPorCargo from "./tabela-cargos/TabelaPorCargo.jsx";
+import RodapeDoCard from "./tabela-cargos/RodapeDoCard.jsx";
+import { linhasPorCargo } from "./tabela-cargos/tabela-regras.js";
 
-const brl = (v) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
 const plural = (n, um, varios) => `${n} ${n === 1 ? um : varios}`;
-const RAIA = { 44: "Hoje · 44h", 42: "42h", 40: "40h" };
 const ROTULO = "text-xs leading-4 font-bold uppercase text-[var(--neutral-mid-300)]";
-const LINK = "font-medium text-[var(--color-primary)] hover:text-[var(--color-primary-hover)] bg-transparent border-0 p-0 cursor-pointer text-sm underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-[var(--border-focus)]";
 
 // As três regras com o que o card precisa de cada uma.
 const regrasDoCard = (diag) =>
@@ -51,60 +51,6 @@ function Abas({ regras, valor, onChange }) {
   );
 }
 
-function Barras({ regras, selecionada }) {
-  const maior = Math.max(0, ...regras.map((r) => r.calculo?.gap ?? 0));
-  const g44 = regras.find((r) => r.jornada === 44)?.calculo?.gap;
-  return (
-    <div className="flex flex-col gap-2">
-      <div className={ROTULO}>Horas de farmacêutico que faltam por semana</div>
-      {regras.map((r) => {
-        const ativa = r.id === selecionada.id;
-        const sem = !r.calculo;
-        const gap = r.calculo?.gap ?? 0;
-        const cor = r.jornada === 44 ? "var(--neutral-mid-100)" : gap > 0 ? "var(--func-warning-300)" : "var(--func-success-300)";
-        return (
-          <div key={r.id} className="flex items-center gap-3">
-            <span className={`w-20 shrink-0 text-sm ${ativa ? "font-bold text-[var(--text-strong)]" : "font-normal text-[var(--text-secondary)]"}`}>{RAIA[r.jornada]}</span>
-            {sem ? (
-              <span className="h-3 flex-1 max-w-[280px] rounded-btn border border-dashed border-[var(--border-strong)]" role="img" aria-label="sem cálculo" />
-            ) : (
-              <span className="h-3 flex-1 max-w-[280px] rounded-btn bg-[var(--surface-subtle)] overflow-hidden" role="img" aria-label={`${horas(gap)} por semana na regra de ${r.jornada}h`}>
-                <span className="block h-full rounded-btn" style={{ width: `${maior ? (gap / maior) * 100 : 0}%`, background: ativa || r.jornada === 44 ? cor : "var(--neutral-mid-100)" }} />
-              </span>
-            )}
-            <span className="text-sm leading-5 font-bold text-[var(--text-strong)]">
-              {sem ? "—" : horas(gap)}
-              {!sem && r.jornada !== 44 && g44 != null && gap !== g44 && (
-                <span className="font-normal text-[var(--text-secondary)]"> ({gap - g44 > 0 ? "+" : "−"}{horas(Math.abs(gap - g44))})</span>
-              )}
-            </span>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-const ORIGEM_FATURAMENTO = {
-  mensal: "Informado no Cadastro da loja",
-  dias: "Venda por dia do Cadastro × 52 ÷ 12",
-  base: "Base comercial: venda da semana × 52 ÷ 12",
-};
-
-function Celula({ rotulo, valor, sub, dica, larga = false, children }) {
-  return (
-    <div className="bg-[var(--surface-card)] p-4 flex flex-col gap-1 min-w-0" style={larga ? { gridColumn: "1 / -1" } : undefined}>
-      <div className={`${ROTULO} flex items-center gap-1.5`}>
-        {rotulo}
-        {dica}
-      </div>
-      <div className="text-[28px] leading-9 font-bold text-[var(--text-strong)]">{valor}</div>
-      {sub && <div className="text-xs leading-4 text-[var(--text-secondary)]">{sub}</div>}
-      {children}
-    </div>
-  );
-}
-
 // O quadro central da aba Diagnóstico: a resposta primeiro ("quanto falta de farmacêutico e o que faço?"), depois a evolução
 // 44h → 42h → 40h, os números de apoio (com a folha) e, no fim, as pendências.
 export default function QuadroCentral({ diag, regraId, onRegra, podeEscrever, onEnviar, onRecarregar, onDefinirFuncao }) {
@@ -112,30 +58,11 @@ export default function QuadroCentral({ diag, regraId, onRegra, podeEscrever, on
   const sel = regras.find((r) => r.id === regraId) ?? regras[0];
   const c = sel.calculo;
   const estado = estadoDoCard(sel, regras);
-  const n = diag.numeros;
   const folha = diag.folhaMensal;
-  const baseEnviada = !!diag.fontes?.base;
   const mostrarNota = sel.jornada !== 44 && !diag.config?.convencao8h24;
-
-  // Pendências: as que existem vão para a esquerda do rodapé; a frase da direita só cita o que está em dia.
-  const pendencias = [];
-  if (n.foraDoCalculo > 0)
-    pendencias.push({
-      chave: "fora",
-      texto: `${plural(n.foraDoCalculo, "colaborador está", "colaboradores estão")} sem função de escala e fora do cálculo.`,
-      acao: onDefinirFuncao && <button type="button" className={LINK} onClick={onDefinirFuncao}>Definir função</button>,
-    });
-  if (n.faixasSemFarmaceutico > 0)
-    pendencias.push({ chave: "semfarm", texto: `${plural(n.faixasSemFarmaceutico, "hora", "horas")} do pior dia ficam sem farmacêutico.` });
-  if (n.faixasAbaixoDoMinimo > 0)
-    pendencias.push({ chave: "meta", texto: `${plural(n.faixasAbaixoDoMinimo, "hora", "horas")} do pior dia ficam abaixo da meta.` });
-  const emDia = [
-    n.faixasSemFarmaceutico === 0 && "cobertura de farmacêutico",
-    n.faixasAbaixoDoMinimo === 0 && "metas",
-  ].filter(Boolean);
-  const fraseEmDia =
-    emDia.length ? `Sem pendências em ${emDia.slice(0, -1).join(", ")}${emDia.length > 1 ? " e " : ""}${emDia[emDia.length - 1]}.` : null;
-  const detalhes = `Horas do pior dia sem farmacêutico: ${n.faixasSemFarmaceutico} · horas abaixo da meta: ${n.faixasAbaixoDoMinimo}`;
+  const linhas = c ? linhasPorCargo(sel.regra) : [];
+  const cargaH = sel.regra.funcoes?.find((f) => f.funcao === "Farmacêutico")?.cargaCheiaH ?? sel.jornada;
+  // Chip: o board usa rosa #FFD6DE; no sistema de design o token mais próximo é o de aviso (--func-warning-50), vindo de estadoDoCard.
 
   return (
     <section aria-label="Diagnóstico da escala" className="diag-conteiner flex flex-col gap-4">
@@ -150,50 +77,24 @@ export default function QuadroCentral({ diag, regraId, onRegra, podeEscrever, on
             <span className="self-start rounded-full px-3 py-1 text-xs leading-4 font-bold text-[var(--neutral-dark-900)]" style={{ background: estado.fundo }}>
               {estado.pill}
             </span>
-            <h3 className="m-0 text-[28px] leading-9 font-bold text-[var(--text-strong)]">{estado.titulo}</h3>
-            <p className="m-0 text-sm leading-5 text-[var(--text-secondary)]">{estado.apoio}</p>
-            <Barras regras={regras} selecionada={sel} />
+            <h3 className="m-0 text-2xl leading-8 font-bold text-[var(--text-strong)]">{estado.titulo}</h3>
+            <p className="m-0 text-[13px] leading-5 text-[var(--text-secondary)]">{estado.apoio}</p>
+            <BarrasDeFalta regras={regras} selecionada={sel} />
           </div>
 
-          <div className="diag-numeros gap-px bg-[var(--border-subtle)] border border-line rounded-card overflow-hidden">
-            <Celula rotulo="Contratações sugeridas" valor={c ? (c.contratacoes > 0 ? plural(c.contratacoes, "pessoa", "pessoas") : "Nenhuma") : "—"} sub={c ? null : "Sem cálculo para esta regra"}>
-              {c?.contratarPorFuncao?.length > 0 && (
-                <ul aria-label="Funções a contratar" className="m-0 mt-1 flex list-none flex-wrap gap-1.5 p-0">
-                  {c.contratarPorFuncao.map((f) => (
-                    <li key={f.funcao} className="rounded-full px-3 py-1 text-xs leading-4 font-bold text-[var(--neutral-dark-900)]" style={{ background: corDaFuncao(f.funcao) }}>
-                      {f.funcao}{f.pessoas > 1 ? ` × ${f.pessoas}` : ""}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </Celula>
-            <Celula rotulo="Turnos de farmacêutico" valor={c ? `${c.turnosAcobrir} a cobrir` : "—"} sub={c ? `Por semana, na regra de ${sel.jornada}h` : "Sem cálculo para esta regra"} />
-            {folha?.informado ? (
-              <Celula
-                rotulo="Folha mensal atual"
-                dica={folha.encargos && folha.mensal !== null ? <DicaComposicao encargos={folha.encargos} /> : null}
-                valor={folha.mensal === null ? "—" : brl(folha.mensal)}
-                sub={folha.mensal === null ? `Falta o salário médio de ${folha.faltamInformar.join(", ")}` : `Salários + encargos de ${pct(folha.encargosPct)}${folha.encargos ? ` (${NOME_REGIME[folha.encargos.regime]})` : ""} · ${plural(n.colaboradoresNoCalculo, "funcionário", "funcionários")}`}
-              >
-                {folha.mensal !== null && (
-                  <div className="text-xs leading-4 font-bold text-[var(--text-strong)]" data-testid="folha-pct-faturamento">
-                    {folha.pctDoFaturamento != null ? `${pct(folha.pctDoFaturamento)} do faturamento mensal da loja` : "Sem faturamento para comparar"}
+          <div className="flex flex-col gap-3 min-w-0">
+            {c ? (
+              <>
+                {estado.falta && (
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className={ROTULO}>Contratações sugeridas</span>
+                    <span className="text-lg leading-6 font-bold text-[var(--text-strong)]">{c.contratacoes > 0 ? plural(c.contratacoes, "pessoa", "pessoas") : "Nenhuma"}</span>
                   </div>
                 )}
-              </Celula>
-            ) : folha ? (
-              <Celula rotulo="Folha mensal atual" valor="—" sub="Informe os custos em Cadastro de Loja › Editar › Funcionários e configuração" />
+                <TabelaPorCargo regra={sel.regra} linhas={linhas} horasAbertas={diag.loja?.horasAbertas ?? null} jornada={cargaH} />
+              </>
             ) : (
-              <Celula rotulo="Funcionários no cálculo" valor={n.colaboradoresNoCalculo} sub="Do Cadastro de funcionários" />
-            )}
-            <Celula rotulo="Equipe toda" valor={c ? saldoTxt(c.saldoHoras) : "—"} sub={c ? "Por semana: capacidade menos necessidade ou meta" : "Sem cálculo para esta regra"} />
-            {diag.faturamentoMensal !== undefined && (
-              <Celula
-                larga
-                rotulo="Faturamento mensal da loja"
-                valor={diag.faturamentoMensal ? brl(diag.faturamentoMensal.valor) : "—"}
-                sub={diag.faturamentoMensal ? ORIGEM_FATURAMENTO[diag.faturamentoMensal.origem] : "Informe o faturamento no Cadastro da loja ou envie a base comercial"}
-              />
+              <p className="m-0 text-sm text-[var(--text-secondary)]">Sem cálculo para esta regra</p>
             )}
           </div>
         </div>
@@ -202,26 +103,7 @@ export default function QuadroCentral({ diag, regraId, onRegra, podeEscrever, on
           <p className="m-0 text-xs leading-4 text-[var(--text-secondary)]">Sem convenção que permita jornada de 8h24, na prática a escala fica em 40h por semana (5 × 8h).</p>
         )}
 
-        <div className="border-t border-line pt-3 flex flex-wrap items-center justify-between gap-x-8 gap-y-2">
-          <div className="flex flex-col gap-1">
-            {pendencias.map((p, i) => (
-              <div key={p.chave} className="flex flex-wrap items-center gap-2 text-sm leading-5 text-[var(--text-secondary)]" title={detalhes}>
-                {i === 0 && <span className="rounded-full px-2.5 py-0.5 text-xs leading-4 font-bold text-[var(--neutral-dark-900)] bg-[var(--func-attention-100)]">{plural(pendencias.length, "pendência", "pendências")}</span>}
-                <span>{p.texto}</span>
-                {p.acao}
-              </div>
-            ))}
-          </div>
-          <div className="text-sm leading-5 text-[var(--text-secondary)]" title={detalhes}>
-            {fraseEmDia && <>{fraseEmDia} </>}
-            {podeEscrever ? (
-              <button type="button" className={LINK} onClick={onEnviar}>{baseEnviada ? "Atualizar base comercial" : "Enviar base comercial"}</button>
-            ) : (
-              <span>{baseEnviada ? "Base comercial enviada" : "Base comercial não enviada"}</span>
-            )}{" "}
-            {!baseEnviada && "(opcional)"}
-          </div>
-        </div>
+        <RodapeDoCard diag={diag} podeEscrever={podeEscrever} onEnviar={onEnviar} onDefinirFuncao={onDefinirFuncao} />
       </div>
 
       {folha?.informado && folha.alertaRegime && (

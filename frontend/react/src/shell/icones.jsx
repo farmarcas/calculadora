@@ -55,6 +55,14 @@ export const IconeMenu = (p) => (
     <path d="M4 6h16M4 12h16M4 18h16" />
   </Base>
 );
+// Menu aberto: o botão que recolhe (painel com a seta para dentro, "panel-right-open" do Lucide).
+export const IconeRecolherMenu = (p) => (
+  <Base {...p}>
+    <rect width="18" height="18" x="3" y="3" rx="2" />
+    <path d="M15 3v18" />
+    <path d="m10 15-3-3 3-3" />
+  </Base>
+);
 export const IconeSeta = ({ aberta = false, ...p }) => (
   <Base {...p} style={{ transform: aberta ? "rotate(180deg)" : undefined, transition: "transform 150ms" }}>
     <path d="m6 9 6 6 6-6" />

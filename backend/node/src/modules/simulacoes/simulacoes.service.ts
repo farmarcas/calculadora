@@ -342,8 +342,7 @@ export const makeSimulacoesService = (
         const r = await doEscalaAtual(lojaId);
         base = { quadro: r.quadro, turnos: r.turnos };
         equipe = r.equipe;
-      }
-      else if (b.origem === 'vazia') {
+      } else if (b.origem === 'vazia') {
         const quadro = await cadastro.funcionariosDaLoja(lojaId);
         if (quadro.length === 0)
           throw new ValidationError(
@@ -373,7 +372,12 @@ export const makeSimulacoesService = (
         );
         if (todosOsDiasTemEscala) {
           // A equipe já com as folgas e o rodízio de domingo, e as contratações nos turnos que cobrem o que falta (spec 043).
-          const semana = semanaComFolgas({ regra, dias: diasDaSimulacao, minimos, horarios: equipe });
+          const semana = semanaComFolgas({
+            regra,
+            dias: diasDaSimulacao,
+            minimos,
+            horarios: equipe,
+          });
           const sugeridas: VagaEntrada[] = Object.values(semana.funcoes).flatMap((f) =>
             f.vagas.map((v) => ({ funcao: v.funcao, cargaH: v.cargaH, turnos: v.turnos })),
           );

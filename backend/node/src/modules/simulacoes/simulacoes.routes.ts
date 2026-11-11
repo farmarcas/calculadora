@@ -71,10 +71,14 @@ export const simulacoesRouter = () => {
     res.json(await s(res).editar(params.id, body, perfilDe(res)));
   });
   // Prévia do custo de uma contratação: só leitura (qualquer perfil chama), mas só o dono recebe o número.
-  r.post('/simulacoes/:id/efeito-contratacao', validate(S.efeitoContratacaoReq), async (_req, res) => {
-    const { params, body } = v<typeof S.efeitoContratacaoReq>(res);
-    res.json(await s(res).efeitoContratacao(params.id, perfilDe(res), body));
-  });
+  r.post(
+    '/simulacoes/:id/efeito-contratacao',
+    validate(S.efeitoContratacaoReq),
+    async (_req, res) => {
+      const { params, body } = v<typeof S.efeitoContratacaoReq>(res);
+      res.json(await s(res).efeitoContratacao(params.id, perfilDe(res), body));
+    },
+  );
   r.post('/simulacoes/:id/gravar', escrita, validate(S.gravarReq), async (_req, res) => {
     const { params, body } = v<typeof S.gravarReq>(res);
     res.json(await s(res).gravar(params.id, perfilDe(res), body.comoCenario === true));

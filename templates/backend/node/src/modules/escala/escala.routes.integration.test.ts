@@ -226,7 +226,8 @@ describe('escala (rotas)', () => {
       .set(admin)
       .send({ salarioMedio: { Farmacêutico: 8000 }, encargosPct: 40 });
 
-    // 66h abertas por semana; 1 farmacêutica de 40h: faltam 26h → 1 parcial de 26h (até 30h): 1 pessoa, sem sobra
+    // 66h abertas por semana; 1 farmacêutica de 40h: faltam 26h → 1 parcial de 26h (até 30h): 1 pessoa, sem sobra.
+    // Spec 043: a falta vem da cobertura real (ela folga 1 dia e trabalha 5 de 8h) e dá as mesmas 26h.
     const dono = (await reqGe().get(url).set(admin)).body.cenarios;
     expect(Object.keys(dono)).toEqual(['r42', 'r40']);
     expect(dono.r40.manter.contratacoes).toEqual([
@@ -303,6 +304,45 @@ describe('escala (rotas)', () => {
     const cobre = (await reqGe().get(url).set(admin)).body.cenarios.r40.manter;
     expect(cobre.contratacoes).toEqual([]);
     expect(cobre.custoAdicionalMensal).toBe(0);
+  });
+
+  it('o dono vê a folha em % do faturamento mensal e o faturamento; gestor e consulta não recebem nenhum dos dois', async () => {
+    await reqGe()
+      .post('/api/v1/cargas/escala')
+      .set(admin)
+      .attach(
+        'arquivo',
+        await xlsx(escalaCab, [
+          ['001', 'F1', 'Ana', 'Farmacêutica', 'Seg a Sáb', '08:00', '', '', '17:00', '44'],
+        ]),
+        'e.xlsx',
+      );
+    await reqGe()
+      .put(`/api/v1/lojas/${lojaId}/custos`)
+      .set(admin)
+      .send({ salarioMedio: { Farmacêutico: 8000 }, encargosPct: 40 });
+    const url = `/api/v1/lojas/${lojaId}/diagnostico`;
+    // Sem faturamento: o dono recebe a folha e o faturamento nulo; o % fica nulo.
+    const sem = (await reqGe().get(url).set(admin)).body;
+    expect(sem.faturamentoMensal).toBeNull();
+    expect(sem.folhaMensal.pctDoFaturamento).toBeNull();
+    // Faturamento mensal de 100.000: a folha de 8000 × 1,622 = 12.976 pesa 13%.
+    await reqGe()
+      .patch(`/api/v1/lojas/${lojaId}`)
+      .set(admin)
+      .send({ faturamento: { dias: [null, null, null, null, null, null, null], mensal: 100000 } });
+    const dono = (await reqGe().get(url).set(admin)).body;
+    expect(dono.faturamentoMensal).toEqual({ valor: 100000, origem: 'mensal' });
+    expect(dono.folhaMensal.mensal).toBe(12976);
+    expect(dono.folhaMensal.pctDoFaturamento).toBe(13);
+    for (const h of [
+      { 'X-Perfil': 'SCHEDULE_MANAGER', 'X-GE': GE_INICIAL_ID },
+      { 'X-Perfil': 'SCHEDULE_VIEWER', 'X-GE': GE_INICIAL_ID },
+    ]) {
+      const r = (await reqGe().get(url).set(h)).body;
+      expect('faturamentoMensal' in r).toBe(false);
+      expect('folhaMensal' in r).toBe(false);
+    }
   });
 
   it('cenário 2: só mexe no fim de semana, dentro das travas; não resolve sozinho; valores só ao dono', async () => {

@@ -29,7 +29,8 @@ const h = (
 const r44 = regraPara('atual', false);
 const r42 = regraPara('r42', false);
 const minimos = { Caixa: 1 };
-const contaDias = (ts: { matricula: string }[], m: string) => ts.filter((t) => t.matricula === m).length;
+const contaDias = (ts: { matricula: string }[], m: string) =>
+  ts.filter((t) => t.matricula === m).length;
 
 describe('aplicarFolgas', () => {
   it('regra de 44h tira 1 dia e a de 42h tira 2', () => {
@@ -61,7 +62,9 @@ describe('aplicarFolgas', () => {
   it('domingo: ceil(n/3) pessoas por função folgam', () => {
     const horarios = ['A', 'B', 'C', 'D', 'E', 'F'].map((m) => h(m));
     const a = aplicarFolgas({ horarios, dias: dias(), regra: r44, minimos });
-    const folgam = horarios.filter((p) => !a.turnos.some((t) => t.matricula === p.matricula && t.dia === 6));
+    const folgam = horarios.filter(
+      (p) => !a.turnos.some((t) => t.matricula === p.matricula && t.dia === 6),
+    );
     expect(folgam).toHaveLength(2);
     expect(a.domingoSugerido).toBe(true);
   });
@@ -110,16 +113,23 @@ describe('semanaComFolgas', () => {
   });
 
   it('sem falta, não há contratação', () => {
-    const horarios = ['A', 'B', 'C', 'D'].map((m) => h(m, 'Farmacêutico', todos, { entrada: 8, saida: 16 })).concat(
-      ['E', 'F', 'G', 'H'].map((m) => h(m, 'Farmacêutico', todos, { entrada: 10, saida: 18 })),
-    );
+    const horarios = ['A', 'B', 'C', 'D']
+      .map((m) => h(m, 'Farmacêutico', todos, { entrada: 8, saida: 16 }))
+      .concat(
+        ['E', 'F', 'G', 'H'].map((m) => h(m, 'Farmacêutico', todos, { entrada: 10, saida: 18 })),
+      );
     const s = semanaComFolgas({ regra: r42, dias: dias(), minimos: {}, horarios });
     expect(s.funcoes['Farmacêutico']!.faltaH).toBe(0);
     expect(s.funcoes['Farmacêutico']!.vagas).toEqual([]);
   });
 
   it('o gap da sugestão cobre ao menos a falta', () => {
-    const s = semanaComFolgas({ regra: r42, dias: dias(), minimos: {}, horarios: [h('F1', 'Farmacêutico')] });
+    const s = semanaComFolgas({
+      regra: r42,
+      dias: dias(),
+      minimos: {},
+      horarios: [h('F1', 'Farmacêutico')],
+    });
     const f = s.funcoes['Farmacêutico']!;
     expect(f.gapParaSugestaoH).toBeGreaterThanOrEqual(f.faltaH);
   });

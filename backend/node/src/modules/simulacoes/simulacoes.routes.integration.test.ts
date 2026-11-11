@@ -414,9 +414,14 @@ describe('simulações (rotas)', () => {
       await comSalarios();
       const sim = (await criar()).body;
       const d = (
-        await reqGe().put(`/api/v1/simulacoes/${sim.id}`).set(gestor).send({ desligados: ['F1'] })
+        await reqGe()
+          .put(`/api/v1/simulacoes/${sim.id}`)
+          .set(gestor)
+          .send({ desligados: ['F1'] })
       ).body;
-      expect(d.quadro.find((p: { matricula: string }) => p.matricula === 'F1').desligado).toBe(true);
+      expect(d.quadro.find((p: { matricula: string }) => p.matricula === 'F1').desligado).toBe(
+        true,
+      );
       expect(d.resultado.emHoras.custoSentido).toBe('diminui');
       expect(d.resultado).not.toHaveProperty('custoDoDono');
       expect(JSON.stringify(d.resultado)).not.toMatch(/custoDoDono|folhaHoje|pesoHoje|saldoMensal/);

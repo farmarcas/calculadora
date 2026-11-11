@@ -47,6 +47,14 @@ export const gruposInteirosDe = (grupos: GrupoDoRadar[] | null | undefined): Gru
   return [...porNumero.values()];
 };
 
+export const lojasDosGruposInteiros = (
+  lojas: LojaDoRadar[] | null | undefined,
+  inteiros: GrupoInteiro[],
+) => {
+  const numeros = new Set(inteiros.map((g) => g.identificacao));
+  return (lojas ?? []).filter((l) => l.economicGroup && numeros.has(l.economicGroup.id));
+};
+
 export const lojasACriar = (lojas: LojaAproveitavel[], cnpjsConhecidos: Set<string>) =>
   lojas.filter((l) => !cnpjsConhecidos.has(l.cnpj));
 

@@ -62,7 +62,9 @@ export default function EscalaPorHora({ sim, editavel, dono, calculando = false,
 
   // A cobertura de cada função, recalculada com os turnos de agora (mesma conta da avaliação do servidor).
   const coberturas = funcoes.map((f) => {
-    const base = cobDoDia.find((c) => c.funcao === f);
+    // Spec 054: uma função em que todos foram desligados some da cobertura do servidor; o bloco continua, com cobertura zerada, para
+    // as pessoas (fora da simulação) seguirem na lista e poderem ser religadas ali.
+    const base = cobDoDia.find((c) => c.funcao === f) ?? (desligadas.some((p) => p.funcao === f) ? { funcao: f, porHora: horas.map((hora) => ({ hora, pessoas: 0, exigido: 0, ok: true })) } : null);
     if (!base) return null;
     const daPrevia = rascunho?.funcao === f ? turnosPrevia.filter((t) => t.dia === dia) : [];
     return recalcularCobertura(base, [...turnosDoDia.filter((t) => funcaoDe.get(t.matricula) === f), ...daPrevia]);

@@ -415,9 +415,16 @@ export const avisosDaPessoa = (avaliacao, matricula) =>
     .filter((a) => a.matricula === matricula && !["cobertura", "farmaceutico"].includes(a.regra))
     .map((a) => a.texto);
 
-// Os turnos no formato que o servidor aceita ao gravar (só os campos conhecidos, intervalo nulo quando não há).
+// Os turnos no formato que o servidor aceita ao gravar (só os campos conhecidos, intervalo nulo quando não há). O servidor só
+// aceita horas de 15 em 15 minutos; um horário do Cadastro como 14h38 vira o quarto de hora mais perto (14h45), para a mudança
+// de qualquer turno não ser recusada por causa de outro.
+const emQuarto = (h) => Math.round(h * 4) / 4;
 export const turnosParaGravar = (turnos) =>
-  turnos.map(({ matricula, dia, entrada, saida, iniIntervalo, fimIntervalo }) => ({ matricula, dia, entrada, saida, iniIntervalo: iniIntervalo ?? null, fimIntervalo: fimIntervalo ?? null }));
+  turnos.map(({ matricula, dia, entrada, saida, iniIntervalo, fimIntervalo }) => {
+    const e = emQuarto(entrada);
+    const sa = Math.max(emQuarto(saida), e + 0.25);
+    return { matricula, dia, entrada: e, saida: sa, iniIntervalo: iniIntervalo == null ? null : emQuarto(iniIntervalo), fimIntervalo: fimIntervalo == null ? null : emQuarto(fimIntervalo) };
+  });
 
 // ---- Intervalo na escala (almoço) -----------------------------------------------------------------------------------
 

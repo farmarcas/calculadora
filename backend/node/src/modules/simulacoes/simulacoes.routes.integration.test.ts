@@ -430,6 +430,18 @@ describe('simulações (rotas)', () => {
       }
     });
 
+    it('horário do Cadastro fora dos quartos de hora (14h38): a simulação abre em quartos e aceita mover qualquer turno', async () => {
+      await prisma.funcionario.updateMany({ where: { matricula: 'F1' }, data: { saida: 14 + 38 / 60 } });
+      const sim = (await criar()).body;
+      for (const t of sim.turnos as { entrada: number; saida: number }[]) {
+        expect((t.entrada * 4) % 1).toBe(0);
+        expect((t.saida * 4) % 1).toBe(0);
+      }
+      // Devolver os turnos como estão (o que a tela faz a cada mudança) não é recusado.
+      const r = await reqGe().put(`/api/v1/simulacoes/${sim.id}`).set(admin).send({ turnos: sim.turnos });
+      expect(r.status).toBe(200);
+    });
+
     it('o mesmo número de contratações no quadro central, no Cenário 1 e nas vagas sugeridas', async () => {
       await reqGe()
         .put(`/api/v1/lojas/${lojaId}/configuracao`)

@@ -17,7 +17,12 @@ import { nomeDeQuemCriou, tipoDoCenario } from './resumo.js';
 import { gerarExcelEscala } from './exportar.js';
 import { coberturaDaSimulacao } from './cobertura-simulacao.js';
 import { avaliarSimulacao, type PessoaSim, type TurnoSim } from './avaliar.js';
-import { aplicarVagasEDesligados, vagasSugeridas, type VagaEntrada } from './vagas.js';
+import {
+  aplicarVagasEDesligados,
+  emQuartosDeHora,
+  vagasSugeridas,
+  type VagaEntrada,
+} from './vagas.js';
 import { semanaComFolgas, type HorarioPessoa } from '../escala/semana-com-folgas.js';
 import { calcularCusto } from '../custos/custo.js';
 import type { Custos } from '../custos/custos.schemas.js';
@@ -261,7 +266,7 @@ export const makeSimulacoesService = (
       iniIntervalo: t.iniIntervalo,
       fimIntervalo: t.fimIntervalo,
     }));
-    return { quadro, turnos, equipe };
+    return { quadro, turnos: emQuartosDeHora(turnos), equipe };
   };
 
   const validarTurnos = (s: SimulacaoRegistro, turnos: TurnoSim[]) => {
@@ -372,7 +377,10 @@ export const makeSimulacoesService = (
           const sugeridas: VagaEntrada[] = Object.values(semana.funcoes).flatMap((f) =>
             f.vagas.map((v) => ({ funcao: v.funcao, cargaH: v.cargaH, turnos: v.turnos })),
           );
-          base = { ...base, ...aplicarVagasEDesligados(base.quadro, semana.turnos, sugeridas) };
+          base = {
+            ...base,
+            ...aplicarVagasEDesligados(base.quadro, emQuartosDeHora(semana.turnos), sugeridas),
+          };
         } else {
           // Dia aberto que o Cadastro não escala (cenário que abre um dia hoje fechado): a conta volta a ser por horas.
           const sugeridas = vagasSugeridas(regra, diasDaSimulacao, minimos, base.quadro);

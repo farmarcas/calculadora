@@ -299,6 +299,8 @@ export const esticarTurnos = (a: {
   minimos: Minimos;
 }): { turnos: TurnoSim[]; esticados: { matricula: string; dia: number; de: string; para: string }[] } => {
   const teto = tetoEfetivo(a.regra as Regra);
+  // A jornada cheia de um dia (spec 047): 8h24 com a convenção, 8h sem ela, 7h20 na regra de 44h. Nenhum dia passa disso.
+  const jornadaDia = Math.min(a.regra.maxDia, teto / a.regra.dias);
   const req = requisitos(a.minimos);
   const exigidas = [...new Set([FARMACEUTICO, ...req.funcoes])];
   const funcaoDe = new Map(a.horarios.map((h) => [h.matricula, h.funcao]));
@@ -347,7 +349,7 @@ export const esticarTurnos = (a: {
           const cob = coberturaDaFuncao(funcao, daFuncaoNoDia, [d], a.minimos)[t.dia] ?? [];
           const falta = cob.filter((c) => c.pessoas < c.exigido).length;
           const curta = (hora: number) => cob.some((c) => c.hora === hora && c.pessoas < c.exigido);
-          const folgaDia = a.regra.maxDia - liquidaDe(t);
+          const folgaDia = jornadaDia - liquidaDe(t);
           const folgaSemana = limite - semanaDe(h.matricula);
           const passo = (n: number) => n <= folgaDia + EPS && n <= folgaSemana + EPS;
           const horaFim = Math.floor(t.saida + EPS);
@@ -388,7 +390,7 @@ export const esticarTurnos = (a: {
           novo.iniIntervalo = iv.iniIntervalo;
           novo.fimIntervalo = iv.fimIntervalo;
         }
-        if (liquidaDe(novo) > a.regra.maxDia + EPS) break;
+        if (liquidaDe(novo) > jornadaDia + EPS) break;
         atuais[melhor.idx] = novo;
         const ja = esticados.findIndex((e) => e.matricula === novo.matricula && e.dia === novo.dia);
         const registro = {
@@ -400,6 +402,64 @@ export const esticarTurnos = (a: {
         if (ja >= 0) esticados[ja] = registro;
         else esticados.push(registro);
       }
+    }
+  }
+
+  // Fase 2 (spec 047): todos trabalham a jornada cheia da regra em cada dia que já trabalham, mesmo sem falta: completa a duração
+  // líquida do dia até `min(máximo do dia, teto ÷ dias)` (8h24 com a convenção de 8h24), no fim do turno e, se não couber, no
+  // começo, sem passar do limite da pessoa, do horário da loja nem do descanso de 11 h. Em minutos inteiros.
+  const minuto = (h: number) => Math.floor(h * 60 + 1e-6) / 60;
+  const pessoas2 = a.horarios
+    .filter((h) => !h.fixo && atuais.some((t) => t.matricula === h.matricula))
+    .sort((x, y) => x.matricula.localeCompare(y.matricula));
+  for (const h of pessoas2) {
+    const limite = Math.min(h.cargaH, teto);
+    const idxs = atuais
+      .map((t, i) => ({ t, i }))
+      .filter((x) => x.t.matricula === h.matricula)
+      .sort((x, y) => x.t.dia - y.t.dia);
+    for (const { i } of idxs) {
+      const t = atuais[i]!;
+      const d = diaAberto(t.dia);
+      const faltaSemana = limite - semanaDe(h.matricula);
+      const net = liquidaDe(t);
+      if (!d || net >= jornadaDia - EPS || faltaSemana <= EPS) continue;
+      const alvo = Math.min(jornadaDia, net + faltaSemana);
+      const iv = t.iniIntervalo != null && t.fimIntervalo != null ? t.fimIntervalo - t.iniIntervalo : 0;
+      const gross = t.saida - t.entrada;
+      const grossAlvo = alvo + (iv > 0 ? iv : alvo > HORAS_SEM_INTERVALO + EPS ? 1 : 0);
+      let preciso = minuto(grossAlvo - gross);
+      if (preciso <= EPS) continue;
+      const prox = atuais.find((x) => x.matricula === h.matricula && x.dia === (t.dia + 1) % 7);
+      const ant = atuais.find((x) => x.matricula === h.matricula && x.dia === (t.dia + 6) % 7);
+      const limiteFim = Math.min(d.fecha, prox ? 24 + prox.entrada - INTERJORNADA_H : 24);
+      const limiteIni = Math.max(d.abre, ant ? ant.saida - 24 + INTERJORNADA_H : 0);
+      const noFim = minuto(Math.max(0, Math.min(preciso, limiteFim - t.saida)));
+      preciso -= noFim;
+      const noIni = minuto(Math.max(0, Math.min(preciso, t.entrada - limiteIni)));
+      if (noFim + noIni <= EPS) continue;
+      const novo: TurnoSim = {
+        ...t,
+        antes: t.antes ?? { entrada: t.entrada, saida: t.saida },
+        entrada: t.entrada - noIni,
+        saida: t.saida + noFim,
+      };
+      if (novo.iniIntervalo == null && novo.saida - novo.entrada > HORAS_SEM_INTERVALO + EPS) {
+        const ivNovo = intervaloEscolhido(novo.entrada, novo.saida, []);
+        novo.iniIntervalo = ivNovo.iniIntervalo;
+        novo.fimIntervalo = ivNovo.fimIntervalo;
+      }
+      if (liquidaDe(novo) > a.regra.maxDia + EPS) continue;
+      atuais[i] = novo;
+      const ja = esticados.findIndex((e) => e.matricula === novo.matricula && e.dia === novo.dia);
+      const registro = {
+        matricula: novo.matricula,
+        dia: novo.dia,
+        de: `${hhmm(novo.antes!.entrada)}–${hhmm(novo.antes!.saida)}`,
+        para: `${hhmm(novo.entrada)}–${hhmm(novo.saida)}`,
+      };
+      if (ja >= 0) esticados[ja] = registro;
+      else esticados.push(registro);
     }
   }
   return { turnos: atuais, esticados };

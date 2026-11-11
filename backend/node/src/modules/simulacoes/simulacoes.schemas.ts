@@ -9,13 +9,13 @@ const req = <B extends z.ZodType, P extends z.ZodType, Q extends z.ZodType = typ
   query?: Q,
 ) => z.object({ body, params, query: (query ?? vazio.default({})) as unknown as Q });
 
-// Horas em decimal, de 15 em 15 minutos.
+// Horas em decimal, com minutos inteiros (spec 047): 15,4 é 15h24. Quartos de hora continuam valendo; fração de minuto não.
 const hora = z
   .number()
   .min(0)
   .max(24)
-  .refine((h) => Math.abs(h * 4 - Math.round(h * 4)) < 1e-9, {
-    message: 'Use intervalos de 15 minutos',
+  .refine((h) => Math.abs(h * 60 - Math.round(h * 60)) < 1e-6, {
+    message: 'Use horários com minutos inteiros',
   });
 
 export const turnoSchema = z

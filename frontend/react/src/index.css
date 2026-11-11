@@ -46,16 +46,12 @@ body { margin: 0; background: var(--surface-page); color: var(--ink-900); font-f
   .linha-faixa { grid-column: 1 / -1; }
 }
 
-/* Card do diagnóstico: o texto e os números ficam lado a lado a partir de 760 px de conteúdo; abaixo de 480 px, os quatro
-   números empilham numa coluna. */
+/* Card do diagnóstico (spec 058): a coluna do aviso (400 px) e a da tabela ficam lado a lado a partir de 860 px de conteúdo; abaixo
+   disso empilham. Vale a largura do card, não a da janela (o menu lateral aberto ou fechado muda o espaço). */
 .diag-conteiner { container-type: inline-size; container-name: diag; }
-.diag-grade { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px 32px; align-items: start; }
-.diag-numeros { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-@container diag (min-width: 760px) {
-  .diag-grade { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-@container diag (max-width: 479px) {
-  .diag-numeros { grid-template-columns: minmax(0, 1fr); }
+.diag-grade { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px 36px; align-items: start; }
+@container diag (min-width: 860px) {
+  .diag-grade { grid-template-columns: 400px minmax(0, 1fr); }
 }
 
 /* Tela de simulação: 3 passos à esquerda e painel de resultado (360 px) à direita, por LARGURA DO CONTEÚDO.

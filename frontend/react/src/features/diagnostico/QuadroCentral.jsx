@@ -72,7 +72,7 @@ export default function QuadroCentral({ diag, regraId, onRegra, podeEscrever, on
       </div>
 
       <div className="bg-[var(--surface-card)] border border-line rounded-card shadow-card p-6 flex flex-col gap-4">
-        <div className="grid items-start gap-9 lg:grid-cols-[400px_minmax(0,1fr)]">
+        <div className="diag-grade">
           <div className="flex flex-col gap-3 min-w-0">
             <span className="self-start rounded-full px-3 py-1 text-xs leading-4 font-bold text-[var(--neutral-dark-900)]" style={{ background: estado.fundo }}>
               {estado.pill}

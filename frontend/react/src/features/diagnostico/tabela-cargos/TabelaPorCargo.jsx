@@ -2,8 +2,9 @@ import { corDaFuncao } from "../../simulacao/formato.js";
 import { horas, saldoTxt } from "../cardDiagnostico.js";
 import { equipeToda, seta, textoHoras } from "./tabela-regras.js";
 
-const TH = "px-2 py-1.5 text-xs leading-4 font-bold uppercase text-[var(--neutral-mid-300)]";
-const NUM = "px-2 py-2 text-right text-[13px] leading-4 text-[var(--text-strong)] whitespace-nowrap";
+const TH = "px-1 sm:px-2 py-1.5 text-[11px] sm:text-xs leading-4 font-bold uppercase text-[var(--neutral-mid-300)]";
+// Em tela estreita os números quebram de linha ("78h →" / "120h") para a tabela caber sem rolagem lateral.
+const NUM = "px-1 sm:px-2 py-2 text-right text-xs sm:text-[13px] leading-4 text-[var(--text-strong)] sm:whitespace-nowrap";
 
 // Pílulas de status: com texto, nunca só cor. "Obrigatório" escuro, "Desejável" só com contorno, "Sem falta" em texto.
 function Status({ status }) {
@@ -18,7 +19,7 @@ function Falta({ falta }) {
   return (
     <>
       {horas(falta.hoje)} →{" "}
-      {falta.depois <= 0 ? <span className="rounded-full bg-[var(--func-success-100)] px-1.5 py-0.5 font-bold text-[var(--text-success-strong)]">0h</span> : horas(falta.depois)}
+      {falta.depois <= 0 ? <span className="rounded-full bg-[var(--func-success-100)] px-1.5 py-0.5 font-bold text-[var(--neutral-dark-900)]">0h</span> : horas(falta.depois)}
     </>
   );
 }
@@ -47,10 +48,10 @@ export default function TabelaPorCargo({ regra, linhas, horasAbertas, jornada })
             </tr>
             {linhas.map((l) => (
               <tr key={l.funcao} className="border-b border-line">
-                <th scope="row" className="px-2 py-2 text-left font-normal">
-                  <div className="flex flex-wrap items-center gap-2">
+                <th scope="row" className="px-1 sm:px-2 py-2 text-left font-normal">
+                  <div className="flex flex-wrap items-center gap-1 sm:gap-2">
                     {/* Tags: o board usa verde, azul e âmbar; aqui vale a cor do cargo que o sistema já usa (corDaFuncao). */}
-                    <span className="rounded-full px-2.5 py-0.5 text-xs leading-4 font-bold text-[var(--neutral-dark-900)]" style={{ background: corDaFuncao(l.funcao) }}>{l.funcao}</span>
+                    <span className="rounded-full px-2 sm:px-2.5 py-0.5 text-[11px] sm:text-xs leading-4 font-bold text-[var(--neutral-dark-900)]" style={{ background: corDaFuncao(l.funcao) }}>{l.funcao}</span>
                     <Status status={l.status} />
                   </div>
                   {l.turnosAcobrir > 0 && <div className="mt-0.5 text-[11px] leading-4 text-[var(--text-secondary)]">{l.turnosAcobrir} {l.turnosAcobrir === 1 ? "turno" : "turnos"} a cobrir</div>}

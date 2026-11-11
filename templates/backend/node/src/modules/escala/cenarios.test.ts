@@ -23,42 +23,42 @@ const base = (extra: Partial<EntradaCenarios> = {}): EntradaCenarios => ({
 });
 
 describe('Cenário 1 — manter horários', () => {
-  it('lista a contratação por cargo, com parcial e ociosidade', () => {
+  it('lista a contratação por cargo, só integral (spec 044), com ociosidade', () => {
     const { manter } = montarCenarios(base());
-    // Regra de 40 h. Farmacêutico: 2 × 40 = 80 h para 84 h → gap de 4 h → 1 parcial de 4 h. Atendimento (meta do dono
-    // de 1 por hora = 84 h): 1 × 40 = 40 h → gap de 44 h → 1 integral de 40 h e 1 parcial de 4 h.
+    // Regra de 40 h. Farmacêutico: 2 × 40 = 80 h para 84 h → gap de 4 h → 1 integral de 40 h (36 h ociosas). Atendimento
+    // (meta do dono de 1 por hora = 84 h): 1 × 40 = 40 h → gap de 44 h → 2 integrais (80 h, 36 h ociosas).
     expect(manter.contratacoes).toEqual([
       {
         funcao: 'Farmacêutico',
         pessoas: 1,
-        inteiras: 0,
-        parcial: { turnos: 1, horas: 4 },
-        parcialH: 4,
-        horasContratadas: 4,
+        inteiras: 1,
+        parcial: null,
+        parcialH: null,
+        horasContratadas: 40,
         horasUsadas: 4,
-        horasOciosas: 0,
+        horasOciosas: 36,
         motivo: 'obrigatoria',
-        ociosidadePct: 0,
+        ociosidadePct: 90,
         ajustado: false,
       },
       {
         funcao: 'Atendimento',
         pessoas: 2,
-        inteiras: 1,
-        parcial: { turnos: 1, horas: 4 },
-        parcialH: 4,
-        horasContratadas: 44,
+        inteiras: 2,
+        parcial: null,
+        parcialH: null,
+        horasContratadas: 80,
         horasUsadas: 44,
-        horasOciosas: 0,
+        horasOciosas: 36,
         motivo: 'meta',
-        ociosidadePct: 0,
+        ociosidadePct: 45,
         ajustado: false,
       },
     ]);
     expect(manter.pessoasContratar).toBe(3);
-    // contratadas 4 + 44 = 48 h, faltavam 4 + 44 = 48 h → nada sobrando
-    expect(manter.ociosidadePct).toBe(0);
-    expect(manter.direcionamento).toContain('1 Atendimento e 1 parcial de 4h');
+    // contratadas 40 + 80 = 120 h, faltavam 4 + 44 = 48 h → 72 h ociosas (60%)
+    expect(manter.ociosidadePct).toBe(60);
+    expect(manter.direcionamento).toContain('2 Atendimento');
     expect(manter.horasSemana).toBe(84);
     expect(manter.horarioSemana[6]).toEqual({ dia: 6, aberto: false, abre: null, fecha: null });
     expect(manter.horarioSemana[0]).toMatchObject({ aberto: true, abre: '08:00', fecha: '22:00' });
@@ -85,31 +85,30 @@ describe('Cenário 1 — manter horários', () => {
 
   it('custo adicional e % sobre a folha atual, só para o dono', () => {
     const r = montarCenarios(base());
-    // farmacêutico parcial de 4h: 10000 × 4 × 5 ÷ 200 = 1000; atendente inteira de 40h: 3000 × 40 × 5 ÷ 200 = 3000;
-    // atendente parcial de 4h: 3000 × 4 × 5 ÷ 200 = 300 → 4300
-    expect(r.manter.custoAdicionalMensal).toBe(4300);
+    // farmacêutico integral de 40h: 10000 × 40 × 5 ÷ 200 = 10000; 2 atendentes integrais de 40h: 2 × 3000 = 6000 → 16000
+    expect(r.manter.custoAdicionalMensal).toBe(16000);
     // folha atual: 2 × 10000 + 3000 = 23000
     expect(r.atual.folhaMensal).toBe(23000);
-    expect(r.manter.acrescimoPct).toBe(18.7); // 4300 ÷ 23000
+    expect(r.manter.acrescimoPct).toBe(69.6); // 16000 ÷ 23000
   });
 
   it('42h sem convenção usa o divisor de 210 horas', () => {
     const r = montarCenarios(base({ regraId: 'r42' }));
-    // mesmas contratações (4h + 40h + 4h) com o divisor 210: 952,38 + 2857,14 + 285,71
-    expect(r.manter.custoAdicionalMensal).toBe(4095.24);
+    // mesmas 3 contratações integrais de 40h com o divisor 210: 9523,81 + 2 × 2857,14
+    expect(r.manter.custoAdicionalMensal).toBe(15238.1);
   });
 
   it('custo por ano (mensal × 12) e peso no faturamento mensal, só para o dono', () => {
     const r = montarCenarios(base({ faturamentoMensalRef: 100000 }));
-    // custo adicional 4300 por mês: × 12 = 51600 por ano; 4300 ÷ 100000 = 4,3% do faturamento
-    expect(r.manter.custoAnual).toBe(51600);
-    expect(r.manter.impactoPctFaturamento).toBe(4.3);
+    // custo adicional 16000 por mês: × 12 = 192000 por ano; 16000 ÷ 100000 = 16% do faturamento
+    expect(r.manter.custoAnual).toBe(192000);
+    expect(r.manter.impactoPctFaturamento).toBe(16);
     expect(r.manter.faturamentoMensalRef).toBe(100000);
   });
 
   it('sem faturamento de referência o percentual some; sem custos o anual também', () => {
     const sem = montarCenarios(base());
-    expect(sem.manter.custoAnual).toBe(51600);
+    expect(sem.manter.custoAnual).toBe(192000);
     expect(sem.manter.impactoPctFaturamento).toBeNull();
     expect(sem.manter.faturamentoMensalRef).toBeNull();
     const semCustos = montarCenarios(base({ custos: null, faturamentoMensalRef: 100000 }));
@@ -476,54 +475,32 @@ describe('Cenário 3 — equilíbrio com as travas do fim de semana (spec 012)',
   // de cada hora cortada (aqui 619,05 por hora do sábado): salário de 40000 deixa a hora de parcial em 1000.
   const caro = custos(40000);
 
-  it('2 farmacêuticos de 40h: reduz o sábado 3 h e contrata só 1 h de parcial; nunca fecha dia útil', () => {
-    // Capacidade 80 h para 84 h. Reduzir o sábado de h horas deixa um gap de (4 − h) h, a 1000 por hora de parcial
-    // (40000 × 5 ÷ 200), mais a venda perdida (619,05 por hora cortada): h=0 → 4000; h=1 → 3619,05; h=2 → 3238,10;
-    // h=3 → 1000 + 1857,14 = 2857,14 (o melhor); h=4 → a conta de turnos volta a exigir 16 h de parcial; h=5 → ainda pior.
+  it('2 farmacêuticos de 40h: cortar o sábado não evita a contratação integral, então o equilíbrio é manter o horário', () => {
+    // Spec 044: só contratação integral. Capacidade 80 h para 84 h: falta 1 pessoa de 40 h (40000 com salário de 40000), cortem
+    // o sábado 1, 2, 3 ou 4 h ou não: a conta de turnos continua pedindo a mesma integral, e cortar só perde venda.
     const r = eq({ custos: caro });
     const e = r.equilibrio;
     expect(e.indisponivel).toBeNull();
     expect(e.diasFechar).toEqual([]);
-    expect(e.passos).toEqual([
-      {
-        tipo: 'reduzir',
-        dia: 5,
-        horas: 3,
-        de: { abre: '08:00', fecha: '22:00' },
-        para: { abre: '08:00', fecha: '19:00' },
-      },
-    ]);
-    expect(e.horariosAjustados).toEqual([
-      {
-        dia: 5,
-        antes: { abre: '08:00', fecha: '22:00' },
-        depois: { abre: '08:00', fecha: '19:00' },
-      },
-    ]);
-    expect(e.contratacoes).toMatchObject([{ funcao: 'Farmacêutico', inteiras: 0, parcialH: 1 }]);
-    expect(e.custoAdicionalMensal).toBe(1000);
-    expect(e.vendaCortadaMes).toBeCloseTo(1857.14, 0);
-    expect(e.vendaCortadaPorDia).toMatchObject([{ dia: 5, horasFechadas: 3, ate: 19 }]);
-    expect(e.impactoMensal).toBeCloseTo(2857.14, 0);
-    expect(e.horasSemana).toBe(81);
-    expect(e.horasReduzir).toBe(3);
-    expect(e.coincideComManter).toBe(false);
-    expect(e.coincideComEconomia).toBe(false);
-    expect(e.resumo).toContain('Sábado fecha 3 h mais cedo');
-    expect(e.resumo).toContain('economiza');
-    // segunda a sexta ficam com o horário de hoje
-    for (const d of [0, 1, 2, 3, 4])
+    expect(e.passos).toEqual([]);
+    expect(e.horariosAjustados).toEqual([]);
+    expect(e.contratacoes).toMatchObject([{ funcao: 'Farmacêutico', inteiras: 1, parcialH: null }]);
+    expect(e.custoAdicionalMensal).toBe(40000);
+    expect(e.vendaCortadaMes).toBe(0);
+    expect(e.impactoMensal).toBe(40000);
+    expect(e.horasSemana).toBe(84);
+    expect(e.coincideComManter).toBe(true);
+    for (const d of [0, 1, 2, 3, 4, 5])
       expect(e.horarioSemana[d]).toMatchObject({ abre: '08:00', fecha: '22:00' });
-    expect(e.horarioSemana[5]).toMatchObject({ abre: '08:00', fecha: '19:00' });
   });
 
   it('quando contratar custa menos que a venda de qualquer corte, o equilíbrio é contratar tudo', () => {
-    // salário de 1000: manter tudo custa 1000 × 4 × 5 ÷ 200 = 100, menos que a venda de 1 h do sábado (619,05)
-    const e = eq({ custos: custos(1000) }).equilibrio;
+    // salário de 100: manter tudo custa 100 × 40 × 5 ÷ 200 = 100, menos que a venda de 1 h do sábado (619,05)
+    const e = eq({ custos: custos(100) }).equilibrio;
     expect(e.passos).toEqual([]);
     expect(e.diasFechar).toEqual([]);
     expect(e.coincideComManter).toBe(true);
-    expect(e.contratacoes).toMatchObject([{ funcao: 'Farmacêutico', inteiras: 0, parcialH: 4 }]);
+    expect(e.contratacoes).toMatchObject([{ funcao: 'Farmacêutico', inteiras: 1, parcialH: null }]);
     expect(e.custoAdicionalMensal).toBe(100);
     expect(e.resumo).toContain('contratar tudo');
     expect(e.vendaCortadaMes).toBe(0);
@@ -531,7 +508,7 @@ describe('Cenário 3 — equilíbrio com as travas do fim de semana (spec 012)',
   });
 
   it('1 farmacêutico de 40h: reduz o sábado 4 h e ainda contrata 1 integral; custa menos que manter tudo', () => {
-    // Salário de 40000. Manter tudo: faltam 44 h → 1 integral + 1 parcial de 4h = 44000. Reduzindo o sábado 4 h (80 h abertas)
+    // Salário de 40000. Manter tudo: faltam 44 h → 2 integrais = 80000. Reduzindo o sábado 4 h (80 h abertas)
     // falta 40 h → 1 integral = 40000, mais a venda de 4 h (619,05 × 4 = 2476,19): impacto 42476,19 < 44000. A 5 h (limite da
     // trava de perda) ficam 39 h faltando e já não compensa.
     const r = eq({ pessoas: farm(40), custos: caro });
@@ -544,17 +521,18 @@ describe('Cenário 3 — equilíbrio com as travas do fim de semana (spec 012)',
     expect(e.horasSemana).toBe(80);
     expect(e.coincideComManter).toBe(false);
     expect(e.resumo).toContain('Sábado fecha 4 h mais cedo');
-    expect(r.manter.impactoMensal).toBe(44000);
+    expect(r.manter.impactoMensal).toBe(80000);
     expect(e.impactoMensal!).toBeLessThanOrEqual(r.manter.impactoMensal!);
     expect(r.diasProtegidos).toEqual([1, 4, 5]);
   });
 
-  it('com a folha em salário de 10000 e a venda hora a hora, cortar o sábado não compensa: o equilíbrio é manter o horário', () => {
-    // a hora cortada vende 619,05 e poupa só 250 de parcial: o melhor é contratar tudo e não mexer no horário
+  it('com salário de 10000 e a venda hora a hora, cortar o sábado 4 h compensa porque evita uma integral inteira', () => {
+    // Spec 044: manter tudo são 2 integrais (20000); cortar 4 h do sábado deixa 1 integral (10000) mais a venda de 4 h (2476,19)
     const e = eq({ pessoas: farm(40) }).equilibrio;
-    expect(e.passos).toEqual([]);
-    expect(e.coincideComManter).toBe(true);
-    expect(e.vendaCortadaMes).toBe(0);
+    expect(e.passos).toMatchObject([{ tipo: 'reduzir', dia: 5, horas: 4 }]);
+    expect(e.coincideComManter).toBe(false);
+    expect(e.custoAdicionalMensal).toBe(10000);
+    expect(e.vendaCortadaMes).toBeCloseTo(2476.19, 0);
   });
 
   it('é de fato o mínimo: nenhuma redução do sábado dentro das travas tem impacto menor (conferência independente)', () => {
@@ -590,17 +568,19 @@ describe('Cenário 3 — equilíbrio com as travas do fim de semana (spec 012)',
     expect(e.horasSemana).toBeGreaterThanOrEqual(71.4);
   });
 
-  it('com domingo aberto e não protegido: pode reduzir ou fechar o domingo', () => {
+  it('com domingo aberto e não protegido: só mexe no fim de semana, e só se evitar contratação', () => {
     // sete dias, domingo vende pouco (700): é o corte mais barato; 2 farmacêuticos de 40 h para 98 h
     const sete = dias(8, 22, [0, 1, 2, 3, 4, 5, 6]);
     const f7 = [1000, 1200, 900, 1100, 1500, 2000, 700];
     const e = eq({
       dias: sete,
+      pessoas: farm(40),
       custos: caro,
       vendas: vendasDoCadastro({ dias: f7, mensal: null, margemPct: 25 }, sete)!.linhas,
     }).equilibrio;
+    // Spec 044: só contratação integral; cortar o domingo (98 h → 84 h) não evita nenhuma das 2 integrais, então não compensa.
+    // O que o cenário nunca faz é mexer de segunda a sexta.
     expect(e.passos.every((p) => p.dia >= 5)).toBe(true);
-    expect(e.passos.some((p) => p.dia === 6)).toBe(true);
   });
 
   it('empate no impacto: menos contratações, depois menos dias fechados, depois menos horas cortadas', () => {
@@ -611,17 +591,17 @@ describe('Cenário 3 — equilíbrio com as travas do fim de semana (spec 012)',
     expect(e.coincideComManter).toBe(true);
   });
 
-  it('a recaptura reduz a venda perdida (20% de 1857,14 = 1485,71)', () => {
-    const e = eq({ recaptura: 0.2, custos: caro }).equilibrio;
-    expect(e.passos).toMatchObject([{ tipo: 'reduzir', dia: 5, horas: 3 }]);
-    expect(e.vendaCortadaMes).toBeCloseTo(1485.71, 0);
-    expect(e.impactoMensal).toBeCloseTo(2485.71, 0);
+  it('a recaptura reduz a venda perdida (20% de 2476,19 = 1980,95)', () => {
+    const e = eq({ recaptura: 0.2, pessoas: farm(40), custos: caro }).equilibrio;
+    expect(e.passos).toMatchObject([{ tipo: 'reduzir', dia: 5, horas: 4 }]);
+    expect(e.vendaCortadaMes).toBeCloseTo(1980.95, 0);
+    expect(e.impactoMensal).toBeCloseTo(41980.95, 0);
   });
 
   it('quem não é dono vê os passos e as contratações, sem valores em reais', () => {
-    const e = eq({ dono: false, custos: caro }).equilibrio;
+    const e = eq({ dono: false, pessoas: farm(40), custos: caro }).equilibrio;
     expect(e.diasFechar).toEqual([]);
-    expect(e.passos).toMatchObject([{ tipo: 'reduzir', dia: 5, horas: 3 }]);
+    expect(e.passos).toMatchObject([{ tipo: 'reduzir', dia: 5, horas: 4 }]);
     expect('custoAdicionalMensal' in e).toBe(false);
     expect('acrescimoPct' in e).toBe(false);
     expect('vendaGanhaMes' in e).toBe(false);
@@ -703,7 +683,7 @@ describe('Direcionamento — destaque de menor impacto financeiro', () => {
 
   it('escolhe o menor entre custo adicional e margem perdida', () => {
     // Farmacêutico de 40h e outro de 16h: 56h e 7 turnos para 45h e 10 turnos. Cenário 1: faltam 3 turnos →
-    // 1 parcial de 24h: 10000 × 24 × 5 ÷ 200 = 6000. O Cenário 2 (só fim de semana, com travas) não cobre e fica de
+    // 1 integral de 40h: 10000 × 40 × 5 ÷ 200 = 10000 (spec 044: sem parcial). O Cenário 2 (só fim de semana, com travas) não cobre e fica de
     // fora da escolha; o selo vai para o menor impacto entre os cenários calculáveis.
     const r = com({
       pessoas: [
@@ -711,7 +691,7 @@ describe('Direcionamento — destaque de menor impacto financeiro', () => {
         { funcao: 'Farmacêutico', cargaH: 16 },
       ],
     });
-    expect(r.manter.impactoMensal).toBe(6000);
+    expect(r.manter.impactoMensal).toBe(10000);
     expect(r.economia.impactoMensal).toBeNull();
     const impactos = [r.manter.impactoMensal, r.equilibrio.impactoMensal].filter(
       (x): x is number => typeof x === 'number',
@@ -842,10 +822,8 @@ describe('régua do cenário: margem ou venda (spec 033)', () => {
       base({
         minimos: { Farmacêutico: 1 },
         dias: seis,
-        pessoas: [
-          { funcao: 'Farmacêutico', cargaH: 40 },
-          { funcao: 'Farmacêutico', cargaH: 40 },
-        ],
+        // Spec 044: com 1 farmacêutico, cortar horas do sábado evita uma contratação integral inteira.
+        pessoas: [{ funcao: 'Farmacêutico', cargaH: 40 }],
         vendas,
         custos: { salarioMedio: { Farmacêutico: 40000 }, encargosPct: 0 },
         origemVenda: 'base',

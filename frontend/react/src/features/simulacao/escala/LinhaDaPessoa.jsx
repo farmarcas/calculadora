@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { COR_DA_FUNCAO } from "./LinhaDaFuncao.jsx";
-import { posicaoDoIntervalo, textoDoIntervalo, textoDoTurno, totalDaSemana } from "./escala-regras.js";
+import { intervaloSemCobertura, posicaoDoIntervalo, textoDoIntervalo, textoDoTurno, totalDaSemana } from "./escala-regras.js";
 import { aplicarMovimento, movimentoPorTecla } from "./movimento-regras.js";
 
 // Uma pessoa no dia: o turno em barra sobre as colunas das horas, "Função · 44h" e o total da semana. Folga mostra a barra
@@ -73,7 +73,7 @@ export default function LinhaDaPessoa({ pessoa, turno, turnosDaPessoa, ini, fim,
             onClick={onSelecionar}
             onPointerDown={(e) => comecar(e, "mover")}
             onKeyDown={tecla}
-            title={intervalo ? `Intervalo ${textoDoIntervalo(turno)}: a pessoa não conta na cobertura nessa hora` : undefined}
+            title={intervalo ? `Intervalo ${textoDoIntervalo(turno)}: ${intervaloSemCobertura(turno) ? "não precisa de cobertura (até 2 horas)" : "a pessoa não conta na cobertura nessa hora"}` : undefined}
             aria-label={`${pessoa.nome}: turno ${textoDoTurno(turno)}${intervalo ? `, intervalo ${textoDoIntervalo(turno)}` : ""}${editavel ? ". Setas movem 15 minutos; com Shift, mudam a saída" : ""}`}
             aria-pressed={selecionado}
             className={`absolute top-0 flex h-7 min-w-0 items-center overflow-hidden rounded-btn px-2 text-left text-xs font-bold ${simulada ? `border-2 border-dashed border-[var(--system-500)] bg-[var(--color-primary-soft)] text-[var(--color-primary)] ${previa ? "opacity-90" : ""}` : escuro ? "border-0 text-white" : "border-0 text-[var(--system-900)]"} ${selecionado ? "outline outline-2 outline-[var(--system-500)]" : ""} ${editavel ? "cursor-grab touch-none" : ""} ${emGesto ? "z-10 cursor-grabbing shadow-card outline outline-2 outline-[var(--system-500)]" : ""}`}

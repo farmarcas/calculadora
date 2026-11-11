@@ -144,24 +144,24 @@ describe('vaga nova com turnos (spec 039)', () => {
 
 describe('vagasSugeridas', () => {
   const dias = [0, 1, 2, 3, 4, 5].map((dia) => ({ dia, abre: 8, fecha: 22 }));
-  it('sugere uma vaga parcial quando falta pouco', () => {
+  it('sugere uma vaga integral quando falta pouco', () => {
     const q: PessoaSim[] = [
       { matricula: 'A', nome: 'Ana', funcao: 'Farmacêutico', cargaH: 44 },
       { matricula: 'B', nome: 'Bia', funcao: 'Farmacêutico', cargaH: 44 },
     ];
     expect(vagasSugeridas(regraPara('r40', false), dias, { Farmacêutico: 1 }, q)).toEqual([
-      { funcao: 'Farmacêutico', cargaH: 4 },
+      { funcao: 'Farmacêutico', cargaH: 40 },
     ]);
   });
-  it('falta muito: 84 h sem ninguém = 2 vagas inteiras e 1 parcial de 4 h, para o farmacêutico e para a meta do dono', () => {
+  it('falta muito: 84 h sem ninguém = 3 vagas integrais (spec 044), para o farmacêutico e para a meta do dono', () => {
     const v = vagasSugeridas(regraPara('r40', false), dias, { Caixa: 1 }, []);
     expect(v).toEqual([
       { funcao: 'Farmacêutico', cargaH: 40 },
       { funcao: 'Farmacêutico', cargaH: 40 },
-      { funcao: 'Farmacêutico', cargaH: 4 },
+      { funcao: 'Farmacêutico', cargaH: 40 },
       { funcao: 'Caixa', cargaH: 40 },
       { funcao: 'Caixa', cargaH: 40 },
-      { funcao: 'Caixa', cargaH: 4 },
+      { funcao: 'Caixa', cargaH: 40 },
     ]);
   });
 });

@@ -319,14 +319,14 @@ describe('simulações (rotas)', () => {
     it('adiciona vaga, avisa quando não tem turnos e não mexe no cadastro', async () => {
       const sim = (await criar()).body;
       const antes = await prisma.funcionario.count();
-      const r = await put(sim.id, { vagas: [{ funcao: 'Atendimento', cargaH: 24 }] });
+      const r = await put(sim.id, { vagas: [{ funcao: 'Atendimento', cargaH: 40 }] });
       expect(r.status).toBe(200);
       const vaga = r.body.quadro.find((p: { vaga?: boolean }) => p.vaga);
       expect(vaga).toMatchObject({
         matricula: 'VAGA-1',
         nome: 'Vaga 1',
         funcao: 'Atendimento',
-        cargaH: 24,
+        cargaH: 40,
       });
       expect(
         r.body.avaliacao.avisos.some((a: { regra: string }) => a.regra === 'vaga-sem-turnos'),
@@ -376,13 +376,13 @@ describe('simulações (rotas)', () => {
         (await put(sim.id, { vagas: [{ matricula: 'VAGA-7', funcao: 'Caixa', cargaH: 20 }] }))
           .status,
       ).toBe(400);
-      await put(sim.id, { vagas: [{ funcao: 'Caixa', cargaH: 20 }] });
+      await put(sim.id, { vagas: [{ funcao: 'Caixa', cargaH: 40 }] });
       expect((await put(sim.id, { desligados: ['VAGA-1'] })).status).toBe(400);
     });
 
     it('vagas ficam congeladas na gravada e vêm junto no clone', async () => {
       const sim = (await criar()).body;
-      await put(sim.id, { vagas: [{ funcao: 'Caixa', cargaH: 16 }] });
+      await put(sim.id, { vagas: [{ funcao: 'Caixa', cargaH: 40 }] });
       await reqGe().post(`/api/v1/simulacoes/${sim.id}/gravar`).set(admin);
       expect((await put(sim.id, { vagas: [] })).status).toBe(409);
       const c = (await reqGe().post(`/api/v1/simulacoes/${sim.id}/clonar`).set(admin)).body;
@@ -467,6 +467,54 @@ describe('simulações (rotas)', () => {
       expect(r.status).toBe(200);
     });
 
+    it('intervalo de até 2 horas não abre falta (spec 045); de 3 horas abre; Personalizar não contrata por causa do almoço', async () => {
+      const farm11h = (
+        cobertura: { funcao: string; porHora: { hora: number; pessoas: number; ok: boolean }[] }[],
+      ) => cobertura.find((c) => c.funcao === 'Farmacêutico')!.porHora.find((c) => c.hora === 11)!;
+      // Ana (08h–14h) é a única farmacêutica às 11h; almoço de 1 h (11h–12h)
+      await prisma.funcionario.updateMany({
+        where: { matricula: 'F1' },
+        data: { iniIntervalo: 11, fimIntervalo: 12 },
+      });
+      const curto = (await criar()).body;
+      expect(farm11h(curto.avaliacao.cobertura[0])).toMatchObject({ pessoas: 1, ok: true });
+      // O mesmo almoço não faz o Personalizar contratar nada
+      const comVagas = (await criar({ nome: 'Almoço', regra: 'r40', comVagasSugeridas: true }))
+        .body;
+      expect((comVagas.quadro as { vaga?: boolean }[]).filter((p) => p.vaga)).toHaveLength(0);
+      // Intervalo de 3 h (09h–12h): volta a descontar
+      await prisma.funcionario.updateMany({
+        where: { matricula: 'F1' },
+        data: { iniIntervalo: 9, fimIntervalo: 12 },
+      });
+      const longo = (await criar({ nome: 'Intervalo longo', regra: 'r40' })).body;
+      expect(farm11h(longo.avaliacao.cobertura[0])).toMatchObject({ pessoas: 0, ok: false });
+    });
+
+    it('só se contrata integral (spec 044): vaga nova parcial é recusada; vaga parcial de simulação antiga continua abrindo', async () => {
+      const sim = (await criar()).body;
+      // Parcial novo: recusado com a frase em português
+      const r = await put(sim.id, { vagas: [{ funcao: 'Caixa', cargaH: 20 }] });
+      expect(r.status).toBe(400);
+      expect(JSON.stringify(r.body)).toContain(
+        'A contratação é integral: 40 horas por semana nesta regra.',
+      );
+      // Integral: aceito
+      expect((await put(sim.id, { vagas: [{ funcao: 'Caixa', cargaH: 40 }] })).status).toBe(200);
+      // Uma simulação salva antes tinha uma vaga de 20h: segue abrindo e aceitando a vaga como estava
+      const velha = (await reqGe().get(`/api/v1/simulacoes/${sim.id}`).set(admin)).body.quadro.map(
+        (p: { vaga?: boolean }) => (p.vaga ? { ...p, cargaH: 20 } : p),
+      );
+      await prisma.simulacao.update({ where: { id: sim.id }, data: { quadro: velha } });
+      const aberta = await reqGe().get(`/api/v1/simulacoes/${sim.id}`).set(admin);
+      expect(aberta.status).toBe(200);
+      expect(aberta.body.quadro.find((p: { vaga?: boolean }) => p.vaga).cargaH).toBe(20);
+      const mantida = await put(sim.id, {
+        vagas: [{ matricula: 'VAGA-1', funcao: 'Caixa', cargaH: 20 }],
+      });
+      expect(mantida.status).toBe(200);
+    });
+
     it('o mesmo número de contratações no quadro central, no Cenário 1 e nas vagas sugeridas', async () => {
       await reqGe()
         .put(`/api/v1/lojas/${lojaId}/configuracao`)
@@ -507,7 +555,7 @@ describe('simulações (rotas)', () => {
       await salvarCustos();
       const a = await gravada('Plano A');
       const b = await gravada('Plano B com vaga', {
-        vagas: [{ funcao: 'Farmacêutico', cargaH: 24 }],
+        vagas: [{ funcao: 'Farmacêutico', cargaH: 40 }],
       });
 
       const r = await comparar([a.id, b.id]);
@@ -520,10 +568,10 @@ describe('simulações (rotas)', () => {
         anual: 311424,
       });
       expect(ra.custo).not.toHaveProperty('diferencaMensalFrenteEmUso');
-      // B: + vaga de 24h = 8.000 × 24 × 5 ÷ 200 × 1,622 = 7.785,60
+      // B: + vaga integral de 40h (spec 044) = 8.000 × 40 × 5 ÷ 200 × 1,622 = 12.976
       expect(rb.custo).toMatchObject({
-        mensal: 33737.6,
-        anual: 404851.2,
+        mensal: 38928,
+        anual: 467136,
       });
       expect(rb.sintese).not.toContain('por mês');
       expect(rb.sintese).toContain('exige contratar 1 vaga(s)');
@@ -653,7 +701,7 @@ describe('simulações (rotas)', () => {
       expect((await lista())[0]!.saldoMensal).toBeNull(); // sem custos nem venda por hora
       await comCustosEVendas();
       const b = await gravada('Plano B com vaga', {
-        vagas: [{ funcao: 'Farmacêutico', cargaH: 24 }],
+        vagas: [{ funcao: 'Farmacêutico', cargaH: 40 }],
       });
       const l = await lista();
       const painelA = (await reqGe().get(`/api/v1/simulacoes/${a.id}`).set(admin)).body.resultado;
@@ -960,14 +1008,14 @@ describe('simulações (rotas)', () => {
       await reqGe()
         .put(`/api/v1/simulacoes/${sim.id}`)
         .set(admin)
-        .send({ vagas: [{ funcao: 'Atendimento', cargaH: 20 }] });
+        .send({ vagas: [{ funcao: 'Atendimento', cargaH: 40 }] });
       const depois = await detalhe(sim.id, gestor);
       expect(depois.emHoras.pessoas).toEqual({ hoje: 2, simulacao: 3 });
       expect(depois.emHoras.horasContratadas.simulacao - depois.emHoras.horasContratadas.hoje).toBe(
-        20,
+        40,
       );
       expect(depois.emHoras.contratar).toEqual([
-        { funcao: 'Atendimento', inteiras: 0, parciaisHoras: [20] },
+        { funcao: 'Atendimento', inteiras: 1, parciaisHoras: [] },
       ]);
       expect(depois.emHoras.horasAbertas.hoje).toBe(antes.emHoras.horasAbertas.hoje);
     });
@@ -1006,7 +1054,7 @@ describe('simulações (rotas)', () => {
       const antes = pessoasFarmaceuticoNaHora(sim, d0.dia, d0.abre).pessoas;
       const vaga = {
         funcao: 'Farmacêutico',
-        cargaH: 8,
+        cargaH: 40,
         turnos: [{ dia: d0.dia, entrada: d0.abre, saida: d0.abre + 6 }],
       };
       const r = await reqGe()
@@ -1032,7 +1080,7 @@ describe('simulações (rotas)', () => {
 
     it('a prévia do custo só devolve o número ao dono e não grava nada', async () => {
       const sim = (await criar()).body;
-      const corpo = { funcao: 'Atendimento', cargaH: 20 };
+      const corpo = { funcao: 'Atendimento', cargaH: 40 };
       const dono = await reqGe()
         .post(`/api/v1/simulacoes/${sim.id}/efeito-contratacao`)
         .set(admin)
@@ -1171,7 +1219,7 @@ describe('simulações (rotas)', () => {
 
     it('vaga sem turnos não cobre e é contada à parte; com turnos passa a cobrir', async () => {
       const sim = (await criar()).body;
-      const v = await put(sim.id, { vagas: [{ funcao: 'Atendimento', cargaH: 24 }] });
+      const v = await put(sim.id, { vagas: [{ funcao: 'Atendimento', cargaH: 40 }] });
       expect(v.body.cobertura.vagasSemTurnos).toBe(1);
       const turnos = [
         ...v.body.turnos,

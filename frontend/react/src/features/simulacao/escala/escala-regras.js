@@ -60,9 +60,15 @@ export const totalDaSemana = (turnos, matricula) => {
   return { horas, dias, texto: dias ? `${virgula(horas)}h · ${dias} ${dias === 1 ? "dia" : "dias"}` : "sem turnos" };
 };
 
+// Intervalo que não precisa de cobertura (spec 045): até 2 horas a pessoa segue contando como presente; acima disso desconta.
+// É o mesmo limite do servidor (regras/intervalo.ts). Regra de referência: o jurídico confirma.
+export const LIMITE_INTERVALO_SEM_COBERTURA_H = 2;
+export const intervaloSemCobertura = (t) => !!t && t.iniIntervalo != null && t.fimIntervalo != null && t.fimIntervalo - t.iniIntervalo <= LIMITE_INTERVALO_SEM_COBERTURA_H + EPS;
+const intervaloDesconta = (t) => t.iniIntervalo != null && t.fimIntervalo != null && !intervaloSemCobertura(t);
+
 const presente = (t, h) =>
   t.entrada <= h + EPS && t.saida >= h + 1 - EPS &&
-  !(t.iniIntervalo != null && t.fimIntervalo != null && t.iniIntervalo < h + 1 - EPS && t.fimIntervalo > h + EPS);
+  !(intervaloDesconta(t) && t.iniIntervalo < h + 1 - EPS && t.fimIntervalo > h + EPS);
 
 // ---- Cobertura -------------------------------------------------------------------------------------------------------
 
@@ -157,7 +163,7 @@ export const erroDoFormulario = ({ tipo, dias, entra, sai, regra }) => {
 
 // A janela e os dias que cobrem as horas sem cobertura da função (a sugestão que já vem preenchida). `coberturaPorDia` é
 // { dia: cobertura da função }. Parcial: janela de até 6 h; integral: a jornada cheia nos dias que a regra permite.
-export const sugerirContratacao = ({ funcao: _funcao, coberturaPorDia, abas, tipo = "parcial", regra, diaPreferido }) => {
+export const sugerirContratacao = ({ funcao: _funcao, coberturaPorDia, abas, tipo = "integral", regra, diaPreferido }) => {
   if (!abas.length) return null;
   const faltas = abas.map((a) => ({
     dia: a.dia,
@@ -236,7 +242,7 @@ export const horasReforcadas = (turnosDasVagas, dia) => {
   return horas;
 };
 
-// As contratações simuladas de uma função: "Farmacêutico · 16h parcial".
+// As contratações simuladas de uma função: "Farmacêutico · 40h".
 export const contratacoesSimuladas = (quadro, turnos, funcao) =>
   quadro
     .filter((p) => p.vaga && !p.desligado && p.funcao === funcao)
@@ -244,7 +250,7 @@ export const contratacoesSimuladas = (quadro, turnos, funcao) =>
       matricula: p.matricula,
       nome: p.nome,
       cargaH: p.cargaH,
-      texto: `${funcao} · ${p.cargaH}h ${p.cargaH > LIMITE_PARCIAL_H ? "integral" : "parcial"}`,
+      texto: `${funcao} · ${p.cargaH}h`,
       turnos: turnos.filter((t) => t.matricula === p.matricula),
     }));
 

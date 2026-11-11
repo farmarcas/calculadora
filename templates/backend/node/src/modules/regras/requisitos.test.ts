@@ -71,11 +71,11 @@ describe('capacidade com exigência por turno', () => {
     expect(l.necessidadeH).toBe(100);
     expect(l.necessidadeT).toBe(20);
     expect(l.minimo).toBe(3);
-    // 2 pessoas de 40h: 80h → faltam 20h, que cabem em 1 contrato parcial (até 30h)
+    // 2 pessoas de 40h: 80h → faltam 20h, que pedem 1 contratação integral (spec 044: sem parcial)
     expect(l.falta).toBe(true);
     expect(l.gapH).toBe(20);
     expect(l.contratar).toBe(1);
-    expect(l.parcialH).toBe(20);
+    expect(l.parcialH).toBeNull();
   });
 
   it('exige menos que o pico aplicado ao dia todo e mais que o mínimo da manhã', () => {

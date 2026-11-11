@@ -7,6 +7,7 @@ import { FARMACEUTICO } from '../regras/gap-horas.js';
 import { tetoEfetivo, type Regra } from '../regras/perfis.js';
 import { requisitos, type Minimos } from '../regras/requisitos.js';
 import type { TurnoSim } from '../simulacoes/avaliar.js';
+import { intervaloDesconta } from '../regras/intervalo.js';
 
 export type HorarioPessoa = {
   matricula: string;
@@ -52,10 +53,9 @@ const presente = (t: TurnoSim, h: number) =>
   t.entrada <= h + EPS &&
   t.saida >= h + 1 - EPS &&
   !(
-    t.iniIntervalo != null &&
-    t.fimIntervalo != null &&
-    t.iniIntervalo < h + 1 - EPS &&
-    t.fimIntervalo > h + EPS
+    intervaloDesconta(t.iniIntervalo, t.fimIntervalo) &&
+    t.iniIntervalo! < h + 1 - EPS &&
+    t.fimIntervalo! > h + EPS
   );
 
 const horasDoDia = (d: DiaAberto) => {

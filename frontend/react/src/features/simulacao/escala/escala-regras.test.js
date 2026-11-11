@@ -175,7 +175,7 @@ describe("efeito e contratações simuladas", () => {
     expect(horasReforcadas([t], 4).size).toBe(0);
     const lista = contratacoesSimuladas([{ matricula: "VAGA-1", nome: "Vaga 1", funcao: "Farmacêutico", cargaH: 16, vaga: true }, { matricula: "A", nome: "Ana", funcao: "Farmacêutico", cargaH: 44 }], [t], "Farmacêutico");
     expect(lista).toHaveLength(1);
-    expect(lista[0]).toMatchObject({ texto: "Farmacêutico · 16h parcial", matricula: "VAGA-1" });
+    expect(lista[0]).toMatchObject({ texto: "Farmacêutico · 16h", matricula: "VAGA-1" });
   });
 });
 
@@ -335,5 +335,16 @@ describe("intervalo na escala", () => {
     expect(quemEstaEmIntervalo([eliane, olimpia], quadro)).toEqual({ 10: ["Eliane"], 17: ["Olimpia"] });
     expect(quemEstaEmIntervalo([{ ...eliane, iniIntervalo: 10, fimIntervalo: 12 }], quadro)).toEqual({ 10: ["Eliane"], 11: ["Eliane"] });
     expect(quemEstaEmIntervalo([{ ...eliane, iniIntervalo: null, fimIntervalo: null }], quadro)).toEqual({});
+  });
+});
+
+describe("só se contrata integral (spec 044)", () => {
+  it("a sugestão do formulário é integral por padrão, com a jornada cheia da regra e até os dias da regra", () => {
+    const abas = [0, 1, 2, 3, 4, 5].map((dia) => ({ dia, abre: 8, fecha: 22 }));
+    const cob = Object.fromEntries(abas.map((a) => [a.dia, { funcao: "Farmacêutico", porHora: horasDoDia(a).map((hora) => ({ hora, pessoas: 0, ok: false, exigido: 1 })) }]));
+    const s = sugerirContratacao({ funcao: "Farmacêutico", coberturaPorDia: cob, abas, regra: { dias: 5, maxDia: 8, teto: 42 } });
+    expect(s.tipo).toBe("integral");
+    expect(s.cargaH).toBe(40);
+    expect(s.dias.length).toBeLessThanOrEqual(5);
   });
 });

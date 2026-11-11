@@ -17,7 +17,12 @@ import { nomeDeQuemCriou, tipoDoCenario } from './resumo.js';
 import { gerarExcelEscala } from './exportar.js';
 import { coberturaDaSimulacao } from './cobertura-simulacao.js';
 import { avaliarSimulacao, type PessoaSim, type TurnoSim } from './avaliar.js';
-import { aplicarVagasEDesligados, vagasSugeridas, type VagaEntrada } from './vagas.js';
+import {
+  aplicarVagasEDesligados,
+  exigirVagasIntegrais,
+  vagasSugeridas,
+  type VagaEntrada,
+} from './vagas.js';
 import { semanaComFolgas, type HorarioPessoa } from '../escala/semana-com-folgas.js';
 import { calcularCusto } from '../custos/custo.js';
 import type { Custos } from '../custos/custos.schemas.js';
@@ -419,6 +424,10 @@ export const makeSimulacoesService = (
       let quadro: PessoaSim[] | undefined;
       let turnos = b.turnos;
       if (b.vagas || b.desligados) {
+        if (b.vagas?.some((v) => !v.matricula)) {
+          const l = await loja(s.lojaId);
+          exigirVagasIntegrais(b.vagas, regraPara((b.regra ?? s.regra) as RegraId, l.convencao8h24, tabela));
+        }
         const r = aplicarVagasEDesligados(s.quadro, b.turnos ?? s.turnos, b.vagas, b.desligados);
         quadro = r.quadro;
         turnos = r.turnos;
@@ -474,6 +483,7 @@ export const makeSimulacoesService = (
       if (perfil !== 'TENANT_ADMIN') return {};
       const s = await simulacao(id);
       const l = await loja(s.lojaId);
+      exigirVagasIntegrais([{ funcao: b.funcao, cargaH: b.cargaH }], regraPara(s.regra as RegraId, l.convencao8h24, tabela));
       const base = await lojas.baseAtiva(s.lojaId);
       const vendas = base?.vendas ?? [];
       const antes = resultadoDe(s, l, vendas, true).emHoras;

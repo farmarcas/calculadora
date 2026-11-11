@@ -1,6 +1,5 @@
-// Sugestão de contratação por horas semanais. Gap até 30 h vira 1 contrato de tempo parcial (CLT art. 58-A); acima
-// disso, integral, ou integrais mais um parcial quando isso reduz as horas ociosas. Nunca um parcial acima de 30 h.
-// A variante de 26 h (contrato) com até 6 h extras é uma opção secundária, identificada. Funções puras, sem banco.
+// Sugestão de contratação por horas semanais. Spec 044: só se contrata integral; o parcial e a variante de 26 h com horas
+// extras saíram. Funções puras, sem banco. (As constantes e os campos de parcial ficam só para ler simulações antigas.)
 export const PARCIAL = {
   maxHorasSemana: 30,
   variante: { baseH: 26, extrasMaxH: 6 },
@@ -79,39 +78,12 @@ const monta = (
   };
 };
 
-// Menos horas ociosas; em empate, o menor custo (se houver); depois menos contratos.
-const melhor = (lista: Sugestao[]) =>
-  [...lista].sort(
-    (x, y) =>
-      x.horasOciosas - y.horasOciosas ||
-      (x.custoMensal ?? 0) - (y.custoMensal ?? 0) ||
-      x.inteiras + (x.parcialH ? 1 : 0) - (y.inteiras + (y.parcialH ? 1 : 0)),
-  )[0]!;
-
 // Gap nulo (ou desprezível) não gera sugestão.
 export const sugerirContratacao = (a: EntradaContratacao): SugestoesContratacao | null => {
   const gap = arred(a.gapH);
   if (gap <= EPS || a.jornadaIntegralH <= 0) return null;
-  const J = a.jornadaIntegralH;
-  const padrao: Sugestao[] = [];
-  for (let n = Math.floor(gap / J + EPS); n <= Math.ceil(gap / J - EPS); n++) {
-    const resto = arred(gap - n * J);
-    if (resto <= EPS) padrao.push(monta(a, n, null));
-    else if (resto <= PARCIAL.maxHorasSemana + EPS) padrao.push(monta(a, n, resto));
-  }
-  // Sempre existe a opção só de integrais, que cobre qualquer gap.
-  padrao.push(monta(a, Math.ceil(gap / J - EPS), null));
-  const principal = melhor(padrao);
-
-  // Variante com hora extra: o resto entre 30 h e 32 h vira um contrato de 26 h mais até 6 h extras.
-  const { baseH, extrasMaxH } = PARCIAL.variante;
-  let alternativa: Sugestao | null = null;
-  for (let n = 0; n <= Math.floor(gap / J + EPS); n++) {
-    const resto = arred(gap - n * J);
-    if (resto > PARCIAL.maxHorasSemana + EPS && resto <= baseH + extrasMaxH + EPS) {
-      const candidata = monta(a, n, baseH, arred(resto - baseH));
-      if (candidata.horasOciosas < principal.horasOciosas - EPS) alternativa = candidata;
-    }
-  }
-  return { principal, alternativa };
+  // Só contratação integral (spec 044): quantas pessoas de jornada cheia cobrem o gap; o que sobra da última é hora ociosa.
+  // Não há mais parcial nem a variante com hora extra.
+  const principal = monta(a, Math.ceil(gap / a.jornadaIntegralH - EPS), null);
+  return { principal, alternativa: null };
 };

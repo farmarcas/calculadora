@@ -422,7 +422,22 @@ export const calcularResultado = (a: {
     custoManter == null || custoAdicional == null ? null : arred(custoManter - custoAdicional);
   const vendaEstimada = estimativa ? estimativa.vendaMes : null;
   // Saldo contra a folha atual (a regra dos cartões): −folha extra − hora extra + venda estimada − venda que deixa de entrar.
-  const saldo = saldoDaSimulacao({ folhaExtra, horaExtra, vendaEstimada, vendaQueSai });
+  // Quem a simulação desliga tira a folha que pagava hoje: entra no saldo como economia (o mesmo desconto do bloco "Folha por mês").
+  const economiaDosDesligados =
+    todosAtuais.length === atuais.length
+      ? 0
+      : folhaTodos == null || folhaSemDesligados == null
+        ? null
+        : folhaTodos - folhaSemDesligados;
+  const saldo = saldoDaSimulacao({
+    folhaExtra:
+      folhaExtra == null || economiaDosDesligados == null
+        ? null
+        : arred(folhaExtra - economiaDosDesligados),
+    horaExtra,
+    vendaEstimada,
+    vendaQueSai,
+  });
   const faturamento = totalVenda * SEMANAS_NO_MES;
   // Spec 049: as horas a mais da simulação (por semana). Com a base trazendo o CMV (régua de margem), o lucro bruto é a venda
   // estimada na régua; senão, venda × (1 − CMV médio). Sem horas novas, o bloco não existe.

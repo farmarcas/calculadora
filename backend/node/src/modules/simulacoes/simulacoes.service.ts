@@ -27,7 +27,11 @@ import {
   vagasSugeridas,
   type VagaEntrada,
 } from './vagas.js';
-import { semanaComFolgas, type HorarioPessoa } from '../escala/semana-com-folgas.js';
+import {
+  ajustarJornada,
+  semanaComFolgas,
+  type HorarioPessoa,
+} from '../escala/semana-com-folgas.js';
 import { calcularCusto } from '../custos/custo.js';
 import type { Custos } from '../custos/custos.schemas.js';
 import type {
@@ -475,6 +479,16 @@ export const makeSimulacoesService = (
             alvoId: id,
             detalhe: { total: b.desligados.length },
           });
+      }
+      // Trocou a regra (ex.: de 42h para 40h): os turnos que já estão na simulação passam a caber na regra nova, até o máximo de
+      // horas por dia e o teto da semana. Sem isto a simulação em 40h seguia com os dias de 8h24 da regra de 42h.
+      if (b.regra && b.regra !== s.regra) {
+        const l = await loja(s.lojaId);
+        const novaRegra = regraPara(b.regra, l.convencao8h24, tabela);
+        const pessoas = (quadro ?? s.quadro).map(
+          (p) => ({ matricula: p.matricula, cargaH: p.cargaH }) as HorarioPessoa,
+        );
+        turnos = ajustarJornada(turnos ?? s.turnos, pessoas, novaRegra);
       }
       if (turnos) validarTurnos({ ...s, quadro: quadro ?? s.quadro }, turnos);
       await repo.atualizarRascunho(id, {

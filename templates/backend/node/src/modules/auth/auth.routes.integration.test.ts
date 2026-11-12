@@ -591,6 +591,39 @@ describe('login pelo Radar', () => {
     }, 30_000);
   });
 
+  describe('Gestor administrativo do grupo (lista do Radar)', () => {
+    const GERENTE = { name: 'Gerente' };
+
+    it('vê todas as lojas do grupo que gere e só as suas no outro grupo', async () => {
+      const outro = await criarGrupo('260');
+      const minhaNoOutro = await criarLoja(outro.id, 'V1');
+      await criarLoja(outro.id, 'V2');
+      const vinculada = lojaRadar(250, { id: '9201' });
+      const daRede = lojaRadar(250, { id: '9202' });
+
+      const { resposta, agente } = await entrar(
+        usuario({
+          role: GERENTE,
+          stores: [vinculada, lojaRadar(260, { cnpj: minhaNoOutro.cnpj })],
+        }),
+        [
+          { id: '250', name: 'Grupo 250', fullAccess: true },
+          { id: '260', name: 'Grupo 260', fullAccess: false },
+        ],
+        [vinculada, daRede],
+      );
+
+      expect(resposta.status).toBe(200);
+      const gerido = await prisma.grupoEconomico.findUniqueOrThrow({
+        where: { identificacao: '250' },
+      });
+      const lojasGeridas = await agente.get('/api/v1/lojas').set('X-GE', gerido.id);
+      expect(lojasGeridas.body.meta.total).toBe(2);
+      const lojasDoOutro = await agente.get('/api/v1/lojas').set('X-GE', outro.id);
+      expect(lojasDoOutro.body.data.map((l: { id: string }) => l.id)).toEqual([minhaNoOutro.id]);
+    });
+  });
+
   describe('grupos e lojas no login', () => {
     it('cria o que falta só com número, nome e CNPJ', async () => {
       const loja = lojaRadar(250, { id: '4321', name: 'Farmácia Centro' });

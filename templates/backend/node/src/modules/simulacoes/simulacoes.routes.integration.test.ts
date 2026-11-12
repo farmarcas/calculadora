@@ -87,6 +87,35 @@ describe('simulações (rotas)', () => {
     expect(g.status).toBe(200);
   });
 
+  it('trocar a simulação para a regra de 40h corta os turnos para 8h por dia, sem manter o dia da regra de 42h', async () => {
+    const sim = (await criar({ nome: 'Troca de regra', regra: 'r42' })).body;
+    type T = {
+      matricula: string;
+      dia: number;
+      entrada: number;
+      saida: number;
+      iniIntervalo?: number | null;
+      fimIntervalo?: number | null;
+    };
+    const longos = (sim.turnos as T[]).map((t) => ({
+      ...t,
+      entrada: 8,
+      saida: 16.4,
+      iniIntervalo: null,
+      fimIntervalo: null,
+    }));
+    const a = await reqGe().put(`/api/v1/simulacoes/${sim.id}`).set(admin).send({ turnos: longos });
+    expect(a.status).toBe(200);
+    const e = await reqGe().put(`/api/v1/simulacoes/${sim.id}`).set(admin).send({ regra: 'r40' });
+    expect(e.status).toBe(200);
+    expect(e.body.regraInfo.maxDia).toBe(8);
+    const liquida = (t: T) =>
+      t.saida -
+      t.entrada -
+      (t.iniIntervalo != null && t.fimIntervalo != null ? t.fimIntervalo - t.iniIntervalo : 0);
+    for (const t of e.body.turnos as T[]) expect(liquida(t)).toBeLessThanOrEqual(8);
+  });
+
   it('grava sem erros, congela e não deixa editar; clonar abre um rascunho novo', async () => {
     const sim = (await criar()).body;
     const g = await reqGe().post(`/api/v1/simulacoes/${sim.id}/gravar`).set(admin);

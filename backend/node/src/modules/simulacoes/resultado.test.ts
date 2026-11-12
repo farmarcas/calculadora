@@ -313,6 +313,18 @@ describe('calcularResultado: peso da folha (spec 052)', () => {
     expect(r.custoDoDono!.folhaDepois!).toBeLessThan(r.custoDoDono!.folhaHoje!);
   });
 
+  it('o saldo desconta a folha de quem a simulação desliga (igual ao bloco da folha)', () => {
+    const r = base({
+      dias: pequena,
+      diasCadastro: pequena,
+      quadro: [quadro[0]!, { ...quadro[1]!, desligado: true }, vaga],
+      faturamentoMensalRef: 100000,
+    });
+    const variacaoDaFolha = r.custoDoDono!.folhaDepois! - r.custoDoDono!.folhaHoje!;
+    expect(r.saldoMensal).not.toBeNull();
+    expect(Math.abs(r.saldoMensal! + variacaoDaFolha)).toBeLessThan(1);
+  });
+
   it('sem salários e sem faturamento: o estado diz o que falta, sem número inventado', () => {
     const semSal = base({ custos: null, faturamentoMensalRef: 100000 });
     expect(semSal.custoDoDono).toMatchObject({

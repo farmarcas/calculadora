@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Botao, Cartao } from "../../components/ui/index.jsx";
+import { Aviso, Botao, Cartao } from "../../components/ui/index.jsx";
 import QuadroCentral from "./QuadroCentral.jsx";
 import OndeVemSecao from "./onde-vem/OndeVemSecao.jsx";
 import Comparativo from "./Comparativo.jsx";

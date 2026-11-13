@@ -14,9 +14,9 @@ export const IconeLoja = (p) => (
 );
 export const IconeCalendario = (p) => (
   <Base {...p}>
-    <path d="M8 2v4M16 2v4" />
-    <rect width="18" height="18" x="3" y="4" rx="2" />
-    <path d="M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01" />
+    <path d="m15.228 16.852-.923-.383M15.228 19.148l-.923.383M16 2v4M16.47 14.305l.382.923M16.852 20.772l-.383.924M19.148 15.228l.383-.923M19.53 21.696l-.382-.924M20.772 16.852l.924-.383M20.772 19.148l.924.383" />
+    <path d="M21 10.592V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h6M3 10h18M8 2v4" />
+    <circle cx="18" cy="18" r="3" />
   </Base>
 );
 export const IconePrancheta = (p) => (

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { api, baixarArquivo } from "../../api/client.js";
+import { registrar } from "../../analytics/servico.js";
 import { Botao, entrada } from "../../components/ui/index.jsx";
 import AreaDeEnvio from "../../components/importacao/AreaDeEnvio.jsx";
 import AvisoCaixa from "../../components/importacao/AvisoCaixa.jsx";
@@ -57,10 +58,12 @@ export default function ModalEnviarBase({ onClose, onConcluido }) {
     try {
       const res = await api("/cargas/base", { method: "POST", form: form(arquivo) });
       const r = resumoDoEnvio(res);
+      registrar("importacao_concluida", { tipo: "base", resultado: "sucesso" });
       onConcluido?.();
       mostrar(sucessoDaBase(r), r.naoGravadas ? "atencao" : "ok");
       onClose();
     } catch (err) {
+      registrar("importacao_concluida", { tipo: "base", resultado: "erro" });
       setErro(mensagemDe(err));
     } finally {
       setOcupado(null);
@@ -108,7 +111,7 @@ export default function ModalEnviarBase({ onClose, onConcluido }) {
         numero={1}
         titulo="Baixe a planilha modelo"
         descricao="Colunas: Código da loja, Data, Hora e Valor das vendas."
-        acao={<Botao tipo="secundario" onClick={() => baixarArquivo("/planilha-modelo-base", "modelo-base-comercial.xlsx")} disabled={!!ocupado}><IconeDownload />Baixar modelo</Botao>}
+        acao={<Botao tipo="secundario" onClick={() => { registrar("exportacao_feita", { tipo: "modelo" }); baixarArquivo("/planilha-modelo-base", "modelo-base-comercial.xlsx"); }} disabled={!!ocupado}><IconeDownload />Baixar modelo</Botao>}
       />
       <PassoNumerado numero={2} titulo="Preencha e salve" descricao="Uma planilha pode ter várias lojas: cada linha vai para a loja do código informado." />
       <PassoNumerado numero={3} titulo="Envie a planilha" descricao="Aceitamos .xlsx e .csv.">

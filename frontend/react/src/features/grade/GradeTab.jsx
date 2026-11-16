@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../../api/client.js";
+import { regraEmHoras, registrar } from "../../analytics/servico.js";
 import { Aviso, Botao, Campo, Modal, entrada } from "../../components/ui/index.jsx";
 import BarraDeComparar from "./BarraDeComparar.jsx";
 import ListaDeSimulacoes from "./ListaDeSimulacoes.jsx";
@@ -20,7 +21,9 @@ function Nova({ lojaId, lista, onClose, onCriada }) {
     e.preventDefault();
     setErro(null);
     try {
-      onCriada(await api(`/lojas/${lojaId}/simulacoes`, { method: "POST", body: { nome, regra, origem } }));
+      const nova = await api(`/lojas/${lojaId}/simulacoes`, { method: "POST", body: { nome, regra, origem } });
+      registrar("simulacao_criada", { regra_horas: regraEmHoras(regra), origem });
+      onCriada(nova);
     } catch (err) {
       setErro(err.message);
     }

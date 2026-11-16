@@ -20,7 +20,7 @@ export const corpoDaSessao = async (sessao: SessaoAtiva) => {
   const grupos = await geRepository.listarAtivos(ids);
   return {
     sso: true,
-    usuario: { nome: sessao.nome, email: sessao.email },
+    usuario: { id: sessao.radarUsuarioId, nome: sessao.nome, email: sessao.email },
     operador: sessao.operador,
     grupos: grupos.map((g) => ({
       ...g,

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { api } from "../../api/client.js";
+import { regraEmHoras, registrar } from "../../analytics/servico.js";
 import { Aviso } from "../../components/ui/index.jsx";
 import LinhaDeCenario from "./cartao/LinhaDeCenario.jsx";
 import { diasDasAbas, sugerirTurnosDasVagas, turnosParaGravar, vagaSemTurnos } from "../simulacao/escala/escala-regras.js";
@@ -36,6 +37,7 @@ export default function Comparativo({ comparativo, cenarios, lojaId, podeEscreve
       const corpo = { nome: c.nome.slice(0, 80), regra: cenarios.regra.id };
       let s;
       let aviso = null;
+      let origem = "escala_atual";
       // O horário do cenário clicado (o Cenário 1 mantém o do Cadastro): vai já na criação, para o servidor montar a semana com
       // as folgas e as contratações nos turnos que cobrem o que falta (spec 043).
       const baseSemana = cenarios?.manter?.horarioSemana;
@@ -51,6 +53,7 @@ export default function Comparativo({ comparativo, cenarios, lojaId, podeEscreve
       } catch (e) {
         // Nenhum funcionário com horário no Cadastro: a simulação parte do quadro do Cadastro, sem horários.
         if (e.code !== "SEM_HORARIO_NO_CADASTRO") throw e;
+        origem = "vazia";
         s = await api(`/lojas/${lojaId}/simulacoes`, { method: "POST", body: { ...corpo, origem: "vazia" } });
         aviso = "Esta loja ainda não tem funcionários com horário no Cadastro: a simulação parte do quadro do Cadastro, sem horários. Contratações, horários e impacto já funcionam; para ver a cobertura de quem já trabalha, cadastre o horário dos funcionários em Cadastros › Equipe.";
         const vagas = vagasDeCenario(c);
@@ -66,6 +69,7 @@ export default function Comparativo({ comparativo, cenarios, lojaId, podeEscreve
           /* segue sem os turnos sugeridos */
         }
       }
+      registrar("simulacao_criada", { regra_horas: regraEmHoras(cenarios.regra.id), origem });
       onSimular?.(s.id, aviso);
     } catch (e) {
       setErro(e.message);

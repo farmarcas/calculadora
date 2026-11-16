@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, baixarArquivo } from "../../api/client.js";
+import { registrar } from "../../analytics/servico.js";
 import { Aviso, Botao, Modal } from "../../components/ui/index.jsx";
 import ParecerCartoes from "./ParecerCartoes.jsx";
 import ParecerTabela from "./ParecerTabela.jsx";
@@ -29,6 +30,7 @@ export default function ParecerDoCenario({ id, onFechar, abridor = null }) {
     setErroDoPdf(false);
     try {
       await baixarArquivo(`/simulacoes/${id}/parecer.pdf`, nomeDoArquivoPdf(p.loja, p.numeroCenario));
+      registrar("exportacao_feita", { tipo: "parecer" });
     } catch {
       setErroDoPdf(true);
     } finally {

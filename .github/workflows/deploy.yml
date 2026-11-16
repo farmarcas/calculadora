@@ -59,11 +59,15 @@ jobs:
         env:
           REGISTRY: ${{ steps.ecr.outputs.registry }}
           TAG: ${{ steps.env.outputs.tag }}
+          # Medição (Mixpanel, projeto Radar Escala): só no build de produção (disparo manual).
+          # No stg o token fica vazio e a medição fica desligada, para não misturar dados de teste.
+          MIXPANEL_TOKEN: ${{ github.event_name == 'workflow_dispatch' && secrets.MIXPANEL_TOKEN || '' }}
         run: |
           docker build \
             --build-arg APP_BASE=/escala/ \
             --build-arg NGINX_RUNTIME=k8s \
             --build-arg VITE_RADAR_URL=${{ steps.env.outputs.radar_url }} \
+            --build-arg VITE_MIXPANEL_TOKEN="$MIXPANEL_TOKEN" \
             -t "$REGISTRY/calculadora-web:$TAG" \
             frontend/react
           docker push "$REGISTRY/calculadora-web:$TAG"

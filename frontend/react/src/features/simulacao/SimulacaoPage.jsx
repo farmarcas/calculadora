@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { api } from "../../api/client.js";
+import { registrar } from "../../analytics/servico.js";
 import { Aviso, Botao } from "../../components/ui/index.jsx";
 import BarraParametros from "./BarraParametros.jsx";
 import ModalSalvarCenario from "./ModalSalvarCenario.jsx";
@@ -47,6 +48,7 @@ export default function SimulacaoPage({ id, perfil, podeEscrever, aviso, onVolta
     setSalvando(true);
     try {
       const g = await api(`/simulacoes/${id}/gravar`, { method: "POST", body: corpo });
+      registrar("cenario_salvo");
       const nova = await api(`/simulacoes/${id}/clonar`, { method: "POST" });
       setSalvarAberto(false);
       onMudou();

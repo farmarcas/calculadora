@@ -4,5 +4,8 @@ import "./index.css";
 import App from "./App.jsx";
 import PortaoDeLogin from "./auth/PortaoDeLogin.jsx";
 import { AvisoProvider } from "./shell/AvisoGlobal.jsx";
+import { iniciar as iniciarMedicao } from "./analytics/servico.js";
+
+iniciarMedicao();
 
 createRoot(document.getElementById("root")).render(<AvisoProvider><PortaoDeLogin>{(sessao, sair) => <App sessao={sessao} onSair={sair} />}</PortaoDeLogin></AvisoProvider>);

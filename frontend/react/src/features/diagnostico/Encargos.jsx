@@ -1,6 +1,7 @@
 import { useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { api } from "../../api/client.js";
+import { registrar } from "../../analytics/servico.js";
 import { Aviso, Botao, entrada } from "../../components/ui/index.jsx";
 
 export const NOME_REGIME = { simples: "Simples Nacional", presumido: "Lucro Presumido", real: "Lucro Real" };
@@ -43,6 +44,7 @@ export function AlertaRegime({ lojaId, texto, onSalvo }) {
     setErro(null);
     try {
       await api(`/lojas/${lojaId}`, { method: "PATCH", body: { regimeTributario: regime } });
+      registrar("parametros_salvos", { tipo: "regime" });
       onSalvo();
     } catch (e) {
       setErro(e.message);

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, baixarArquivo } from "../../api/client.js";
+import { registrar } from "../../analytics/servico.js";
 import { Aviso, Botao, Cartao, Ficha, entrada, TH as TH_BASE, TD as TD_BASE } from "../../components/ui/index.jsx";
 import CargaLojas from "./CargaLojas.jsx";
 import GrupoForm from "./GrupoForm.jsx";
@@ -50,7 +51,7 @@ export default function GruposPage({ geAtual, onAbrir, onMudou }) {
           <p className="mt-1 mb-0 text-sm text-ink-500">Um grupo por empresário. Você carrega as lojas por Excel; o empresário cadastra só a equipe.</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Botao tipo="secundario" onClick={() => baixarArquivo("/cargas-lojas/modelo", "modelo-lojas.xlsx")}>Baixar modelo do Excel</Botao>
+          <Botao tipo="secundario" onClick={() => { registrar("exportacao_feita", { tipo: "modelo" }); baixarArquivo("/cargas-lojas/modelo", "modelo-lojas.xlsx"); }}>Baixar modelo do Excel</Botao>
           <Botao tipo="secundario" onClick={() => setForm({ registro: null })}>Novo grupo</Botao>
           <Botao onClick={() => setCarga(true)}>Enviar Excel de lojas</Botao>
         </div>

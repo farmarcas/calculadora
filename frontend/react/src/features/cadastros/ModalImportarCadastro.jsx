@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { api, baixarModelo } from "../../api/client.js";
+import { registrar } from "../../analytics/servico.js";
 import { Botao } from "../../components/ui/index.jsx";
 import AreaDeEnvio from "../../components/importacao/AreaDeEnvio.jsx";
 import AvisoCaixa from "../../components/importacao/AvisoCaixa.jsx";
@@ -53,10 +54,12 @@ export default function ModalImportarCadastro({ onClose, onConcluido, podeLojas 
     setOcupado("gravando");
     try {
       const resumo = await api(`/importacoes/cadastro/${rev.id}/confirmar`, { method: "POST", body: { mapeamento: rev.mapeamento } });
+      registrar("importacao_concluida", { tipo: "cadastro", resultado: "sucesso" });
       onConcluido?.();
       mostrar(sucessoDoCadastro(resumo), resumo.erros?.length ? "atencao" : "ok");
       onClose();
     } catch (e) {
+      registrar("importacao_concluida", { tipo: "cadastro", resultado: "erro" });
       setErro(mensagemDe(e));
     } finally {
       setOcupado(null);
@@ -87,7 +90,7 @@ export default function ModalImportarCadastro({ onClose, onConcluido, podeLojas 
             numero={1}
             titulo="Baixe a planilha modelo"
             descricao="Ela tem duas abas: Lojas e Funcionários."
-            acao={<Botao tipo="secundario" onClick={baixarModelo} disabled={!!ocupado}><IconeDownload />Baixar modelo</Botao>}
+            acao={<Botao tipo="secundario" onClick={() => { registrar("exportacao_feita", { tipo: "modelo" }); baixarModelo(); }} disabled={!!ocupado}><IconeDownload />Baixar modelo</Botao>}
           />
           <PassoNumerado numero={2} titulo="Preencha e salve" descricao="Deixe em branco o que não quer mudar. O Radar mantém o que já está cadastrado." />
           <PassoNumerado numero={3} titulo="Envie a planilha" descricao="Aceitamos .xlsx e .csv.">
@@ -140,7 +143,7 @@ export default function ModalImportarCadastro({ onClose, onConcluido, podeLojas 
                 {erros.slice(0, 5).map((e, i) => <li key={i}>{linhaDeErro(e)}</li>)}
               </ul>
               {erros.length > 5 && <p className="m-0 mt-1">E mais {erros.length - 5}. A lista completa está no arquivo.</p>}
-              <button type="button" onClick={() => baixarTexto("linhas-com-erro.csv", listaDeErrosCsv(erros))} className="mt-2 border-0 bg-transparent p-0 text-sm font-bold text-[var(--text-link,#006ff7)] cursor-pointer hover:underline">Baixar lista de erros</button>
+              <button type="button" onClick={() => { registrar("exportacao_feita", { tipo: "erros" }); baixarTexto("linhas-com-erro.csv", listaDeErrosCsv(erros)); }} className="mt-2 border-0 bg-transparent p-0 text-sm font-bold text-[var(--text-link,#006ff7)] cursor-pointer hover:underline">Baixar lista de erros</button>
             </AvisoCaixa>
           )}
           {aGravar === 0 && <AvisoCaixa tom="info">Não há nenhuma linha para gravar. Corrija a planilha e envie de novo.</AvisoCaixa>}

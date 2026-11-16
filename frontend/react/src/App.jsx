@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, getGe, getPerfil, GE_INICIAL, setGe, setPerfil, irParaLogin } from "./api/client.js";
+import { identificar, registrar } from "./analytics/servico.js";
 import { acessoTotalNoGrupo, perfilNoGrupo } from "./auth/sessao.js";
 import { ehOperador, cuidaDoGrupo } from "./api/perfis.js";
 import CadastrosPage from "./features/cadastros/CadastrosPage.jsx";
@@ -39,6 +40,19 @@ export default function App({ sessao, onSair }) {
 
   // O papel pode não ver a tela atual (ex.: sair de operador estando em Grupos): vai para a primeira permitida.
   const folha = folhaAtual(perfil, tela, secao);
+
+  // Medição (spec 059): só com login do Radar, e sempre pelo serviço central.
+  const usuario = sessao?.usuario;
+  useEffect(() => {
+    if (sso && usuario) identificar({ id: usuario.id, nome: usuario.nome, email: usuario.email, perfil });
+  }, [sso, usuario, perfil]);
+  useEffect(() => {
+    registrar("tela_vista", { tela: folha.tela, secao: folha.secao ?? undefined });
+  }, [folha.tela, folha.secao]);
+  const trocarLoja = (id) => {
+    if (id !== lojaId) registrar("loja_trocada");
+    setLojaId(id);
+  };
 
   const irPara = (f) => {
     if (f.tela !== folha.tela && !confirmarSaida()) return;
@@ -151,7 +165,7 @@ export default function App({ sessao, onSair }) {
       acessoTotal={acessoTotal}
       lojas={lojas ?? []}
       lojaId={lojaId}
-      onLoja={setLojaId}
+      onLoja={trocarLoja}
       horas={horasDeFuncionamento(lojaAtual?.horarios)}
       perfil={perfil}
       onImportar={setImportando}

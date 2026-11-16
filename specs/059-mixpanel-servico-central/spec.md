@@ -69,7 +69,7 @@ Existe **um só serviço** de medição no projeto. Telas e funcionalidades pede
 
 - **FR-001**: O sistema MUST ter um serviço central de medição, único ponto de contato com o Mixpanel.
 - **FR-002**: O sistema MUST enviar os dados para o projeto **Radar Escala** do Mixpanel, usando uma chave configurada por ambiente (nunca no código versionado).
-- **FR-003**: O sistema MUST identificar a pessoa logada por **nome e e-mail**, mais ID e **perfil**, e parar de associar eventos a ela no logout.
+- **FR-003**: O sistema MUST identificar a pessoa logada por **nome e e-mail**, mais ID, **perfil**, papel no Radar, se é operador, quantos grupos e lojas a pessoa tem e se tem acesso total, e parar de associar eventos a ela no logout.
 - **FR-004**: O sistema MUST registrar um evento a cada tela aberta.
 - **FR-005**: O sistema MUST registrar login e as ações-chave: simular cenário, salvar/nomear cenário, importar planilha, salvar parâmetros, exportar e trocar de loja.
 - **FR-006**: Todo evento MUST carregar o contexto atual (tela e ambiente); grupo, CNPJ, loja e bandeira ficam de fora.
@@ -81,7 +81,7 @@ Existe **um só serviço** de medição no projeto. Telas e funcionalidades pede
 ### Key Entities
 
 - **Evento**: algo que aconteceu (tela vista, ação-chave), com nome do catálogo, momento e contexto.
-- **Pessoa medida**: quem fez login (ID, nome, e-mail e perfil; nada além disso).
+- **Pessoa medida**: quem fez login (ID, nome, e-mail, perfil, papel no Radar, operador sim/não, quantidade de grupos, quantidade de lojas e acesso total sim/não; nada além disso: sem nome de grupo, CNPJ nem nome de loja).
 - **Catálogo de eventos**: lista oficial de nomes e dados permitidos em cada evento.
 
 ## Success Criteria *(mandatory)*
@@ -99,4 +99,5 @@ Existe **um só serviço** de medição no projeto. Telas e funcionalidades pede
 - Uma chave (token) do projeto Radar Escala por ambiente; o Radar Escala já existe no Mixpanel (id 4084146). Não há projeto de homologação do Escala: em dev/homologação a medição fica **desligada** por padrão, e só liga se houver uma chave de teste.
 - Nome e e-mail vão ao Mixpanel por decisão da pessoa responsável; isso é dado pessoal (LGPD) e deve constar na política de privacidade do Radar. Por isso o envio só ocorre com a medição ligada.
 - Fora do escopo: dashboards no Mixpanel, medição no servidor (API), gravação de sessão (replay), testes A/B.
-- Dependência: o login do Radar (SSO) já fornece ID, nome, e-mail e perfil.
+- Dependência: o login do Radar (SSO) já fornece ID, nome, e-mail, perfil e papel no Radar. Quantidades e acesso total são calculados pelo servidor a partir dos grupos e lojas da pessoa.
+- Acesso total = a pessoa vê todas as lojas de todos os grupos que tem (operador conta como acesso total).

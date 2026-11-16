@@ -28,3 +28,23 @@ export const propriedadesPermitidas = (evento, props = {}) => {
 
 // Id da regra do servidor ("r42") em horas por semana (42), como o catálogo espera.
 export const regraEmHoras = (id) => Number(String(id ?? "").replace(/\D/g, "")) || undefined;
+
+// Propriedades da pessoa no Mixpanel (só estas passam). Texto curto em minúsculas, sim/não ou número inteiro.
+export const PROPRIEDADES_DA_PESSOA = {
+  perfil: "texto",
+  papel_radar: "texto",
+  operador: "sim_nao",
+  quantidade_grupos: "numero",
+  quantidade_lojas: "numero",
+  acesso_total: "sim_nao",
+};
+
+const textoCurto = (v) => typeof v === "string" && /^[a-z0-9_ -]{1,40}$/i.test(v);
+const VALIDADORES = {
+  texto: textoCurto,
+  sim_nao: (v) => typeof v === "boolean",
+  numero: (v) => Number.isInteger(v) && v >= 0 && v <= 1_000_000,
+};
+
+export const propriedadesDaPessoa = (dados = {}) =>
+  Object.fromEntries(Object.entries(PROPRIEDADES_DA_PESSOA).flatMap(([chave, tipo]) => (VALIDADORES[tipo](dados?.[chave]) ? [[chave, dados[chave]]] : [])));

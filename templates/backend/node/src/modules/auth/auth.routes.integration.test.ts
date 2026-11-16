@@ -250,7 +250,8 @@ describe('login pelo Radar', () => {
       expect(JSON.stringify(resposta.body)).not.toContain('accessToken');
       expect(resposta.body).toMatchObject({
         sso: true,
-        usuario: { id: '77', nome: 'Ana', email: 'ana@exemplo.com' },
+        usuario: { id: '77', nome: 'Ana', email: 'ana@exemplo.com', papelRadar: 'User' },
+        totalLojas: expect.any(Number),
         operador: false,
         grupos: [
           { nome: 'Grupo 250', identificacao: '250', perfil: 'TENANT_ADMIN', acessoTotal: true },

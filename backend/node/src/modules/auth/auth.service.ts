@@ -17,10 +17,19 @@ const semAcesso = () =>
 export const corpoDaSessao = async (sessao: SessaoAtiva) => {
   const ids = sessao.operador ? undefined : sessao.grupos.map((g) => g.geId);
   const doGrupo = new Map(sessao.grupos.map((g) => [g.geId, g]));
-  const grupos = await geRepository.listarAtivos(ids);
+  const [grupos, lojasPorGrupo] = await Promise.all([
+    geRepository.listarAtivos(ids),
+    geRepository.lojasPorGrupo(ids),
+  ]);
+  // Lojas a que a pessoa tem acesso: todas do grupo (acesso total) ou só as que o Radar liberou.
+  const totalLojas = grupos.reduce((soma, g) => {
+    const dela = doGrupo.get(g.id);
+    return soma + (sessao.operador || dela?.acessoTotal ? (lojasPorGrupo.get(g.id) ?? 0) : (dela?.lojaIds.length ?? 0));
+  }, 0);
   return {
     sso: true,
-    usuario: { id: sessao.radarUsuarioId, nome: sessao.nome, email: sessao.email },
+    usuario: { id: sessao.radarUsuarioId, nome: sessao.nome, email: sessao.email, papelRadar: sessao.papelRadar ?? null },
+    totalLojas,
     operador: sessao.operador,
     grupos: grupos.map((g) => ({
       ...g,
@@ -54,6 +63,7 @@ export const makeAuthService = (radar: RadarClient, repo: AuthRepository, sso: C
       nome: usuario.name,
       email: usuario.email,
       operador: false,
+      papelRadar: usuario.role.name,
       grupos,
       expiraEm: new Date(Date.now() + sso.sessaoHoras * 60 * 60 * 1000),
     });

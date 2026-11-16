@@ -1,7 +1,7 @@
 // Único ponto de contato com o Mixpanel. Telas e ações só chamam `registrar`; nenhuma importa `mixpanel-browser`.
 // Sem token a medição fica desligada, e qualquer falha daqui é engolida: a calculadora nunca depende da medição.
 import mixpanel from "mixpanel-browser";
-import { propriedadesPermitidas } from "./catalogo.js";
+import { propriedadesDaPessoa, propriedadesPermitidas } from "./catalogo.js";
 
 export { regraEmHoras } from "./catalogo.js";
 
@@ -40,16 +40,18 @@ export const iniciar = (config = {}) =>
   });
 
 // Liga os eventos à pessoa logada. Repetir com os mesmos dados não reenvia nada.
-export const identificar = ({ id, nome, email, perfil } = {}) =>
+// Além de ID, nome e e-mail, só passam as propriedades listadas em PROPRIEDADES_DA_PESSOA.
+export const identificar = ({ id, nome, email, ...resto } = {}) =>
   seguro(() => {
     if (!ativo || id == null || id === "") return;
     const novoId = String(id);
-    const dados = JSON.stringify([nome, email, perfil]);
+    const propriedades = { $name: nome, $email: email, ...propriedadesDaPessoa(resto) };
+    const dados = JSON.stringify(propriedades);
     if (idAtual === novoId && dadosAtuais === dados) return;
     if (idAtual !== novoId) mixpanel.identify(novoId);
     idAtual = novoId;
     dadosAtuais = dados;
-    mixpanel.people.set({ $name: nome, $email: email, perfil });
+    mixpanel.people.set(propriedades);
   });
 
 export const registrar = (evento, props) =>

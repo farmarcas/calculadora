@@ -19,6 +19,7 @@ const comoSessao = (s: {
   nome: string;
   email: string;
   operador: boolean;
+  papelRadar: string | null;
   grupos: unknown;
   expiraEm: Date;
 }): SessaoAtiva => ({ ...s, grupos: s.grupos as GrupoDaSessao[] });

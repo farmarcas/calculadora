@@ -72,6 +72,25 @@ describe("com token", () => {
     expect(mixpanel.people.set).toHaveBeenCalledWith({ $name: "Ana", $email: "ana@x.com", perfil: "TENANT_ADMIN" });
   });
 
+  it("envia as propriedades da pessoa e descarta o que não está na lista", () => {
+    ligar();
+    identificar({
+      id: 7, nome: "Ana", email: "ana@x.com", perfil: "TENANT_ADMIN", papel_radar: "admin", operador: false,
+      quantidade_grupos: 2, quantidade_lojas: 15, acesso_total: true,
+      cnpj: "12345678000190", nome_do_grupo: "Rede Boa", quantidade_grupos_texto: "muitos",
+    });
+    expect(mixpanel.people.set).toHaveBeenCalledWith({
+      $name: "Ana", $email: "ana@x.com", perfil: "TENANT_ADMIN", papel_radar: "admin", operador: false,
+      quantidade_grupos: 2, quantidade_lojas: 15, acesso_total: true,
+    });
+  });
+
+  it("ignora valores de tipo errado nas propriedades da pessoa", () => {
+    ligar();
+    identificar({ id: 7, nome: "Ana", email: "a@x.com", operador: "sim", quantidade_lojas: -3, quantidade_grupos: 1.5, papel_radar: "x".repeat(60) });
+    expect(mixpanel.people.set).toHaveBeenCalledWith({ $name: "Ana", $email: "a@x.com" });
+  });
+
   it("atualiza só o perfil quando ele muda, sem identificar de novo", () => {
     ligar();
     identificar({ id: 7, nome: "Ana", email: "ana@x.com", perfil: "SCHEDULE_VIEWER" });

@@ -20,6 +20,7 @@ export type SessaoAtiva = {
   nome: string;
   email: string;
   operador: boolean;
+  papelRadar?: string | null;
   grupos: GrupoDaSessao[];
   expiraEm: Date;
 };

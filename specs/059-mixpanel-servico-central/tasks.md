@@ -43,6 +43,12 @@
 - [x] T019 [US3] Garantir que só `analytics/servico.js` importa `mixpanel-browser` (busca no código) e que o catálogo está citado no `frontend/FRONTEND.MD` com a regra "toda medição passa pelo serviço"
 - [x] T020 [US3] Teste de falha: SDK que lança erro e rede bloqueada não quebram a tela (cobrir em `servico.test.js`)
 
+## Phase 5b: Propriedades da pessoa (pedido em 2026-11-16)
+
+- [x] T023 Migration `sessoes.papel_radar` (Prisma) e `schema.prisma`; guardar `usuario.role.name` ao abrir a sessão
+- [x] T024 `corpoDaSessao` devolve `usuario.papelRadar` e `totalLojas`; ajustar testes de integração do login
+- [x] T025 `catalogo.js` lista as propriedades permitidas da pessoa; `servico.identificar` envia só elas; `App.jsx` monta os valores da sessão; testes em `servico.test.js`
+
 ## Phase 6: Verificação
 
 - [x] T021 Rodar os testes do front e do backend dentro do Docker e corrigir o que quebrar

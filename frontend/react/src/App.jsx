@@ -44,8 +44,20 @@ export default function App({ sessao, onSair }) {
   // Medição (spec 059): só com login do Radar, e sempre pelo serviço central.
   const usuario = sessao?.usuario;
   useEffect(() => {
-    if (sso && usuario) identificar({ id: usuario.id, nome: usuario.nome, email: usuario.email, perfil });
-  }, [sso, usuario, perfil]);
+    if (!sso || !usuario) return;
+    const grupos = sessao.grupos ?? [];
+    identificar({
+      id: usuario.id,
+      nome: usuario.nome,
+      email: usuario.email,
+      perfil,
+      papel_radar: usuario.papelRadar ? String(usuario.papelRadar).trim().toLowerCase() : undefined,
+      operador: Boolean(sessao.operador),
+      quantidade_grupos: grupos.length,
+      quantidade_lojas: sessao.totalLojas,
+      acesso_total: Boolean(sessao.operador) || (grupos.length > 0 && grupos.every((g) => g.acessoTotal)),
+    });
+  }, [sso, usuario, sessao, perfil]);
   useEffect(() => {
     registrar("tela_vista", { tela: folha.tela, secao: folha.secao ?? undefined });
   }, [folha.tela, folha.secao]);

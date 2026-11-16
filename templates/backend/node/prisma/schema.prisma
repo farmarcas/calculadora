@@ -176,6 +176,7 @@ model Sessao {
   nome           String
   email          String
   operador       Boolean   @default(false)
+  papelRadar     String?   @map("papel_radar")
   grupos         Json
   expiraEm       DateTime  @map("expira_em") @db.Timestamptz(3)
   encerradaEm    DateTime? @map("encerrada_em") @db.Timestamptz(3)

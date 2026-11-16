@@ -11,6 +11,16 @@ export const geRepository = {
       orderBy: { nome: 'asc' },
     }),
 
+  // Lojas ativas por grupo (para contar a quantas lojas a pessoa tem acesso).
+  async lojasPorGrupo(ids?: string[]) {
+    const linhas = await prisma.loja.groupBy({
+      by: ['geId'],
+      where: { deletedAt: null, ...(ids ? { geId: { in: ids } } : {}) },
+      _count: { _all: true },
+    });
+    return new Map(linhas.map((l) => [l.geId, l._count._all]));
+  },
+
   // Para o operador: cada GE com o número de lojas e de lojas que já têm equipe cadastrada.
   async resumo() {
     const [ges, lojas, comEquipe] = await Promise.all([

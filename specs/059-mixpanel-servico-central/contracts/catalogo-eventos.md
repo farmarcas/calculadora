@@ -17,6 +17,6 @@ Fora do catálogo: qualquer valor em dinheiro, nome de loja, CNPJ, texto digitad
 
 ## Interface do serviço (`src/analytics/servico.js`)
 - `iniciar()` — lê o token; sem token, vira inativo.
-- `identificar({ id, nome, email, perfil })` — liga eventos à pessoa; atualiza o perfil.
+- `identificar({ id, nome, email, perfil, papel_radar, operador, quantidade_grupos, quantidade_lojas, acesso_total })` — liga eventos à pessoa e atualiza o perfil dela; só essas propriedades passam.
 - `registrar(evento, props?)` — valida contra o catálogo e envia; nunca lança erro.
 - `limpar()` — na saída; desfaz a identidade.

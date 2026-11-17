@@ -10,6 +10,13 @@
 
 Completa a spec 037 (Admin do Radar vê todos os grupos), que deixou as lojas de fora.
 
+## Clarifications
+
+### Session 2026-11-12
+
+- Q: O Angel também recebe as lojas de todos os grupos? → A: Sim (2026-11-12), igual ao Admin.
+- Q: O Gestor administrativo do grupo recebe as lojas do grupo? → A: Sim (2026-11-12). Recebe as lojas ativas dos grupos em que está marcado como Gestor administrativo no cadastro do Radar, criadas pelas mesmas regras; as dos outros grupos, não.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Admin encontra as lojas de qualquer grupo (Priority: P1)

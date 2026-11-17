@@ -12,6 +12,11 @@ Muda a regra de grupos da spec 031 (FR-010 e a premissa "quem tem a permissão e
 
 ## Clarifications
 
+### Session 2026-11-12
+
+- Q: O Angel também vê todos os grupos? → A: Sim (2026-11-12). Admin e Angel recebem todos os grupos com acesso ao grupo inteiro; os demais papéis continuam só com os vinculados. Substitui a premissa de que só o Admin vê todos e a de que o Angel fica como "demais perfis".
+- Q: Quem não é Admin nem Angel, mas é o Gestor administrativo do grupo no cadastro do Radar, tem acesso ao grupo inteiro? → A: Sim (2026-11-12). Qualquer papel (Gerente, User etc.) recebe com acesso ao grupo inteiro os grupos em que está marcado como Gestor administrativo (`economic_group.Id_User`); nos demais grupos continua só com as lojas vinculadas.
+
 ### Session 2026-11-10
 
 - Q: Quem monta a lista de grupos do Admin? → A: O Radar, no clique do link da calculadora. O Radar já entrega à calculadora a lista final, juntando os grupos das lojas da pessoa com os grupos que o papel dela libera. A calculadora não chama nenhuma API nova do Radar nem ganha configuração nova.

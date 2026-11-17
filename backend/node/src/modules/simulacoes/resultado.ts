@@ -180,7 +180,10 @@ export const calcularResultado = (a: {
   if (vbRegua)
     for (let d = 0; d < 7; d++)
       for (let h = 0; h < 24; h++) if (fechadas[d]![h]) venda += vbRegua.venda[d]![h]!;
+  // `estimativa` está na régua (margem ou venda) e alimenta o saldo; `estimativaReal` é em venda e alimenta o gráfico por hora,
+  // que mostra a venda (as barras ao lado também são venda real).
   const estimativa = vendaEstimadaDasHorasNovas(a.diasCadastro, a.dias, vbRegua);
+  const estimativaReal = vendaEstimadaDasHorasNovas(a.diasCadastro, a.dias, vb);
   const clientes = clientesPorDiaEHora(a.vendas);
   const totalVenda = vb ? vb.venda.flat().reduce((s, v) => s + v, 0) : 0;
   const totalClientes = clientes ? clientes.flat().reduce((s, v) => s + v, 0) : 0;
@@ -307,7 +310,7 @@ export const calcularResultado = (a: {
         ) * SEMANAS_NO_MES,
       )
     : null;
-  const vendaGanhaReal = vendaEstimadaDasHorasNovas(a.diasCadastro, a.dias, vb)?.vendaMes ?? null;
+  const vendaGanhaReal = estimativaReal?.vendaMes ?? null;
   const horarioMudou = horarioDias.some((d) => d.alterado);
   // Spec 052: "hoje" é o quadro do Cadastro INTEIRO (inclusive quem a simulação desliga); a folha depois é o quadro sem os
   // desligados mais o custo das vagas e da hora extra. Sem desligamentos, é a mesma conta de antes.
@@ -393,7 +396,7 @@ export const calcularResultado = (a: {
       clientes,
       fechadas,
       novas: horasNovas(a.diasCadastro, a.dias),
-      estimada: a.dono ? (estimativa?.porHora ?? null) : null,
+      estimada: a.dono ? (estimativaReal?.porHora ?? null) : null,
       ticketMedio: a.dono && totalClientes > 0 ? arred(totalVenda / totalClientes) : null,
     },
   };

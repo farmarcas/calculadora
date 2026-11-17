@@ -56,3 +56,63 @@ describe("turno com minutos inteiros (spec 047)", () => {
     expect(m.iniIntervalo).toBeCloseTo(11.25, 9);
   });
 });
+
+describe("arrastar para a direita e para a esquerda (turno com minutos quebrados, spec 047)", () => {
+  const quebrado = { matricula: "A", dia: 0, entrada: 14, saida: 14 + 7 + 38 / 60, iniIntervalo: null, fimIntervalo: null }; // 14h–21h38
+
+  it("para a direita, o fim do turno nunca passa da hora de fechar", () => {
+    const m = moverTurno(quebrado, 9, janela);
+    expect(m.saida).toBeLessThanOrEqual(22 + 1e-9);
+    expect(m.saida).toBeCloseTo(22, 9); // encosta no fechamento, não fica 6 minutos para trás nem passa dele
+  });
+  it("um turno que já está no limite da direita fica onde está ao arrastar para a direita (não recua)", () => {
+    const noLimite = { matricula: "A", dia: 0, entrada: 12.6, saida: 22, iniIntervalo: 16, fimIntervalo: 17 }; // 12h36–22h, "ajustado"
+    for (const d of [0.05, 0.25, 1, 5]) {
+      expect(moverTurno(noLimite, d, janela)).toMatchObject({ entrada: 12.6, saida: 22, iniIntervalo: 16, fimIntervalo: 17 });
+    }
+    // e para a esquerda ele anda normalmente
+    expect(moverTurno(noLimite, -1, janela).saida).toBeLessThan(22);
+  });
+  it("um turno que já está no limite da esquerda fica onde está ao arrastar para a esquerda", () => {
+    const noInicio = { matricula: "A", dia: 0, entrada: 7, saida: 16.4, iniIntervalo: null, fimIntervalo: null };
+    expect(moverTurno(noInicio, -3, janela)).toMatchObject({ entrada: 7, saida: 16.4 });
+  });
+  it("mantém a duração do turno ao mover, nos dois sentidos", () => {
+    const dur = quebrado.saida - quebrado.entrada;
+    for (const d of [-9, -1, -0.25, 0.25, 0.3, 1, 9]) {
+      const m = moverTurno(quebrado, d, janela);
+      expect(m.saida - m.entrada).toBeCloseTo(dur, 9);
+    }
+  });
+  it("para a esquerda, a entrada nunca passa da hora de abrir", () => {
+    const cedo = { ...quebrado, entrada: 7.2, saida: 7.2 + 8 };
+    expect(moverTurno(cedo, -9, janela).entrada).toBe(7);
+  });
+  it("nenhum movimento, para nenhum lado, sai das horas do dia (varredura de minutos)", () => {
+    for (let e = 7; e <= 20; e += 17 / 60) {
+      for (let len = 1; len <= 9; len += 23 / 60) {
+        const t = { matricula: "A", dia: 0, entrada: Math.round(e * 60) / 60, saida: Math.round((e + len) * 60) / 60, iniIntervalo: null, fimIntervalo: null };
+        if (t.saida > 22) continue;
+        for (const d of [-9, -1, -0.4, -0.25, 0.1, 0.25, 0.4, 1, 9]) {
+          for (const modo of ["mover", "esq", "dir"]) {
+            const r = aplicarMovimento(t, modo, d, janela);
+            expect(r.entrada).toBeGreaterThanOrEqual(7 - 1e-9);
+            expect(r.saida).toBeLessThanOrEqual(22 + 1e-9);
+          }
+        }
+      }
+    }
+  });
+  it("esticar a borda mantém o mínimo de 1 hora mesmo com o arredondamento", () => {
+    const t = { matricula: "A", dia: 0, entrada: 7, saida: 8.13, iniIntervalo: null, fimIntervalo: null };
+    const r = redimensionarTurno(t, "esq", 3, janela);
+    expect(r.saida - r.entrada).toBeGreaterThanOrEqual(1 - 1e-9);
+  });
+  it("mover à direita e voltar à esquerda devolve o turno ao lugar (turno inteiro, sem tocar nas bordas)", () => {
+    const t = { matricula: "A", dia: 0, entrada: 8, saida: 16, iniIntervalo: 12, fimIntervalo: 13 };
+    for (const d of [0.25, 0.5, 1, 3]) {
+      const ida = moverTurno(t, d, janela);
+      expect(moverTurno(ida, -d, janela)).toMatchObject({ entrada: 8, saida: 16, iniIntervalo: 12, fimIntervalo: 13 });
+    }
+  });
+});

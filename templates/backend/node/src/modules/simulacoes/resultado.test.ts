@@ -254,6 +254,20 @@ describe('calcularResultado', () => {
       expect(r.vendaPorHora.estimada![0]![22]).toBe(500);
     });
 
+    it('base com CMV: o gráfico mostra a venda real das horas novas e o card (saldo) segue em margem', () => {
+      // Hora de borda das 21h: venda 1000, margem 300 (CMV de 70%). A hora nova das 22h vale 50% de cada medida.
+      const vendas = [venda(21, 1000, 300)];
+      const r = base({ dias: maisCedoETarde, vendas });
+      expect(r.regua).toEqual({ tipo: 'margem' });
+      expect(r.vendaPorHora.estimada![0]![22]).toBe(500); // venda real, a mesma medida das barras do gráfico
+      expect(r.vendaEstimada).toBeCloseTo((150 * 52) / 12, 1); // margem, a conta do saldo
+      expect(r.saldoMensal).toBeCloseTo(-r.folhaExtra! - r.horaExtra! + r.vendaEstimada!, 1);
+      // Em horas e %, a venda ganha continua a real.
+      const semMargem = base({ dias: maisCedoETarde, vendas: [venda(21, 1000)] });
+      expect(semMargem.vendaPorHora.estimada![0]![22]).toBe(500);
+      expect(semMargem.vendaEstimada).toBeCloseTo((500 * 52) / 12, 1);
+    });
+
     it('reduzir não cria venda estimada; sem base comercial a venda estimada e o saldo são nulos', () => {
       expect(base({ dias: segundaAte20 }).vendaEstimada).toBe(0);
       const sem = base({ dias: maisCedoETarde, vendas: [] });

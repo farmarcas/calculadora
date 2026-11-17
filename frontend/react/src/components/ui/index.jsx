@@ -189,6 +189,8 @@ export function Modal({ titulo, subtitulo = null, rodape = null, onClose, childr
   // O fechar mais recente, sem refazer o efeito a cada renderização do pai (senão o foco "anterior" seria o da própria janela).
   const fechar = useRef(onClose);
   fechar.current = onClose;
+  // O clique no fundo só fecha se começou no fundo: arrastar para selecionar o texto de um campo e soltar fora da janela não pode fechá-la.
+  const comecouNoFundo = useRef(false);
   useEffect(() => {
     // Quem abriu a janela: o elemento passado pelo pai (clicar num botão nem sempre o deixa com o foco, como no Safari) ou o que tem o foco.
     const anterior = devolverFocoPara ?? document.activeElement;
@@ -212,7 +214,7 @@ export function Modal({ titulo, subtitulo = null, rodape = null, onClose, childr
     };
   }, []);
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(6,25,56,.4)" }} onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(6,25,56,.4)" }} onMouseDown={(e) => { comecouNoFundo.current = e.target === e.currentTarget; }} onClick={(e) => { if (comecouNoFundo.current && e.target === e.currentTarget) onClose(); comecouNoFundo.current = false; }}>
       <div
         ref={janela}
         tabIndex={-1}

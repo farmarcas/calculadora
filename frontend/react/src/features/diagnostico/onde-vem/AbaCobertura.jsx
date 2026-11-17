@@ -16,7 +16,7 @@ export default function AbaCobertura({ dados, lojaId, onEnviar, irCadastros, pod
         <p role="note" className="m-0 flex items-start gap-3 rounded-card bg-[var(--system-50)] px-4 py-3 text-sm text-[var(--text-strong)]">
           <span aria-hidden="true" className="mt-1.5 inline-block h-2 w-2 shrink-0 rounded-full bg-[var(--color-primary)]" />
           <span><strong>No pico de vendas, das {hh(observacao.horaIni)} às {hh(observacao.horaFim)}, há {observacao.pessoasNoPico} {observacao.pessoasNoPico === 1 ? "atendente" : "atendentes"}.</strong>{" "}
-            As {observacao.pessoasFora} pessoas só aparecem entre {hh(observacao.h1)} e {hh(observacao.h2)}, quando as vendas já são menores. Dá para testar outros horários em Personalizar.</span>
+            As {observacao.pessoasFora} pessoas só aparecem entre {hh(observacao.h1)} e {hh(observacao.h2)}, quando as vendas já são menores. Dá para testar outros horários em Analisar.</span>
         </p>
       )}
 

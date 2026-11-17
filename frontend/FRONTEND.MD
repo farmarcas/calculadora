@@ -20,3 +20,11 @@ O visual segue o **Alquimia DS (Farmarcas)**: https://claude.ai/artifact/UDhEi8D
 - Regras de conteúdo do DS: pt-BR, frase com inicial maiúscula só na primeira palavra, botão é verbo de uma ou duas palavras, sem emoji, sem ponto de exclamação (exceto "Novo!"), maiúsculas só em rótulo pequeno de indicador.
 - O texto das fichas e dos avisos usa o tom escuro que o próprio DS usa no Toast (por contraste); o texto de apoio (`ink-500`) mantém #6b7a90 em vez do #7a869a do DS, que não passa em 4,5:1 sobre branco.
 - Ainda não adotado do DS: a barra superior de 80 px e o menu lateral fixo de 114 px, os ícones do conjunto do DS nos avisos e botões, e a altura de 48 px do campo (usamos a variante de 36 px).
+
+## Medição de uso (Mixpanel)
+
+Toda medição passa pelo serviço central `frontend/react/src/analytics/servico.js`. Nenhuma tela importa `mixpanel-browser`.
+
+- Para medir uma ação nova: acrescente o evento (e as propriedades permitidas) em `analytics/catalogo.js` e em `specs/059-mixpanel-servico-central/contracts/catalogo-eventos.md`, e chame `registrar("nome_do_evento", { ... })`.
+- Nunca envie valores em dinheiro, folha, CNPJ, nome de loja ou texto digitado. O serviço descarta o que não está no catálogo.
+- Sem `MIXPANEL_TOKEN` a medição fica desligada. Em modo demonstração (sem login do Radar) ela também não mede.

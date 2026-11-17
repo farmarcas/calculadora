@@ -27,12 +27,14 @@ export const motivosDeDesatualizacao = (a: {
   const motivos: string[] = [];
   const noQuadro = new Set(a.quadro.map((p) => p.matricula));
   const novos = a.quadroDeHoje.filter((p) => !noQuadro.has(p.matricula));
-  if (novos.length) motivos.push(`Entrou no quadro da loja: ${novos.map((p) => p.nome).join(', ')}.`);
+  if (novos.length)
+    motivos.push(`Entrou no quadro da loja: ${novos.map((p) => p.nome).join(', ')}.`);
   const sairam = a.quadro.filter((p) => {
     const x = a.situacao.get(p.matricula);
     return x && (!x.ativo || x.lojaId !== a.lojaId);
   });
-  if (sairam.length) motivos.push(`Saiu do quadro da loja: ${sairam.map((p) => p.nome).join(', ')}.`);
+  if (sairam.length)
+    motivos.push(`Saiu do quadro da loja: ${sairam.map((p) => p.nome).join(', ')}.`);
   // O horário da loja mudou? Compara com o que a loja tinha ao gravar (`horariosDaLoja`), não com o horário simulado: uma
   // simulação que amplia ou reduz horários não fica desatualizada por isso. Simulações gravadas antes desta regra não têm
   // esse retrato e ficam sem esta checagem (melhor não avisar do que avisar por engano). Só mudar o formato não conta.

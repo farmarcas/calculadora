@@ -12,7 +12,7 @@ import type { Custos, CustosGravados } from './custos.schemas.js';
 export const tabelaEncargosDeHoje = async (): Promise<TabelaEncargos> =>
   tabelaEncargosVigente(await encargosRepository.listar(), hojeISO());
 
-// Custos para os cálculos: o salário médio gravado na loja e o encargo TOTAL do regime dela (com os ajustes dela).
+// Custos para os cálculos: o salário médio gravado na loja e o encargo TOTAL do regime dela (sem ajuste por loja).
 // O percentual digitado antes (`encargosPct` gravado) não vale mais. Nulo quando a loja não tem custos.
 export const custosEfetivos = (
   gravados: CustosGravados | null | undefined,
@@ -20,7 +20,7 @@ export const custosEfetivos = (
   tabela: TabelaEncargos,
 ): { custos: Custos; encargos: ResultadoEncargos } | null => {
   if (!gravados) return null;
-  const encargos = calcularEncargos(regimeTributario, tabela, gravados.encargos ?? {});
+  const encargos = calcularEncargos(regimeTributario, tabela);
   return {
     custos: { salarioMedio: gravados.salarioMedio, encargosPct: encargos.totalPct },
     encargos,

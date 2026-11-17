@@ -92,7 +92,10 @@ describe('revisão da importação do Cadastro (spec 029)', () => {
 
     const ok = await confirmar(admin, up.body.id, up.body.mapeamento);
     expect(ok.status).toBe(200);
-    expect(ok.body.lojas).toEqual({ novos: r.body.lojas.novas, atualizados: r.body.lojas.atualiza });
+    expect(ok.body.lojas).toEqual({
+      novos: r.body.lojas.novas,
+      atualizados: r.body.lojas.atualiza,
+    });
     expect(ok.body.funcionarios).toEqual({
       novos: r.body.funcionarios.novas,
       atualizados: r.body.funcionarios.atualiza,
@@ -134,7 +137,12 @@ describe('revisão da importação do Cadastro (spec 029)', () => {
   });
 
   it('coluna essencial faltando e planilha vazia: mensagem de como corrigir', async () => {
-    const semCnpj = await xlsx({ Funcionários: [['Matrícula', 'Nome', 'Cargo'], ['F1', 'Ana', 'Caixa']] });
+    const semCnpj = await xlsx({
+      Funcionários: [
+        ['Matrícula', 'Nome', 'Cargo'],
+        ['F1', 'Ana', 'Caixa'],
+      ],
+    });
     const up = await enviar(admin, semCnpj);
     const r = await revisar(admin, up.body.id, up.body.mapeamento);
     expect(r.status).toBe(400);

@@ -154,7 +154,8 @@ export const cadastrosRepository = (geId: string): CadastrosRepository => ({
       funcoes.set(g.lojaId, [...(funcoes.get(g.lojaId) ?? []), g.funcaoEscala!]);
     }
     return rows.map(({ custos, ...resto }) => {
-      const salarios = (custos as { salarioMedio?: Record<string, number> } | null)?.salarioMedio ?? {};
+      const salarios =
+        (custos as { salarioMedio?: Record<string, number> } | null)?.salarioMedio ?? {};
       return {
         // Os salários não saem daqui (só o dono os vê): a lista leva só quais funções têm salário informado.
         loja: comoLoja(resto),
@@ -191,7 +192,8 @@ export const cadastrosRepository = (geId: string): CadastrosRepository => ({
   async criarLoja(i) {
     const dados = limpa(i) as Record<string, unknown>;
     // Loja nova nasce sem CMV médio; ele só existe quando o dono (ou a planilha) o informa.
-    if (dados.faturamento) dados.faturamento = mesclarFaturamento(dados.faturamento as Faturamento, null);
+    if (dados.faturamento)
+      dados.faturamento = mesclarFaturamento(dados.faturamento as Faturamento, null);
     return comoLoja(
       await prisma.loja.create({
         data: { ...dados, geId } as never,
@@ -203,7 +205,10 @@ export const cadastrosRepository = (geId: string): CadastrosRepository => ({
     const dados = limpa(i) as Record<string, unknown>;
     // O CMV médio já guardado fica quando o pedido não fala dele.
     if (dados.faturamento !== undefined) {
-      const atual = await prisma.loja.findFirst({ where: { id, geId }, select: { faturamento: true } });
+      const atual = await prisma.loja.findFirst({
+        where: { id, geId },
+        select: { faturamento: true },
+      });
       const fat = mesclarFaturamento(dados.faturamento as Faturamento | null, atual?.faturamento);
       dados.faturamento = fat === null ? Prisma.JsonNull : fat;
     }

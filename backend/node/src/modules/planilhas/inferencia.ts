@@ -93,7 +93,8 @@ export const inferirMapeamento = (abas: Aba[]): Inferencia => {
   // A aba precisa trazer os campos obrigatórios e a identificação da loja: o CNPJ ou, em planilha antiga, o código.
   const obrigOk = (sug: SugestaoColuna[], campos: CampoDef[]) => {
     const tem = (chave: string) => sug.find((s) => s.campo === chave)?.coluna != null;
-    const identifica = campos === CAMPOS_LOJA ? tem('cnpj') || tem('codigo') : tem('cnpj_loja') || tem('loja');
+    const identifica =
+      campos === CAMPOS_LOJA ? tem('cnpj') || tem('codigo') : tem('cnpj_loja') || tem('loja');
     return identifica && campos.filter((c) => c.obrigatorio).every((c) => tem(c.chave));
   };
 

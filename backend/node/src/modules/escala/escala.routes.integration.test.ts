@@ -199,6 +199,7 @@ describe('escala (rotas)', () => {
     ]) {
       const r = (await reqGe().get(url).set(h)).body;
       expect(r.folhaMensal).toBeUndefined();
+      expect(r.faturamentoMensal).toBeUndefined();
       expect(JSON.stringify(r)).not.toContain('12976');
     }
     expect(dono.numeros).toMatchObject({ colaboradoresNoCalculo: 1 });
@@ -226,45 +227,38 @@ describe('escala (rotas)', () => {
       .set(admin)
       .send({ salarioMedio: { Farmacêutico: 8000 }, encargosPct: 40 });
 
-    // 66h abertas por semana; 1 farmacêutica de 40h: faltam 26h → 1 parcial de 26h (até 30h): 1 pessoa, sem sobra
+    // 66h abertas por semana; 1 farmacêutica de 40h: faltam 26h (spec 043: da cobertura real; ela folga 1 dia e trabalha 5 de 8h).
+    // Spec 044: só contratação integral → 1 pessoa de 40h, 26h usadas e 14h ociosas.
     const dono = (await reqGe().get(url).set(admin)).body.cenarios;
     expect(Object.keys(dono)).toEqual(['r42', 'r40']);
     expect(dono.r40.manter.contratacoes).toEqual([
       {
         funcao: 'Farmacêutico',
         pessoas: 1,
-        inteiras: 0,
-        parcial: { turnos: 4, horas: 26 },
-        parcialH: 26,
-        horasContratadas: 26,
+        inteiras: 1,
+        parcial: null,
+        parcialH: null,
+        horasContratadas: 40,
         horasUsadas: 26,
-        horasOciosas: 0,
+        horasOciosas: 14,
         motivo: 'obrigatoria',
-        ociosidadePct: 0,
+        ociosidadePct: 35,
         ajustado: false,
       },
     ]);
     expect(dono.r40.manter.horasSemana).toBe(66);
     expect(dono.r40.manter.horarioSemana[6].aberto).toBe(false);
-    // parcial de 26h: 8000 × 26 × 5 ÷ 200 × 1,622 = 8434,4; folha atual 8000 × 1,622 = 12976 → acréscimo de 65%
-    expect(dono.r40.manter.custoAdicionalMensal).toBe(8434.4);
-    expect(dono.r40.manter.acrescimoPct).toBe(65);
+    // 1 integral de 40h: 8000 × 40 × 5 ÷ 200 × 1,622 = 12976; folha atual 8000 × 1,622 = 12976 → acréscimo de 100%
+    expect(dono.r40.manter.custoAdicionalMensal).toBe(12976);
+    expect(dono.r40.manter.acrescimoPct).toBe(100);
     expect(dono.r40.atual).toMatchObject({ horasSemana: 66, pessoas: 1, folhaMensal: 12976 });
     expect(dono.r40.vendasBase).toBeNull();
 
-    // Dias e horários do parcial: a farmacêutica é redistribuída em 5 dias de 8 h (segunda a sexta, 08h–16h); descoberto de
-    // segunda a sexta das 16h às 20h (4 h por dia) e o sábado inteiro (08h–14h, 6 h) = 26 h. O parcial cabe em até 5 dias:
-    // sábado (6 h) e quatro dias de 4 h = 22 h; 4 h não têm lugar.
+    // A farmacêutica é redistribuída em 5 dias de 8 h (segunda a sexta, 08h–16h); descoberto de segunda a sexta das 16h às 20h
+    // (4 h por dia) e o sábado inteiro (08h–14h, 6 h) = 26 h. Spec 044: sem parcial, não há distribuição de parcial.
     const regras = (await reqGe().get(url).set(admin)).body.regras;
     const r40 = regras.find((r: { id: string }) => r.id === 'r40');
-    expect(r40.funcoes[0].sugestao.distribuicao).toEqual({
-      blocos: [
-        ...[0, 1, 2, 3].map((dia) => ({ dia, de: '16:00', ate: '20:00', horas: 4 })),
-        { dia: 5, de: '08:00', ate: '14:00', horas: 6 },
-      ],
-      estimativa: false,
-      semLugarH: 4,
-    });
+    expect(r40.funcoes[0].sugestao.distribuicao).toBeUndefined();
     expect(r40.redistribuicao.remanejados).toBe(1);
     // Loja sem atendente nem caixa: o Cenário 2 não fica inviável por falta desses cargos (só o farmacêutico conta)
     const c2 = dono.r40.economia;
@@ -284,7 +278,7 @@ describe('escala (rotas)', () => {
       expect(r.cenarios.r40.manter.contratacoes[0].pessoas).toBe(1);
       expect('custoAdicionalMensal' in r.cenarios.r40.manter).toBe(false);
       expect('folhaMensal' in r.cenarios.r40.atual).toBe(false);
-      expect(JSON.stringify(r)).not.toContain('8434');
+      expect(JSON.stringify(r)).not.toContain('12976');
     }
 
     // com três farmacêuticas (120h, 15 turnos) o quadro já cobre as 66h da loja
@@ -303,6 +297,54 @@ describe('escala (rotas)', () => {
     const cobre = (await reqGe().get(url).set(admin)).body.cenarios.r40.manter;
     expect(cobre.contratacoes).toEqual([]);
     expect(cobre.custoAdicionalMensal).toBe(0);
+  });
+
+  it('o dono vê a folha em % do faturamento mensal e o faturamento; gestor e consulta não recebem nenhum dos dois', async () => {
+    await reqGe()
+      .post('/api/v1/cargas/escala')
+      .set(admin)
+      .attach(
+        'arquivo',
+        await xlsx(escalaCab, [
+          ['001', 'F1', 'Ana', 'Farmacêutica', 'Seg a Sáb', '08:00', '', '', '17:00', '44'],
+        ]),
+        'e.xlsx',
+      );
+    await reqGe()
+      .put(`/api/v1/lojas/${lojaId}/custos`)
+      .set(admin)
+      .send({ salarioMedio: { Farmacêutico: 8000 }, encargosPct: 40 });
+    const url = `/api/v1/lojas/${lojaId}/diagnostico`;
+    // Sem faturamento: o dono recebe a folha e o faturamento nulo; o % fica nulo.
+    const sem = (await reqGe().get(url).set(admin)).body;
+    expect(sem.faturamentoMensal).toBeNull();
+    expect(sem.folhaMensal.pctDoFaturamento).toBeNull();
+    // Faturamento mensal de 100.000: a folha de 8000 × 1,622 = 12.976 pesa 13%.
+    await reqGe()
+      .patch(`/api/v1/lojas/${lojaId}`)
+      .set(admin)
+      .send({ faturamento: { dias: [null, null, null, null, null, null, null], mensal: 100000 } });
+    const dono = (await reqGe().get(url).set(admin)).body;
+    expect(dono.faturamentoMensal).toEqual({ valor: 100000, origem: 'mensal' });
+    expect(dono.folhaMensal.mensal).toBe(12976);
+    expect(dono.folhaMensal.pctDoFaturamento).toBe(13);
+    // Cada cenário mostra quanto o custo de pessoal pesa no faturamento: (folha + custo adicional) ÷ faturamento (só o dono)
+    const cenarios = dono.cenarios.r40;
+    const manter = cenarios.linhas.find((l: { id: string }) => l.id === 'manter');
+    expect(manter.custoPctFaturamento.hoje).toBe(13);
+    const esperado =
+      Math.round(((12976 + cenarios.manter.custoAdicionalMensal) / 100000) * 1000) / 10;
+    expect(manter.custoPctFaturamento.depois).toBe(esperado);
+    expect(manter.custoPctFaturamento.depois).toBeGreaterThan(13);
+    for (const h of [
+      { 'X-Perfil': 'SCHEDULE_MANAGER', 'X-GE': GE_INICIAL_ID },
+      { 'X-Perfil': 'SCHEDULE_VIEWER', 'X-GE': GE_INICIAL_ID },
+    ]) {
+      const r = (await reqGe().get(url).set(h)).body;
+      expect('faturamentoMensal' in r).toBe(false);
+      expect('folhaMensal' in r).toBe(false);
+      for (const l of r.cenarios.r40.linhas) expect('custoPctFaturamento' in l).toBe(false);
+    }
   });
 
   it('cenário 2: só mexe no fim de semana, dentro das travas; não resolve sozinho; valores só ao dono', async () => {
@@ -494,24 +536,33 @@ describe('escala (rotas)', () => {
     expect(e.indisponivel).toBeNull();
     expect(e.semVendaHoraria).toBe(false);
     expect(e.diasFechar).toEqual([]);
-    // O Cenário 1 é a base (folha de 8000 × 1,622 por 26 h de parcial = 8434,4); os outros cenários valem pelo saldo
+    // O Cenário 1 é a base (folha de 8000 × 1,622 por 1 integral = 12976); os outros cenários valem pelo saldo
     // = economia de folha − venda perdida + venda adicional das horas novas.
-    expect(dono.manter.impactoMensal).toBe(8434.4);
-    expect(dono.comparativo.cenarios.map((c: { id: string }) => c.id)).toEqual(['manter', 'economia', 'equilibrio']);
+    expect(dono.manter.impactoMensal).toBe(12976);
+    expect(dono.comparativo.cenarios.map((c: { id: string }) => c.id)).toEqual([
+      'manter',
+      'economia',
+      'equilibrio',
+    ]);
     const por = Object.fromEntries(dono.comparativo.cenarios.map((c: { id: string }) => [c.id, c]));
     expect(por.manter).toMatchObject({
       status: 'viavel',
-      custoFolhaMensal: 21410.4,
-      folhaAdicionalMensal: 8434.4,
+      custoFolhaMensal: 25952,
+      folhaAdicionalMensal: 12976,
       economiaFolhaMensal: 0,
       saldoMensal: 0,
       saldoAnual: 0,
       pesoNoFaturamentoPct: 0,
     });
     // Cenário 2 (só o sábado, até 3% de perda): perde a última hora do sábado (133,33 por hora × 52 ÷ 12 = 577,78)
-    expect(por.economia).toMatchObject({ status: 'nao_resolve', diasFechar: [], custoFolhaMensal: 12976, economiaFolhaMensal: 8434.4 });
+    expect(por.economia).toMatchObject({
+      status: 'nao_resolve',
+      diasFechar: [],
+      custoFolhaMensal: 12976,
+      economiaFolhaMensal: 12976,
+    });
     expect(por.economia.faturamentoPerdidoMensal).toBeCloseTo(577.78, 0);
-    expect(por.economia.saldoMensal).toBeCloseTo(8434.4 - 577.78, 0);
+    expect(por.economia.saldoMensal).toBeCloseTo(12976 - 577.78, 0);
     expect(por.economia.vendaPerdidaPorDia).toMatchObject([{ dia: 5, horasFechadas: 1, ate: 13 }]);
     // Cenário 3: o saldo fecha com a conta aberta
     const eq3 = por.equilibrio;
@@ -524,7 +575,13 @@ describe('escala (rotas)', () => {
     expect(['manter', 'equilibrio']).toContain(dono.comparativo.destaque);
     expect(por.economia.alertas.join(' ')).toContain('Equilíbrio');
     const textoDono = JSON.stringify(dono);
-    for (const chave of ['margemCortadaMes', 'margemGanhaMes', 'resultadoLiquidoMensal', 'ganhoFrenteManterMensal', 'margemInformada'])
+    for (const chave of [
+      'margemCortadaMes',
+      'margemGanhaMes',
+      'resultadoLiquidoMensal',
+      'ganhoFrenteManterMensal',
+      'margemInformada',
+    ])
       expect(textoDono).not.toContain(chave);
 
     for (const h of [
@@ -560,7 +617,7 @@ describe('escala (rotas)', () => {
         for (const d of c.vendaPerdidaPorDia ?? []) expect('vendaMes' in d).toBe(false);
       }
       const texto = JSON.stringify(r);
-      for (const valor of ['8434', '21410', '12976', 'R$']) expect(texto).not.toContain(valor);
+      for (const valor of ['25952', '12976', 'R$']) expect(texto).not.toContain(valor);
     }
   });
 
@@ -594,9 +651,7 @@ describe('escala (rotas)', () => {
     // Sem venda informada: dia escolhido só pela capacidade, sem valor.
     const sem = await est();
     expect(sem.disponivel).toBe(true);
-    expect(sem.diasAbrir).toEqual([
-      { dia: 6, abre: '08:00', fecha: '14:00', vendaMes: null },
-    ]);
+    expect(sem.diasAbrir).toEqual([{ dia: 6, abre: '08:00', fecha: '14:00', vendaMes: null }]);
     expect(sem.horasEstender).toBe(6);
     expect(sem.horasSemana).toBe(72);
     expect(sem.vendaRefMes).toBeNull();
@@ -942,12 +997,22 @@ describe('escala (rotas)', () => {
       ['12/09/2026', 6, 800],
     ] as const;
     const linhas = dias.flatMap(([data, horas, total]) =>
-      Array.from({ length: horas }, (_, i) => [data, String(8 + i), '001', (total / horas).toFixed(2).replace('.', ','), '10']),
+      Array.from({ length: horas }, (_, i) => [
+        data,
+        String(8 + i),
+        '001',
+        (total / horas).toFixed(2).replace('.', ','),
+        '10',
+      ]),
     );
     await reqGe()
       .post('/api/v1/cargas/base')
       .set(admin)
-      .attach('arquivo', await xlsx(['Data', 'Hora', 'Cod_Loja', 'Venda_Liquida_RS', 'Clientes_Atendidos'], linhas), 'base.xlsx');
+      .attach(
+        'arquivo',
+        await xlsx(['Data', 'Hora', 'Cod_Loja', 'Venda_Liquida_RS', 'Clientes_Atendidos'], linhas),
+        'base.xlsx',
+      );
     const comBase = await r40();
     const cheia = comBase.cenarios.r40.economia.vendaCortadaMes;
     expect(cheia).toBeGreaterThan(0);
@@ -958,10 +1023,10 @@ describe('escala (rotas)', () => {
     // Limite do parcial: desde a spec 013 o limite é legal (30 h) e esta premissa não muda mais a conta
     const semParcial = await r40('?limiteParcial=0');
     expect(semParcial.cenarios.r40.manter.contratacoes[0]).toMatchObject({
-      inteiras: 0,
-      parcialH: 26,
+      inteiras: 1,
+      parcialH: null,
     });
-    expect(semParcial.cenarios.r40.manter.custoAdicionalMensal).toBe(8434.4);
+    expect(semParcial.cenarios.r40.manter.custoAdicionalMensal).toBe(12976);
     expect(semParcial.regras.find((r: { id: string }) => r.id === 'r40').resumo.contratar).toBe(1);
 
     // Dias protegidos 0: nenhum dia é protegido; o Cenário 2 não fecha dia útil de qualquer jeito e segue sem resolver
@@ -1284,7 +1349,16 @@ describe('escala (rotas)', () => {
     // 8 atendentes de 44h e 1 farmacêutica; meta do dono: manter o nível de hoje (8 × 44h = 352h).
     const enviar = async () => {
       const linhas = Array.from({ length: 8 }, (_, i) => [
-        '001', `A${i}`, `Atendente ${i}`, 'Atendente', 'Seg a Sáb', '08:00', '', '', '17:00', '44',
+        '001',
+        `A${i}`,
+        `Atendente ${i}`,
+        'Atendente',
+        'Seg a Sáb',
+        '08:00',
+        '',
+        '',
+        '17:00',
+        '44',
       ]);
       await reqGe()
         .post('/api/v1/cargas/escala')
@@ -1326,7 +1400,10 @@ describe('escala (rotas)', () => {
 
     it('convenção já permitida: o campo não vem', async () => {
       await enviar();
-      await reqGe().put(`/api/v1/lojas/${lojaId}/configuracao`).set(admin).send({ convencao8h24: true });
+      await reqGe()
+        .put(`/api/v1/lojas/${lojaId}/configuracao`)
+        .set(admin)
+        .send({ convencao8h24: true });
       const r42 = (await diag()).regras.find((r: { id: string }) => r.id === 'r42');
       expect(r42).not.toHaveProperty('com8h24');
     });
@@ -1344,8 +1421,19 @@ describe('escala (rotas)', () => {
       }
       // As chaves de sempre continuam lá, com os mesmos valores de antes.
       const { com8h24: _novo, ...resto } = dono;
-      expect(Object.keys(resto)).toEqual(['id', 'nome', 'vigencia', 'descricao', 'passa', 'funcoes', 'redistribuicao', 'resumo']);
-      expect(resto.funcoes.find((f: { funcao: string }) => f.funcao === 'Atendimento').capacidadeH).toBe(8 * 40);
+      expect(Object.keys(resto)).toEqual([
+        'id',
+        'nome',
+        'vigencia',
+        'descricao',
+        'passa',
+        'funcoes',
+        'redistribuicao',
+        'resumo',
+      ]);
+      expect(
+        resto.funcoes.find((f: { funcao: string }) => f.funcao === 'Atendimento').capacidadeH,
+      ).toBe(8 * 40);
     });
 
     it('sem escala importada o diagnóstico fica pendente e não traz regras', async () => {
@@ -1362,18 +1450,63 @@ describe('escala (rotas)', () => {
       await reqGe()
         .post('/api/v1/cargas/escala')
         .set(admin)
-        .attach('arquivo', await xlsx(escalaCab, [['001', 'F1', 'Ana', 'Farmacêutica', 'Seg a Sáb', '08:00', '', '', '17:00', '44']]), 'e.xlsx');
-      await reqGe().put(`/api/v1/lojas/${lojaId}/configuracao`).set(admin).send({ minimos: { Atendimento: 0, Caixa: 0 } });
-      await reqGe().put(`/api/v1/lojas/${lojaId}/custos`).set(admin).send({ salarioMedio: { Farmacêutico: 8000 }, encargosPct: 40 });
-      const datas = ['07/09/2026', '08/09/2026', '09/09/2026', '10/09/2026', '11/09/2026', '12/09/2026'];
+        .attach(
+          'arquivo',
+          await xlsx(escalaCab, [
+            ['001', 'F1', 'Ana', 'Farmacêutica', 'Seg a Sáb', '08:00', '', '', '17:00', '44'],
+          ]),
+          'e.xlsx',
+        );
+      await reqGe()
+        .put(`/api/v1/lojas/${lojaId}/configuracao`)
+        .set(admin)
+        .send({ minimos: { Atendimento: 0, Caixa: 0 } });
+      await reqGe()
+        .put(`/api/v1/lojas/${lojaId}/custos`)
+        .set(admin)
+        .send({ salarioMedio: { Farmacêutico: 8000 }, encargosPct: 40 });
+      const datas = [
+        '07/09/2026',
+        '08/09/2026',
+        '09/09/2026',
+        '10/09/2026',
+        '11/09/2026',
+        '12/09/2026',
+      ];
       const linhas = datas.flatMap((data, d) =>
-        Array.from({ length: d === 5 ? 6 : 12 }, (_, i) => [data, String(8 + i), '001', '100,00', ...(cmv ? [cmv(100, i)] : []), '10']),
+        Array.from({ length: d === 5 ? 6 : 12 }, (_, i) => [
+          data,
+          String(8 + i),
+          '001',
+          '100,00',
+          ...(cmv ? [cmv(100, i)] : []),
+          '10',
+        ]),
       );
-      const cab = ['Data', 'Hora', 'Cod_Loja', 'Venda_Liquida_RS', ...(cmv ? ['CMV_RS'] : []), 'Clientes_Atendidos'];
-      await reqGe().post('/api/v1/cargas/base').set(admin).attach('arquivo', await xlsx(cab, linhas), 'b.xlsx');
+      const cab = [
+        'Data',
+        'Hora',
+        'Cod_Loja',
+        'Venda_Liquida_RS',
+        ...(cmv ? ['CMV_RS'] : []),
+        'Clientes_Atendidos',
+      ];
+      await reqGe()
+        .post('/api/v1/cargas/base')
+        .set(admin)
+        .attach('arquivo', await xlsx(cab, linhas), 'b.xlsx');
     };
     const comCmvMedio = (pct: number | null) =>
-      reqGe().patch(`/api/v1/lojas/${lojaId}`).set(admin).send({ faturamento: { dias: [1000, 1100, 900, 1200, 1500, 800, null], mensal: null, cmvPct: pct } });
+      reqGe()
+        .patch(`/api/v1/lojas/${lojaId}`)
+        .set(admin)
+        .send({
+          faturamento: {
+            dias: [1000, 1100, 900, 1200, 1500, 800, null],
+            mensal: null,
+            cmvPct: pct,
+          },
+        });
     const cmvDe = (pct: number) => (v: number) => String((v * pct) / 100).replace('.', ',');
 
     it('base com CMV em todas as horas: os cenários e o comparativo vêm na régua de margem (lucro bruto)', async () => {
@@ -1384,6 +1517,86 @@ describe('escala (rotas)', () => {
         expect(d.cenarios[id].regua).toEqual({ tipo: 'margem' });
         expect(d.cenarios[id].comparativo.regua).toEqual({ tipo: 'margem' });
       }
+    });
+
+    const semFrase = (ls: object[]) =>
+      ls.map(({ explicacao: _x, ...r }: { explicacao?: unknown }) => r);
+
+    it('linhas dos cenários (spec 037): iguais para dono, gestor e consulta, só com % e sem reais nem salário (o dono ainda recebe o custo sobre o faturamento)', async () => {
+      await preparar(cmvDe(70));
+      const consulta = { 'X-Perfil': 'SCHEDULE_VIEWER', 'X-GE': GE_INICIAL_ID };
+      const [dono, ges, con] = await Promise.all(
+        [admin, gestor, consulta].map(async (h) => (await reqGe().get(url()).set(h)).body),
+      );
+      for (const id of ['r42', 'r40']) {
+        const linhasDoDono = dono.cenarios[id].linhas;
+        // O dono recebe, a mais, o peso do custo de pessoal no faturamento; as demais linhas são idênticas.
+        const linhas = linhasDoDono.map(
+          ({
+            custoPctFaturamento: _c,
+            custoPct: _p,
+            explicacao: _e,
+            ...resto
+          }: {
+            custoPctFaturamento?: unknown;
+            custoPct?: unknown;
+            explicacao?: unknown;
+          }) => resto,
+        );
+        // Spec 051: a frase explicativa é por perfil. O dono lê pesos e reais; gestor e consulta, a mesma ideia sem números.
+        const textoDe = (
+          ls: { id: string; explicacao: { partes: { texto: string }[] } | null }[],
+        ) =>
+          ls
+            .map((l) => l.explicacao?.partes.map((x: { texto: string }) => x.texto).join('') ?? '')
+            .join(' ');
+        expect(textoDe(dono.cenarios[id].linhas)).toMatch(/R\$ [\d.]+ por mês|a folha não muda/);
+        for (const outro of [ges, con]) {
+          const t = textoDe(outro.cenarios[id].linhas);
+          expect(t).not.toMatch(/R\$|%/);
+          expect(t).not.toMatch(/p\.p\.|pontos|Personalizar/);
+        }
+
+        expect(linhasDoDono.every((l: object) => 'custoPctFaturamento' in l)).toBe(true);
+        expect(linhas.map((l: { id: string }) => l.id)).toEqual([
+          'equilibrio',
+          'manter',
+          'economia',
+        ]);
+        expect(semFrase(ges.cenarios[id].linhas)).toEqual(linhas);
+        expect(semFrase(con.cenarios[id].linhas)).toEqual(linhas);
+        // com os custos informados pelo dono, o Equilíbrio é calculado para todos (nada em reais sai)
+        expect(linhas[0].indisponivel).toBeNull();
+        for (const l of linhas) {
+          expect(Object.keys(l).sort()).toEqual(
+            [
+              'ajustes',
+              'causa',
+              'contratacoes',
+              'contratar',
+              'custoEstado',
+              'custoSentido',
+              'diasFechar',
+              'horarioSemana',
+              'horasDiferenca',
+              'horasSemana',
+              'id',
+              'igualA',
+              'indisponivel',
+              'nome',
+              'status',
+              'vendaEstado',
+              'vendaPct',
+            ].sort(),
+          );
+        }
+        // o selo de sugerido continua só do dono
+        expect(ges.cenarios[id].comparativo.sugerido).toBeUndefined();
+        expect(con.cenarios[id].comparativo.sugerido).toBeUndefined();
+      }
+      // nenhum salário nem valor em reais nas linhas do gestor
+      const json = JSON.stringify(semFrase(ges.cenarios.r42.linhas));
+      expect(json).not.toMatch(/8000|folha|saldo|salario|Mensal/);
     });
 
     it('base sem a coluna de CMV e sem CMV médio: a régua é venda, com o motivo', async () => {
@@ -1413,7 +1626,14 @@ describe('escala (rotas)', () => {
       const g = (await reqGe().get(url()).set(gestor)).body;
       expect(g.regua).toEqual({ tipo: 'margem' });
       const texto = JSON.stringify(g.cenarios);
-      for (const chave of ['vendaCortadaMes', 'vendaGanhaMes', 'vendaCortadaRealMes', 'saldoMensal', 'faturamentoPerdidoMensal', 'cmvPct'])
+      for (const chave of [
+        'vendaCortadaMes',
+        'vendaGanhaMes',
+        'vendaCortadaRealMes',
+        'saldoMensal',
+        'faturamentoPerdidoMensal',
+        'cmvPct',
+      ])
         expect(texto).not.toContain(chave);
     });
   });

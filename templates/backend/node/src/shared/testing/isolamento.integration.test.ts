@@ -224,7 +224,7 @@ describe('isolamento entre GEs', () => {
     )
       .default((await import('../../app.js')).app)
       .get('/api/v1/parametros-legais')
-      .set(admin);
+      .set(operador);
     expect(legais.status).toBe(200);
   });
 

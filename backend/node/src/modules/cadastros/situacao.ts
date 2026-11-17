@@ -143,7 +143,8 @@ export const pendenciasDoCadastro = (
       titulo: 'Faturamento do mês',
       resumo: 'O faturamento mensal informado difere mais de 10% da soma dos dias',
       texto: 'O valor do mês é diferente da soma dos dias. Confira.',
-      porque: 'Confira o faturamento do mês: o valor informado é diferente da soma dos dias em mais de 10%.',
+      porque:
+        'Confira o faturamento do mês: o valor informado é diferente da soma dos dias em mais de 10%.',
       campos: ['mensal'],
       soDono: true,
       alerta: true,
@@ -151,7 +152,10 @@ export const pendenciasDoCadastro = (
 
   // A margem bruta não tem mais tela nem entra em conta: nunca é pendência.
   // Sem os salários o diagnóstico não calcula a folha nem a economia dos cenários.
-  const precisam = ['Farmacêutico', ...cadastro.funcoesNaEquipe.filter((f) => f !== 'Farmacêutico')];
+  const precisam = [
+    'Farmacêutico',
+    ...cadastro.funcoesNaEquipe.filter((f) => f !== 'Farmacêutico'),
+  ];
   const semSalario = precisam.filter((f) => !cadastro.salariosInformados.includes(f));
   for (const f of semSalario)
     p.push({

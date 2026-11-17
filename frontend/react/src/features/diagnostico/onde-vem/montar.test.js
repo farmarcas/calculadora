@@ -118,7 +118,7 @@ describe("observação do pico", () => {
   it("mostra o texto do desenho: 5 atendentes no pico, 8 pessoas só entre 13h e 15h", () => {
     const o = buildObservacaoPico({ vendas, atendimento });
     expect(o).toMatchObject({ horaIni: 10, horaFim: 12, pessoasNoPico: 5, pessoasFora: 8, h1: 13, h2: 15 });
-    expect(o.texto).toBe("No pico de vendas, das 10h às 12h, há 5 atendentes. As 8 pessoas só aparecem entre 13h e 15h, quando as vendas já são menores. Dá para testar outros horários em Personalizar.");
+    expect(o.texto).toBe("No pico de vendas, das 10h às 12h, há 5 atendentes. As 8 pessoas só aparecem entre 13h e 15h, quando as vendas já são menores. Dá para testar outros horários em Analisar.");
   });
   it("não aparece quando o pico já tem o maior número de pessoas", () => {
     const d = diag();

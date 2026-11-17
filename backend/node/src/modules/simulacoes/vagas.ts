@@ -4,7 +4,20 @@ import { tetoEfetivo, type Regra } from '../regras/perfis.js';
 import type { Minimos } from '../regras/requisitos.js';
 import type { PessoaSim, TurnoSim } from './avaliar.js';
 
-export type VagaEntrada = { matricula?: string; funcao: string; cargaH: number };
+export type TurnoDeVaga = {
+  dia: number;
+  entrada: number;
+  saida: number;
+  iniIntervalo?: number | null;
+  fimIntervalo?: number | null;
+};
+export type VagaEntrada = {
+  matricula?: string;
+  funcao: string;
+  cargaH: number;
+  // Só para vaga nova: ganham a matrícula que o servidor atribui à vaga.
+  turnos?: TurnoDeVaga[];
+};
 
 const MAX_VAGAS = 20;
 const numeroDa = (m: string) => Number(m.replace('VAGA-', ''));
@@ -18,6 +31,8 @@ export const aplicarVagasEDesligados = (
 ) => {
   let novo = quadro;
   const antes = new Set(quadro.filter((p) => p.vaga).map((p) => p.matricula));
+  // Turnos das vagas criadas agora (a matrícula só existe depois de atribuída).
+  const turnosNovos: TurnoSim[] = [];
 
   if (vagas) {
     if (vagas.length > MAX_VAGAS)
@@ -41,6 +56,15 @@ export const aplicarVagasEDesligados = (
         };
       }
       const n = proximo++;
+      for (const t of v.turnos ?? [])
+        turnosNovos.push({
+          matricula: `VAGA-${n}`,
+          dia: t.dia,
+          entrada: t.entrada,
+          saida: t.saida,
+          iniIntervalo: t.iniIntervalo ?? null,
+          fimIntervalo: t.fimIntervalo ?? null,
+        });
       return {
         matricula: `VAGA-${n}`,
         nome: `Vaga ${n}`,
@@ -67,7 +91,7 @@ export const aplicarVagasEDesligados = (
   }
 
   const existentes = new Set(novo.map((p) => p.matricula));
-  const turnosFinais = turnos.filter((t) => existentes.has(t.matricula));
+  const turnosFinais = [...turnos.filter((t) => existentes.has(t.matricula)), ...turnosNovos];
   const depois = new Set(novo.filter((p) => p.vaga).map((p) => p.matricula));
   return {
     quadro: novo,
@@ -94,4 +118,33 @@ export const vagasSugeridas = (
       ...Array.from({ length: l.contratarInteiras }, () => ({ funcao: l.funcao, cargaH: cheia })),
       ...(l.parcialH ? [{ funcao: l.funcao, cargaH: Math.min(44, l.parcialH) }] : []),
     ]);
+};
+
+// A simulação guarda minutos inteiros (spec 047): o horário do Cadastro (14h38) fica como está; só some a fração de minuto que o
+// ponto flutuante deixa. Sem deixar a saída antes da entrada.
+const emMinuto = (h: number) => Math.round(h * 60) / 60;
+export const emMinutosDeHora = (turnos: TurnoSim[]): TurnoSim[] =>
+  turnos.map((t) => {
+    const entrada = emMinuto(t.entrada);
+    return {
+      ...t,
+      entrada,
+      saida: Math.max(emMinuto(t.saida), entrada + 1 / 60),
+      iniIntervalo: t.iniIntervalo == null ? null : emMinuto(t.iniIntervalo),
+      fimIntervalo: t.fimIntervalo == null ? null : emMinuto(t.fimIntervalo),
+      ...(t.antes
+        ? { antes: { entrada: emMinuto(t.antes.entrada), saida: emMinuto(t.antes.saida) } }
+        : {}),
+    };
+  });
+
+// A jornada cheia de uma contratação na regra (spec 044: só se contrata integral): a mesma que a sugestão dos cenários usa.
+export const jornadaCheiaH = (regra: Regra) => Math.min(44, Math.floor(tetoEfetivo(regra)));
+
+// Vaga nova (sem matrícula) só vale integral; vaga que já existe numa simulação salva segue como estava.
+export const exigirVagasIntegrais = (vagas: VagaEntrada[] | undefined, regra: Regra) => {
+  const cheia = jornadaCheiaH(regra);
+  for (const v of vagas ?? [])
+    if (!v.matricula && v.cargaH !== cheia)
+      throw new ValidationError(`A contratação é integral: ${cheia} horas por semana nesta regra.`);
 };

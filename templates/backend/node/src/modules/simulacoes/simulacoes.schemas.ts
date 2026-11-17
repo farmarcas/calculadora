@@ -9,13 +9,13 @@ const req = <B extends z.ZodType, P extends z.ZodType, Q extends z.ZodType = typ
   query?: Q,
 ) => z.object({ body, params, query: (query ?? vazio.default({})) as unknown as Q });
 
-// Horas em decimal, de 15 em 15 minutos.
+// Horas em decimal, com minutos inteiros (spec 047): 15,4 é 15h24. Quartos de hora continuam valendo; fração de minuto não.
 const hora = z
   .number()
   .min(0)
   .max(24)
-  .refine((h) => Math.abs(h * 4 - Math.round(h * 4)) < 1e-9, {
-    message: 'Use intervalos de 15 minutos',
+  .refine((h) => Math.abs(h * 60 - Math.round(h * 60)) < 1e-6, {
+    message: 'Use horários com minutos inteiros',
   });
 
 export const turnoSchema = z
@@ -26,17 +26,26 @@ export const turnoSchema = z
     saida: hora,
     iniIntervalo: hora.nullable(),
     fimIntervalo: hora.nullable(),
+    // O horário de antes de o turno ser esticado até o limite da regra (spec 046).
+    antes: z.object({ entrada: hora, saida: hora }).strict().optional(),
   })
   .strict();
 
 export const REGRAS = ['atual', 'r42', 'r40'] as const;
-export const FUNCOES_ESCALA = [
-  'Farmacêutico',
-  'Atendimento',
-  'Caixa',
-] as const;
+export const FUNCOES_ESCALA = ['Farmacêutico', 'Atendimento', 'Caixa'] as const;
 
 // Vaga simulada: a matrícula (VAGA-n) só vem de volta para vagas que já existem.
+// Turno de uma vaga nova (a matrícula `VAGA-n` é dada pelo servidor ao criar a vaga).
+export const turnoDeVagaSchema = z
+  .object({
+    dia: z.number().int().min(0).max(6),
+    entrada: hora,
+    saida: hora,
+    iniIntervalo: hora.nullable().optional(),
+    fimIntervalo: hora.nullable().optional(),
+  })
+  .strict();
+
 export const vagaSchema = z
   .object({
     matricula: z
@@ -45,6 +54,8 @@ export const vagaSchema = z
       .optional(),
     funcao: z.enum(FUNCOES_ESCALA),
     cargaH: z.number().int().min(4).max(44),
+    // Só vale para vaga nova: os turnos de uma vaga que já existe seguem em `turnos` do pedido.
+    turnos: z.array(turnoDeVagaSchema).max(7).optional(),
   })
   .strict();
 
@@ -56,7 +67,28 @@ export const listarReq = req(
 );
 export const porIdReq = req(vazio.default({}), id);
 // "Salvar como cenário N": grava e dá o nome "Cenário N"; sem isso, grava com o nome que já tem.
-export const gravarReq = req(z.object({ comoCenario: z.boolean().optional() }).strict().default({}), id);
+// Spec 056: com `nome` o cenário leva o nome que a pessoa deu (1 a 60 caracteres, único na loja) e, opcionalmente, uma observação
+// (até 1000) que entra no parecer.
+export const gravarReq = req(
+  z
+    .object({
+      comoCenario: z.boolean().optional(),
+      nome: z
+        .string()
+        .trim()
+        .min(1, 'Dê um nome ao cenário')
+        .max(60, 'O nome pode ter até 60 caracteres')
+        .optional(),
+      observacao: z
+        .string()
+        .trim()
+        .max(1000, 'A observação pode ter até 1000 caracteres')
+        .optional(),
+    })
+    .strict()
+    .default({}),
+  id,
+);
 export const criarReq = req(
   z
     .object({
@@ -68,6 +100,10 @@ export const criarReq = req(
         .default('escala_atual'),
       // Já nasce com as contratações que o diagnóstico sugere para a regra escolhida.
       comVagasSugeridas: z.boolean().default(false),
+      // Horário simulado já na criação (o do cenário clicado, que pode abrir ou fechar dias); sem ele vale o da loja.
+      horarios: horariosEntrada
+        .refine((h) => h.dias.some((d) => d.aberta), { message: 'Deixe ao menos um dia aberto' })
+        .optional(),
     })
     .strict(),
   id,
@@ -91,18 +127,17 @@ export const editarReq = req(
   id,
 );
 
-export const aprovarReq = req(
+// Prévia do custo de uma contratação (não grava nada).
+export const efeitoContratacaoReq = req(
   z
     .object({
-      vigenciaInicio: z
-        .string()
-        .regex(/^\d{4}-\d{2}-\d{2}$/)
-        .optional(),
+      funcao: z.enum(FUNCOES_ESCALA),
+      cargaH: z.number().int().min(4).max(44),
     })
-    .strict()
-    .default({}),
+    .strict(),
   id,
 );
+
 export const compararReq = req(
   vazio.default({}),
   id,
@@ -114,8 +149,8 @@ export const compararReq = req(
         .pipe(
           z
             .array(z.string().uuid())
-            .min(2, 'Escolha de 2 a 3 simulações')
-            .max(3, 'Escolha de 2 a 3 simulações'),
+            .min(2, 'Escolha de 2 a 4 simulações')
+            .max(4, 'Escolha de 2 a 4 simulações'),
         ),
     })
     .strict(),

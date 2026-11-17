@@ -8,6 +8,7 @@ export default defineConfig({
     env: {
       NODE_ENV: 'test',
       PORT: '4000',
+      SSO_HABILITADO: 'false',
       // Vem do Compose (TEST_DATABASE_URL); nenhuma credencial escrita aqui.
       DATABASE_URL: process.env.TEST_DATABASE_URL ?? '',
     },

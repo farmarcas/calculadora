@@ -57,47 +57,45 @@ describe('Cenário 4 — abrir um dia hoje fechado', () => {
     expect(e.diasAbrir[0]).toMatchObject({
       abre: '09:00',
       fecha: '17:00',
-      margemMes: 520,
       vendaMes: 2080,
     });
     expect(e.horasEstender).toBe(16);
     expect(e.horasSemana).toBe(56);
     expect(e.horarioSemana[5]).toMatchObject({ aberto: true, abre: '09:00', fecha: '17:00' });
     expect(e.vendaRefMes).toBe(4160);
-    expect(e.margemRefMes).toBe(1040);
     expect(e.aviso).toContain('50%');
     expect(e.resumo).toContain('Abrindo sábado e domingo (09:00–17:00)');
     expect(e.resumo).toContain('sem nova contratação');
   });
 
-  it('dono: custo do Cenário 1 e impacto líquido (custo menos a margem de referência)', () => {
+  it('dono: custo do Cenário 1 e saldo (venda estimada menos o custo)', () => {
     const e = aberto();
-    // a equipe atual já cobre os cinco dias: o Cenário 1 não contrata, custo 0 → impacto −1040
+    // a equipe atual já cobre os cinco dias: o Cenário 1 não contrata, custo 0 → saldo 4160
     expect(e.custoAdicionalMensal).toBe(0);
-    expect(e.impactoMensal).toBe(-1040);
+    expect(e.saldoMensal).toBe(4160);
   });
 
   it('dia que tem histórico de venda vale o que vendeu, não a estimativa, e abre primeiro', () => {
-    // sábado vendeu 800 por dia com margem de 200: 866,67 de margem por mês (> 520 do domingo)
+    // sábado vendeu 800 por dia: 3466,67 de venda por mês (> 2080 do domingo)
     const sabado = [
       { data: '2026-03-07', hora: 10, venda: 800, margem: 200, clientes: 1, unidades: 1 },
     ];
     const e = aberto({ vendas: [...vendasDe(), ...sabado], pessoas: [farm(40), farm(8)] });
     // equipe de 40h e 8h: 48h e 6 turnos: só cabe um dia a mais (48h e 6 turnos)
     expect(e.diasAbrir.map((d) => d.dia)).toEqual([5]);
-    expect(e.diasAbrir[0]).toMatchObject({ margemMes: 866.67, vendaMes: 3466.67 });
-    expect(e.margemRefMes).toBe(866.67);
+    expect(e.diasAbrir[0]).toMatchObject({ vendaMes: 3466.67 });
+    expect(e.vendaRefMes).toBe(3466.67);
     expect(e.aviso).toBeNull(); // nada estimado
   });
 
   it('usa a sobra das contratações do Cenário 1: uma inteira contratada para cobrir o resto abre o domingo', () => {
     // equipe de 8h (1 turno) para 40h e 5 turnos: faltam 4 turnos (acima do limite do parcial) → 1 inteira de 40h.
-    // Com ela: 48h e 6 turnos, sobra um dia de 8h. Desempate entre sábado e domingo (520 cada): o mais tardio.
+    // Com ela: 48h e 6 turnos, sobra um dia de 8h. Desempate entre sábado e domingo (2080 cada): o mais tardio.
     const e = aberto({ pessoas: [farm(8)] });
     expect(e.diasAbrir.map((d) => d.dia)).toEqual([6]);
     expect(e.direcionamento).toContain('sobra das contratações do Cenário 1');
     expect(e.custoAdicionalMensal).toBe(10000); // 10000 × 40 × 5 ÷ 200 da inteira do Cenário 1
-    expect(e.impactoMensal).toBe(9480); // 10000 − 520
+    expect(e.saldoMensal).toBe(-7920); // 2080 − 10000
   });
 
   it('sem sobra de capacidade, explica o motivo', () => {
@@ -118,13 +116,13 @@ describe('Cenário 4 — abrir um dia hoje fechado', () => {
     expect(e.motivoIndisponivel).toContain('Todos os dias');
   });
 
-  it('o fator de dia novo é ajustável: 25% vale 260 por dia; 0% não compensa abrir', () => {
+  it('o fator de dia novo é ajustável: 25% vale 1040 por dia; 0% não compensa abrir', () => {
     const e25 = aberto({ fatorDiaNovo: 0.25 });
-    expect(e25.margemRefMes).toBe(520); // 2 dias × 260
+    expect(e25.vendaRefMes).toBe(2080); // 2 dias × 1040
     expect(e25.aviso).toContain('25%');
     const e0 = aberto({ fatorDiaNovo: 0 });
     expect(e0.disponivel).toBe(false);
-    expect(e0.motivoIndisponivel).toContain('margem estimada positiva');
+    expect(e0.motivoIndisponivel).toContain('venda estimada positiva');
   });
 
   it('sem venda nenhuma escolhe os dias só pela capacidade, sem valores, e avisa', () => {
@@ -132,9 +130,8 @@ describe('Cenário 4 — abrir um dia hoje fechado', () => {
     expect(e.disponivel).toBe(true);
     expect(e.diasAbrir.map((d) => d.dia)).toEqual([5, 6]);
     expect(e.vendaRefMes).toBeNull();
-    expect(e.margemRefMes).toBeNull();
     expect(e.aviso).toContain('Sem venda informada');
-    expect(e.impactoMensal).toBeNull();
+    expect(e.saldoMensal).toBeNull();
   });
 
   it('quem não é dono vê os dias e o horário, sem valores em reais', () => {
@@ -278,8 +275,8 @@ describe('Encaixe dos cenários 4 e 5', () => {
     expect(c.destaque).toBe(antes);
     expect('estender' in c).toBe(false);
     expect('reduzir' in c).toBe(false);
-    // cada extra tem o próprio impacto (só para o dono)
-    expect(extras.estender.impactoMensal).not.toBeUndefined();
+    // cada extra tem o próprio resultado em reais (só para o dono)
+    expect(extras.estender.saldoMensal).not.toBeUndefined();
     expect(extras.reduzir.impactoMensal).not.toBeUndefined();
   });
 

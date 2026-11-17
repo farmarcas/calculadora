@@ -67,7 +67,11 @@ describe('parâmetros legais (rotas)', () => {
     expect(await prisma.parametroLegal.count()).toBe(3);
     const r = await reqGe().post('/api/v1/parametros-legais').set(operador).send(nova);
     expect(r.status).toBe(201);
-    expect(r.body).toMatchObject({ fase: 'r40', jornadaSemanalH: 36, criadoPor: 'PLATFORM_OPERATOR' });
+    expect(r.body).toMatchObject({
+      fase: 'r40',
+      jornadaSemanalH: 36,
+      criadoPor: 'PLATFORM_OPERATOR',
+    });
   });
 
   it('alterar cria nova versão, preserva a antiga no histórico e registra auditoria', async () => {

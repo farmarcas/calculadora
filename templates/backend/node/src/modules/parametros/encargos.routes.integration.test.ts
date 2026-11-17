@@ -3,6 +3,7 @@ import { GE_INICIAL_ID } from '../../shared/ge.js';
 import { reqGe } from '../../shared/testing/ge.js';
 import { prisma } from '../../shared/database/prisma.js';
 
+const operador = { 'X-Perfil': 'PLATFORM_OPERATOR', 'X-GE': GE_INICIAL_ID };
 const admin = { 'X-Perfil': 'TENANT_ADMIN', 'X-GE': GE_INICIAL_ID };
 const gestor = { 'X-Perfil': 'SCHEDULE_MANAGER', 'X-GE': GE_INICIAL_ID };
 const consulta = { 'X-Perfil': 'SCHEDULE_VIEWER', 'X-GE': GE_INICIAL_ID };
@@ -44,7 +45,7 @@ describe('parâmetros de encargos (rotas)', () => {
     }
   });
 
-  it('só o dono cria versão; a vigência nova passa a valer e o histórico guarda a anterior', async () => {
+  it('só o operador cria versão; a vigência nova passa a valer e o histórico guarda a anterior', async () => {
     const corpo = { ...presumido, fgtsPct: 9, vigenciaInicio: '2020-01-01' };
     expect((await reqGe().post('/api/v1/parametros-encargos').set(gestor).send(corpo)).status).toBe(
       403,
@@ -52,7 +53,10 @@ describe('parâmetros de encargos (rotas)', () => {
     expect(
       (await reqGe().post('/api/v1/parametros-encargos').set(consulta).send(corpo)).status,
     ).toBe(403);
-    const ok = await reqGe().post('/api/v1/parametros-encargos').set(admin).send(corpo);
+    expect((await reqGe().post('/api/v1/parametros-encargos').set(admin).send(corpo)).status).toBe(
+      403,
+    );
+    const ok = await reqGe().post('/api/v1/parametros-encargos').set(operador).send(corpo);
     expect(ok.status).toBe(201);
     const r = await reqGe().get('/api/v1/parametros-encargos').set(admin);
     const p = r.body.regimes.find((x: { regime: string }) => x.regime === 'presumido');
@@ -67,7 +71,7 @@ describe('parâmetros de encargos (rotas)', () => {
   it('versão com data no futuro não vale ainda', async () => {
     await reqGe()
       .post('/api/v1/parametros-encargos')
-      .set(admin)
+      .set(operador)
       .send({ ...presumido, fgtsPct: 10, vigenciaInicio: '2999-01-01' });
     const r = await reqGe().get('/api/v1/parametros-encargos').set(admin);
     expect(r.body.regimes.find((x: { regime: string }) => x.regime === 'presumido').totalPct).toBe(
@@ -79,7 +83,7 @@ describe('parâmetros de encargos (rotas)', () => {
     const tenta = (extra: object) =>
       reqGe()
         .post('/api/v1/parametros-encargos')
-        .set(admin)
+        .set(operador)
         .send({ ...presumido, vigenciaInicio: '2026-12-01', ...extra });
     expect((await tenta({ ratPct: 5 })).body.error.message).toContain('RAT');
     expect((await tenta({ fap: 3 })).body.error.message).toContain('FAP');

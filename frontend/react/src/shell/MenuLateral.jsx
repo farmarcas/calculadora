@@ -5,9 +5,9 @@ import { itemDaFolha, itensDoMenu } from "./menu.js";
 const ANEL = "focus-visible:outline-2 focus-visible:outline-[var(--border-focus)] focus-visible:-outline-offset-2";
 const ATIVO = "bg-[var(--color-primary-soft)] shadow-[inset_3px_0_0_var(--color-primary)]";
 
-// Dica do menu recolhido: só visual (o nome acessível já está no botão). Aparece com o mouse e com o foco.
+// Dica do menu recolhido: só visual (o nome acessível já está no botão). Aparece com o mouse em cima e com o foco do teclado (clicar com o mouse não a deixa presa na tela).
 const Dica = ({ texto }) => (
-  <span aria-hidden="true" className="pointer-events-none absolute left-full top-1/2 z-50 ml-2 hidden h-8 -translate-y-1/2 whitespace-nowrap rounded-btn bg-[var(--neutral-dark-900)] px-3 text-[13px] leading-8 text-white group-focus-within:block group-hover:block">
+  <span aria-hidden="true" className="pointer-events-none absolute left-full top-1/2 z-50 ml-2 hidden h-8 -translate-y-1/2 whitespace-nowrap rounded-btn bg-[var(--neutral-dark-900)] px-3 text-[13px] leading-8 text-white group-has-[:focus-visible]:block group-hover:block">
     {texto}
   </span>
 );

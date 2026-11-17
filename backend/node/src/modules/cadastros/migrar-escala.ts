@@ -86,9 +86,13 @@ export const planejarMigracao = (
         entrada: t.entrada,
         saida: t.saida,
         iniIntervalo:
-          t.iniIntervalo !== null && t.fimIntervalo !== null && t.fimIntervalo > t.iniIntervalo ? t.iniIntervalo : null,
+          t.iniIntervalo !== null && t.fimIntervalo !== null && t.fimIntervalo > t.iniIntervalo
+            ? t.iniIntervalo
+            : null,
         fimIntervalo:
-          t.iniIntervalo !== null && t.fimIntervalo !== null && t.fimIntervalo > t.iniIntervalo ? t.fimIntervalo : null,
+          t.iniIntervalo !== null && t.fimIntervalo !== null && t.fimIntervalo > t.iniIntervalo
+            ? t.fimIntervalo
+            : null,
         dias: [...t.dias].sort(),
       });
       continue;

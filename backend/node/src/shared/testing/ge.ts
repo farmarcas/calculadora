@@ -78,7 +78,9 @@ const escalaNoCadastro = (geId: string) => {
     const wb = new ExcelJS.Workbook();
     await wb.xlsx.load(buffer as never);
     const ws = wb.worksheets[0]!;
-    const cab = (ws.getRow(1).values as unknown[]).slice(1).map((v) => String(v ?? '').toLowerCase());
+    const cab = (ws.getRow(1).values as unknown[])
+      .slice(1)
+      .map((v) => String(v ?? '').toLowerCase());
     const col = (nome: string) => cab.indexOf(nome);
     const lojas: { codigo: string; aceitas: number; rejeitadas: number; situacao: string }[] = [];
     for (let n = 2; n <= ws.rowCount; n++) {
@@ -90,7 +92,9 @@ const escalaNoCadastro = (geId: string) => {
       const codigo = cel('cod_loja');
       const loja = await prisma.loja.findFirst({ where: { geId, codigo, deletedAt: null } });
       if (!loja) continue;
-      const registro = lojas.find((l) => l.codigo === codigo) ?? lojas[lojas.push({ codigo, aceitas: 0, rejeitadas: 0, situacao: 'Importada' }) - 1]!;
+      const registro =
+        lojas.find((l) => l.codigo === codigo) ??
+        lojas[lojas.push({ codigo, aceitas: 0, rejeitadas: 0, situacao: 'Importada' }) - 1]!;
       const entrada = lerHora(cel('hora_entrada'));
       const saida = lerHora(cel('hora_saida'));
       const dias = lerDias(cel('dias_trabalho'));
@@ -105,7 +109,10 @@ const escalaNoCadastro = (geId: string) => {
         nome: cel('nome_colaborador'),
         lojaId: loja.id,
         funcaoEscala: deduzirFuncao(cel('funcao'), undefined),
-        cargaSemanalH: Number.isFinite(carga) && carga > 0 ? Math.round(carga) : Math.round(dias.length * (saida - entrada)),
+        cargaSemanalH:
+          Number.isFinite(carga) && carga > 0
+            ? Math.round(carga)
+            : Math.round(dias.length * (saida - entrada)),
         entrada,
         saida,
         iniIntervalo: ini,
@@ -113,7 +120,9 @@ const escalaNoCadastro = (geId: string) => {
         dias,
       };
       const matricula = cel('id_colaborador');
-      const existente = await prisma.funcionario.findFirst({ where: { geId, matricula, deletedAt: null } });
+      const existente = await prisma.funcionario.findFirst({
+        where: { geId, matricula, deletedAt: null },
+      });
       if (existente) await prisma.funcionario.update({ where: { id: existente.id }, data: dados });
       else await prisma.funcionario.create({ data: { ...dados, geId, matricula } });
       registro.aceitas++;

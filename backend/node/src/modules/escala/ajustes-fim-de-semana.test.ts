@@ -334,7 +334,9 @@ describe('horário estendido (Cenário 3)', () => {
     const longo = [dia(5, 7, 23), dia(6, 8, 20)]; // sábado com 16 h: não estende
     expect(
       estadosPermitidos({ dias: longo, porDia, estender: true }).every(
-        (e) => (e.find((x) => x.dia === 5)?.fecha ?? 23) <= 23 && (e.find((x) => x.dia === 5)?.abre ?? 7) >= 7,
+        (e) =>
+          (e.find((x) => x.dia === 5)?.fecha ?? 23) <= 23 &&
+          (e.find((x) => x.dia === 5)?.abre ?? 7) >= 7,
       ),
     ).toBe(true);
   });
@@ -356,13 +358,13 @@ describe('horário estendido (Cenário 3)', () => {
     const final = dias.map((d) => (d.dia === 5 ? { ...d, fecha: 22 } : d)); // 20h e 21h novas
     // 20h com 80 de venda registrada; 21h sem registro → 50% da última hora aberta (19h: 100)
     const g = ganhoDasHorasNovas(dias, final, tabela({ '5:20': 80 }));
-    expect(g.porDia).toEqual([
-      { dia: 5, horasNovas: 2, origem: 'mista', vendaMes: 563.33 },
-    ]);
+    expect(g.porDia).toEqual([{ dia: 5, horasNovas: 2, origem: 'mista', vendaMes: 563.33 }]);
     // (80 + 50) × 52/12 = 563,33
     expect(g.vendaMes).toBe(563.33);
     expect(ganhoDasHorasNovas(dias, final, tabela()).porDia[0]!.origem).toBe('vizinha');
-    expect(ganhoDasHorasNovas(dias, final, tabela({ '5:20': 80, '5:21': 60 })).porDia[0]!.origem).toBe('registrada');
+    expect(
+      ganhoDasHorasNovas(dias, final, tabela({ '5:20': 80, '5:21': 60 })).porDia[0]!.origem,
+    ).toBe('registrada');
   });
 
   it('sem tabela de vendas por hora, o ganho é zero', () => {
@@ -407,7 +409,8 @@ describe('venda perdida hora a hora (spec 022)', () => {
   const tabelaH = (extra: Record<string, number> = {}) => {
     const venda = Array.from({ length: 7 }, () => new Array<number>(24).fill(0));
     for (let d = 0; d < 7; d++)
-      for (let h = 8; h < 20; h++) venda[d]![h] = d === 5 && h >= 16 ? 20 : d === 6 && h >= 16 ? 50 : 100;
+      for (let h = 8; h < 20; h++)
+        venda[d]![h] = d === 5 && h >= 16 ? 20 : d === 6 && h >= 16 ? 50 : 100;
     for (const [k, v] of Object.entries(extra)) {
       const [d, h] = k.split(':').map(Number);
       venda[d!]![h!] = v;
@@ -420,16 +423,26 @@ describe('venda perdida hora a hora (spec 022)', () => {
     const final = hojeL.map((d) => (d.dia === 5 ? { ...d, fecha: 16 } : d));
     const r = vendaPerdidaHoraria(hojeL, final, tabelaH());
     // sábado: 16h, 17h, 18h e 19h valem 20 cada = 80 por semana
-    expect(r.porDia).toEqual([{ dia: 5, horasFechadas: 4, ate: 16, vendaMes: Math.round(80 * SEMANAS * 100) / 100 }]);
+    expect(r.porDia).toEqual([
+      { dia: 5, horasFechadas: 4, ate: 16, vendaMes: Math.round(80 * SEMANAS * 100) / 100 },
+    ]);
     expect(r.vendaMes).toBe(Math.round(80 * SEMANAS * 100) / 100);
   });
 
   it('perde menos que a divisão igual do dia quando o fim do dia vende pouco', () => {
     const final = hojeL.map((d) => (d.dia === 5 ? { ...d, fecha: 16 } : d));
-    const porDia = hojeL.map((d) => ({ dia: d.dia, protegido: false, vendaMes: Math.round(((d.dia === 5 ? 880 : 1200) * SEMANAS) * 100) / 100 }));
+    const porDia = hojeL.map((d) => ({
+      dia: d.dia,
+      protegido: false,
+      vendaMes: Math.round((d.dia === 5 ? 880 : 1200) * SEMANAS * 100) / 100,
+    }));
     // divisão igual: 4/12 de 880 = 293,33 por semana; hora a hora: 80
-    expect(perdaMensal(hojeL, final, porDia, tabelaH())).toBeLessThan(perdaMensal(hojeL, final, porDia));
-    expect(perdaMensal(hojeL, final, porDia, tabelaH())).toBe(vendaPerdidaHoraria(hojeL, final, tabelaH()).vendaMes);
+    expect(perdaMensal(hojeL, final, porDia, tabelaH())).toBeLessThan(
+      perdaMensal(hojeL, final, porDia),
+    );
+    expect(perdaMensal(hojeL, final, porDia, tabelaH())).toBe(
+      vendaPerdidaHoraria(hojeL, final, tabelaH()).vendaMes,
+    );
   });
 
   it('dia fechado perde todas as horas; sem mudança perde zero; horário maior não é perda', () => {
@@ -449,7 +462,11 @@ describe('venda perdida hora a hora (spec 022)', () => {
   });
 
   it('o Cenário 2 corta primeiro o dia cuja última hora vende menos, não o de menor venda média', () => {
-    const porDia = hojeL.map((d) => ({ dia: d.dia, protegido: false, vendaMes: d.dia === 5 ? 14000 : d.dia === 6 ? 7000 : 10000 }));
+    const porDia = hojeL.map((d) => ({
+      dia: d.dia,
+      protegido: false,
+      vendaMes: d.dia === 5 ? 14000 : d.dia === 6 ? 7000 : 10000,
+    }));
     const horasTotal = (ds: DiaAberto[]) => ds.reduce((s, x) => s + (x.fecha - x.abre), 0);
     const cobre = (ds: DiaAberto[]) => horasTotal(ds) <= 82;
     const venda = Array.from({ length: 7 }, () => new Array<number>(24).fill(100));
@@ -481,8 +498,9 @@ describe('venda perdida hora a hora (spec 022)', () => {
     const final = hojeL.map((d) => (d.dia === 5 ? { ...d, fecha: 21 } : d));
     // hora nova 20h: vizinha é 19h (20 no sábado)
     expect(ganhoDasHorasNovas(hojeL, final, t).vendaMes).toBe(Math.round(10 * SEMANAS * 100) / 100);
-    expect(ganhoDasHorasNovas(hojeL, final, t, 0.8).vendaMes).toBe(Math.round(16 * SEMANAS * 100) / 100);
+    expect(ganhoDasHorasNovas(hojeL, final, t, 0.8).vendaMes).toBe(
+      Math.round(16 * SEMANAS * 100) / 100,
+    );
     expect(ganhoDasHorasNovas(hojeL, final, t, 0).vendaMes).toBe(0);
   });
 });
-

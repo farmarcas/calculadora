@@ -19,7 +19,12 @@ const v = <T extends z.ZodType>(res: Response) => readValidated<z.infer<T>>(res)
 const cadastroDoGe = (geId: string) => ({
   async funcionariosDaLoja(lojaId: string): Promise<PessoaSim[]> {
     const rows = await prisma.funcionario.findMany({
-      where: { lojaId, loja: { geId }, deletedAt: null, funcaoEscala: { in: [...FUNCOES_NO_CALCULO] } },
+      where: {
+        lojaId,
+        loja: { geId },
+        deletedAt: null,
+        funcaoEscala: { in: [...FUNCOES_NO_CALCULO] },
+      },
       orderBy: { nome: 'asc' },
     });
     return rows.map((r) => ({
@@ -52,7 +57,7 @@ export const simulacoesRouter = () => {
 
   r.get('/lojas/:id/simulacoes', validate(S.listarReq), async (_req, res) => {
     const { params, query } = v<typeof S.listarReq>(res);
-    res.json(await s(res).listar(params.id, query.descartadas === '1'));
+    res.json(await s(res).listar(params.id, query.descartadas === '1', perfilDe(res)));
   });
   r.post('/lojas/:id/simulacoes', escrita, validate(S.criarReq), async (_req, res) => {
     const { params, body } = v<typeof S.criarReq>(res);
@@ -65,24 +70,40 @@ export const simulacoesRouter = () => {
     const { params, body } = v<typeof S.editarReq>(res);
     res.json(await s(res).editar(params.id, body, perfilDe(res)));
   });
-  r.post('/simulacoes/:id/gravar', escrita, validate(S.gravarReq), async (_req, res) => {
-    const { params, body } = v<typeof S.gravarReq>(res);
-    res.json(await s(res).gravar(params.id, perfilDe(res), body.comoCenario === true));
-  },
-  );
-  // Quem aprova: só o dono do grupo (M-D4: gestor de escala não aprova por padrão).
+  // Prévia do custo de uma contratação: só leitura (qualquer perfil chama), mas só o dono recebe o número.
   r.post(
-    '/simulacoes/:id/aprovar',
-    exigirPerfil('TENANT_ADMIN'),
-    validate(S.aprovarReq),
+    '/simulacoes/:id/efeito-contratacao',
+    validate(S.efeitoContratacaoReq),
     async (_req, res) => {
-      const { params, body } = v<typeof S.aprovarReq>(res);
-      res.json(await s(res).aprovar(params.id, body.vigenciaInicio, perfilDe(res)));
+      const { params, body } = v<typeof S.efeitoContratacaoReq>(res);
+      res.json(await s(res).efeitoContratacao(params.id, perfilDe(res), body));
     },
   );
+  r.post('/simulacoes/:id/gravar', escrita, validate(S.gravarReq), async (_req, res) => {
+    const { params, body } = v<typeof S.gravarReq>(res);
+    res.json(
+      await s(res).gravar(params.id, perfilDe(res), body.comoCenario === true, {
+        nome: body.nome,
+        observacao: body.observacao,
+      }),
+    );
+  });
   r.get('/lojas/:id/simulacoes/comparar', validate(S.compararReq), async (_req, res) => {
     const { params, query } = v<typeof S.compararReq>(res);
     res.json(await s(res).comparar(params.id, query.ids, perfilDe(res)));
+  });
+  // Spec 056: o parecer do cenário salvo (na versão do perfil) e o PDF dele.
+  r.get('/simulacoes/:id/parecer', validate(S.porIdReq), async (_req, res) =>
+    res.json(await s(res).parecer(v<typeof S.porIdReq>(res).params.id, perfilDe(res))),
+  );
+  r.get('/simulacoes/:id/parecer.pdf', validate(S.porIdReq), async (_req, res) => {
+    const { buffer, nome } = await s(res).parecerPdf(
+      v<typeof S.porIdReq>(res).params.id,
+      perfilDe(res),
+    );
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${nome}"`);
+    res.send(buffer);
   });
   r.get('/simulacoes/:id/exportar.xlsx', validate(S.porIdReq), async (_req, res) => {
     const { buffer, nome } = await s(res).exportar(

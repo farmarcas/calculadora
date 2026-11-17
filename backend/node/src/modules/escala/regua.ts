@@ -16,10 +16,15 @@ const EPS = 1e-6;
 
 // As horas sem CMV recebem venda × (1 − CMV médio da loja); sem CMV médio ficam como estão (nulas). Não altera as linhas
 // originais. O CMV médio de 0 a 100 é percentual.
-export const preencherComCmvMedio = (linhas: VendaLinha[], cmvMedioPct?: number | null): VendaLinha[] =>
+export const preencherComCmvMedio = (
+  linhas: VendaLinha[],
+  cmvMedioPct?: number | null,
+): VendaLinha[] =>
   typeof cmvMedioPct !== 'number' || !Number.isFinite(cmvMedioPct)
     ? linhas
-    : linhas.map((l) => (l.margem === null ? { ...l, margem: l.venda * (1 - cmvMedioPct / 100) } : l));
+    : linhas.map((l) =>
+        l.margem === null ? { ...l, margem: l.venda * (1 - cmvMedioPct / 100) } : l,
+      );
 
 // Nulo sem linhas (sem base hora a hora não há o que medir). Espera as linhas já preenchidas com o CMV médio.
 export const reguaDaBase = (linhas: VendaLinha[]): Regua | null => {
@@ -48,4 +53,5 @@ export const reguaDaBase = (linhas: VendaLinha[]): Regua | null => {
 export const linhasNaRegua = (linhas: VendaLinha[], regua: Regua | null): VendaLinha[] =>
   regua?.tipo === 'margem' ? linhas.map((l) => ({ ...l, venda: l.margem ?? 0 })) : linhas;
 
-export const palavraDaRegua = (regua: Regua | null) => (regua?.tipo === 'margem' ? 'margem' : 'venda');
+export const palavraDaRegua = (regua: Regua | null) =>
+  regua?.tipo === 'margem' ? 'margem' : 'venda';

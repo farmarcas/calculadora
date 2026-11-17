@@ -1,7 +1,7 @@
 import multer from 'multer';
 import { AppError } from '../errors/app-error.js';
 
-const MAX_MB = 10;
+const MAX_MB = 20;
 
 export const uploadPlanilha = multer({
   storage: multer.memoryStorage(),

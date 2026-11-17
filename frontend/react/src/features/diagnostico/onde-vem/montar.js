@@ -77,7 +77,7 @@ export const buildObservacaoPico = ({ vendas, atendimento }) => {
   const r = { horaIni: Math.min(...blocoPico), horaFim: Math.max(...blocoPico), pessoasNoPico: noPico, pessoasFora: maxFora, h1: Math.min(...bloco), h2: Math.max(...bloco) };
   return {
     ...r,
-    texto: `No pico de vendas, das ${hh(r.horaIni)} às ${hh(r.horaFim)}, há ${noPico} ${noPico === 1 ? "atendente" : "atendentes"}. As ${maxFora} pessoas só aparecem entre ${hh(r.h1)} e ${hh(r.h2)}, quando as vendas já são menores. Dá para testar outros horários em Personalizar.`,
+    texto: `No pico de vendas, das ${hh(r.horaIni)} às ${hh(r.horaFim)}, há ${noPico} ${noPico === 1 ? "atendente" : "atendentes"}. As ${maxFora} pessoas só aparecem entre ${hh(r.h1)} e ${hh(r.h2)}, quando as vendas já são menores. Dá para testar outros horários em Analisar.`,
   };
 };
 

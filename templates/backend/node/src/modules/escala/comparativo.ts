@@ -1,4 +1,12 @@
-import type { CenariosRegra, Contratacao, EntradaCenarios, HorarioAjustado } from './cenarios.js';
+import type {
+  CenariosRegra,
+  Contratacao,
+  EntradaCenarios,
+  HorarioAjustado,
+  VendaPerdidaDiaCenario,
+} from './cenarios.js';
+import { palavraDaRegua, type Regua } from './regua.js';
+import { saldoDaOperacao } from './saldo-operacao.js';
 
 // Comparativo dos cenários 1, 2 e 3 lado a lado, para a fase escolhida. Os cenários 4 (abrir um dia) e 5 (reduzir
 // equipe) seguem como cartões à parte e ficam fora da tabela e do destaque.
@@ -30,29 +38,40 @@ export type ColunaComparativo = {
   alertas: string[];
   // Folga das contratações do cenário (% das horas contratadas que passam do necessário); nulo sem contratação.
   ociosidadePct: number | null;
-  // Só para o dono; nulos quando falta dado. Margem perdida é negativa; o resultado é em relação a hoje.
+  // A loja não tem venda hora a hora: a venda perdida e o saldo não são estimados (a tela mostra o aviso).
+  semVendaHoraria?: boolean;
+  // Só para o dono; nulos quando falta dado.
   custoFolhaMensal?: number | null;
-  margemMes?: number | null;
-  resultadoLiquidoMensal?: number | null;
-  impactoPctFaturamento?: number | null;
-  // Só para o dono: o que o cenário acrescenta à folha por mês, a venda que deixa de entrar (valor e % do faturamento)
-  // e quanto o resultado difere do Cenário 1 (manter horários), por mês.
+  // O que o cenário acrescenta à folha por mês e quanto ele economiza de folha contra o "manter horários".
   folhaAdicionalMensal?: number | null;
+  economiaFolhaMensal?: number | null;
+  // A venda que deixa de entrar (valor, por dia alterado e % do faturamento) e a venda adicional estimada das horas novas.
   perdaFaturamentoPct?: number;
   faturamentoPerdidoMensal?: number | null;
   faturamentoPerdidoPct?: number | null;
-  ganhoFrenteManterMensal?: number | null;
+  vendaPerdidaPorDia?: VendaPerdidaDiaCenario[];
+  vendaAdicionalMensal?: number | null;
+  // Saldo = economia de folha − venda perdida (+ venda adicional); anual = mensal × 12; peso = saldo ÷ faturamento mensal.
+  saldoMensal?: number | null;
+  saldoAnual?: number | null;
+  pesoNoFaturamentoPct?: number | null;
+  // Cartões da spec 024: saldo contra a folha ATUAL = (economia − custo de folha) + (venda estimada − venda que deixa de
+  // entrar), e a venda estimada em % do faturamento mensal. Só para o dono; nulos quando falta dado.
+  saldoOperacaoMensal?: number | null;
+  vendaAdicionalPct?: number | null;
 };
 
 export type Comparativo = {
   cenarios: ColunaComparativo[];
-  // Só para o dono: o cenário de maior resultado líquido (o selo "Menor custo").
+  // Só para o dono: o cenário de maior saldo (o selo "Melhor saldo").
   destaque?: IdColuna | null;
   // Só para o dono: o cenário que leva o selo "Cenário sugerido". É o de menor custo, salvo quando ele deixa
   // função abaixo do nível de hoje; aí a sugestão vai para o Cenário 1.
   sugerido?: IdColuna | null;
   // A equipe atual cobre tudo: nada a contratar nem a reduzir, então os cenários não têm o que mostrar.
   lojaCobreTudo: boolean;
+  // O que mede a perda e o ganho de horários: margem ou venda. Os campos "venda…" carregam essa régua.
+  regua: Regua | null;
 };
 
 const arred = (n: number) => Math.round(n * 100) / 100;
@@ -66,27 +85,51 @@ export const montarComparativo = (e: EntradaCenarios, c: CenariosRegra): Compara
   const avisoEstimativa =
     'Venda estimada: só o faturamento mensal foi informado e foi dividido igualmente entre os dias abertos.';
 
-  // Valores em reais de uma coluna a partir do custo adicional de folha e da margem perdida; só para o dono.
+  // O "manter horários" é a base: o que o cenário economiza de folha é o custo dele menos o custo do cenário.
+  const custoManter = manter.custoAdicionalMensal ?? null;
+
+  // Valores em reais de uma coluna a partir do custo adicional de folha, da venda perdida e da venda adicional das horas
+  // novas; só para o dono. Venda perdida nula (sem venda hora a hora) deixa o saldo nulo, nunca zero.
   const valores = (
     custoAdicional: number | null,
-    margemPerdida: number | null,
-    vendaPerdida: number | null = null,
+    vendaPerdida: number | null,
+    vendaAdicional: number | null = 0,
+    // Base dos % do faturamento: venda real (quando a régua é margem, os valores acima são margem).
+    pctBase?: { perdida: number | null; adicional: number | null },
   ) => {
     if (!e.dono) return {};
-    const impacto =
-      custoAdicional !== null && margemPerdida !== null ? custoAdicional + margemPerdida : null;
+    const economia =
+      custoManter !== null && custoAdicional !== null ? custoManter - custoAdicional : null;
+    const saldo =
+      economia !== null && vendaPerdida !== null && vendaAdicional !== null
+        ? economia - vendaPerdida + vendaAdicional
+        : null;
     return {
       custoFolhaMensal:
         folha !== null && custoAdicional !== null ? arred(folha + custoAdicional) : null,
-      // `|| 0` evita o zero negativo quando nada se perde
-      margemMes: margemPerdida === null ? null : arred(-margemPerdida) || 0,
-      resultadoLiquidoMensal: impacto === null ? null : arred(-impacto) || 0,
-      impactoPctFaturamento:
-        impacto !== null && fat !== null && fat > 0 ? pct((impacto / fat) * 100) : null,
       folhaAdicionalMensal: custoAdicional === null ? null : arred(custoAdicional) || 0,
+      // `|| 0` evita o zero negativo
+      economiaFolhaMensal: economia === null ? null : arred(economia) || 0,
       faturamentoPerdidoMensal: vendaPerdida === null ? null : arred(vendaPerdida) || 0,
       faturamentoPerdidoPct:
-        vendaPerdida !== null && fat !== null && fat > 0 ? pct((vendaPerdida / fat) * 100) : null,
+        (pctBase ? pctBase.perdida : vendaPerdida) != null && fat !== null && fat > 0
+          ? pct((((pctBase ? pctBase.perdida : vendaPerdida) as number) / fat) * 100)
+          : null,
+      vendaAdicionalMensal: vendaAdicional === null ? null : arred(vendaAdicional) || 0,
+      saldoOperacaoMensal: saldoDaOperacao({
+        economiaFolha: custoAdicional === null ? null : 0,
+        custoFolha: custoAdicional === null ? null : arred(custoAdicional) || 0,
+        vendaEstimada: vendaAdicional,
+        vendaPerdida,
+      }),
+      vendaAdicionalPct:
+        (pctBase ? pctBase.adicional : vendaAdicional) != null && fat !== null && fat > 0
+          ? pct((((pctBase ? pctBase.adicional : vendaAdicional) as number) / fat) * 100)
+          : null,
+      saldoMensal: saldo === null ? null : arred(saldo) || 0,
+      saldoAnual: saldo === null ? null : arred(saldo * 12) || 0,
+      pesoNoFaturamentoPct:
+        saldo !== null && fat !== null && fat > 0 ? pct((saldo / fat) * 100) : null,
     };
   };
 
@@ -110,7 +153,8 @@ export const montarComparativo = (e: EntradaCenarios, c: CenariosRegra): Compara
     status: 'viavel',
     alertas: alertasManter,
     ociosidadePct: manter.contratacoes.length ? manter.ociosidadePct : null,
-    ...valores(manter.custoAdicionalMensal ?? null, e.dono ? 0 : null, e.dono ? 0 : null),
+    vendaPerdidaPorDia: [],
+    ...valores(manter.custoAdicionalMensal ?? null, 0, 0),
   };
 
   const alertasEco: string[] = [];
@@ -125,8 +169,8 @@ export const montarComparativo = (e: EntradaCenarios, c: CenariosRegra): Compara
     alertas(
       alertasEco,
       economia.faltaH
-        ? `Só mexer no fim de semana não resolve: ainda faltam ${String(economia.faltaH).replace('.', ',')} h de cobertura. Veja o Cenário 3.`
-        : 'Só mexer no fim de semana não resolve. Veja o Cenário 3.',
+        ? `Só mexer no fim de semana não resolve: ainda faltam ${String(economia.faltaH).replace('.', ',')} h de cobertura. Veja o Equilíbrio.`
+        : 'Só mexer no fim de semana não resolve. Veja o Equilíbrio.',
     );
   else if (!economia.viavel && economia.motivoInviavel)
     alertas(alertasEco, economia.motivoInviavel);
@@ -134,18 +178,17 @@ export const montarComparativo = (e: EntradaCenarios, c: CenariosRegra): Compara
   const temCorte = economia.passos.length > 0;
   if ((economia.viavel || economia.naoResolveSozinho) && temCorte && estimada)
     alertas(alertasEco, avisoEstimativa);
-  if (e.dono && temCorte && !economia.margemInformada)
-    alertas(
-      alertasEco,
-      'Informe a margem bruta média da loja no Cadastro para ver a margem perdida e o saldo.',
-    );
+  if (temCorte && economia.semVendaHoraria)
+    alertas(alertasEco, 'Sem venda hora a hora, não é possível estimar a venda perdida.');
   const colEco: ColunaComparativo = {
     id: 'economia',
-    nome: 'Foco em economia',
+    nome: 'Sem contratações',
     premissa: economia.foco,
     resultado: economia.resultado,
     faltaPorFuncao: economia.faltaPorFuncao,
     semFarmaceuticoH: economia.semFarmaceuticoH,
+    semVendaHoraria: economia.semVendaHoraria,
+    vendaPerdidaPorDia: economia.vendaCortadaPorDia,
     contratacoes: [],
     diasFechar: economia.diasFechar.map((d) => d.dia),
     horasSemana: economia.horasSemana,
@@ -156,7 +199,7 @@ export const montarComparativo = (e: EntradaCenarios, c: CenariosRegra): Compara
     ociosidadePct: null,
     ...(economia.viavel || economia.naoResolveSozinho
       ? {
-          ...valores(0, economia.margemCortadaMes, economia.vendaCortadaMes),
+          ...valores(0, economia.vendaCortadaMes),
           // O % do cartão é o mesmo que as travas usam (sobre a venda de todos os dias abertos de hoje).
           ...(e.dono && economia.perdaFaturamentoPct !== undefined
             ? {
@@ -165,21 +208,21 @@ export const montarComparativo = (e: EntradaCenarios, c: CenariosRegra): Compara
               }
             : {}),
         }
-      : valores(null, null)),
+      : valores(null, null, null)),
   };
 
   const alertasEq: string[] = [];
   if (equilibrio.indisponivel) alertas(alertasEq, equilibrio.indisponivel.texto);
   else {
     if (equilibrio.coincideComManter)
-      alertas(alertasEq, 'O melhor caminho é o mesmo do Cenário 1.');
+      alertas(alertasEq, 'O melhor caminho é o mesmo de Manter horários.');
     if (equilibrio.coincideComEconomia)
-      alertas(alertasEq, 'O melhor caminho é o mesmo do Cenário 2.');
+      alertas(alertasEq, 'O melhor caminho é o mesmo de Sem contratações.');
     if (estimada) alertas(alertasEq, avisoEstimativa);
     if (equilibrio.estimativaDeVenda)
       alertas(
         alertasEq,
-        'Venda das horas novas é estimada: onde não há venda registrada nessa hora, vale metade da venda da hora vizinha.',
+        `${palavraDaRegua(c.regua)[0]!.toUpperCase()}${palavraDaRegua(c.regua).slice(1)} das horas novas é estimada: onde não há venda registrada nessa hora, vale metade da ${palavraDaRegua(c.regua)} da hora vizinha.`,
       );
   }
   const colEq: ColunaComparativo = {
@@ -188,6 +231,8 @@ export const montarComparativo = (e: EntradaCenarios, c: CenariosRegra): Compara
     premissa: equilibrio.foco,
     resultado: equilibrio.resultado,
     estimativaDeVenda: equilibrio.estimativaDeVenda,
+    semVendaHoraria: equilibrio.semVendaHoraria,
+    vendaPerdidaPorDia: equilibrio.vendaCortadaPorDia,
     recolher: equilibrio.indisponivel
       ? null
       : equilibrio.coincideComManter
@@ -204,28 +249,23 @@ export const montarComparativo = (e: EntradaCenarios, c: CenariosRegra): Compara
     alertas: alertasEq,
     ociosidadePct: equilibrio.contratacoes.length ? equilibrio.ociosidadePct : null,
     ...(equilibrio.indisponivel
-      ? valores(null, null)
+      ? valores(null, null, null)
       : valores(
           equilibrio.custoAdicionalMensal ?? null,
-          // Margem perdida menos a margem ganha com as horas novas: negativa quando o cenário ganha.
-          equilibrio.margemCortadaMes === null
-            ? null
-            : equilibrio.margemCortadaMes - (equilibrio.margemGanhaMes ?? 0),
           equilibrio.vendaCortadaMes,
+          equilibrio.vendaGanhaMes ?? 0,
+          c.regua?.tipo === 'margem'
+            ? {
+                perdida: equilibrio.vendaCortadaRealMes ?? null,
+                adicional: equilibrio.vendaGanhaRealMes ?? 0,
+              }
+            : undefined,
         )),
   };
 
   const cols = [colManter, colEco, colEq];
-  if (e.dono)
-    for (const col of cols) {
-      const a = col.resultadoLiquidoMensal;
-      const base = colManter.resultadoLiquidoMensal;
-      col.ganhoFrenteManterMensal =
-        a === null || a === undefined || base === null || base === undefined
-          ? null
-          : arred(a - base) || 0;
-    }
   const r: Comparativo = {
+    regua: c.regua,
     cenarios: cols,
     lojaCobreTudo:
       manter.contratacoes.length === 0 &&
@@ -237,7 +277,7 @@ export const montarComparativo = (e: EntradaCenarios, c: CenariosRegra): Compara
   if (e.dono) {
     r.destaque = c.destaque ?? null;
     const deixaFalta = economia.faltaPorFuncao.length > 0 || economia.semFarmaceuticoH > 0;
-    // O Cenário 3 com horas novas só é sugerido se resistir à metade da margem estimada para elas.
+    // O Cenário 3 com horas novas só é sugerido se resistir à metade da venda estimada para elas.
     const outros = [
       { id: 'manter' as const, impacto: manter.impactoMensal ?? null },
       { id: 'economia' as const, impacto: economia.impactoMensal ?? null },

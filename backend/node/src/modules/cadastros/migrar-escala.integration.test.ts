@@ -18,13 +18,24 @@ describe('migração das escalas importadas para o Cadastro', () => {
       await postLoja({
         codigo: '001',
         nome: 'Centro',
-        horarios: { semana: { abre: '08:00', fecha: '20:00' }, sabado: { abre: '08:00', fecha: '14:00' } },
+        horarios: {
+          semana: { abre: '08:00', fecha: '20:00' },
+          sabado: { abre: '08:00', fecha: '14:00' },
+        },
       })
     ).body.id;
     const func = (matricula: string, nome: string, extra: object = {}) =>
-      prisma.funcionario.create({ data: { geId: GE_INICIAL_ID, lojaId, matricula, nome, ...extra } });
+      prisma.funcionario.create({
+        data: { geId: GE_INICIAL_ID, lojaId, matricula, nome, ...extra },
+      });
     await func('F1', 'Ana'); // sem nada: a escala completa
-    await func('F2', 'Bia', { funcaoEscala: 'Caixa', cargaSemanalH: 40, entrada: 9, saida: 18, dias: [0, 1, 2] }); // já tem dados
+    await func('F2', 'Bia', {
+      funcaoEscala: 'Caixa',
+      cargaSemanalH: 40,
+      entrada: 9,
+      saida: 18,
+      dias: [0, 1, 2],
+    }); // já tem dados
     const turno = (matricula: string, nome: string, extra: object = {}) => ({
       matricula,
       nome,
@@ -48,7 +59,13 @@ describe('migração das escalas importadas para o Cadastro', () => {
         arquivo: 'escala.xlsx',
         linhasAceitas: 3,
         linhasRejeitadas: 0,
-        turnos: { create: [turno('F1', 'Ana'), turno('F2', 'Bia', { entrada: 7, saida: 16 }), turno('Z9', 'Zé')] },
+        turnos: {
+          create: [
+            turno('F1', 'Ana'),
+            turno('F2', 'Bia', { entrada: 7, saida: 16 }),
+            turno('Z9', 'Zé'),
+          ],
+        },
       },
     });
   });
@@ -60,7 +77,13 @@ describe('migração das escalas importadas para o Cadastro', () => {
     const r = await executarMigracao(prisma, { aplicar: false });
     expect(r.aplicado).toBe(false);
     // Bia já tem horário, função e carga, mas não tem intervalo: só o intervalo é completado.
-    expect(r.totais).toEqual({ lojas: 1, preenchidos: 2, jaTinhamDados: 0, semCorrespondente: 1, criados: 0 });
+    expect(r.totais).toEqual({
+      lojas: 1,
+      preenchidos: 2,
+      jaTinhamDados: 0,
+      semCorrespondente: 1,
+      criados: 0,
+    });
     expect(r.lojas[0]!.semCorrespondente).toEqual([{ matricula: 'Z9', nome: 'Zé' }]);
     const ana = await prisma.funcionario.findFirst({ where: { matricula: 'F1' } });
     expect(ana).toMatchObject({ entrada: null, saida: null, dias: [] });
@@ -70,9 +93,25 @@ describe('migração das escalas importadas para o Cadastro', () => {
     const antes = await prisma.funcionario.count();
     await executarMigracao(prisma, { aplicar: true });
     const ana = await prisma.funcionario.findFirst({ where: { matricula: 'F1' } });
-    expect(ana).toMatchObject({ entrada: 8, saida: 17, iniIntervalo: 12, fimIntervalo: 13, dias: [0, 1, 2, 3, 4], funcaoEscala: 'Farmacêutico', cargaSemanalH: 44 });
+    expect(ana).toMatchObject({
+      entrada: 8,
+      saida: 17,
+      iniIntervalo: 12,
+      fimIntervalo: 13,
+      dias: [0, 1, 2, 3, 4],
+      funcaoEscala: 'Farmacêutico',
+      cargaSemanalH: 44,
+    });
     const bia = await prisma.funcionario.findFirst({ where: { matricula: 'F2' } });
-    expect(bia).toMatchObject({ entrada: 9, saida: 18, dias: [0, 1, 2], funcaoEscala: 'Caixa', cargaSemanalH: 40, iniIntervalo: 12, fimIntervalo: 13 });
+    expect(bia).toMatchObject({
+      entrada: 9,
+      saida: 18,
+      dias: [0, 1, 2],
+      funcaoEscala: 'Caixa',
+      cargaSemanalH: 40,
+      iniIntervalo: 12,
+      fimIntervalo: 13,
+    });
     expect(await prisma.funcionario.count()).toBe(antes);
   });
 
@@ -81,15 +120,26 @@ describe('migração das escalas importadas para o Cadastro', () => {
     expect(await prisma.funcionario.findFirst({ where: { matricula: 'Z9' } })).toBeNull();
     const r = await executarMigracao(prisma, { aplicar: true, criarAusentes: true });
     expect(r.totais.criados).toBe(1);
-    expect(await prisma.funcionario.findFirst({ where: { matricula: 'Z9' } })).toMatchObject({ nome: 'Zé', entrada: 8, saida: 17, iniIntervalo: 12, fimIntervalo: 13, funcaoEscala: 'Farmacêutico' });
+    expect(await prisma.funcionario.findFirst({ where: { matricula: 'Z9' } })).toMatchObject({
+      nome: 'Zé',
+      entrada: 8,
+      saida: 17,
+      iniIntervalo: 12,
+      fimIntervalo: 13,
+      funcaoEscala: 'Farmacêutico',
+    });
   });
 
   it('é repetível: a segunda execução não muda nada', async () => {
     await executarMigracao(prisma, { aplicar: true });
-    const foto = JSON.stringify(await prisma.funcionario.findMany({ orderBy: { matricula: 'asc' } }));
+    const foto = JSON.stringify(
+      await prisma.funcionario.findMany({ orderBy: { matricula: 'asc' } }),
+    );
     const r = await executarMigracao(prisma, { aplicar: true });
     expect(r.totais.preenchidos).toBe(0);
-    expect(JSON.stringify(await prisma.funcionario.findMany({ orderBy: { matricula: 'asc' } }))).toBe(foto);
+    expect(
+      JSON.stringify(await prisma.funcionario.findMany({ orderBy: { matricula: 'asc' } })),
+    ).toBe(foto);
   });
 
   it('nenhuma escala importada é apagada', async () => {

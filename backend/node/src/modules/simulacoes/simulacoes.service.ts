@@ -7,18 +7,31 @@ import { soNoCalculo } from '../cadastros/funcoes.js';
 import { normalizarHorarios } from '../cadastros/horarios.js';
 import { calcularResultado } from './resultado.js';
 import { diasAbertos, type LojaDiag } from '../escala/diagnostico.js';
+import { faturamentoMensalDe } from '../escala/vendas.js';
 import type { EscalaRepository } from '../escala/escala.repository.js';
 import { FUNCOES_PADRAO_MINIMO, regraPara, type RegraId } from '../regras/perfis.js';
-import { minimosIguais } from '../regras/requisitos.js';
 import { exigenciasDaLoja } from '../regras/turnos.js';
 import { PARAMETROS_PADRAO, type TabelaParametros } from '../regras/parametros.js';
 import { calcularIndicadores, sintese } from './comparar.js';
 import { motivosDeDesatualizacao } from './desatualizada.js';
 import { nomeDeQuemCriou, tipoDoCenario } from './resumo.js';
 import { gerarExcelEscala } from './exportar.js';
+import { montarParecer, type ParecerGuardado } from './parecer.js';
+import { gerarPdf, nomeDoArquivo } from './parecer-pdf.js';
 import { coberturaDaSimulacao } from './cobertura-simulacao.js';
 import { avaliarSimulacao, type PessoaSim, type TurnoSim } from './avaliar.js';
-import { aplicarVagasEDesligados, vagasSugeridas, type VagaEntrada } from './vagas.js';
+import {
+  aplicarVagasEDesligados,
+  emMinutosDeHora,
+  exigirVagasIntegrais,
+  vagasSugeridas,
+  type VagaEntrada,
+} from './vagas.js';
+import {
+  ajustarJornada,
+  semanaComFolgas,
+  type HorarioPessoa,
+} from '../escala/semana-com-folgas.js';
 import { calcularCusto } from '../custos/custo.js';
 import type { Custos } from '../custos/custos.schemas.js';
 import type {
@@ -111,6 +124,8 @@ export const makeSimulacoesService = (
       quadro: s.quadro,
       vendas,
       cmvMedioPct: l.faturamento?.cmvPct ?? null,
+      faturamentoMensalRef:
+        faturamentoMensalDe({ faturamento: l.faturamento, vendasBase: vendas })?.valor ?? null,
       custos: custosDaSimulacao(c.premissas.custos, l),
       parametros: tabela,
       dono,
@@ -138,14 +153,19 @@ export const makeSimulacoesService = (
     const quadroDeHoje = await cadastro.funcionariosDaLoja(lojaId);
     const matriculas = [
       ...new Set(
-        registros.filter((x) => x.status === 'gravada').flatMap((x) => x.quadro.map((p) => p.matricula)),
+        registros
+          .filter((x) => x.status === 'gravada')
+          .flatMap((x) => x.quadro.map((p) => p.matricula)),
       ),
     ];
     const situacao = matriculas.length ? await cadastro.situacaoPessoas(matriculas) : new Map();
     return {
       hoje: {
         horarios: l.horarios,
-        minimos: exigenciasDaLoja({ ...FUNCOES_PADRAO_MINIMO, ...soNoCalculo(l.minimos) }, l.turnos),
+        minimos: exigenciasDaLoja(
+          { ...FUNCOES_PADRAO_MINIMO, ...soNoCalculo(l.minimos) },
+          l.turnos,
+        ),
         convencao8h24: l.convencao8h24,
       },
       quadroDeHoje,
@@ -175,6 +195,7 @@ export const makeSimulacoesService = (
       },
       origemId: s.origemId,
       numeroCenario: s.numeroCenario,
+      observacao: s.observacao,
       // Para o cabeçalho da tela: nome da loja, regime e (só o dono) o total de encargos.
       loja: {
         nome: l.nome,
@@ -245,7 +266,21 @@ export const makeSimulacoesService = (
         fimIntervalo: t.fimIntervalo,
       })),
     );
-    return { quadro, turnos };
+    // Os horários de cada pessoa no Cadastro: a base da semana com folgas (spec 043); quem tem horário fixo não é esticado.
+    const fixos = await lojas.matriculasHorarioFixo(lojaId);
+    const equipe: HorarioPessoa[] = ts.map((t) => ({
+      matricula: t.matricula,
+      nome: t.nome,
+      funcao: t.funcao!,
+      cargaH: t.cargaH,
+      dias: t.dias,
+      entrada: t.entrada,
+      saida: t.saida,
+      iniIntervalo: t.iniIntervalo,
+      fimIntervalo: t.fimIntervalo,
+      fixo: fixos.has(t.matricula),
+    }));
+    return { quadro, turnos: emMinutosDeHora(turnos), equipe };
   };
 
   const validarTurnos = (s: SimulacaoRegistro, turnos: TurnoSim[]) => {
@@ -304,14 +339,24 @@ export const makeSimulacoesService = (
 
     async criar(
       lojaId: string,
-      b: { nome: string; regra: RegraId; origem: string; comVagasSugeridas?: boolean },
+      b: {
+        nome: string;
+        regra: RegraId;
+        origem: string;
+        comVagasSugeridas?: boolean;
+        horarios?: unknown;
+      },
       perfil: string,
     ) {
       const l = await loja(lojaId);
       let base: { quadro: PessoaSim[]; turnos: TurnoSim[]; horarios?: unknown };
+      let equipe: HorarioPessoa[] = [];
       let origemId: string | null = null;
-      if (b.origem === 'escala_atual') base = await doEscalaAtual(lojaId);
-      else if (b.origem === 'vazia') {
+      if (b.origem === 'escala_atual') {
+        const r = await doEscalaAtual(lojaId);
+        base = { quadro: r.quadro, turnos: r.turnos };
+        equipe = r.equipe;
+      } else if (b.origem === 'vazia') {
         const quadro = await cadastro.funcionariosDaLoja(lojaId);
         if (quadro.length === 0)
           throw new ValidationError(
@@ -327,15 +372,39 @@ export const makeSimulacoesService = (
       }
       if (b.comVagasSugeridas) {
         if (b.origem !== 'escala_atual')
-          throw new ValidationError('As contratações sugeridas só valem a partir da equipe do Cadastro com horários.');
+          throw new ValidationError(
+            'As contratações sugeridas só valem a partir da equipe do Cadastro com horários.',
+          );
         const regra = regraPara(b.regra, l.convencao8h24, tabela);
-        const sugeridas = vagasSugeridas(
-          regra,
-          diasAbertos(l.horarios),
-          exigenciasDaLoja({ ...FUNCOES_PADRAO_MINIMO, ...soNoCalculo(l.minimos) }, l.turnos),
-          base.quadro,
+        const minimos = exigenciasDaLoja(
+          { ...FUNCOES_PADRAO_MINIMO, ...soNoCalculo(l.minimos) },
+          l.turnos,
         );
-        base = { ...base, ...aplicarVagasEDesligados(base.quadro, base.turnos, sugeridas) };
+        const diasDaSimulacao = diasAbertos(normalizarHorarios(b.horarios) ?? l.horarios);
+        const todosOsDiasTemEscala = diasDaSimulacao.every((d) =>
+          equipe.some((h) => h.dias.includes(d.dia)),
+        );
+        if (todosOsDiasTemEscala) {
+          // A equipe já com as folgas e o rodízio de domingo, e as contratações nos turnos que cobrem o que falta (spec 043).
+          const semana = semanaComFolgas({
+            regra,
+            dias: diasDaSimulacao,
+            minimos,
+            horarios: equipe,
+          });
+          const sugeridas: VagaEntrada[] = Object.values(semana.funcoes).flatMap((f) =>
+            f.vagas.map((v) => ({ funcao: v.funcao, cargaH: v.cargaH, turnos: v.turnos })),
+          );
+          base = {
+            ...base,
+            ...aplicarVagasEDesligados(base.quadro, emMinutosDeHora(semana.turnos), sugeridas),
+          };
+        } else {
+          // Dia aberto que o Cadastro não escala (cenário que abre um dia hoje fechado): a conta volta a ser por horas.
+          const sugeridas = vagasSugeridas(regra, diasDaSimulacao, minimos, base.quadro);
+          base = { ...base, ...aplicarVagasEDesligados(base.quadro, base.turnos, sugeridas) };
+        }
+        if (b.horarios) base = { ...base, horarios: normalizarHorarios(b.horarios) };
       }
       const s = await repo.criar({
         lojaId,
@@ -376,6 +445,13 @@ export const makeSimulacoesService = (
       let quadro: PessoaSim[] | undefined;
       let turnos = b.turnos;
       if (b.vagas || b.desligados) {
+        if (b.vagas?.some((v) => !v.matricula)) {
+          const l = await loja(s.lojaId);
+          exigirVagasIntegrais(
+            b.vagas,
+            regraPara((b.regra ?? s.regra) as RegraId, l.convencao8h24, tabela),
+          );
+        }
         const r = aplicarVagasEDesligados(s.quadro, b.turnos ?? s.turnos, b.vagas, b.desligados);
         quadro = r.quadro;
         turnos = r.turnos;
@@ -404,6 +480,16 @@ export const makeSimulacoesService = (
             detalhe: { total: b.desligados.length },
           });
       }
+      // Trocou a regra (ex.: de 42h para 40h): os turnos que já estão na simulação passam a caber na regra nova, até o máximo de
+      // horas por dia e o teto da semana. Sem isto a simulação em 40h seguia com os dias de 8h24 da regra de 42h.
+      if (b.regra && b.regra !== s.regra) {
+        const l = await loja(s.lojaId);
+        const novaRegra = regraPara(b.regra, l.convencao8h24, tabela);
+        const pessoas = (quadro ?? s.quadro).map(
+          (p) => ({ matricula: p.matricula, cargaH: p.cargaH }) as HorarioPessoa,
+        );
+        turnos = ajustarJornada(turnos ?? s.turnos, pessoas, novaRegra);
+      }
       if (turnos) validarTurnos({ ...s, quadro: quadro ?? s.quadro }, turnos);
       await repo.atualizarRascunho(id, {
         nome: b.nome,
@@ -425,12 +511,58 @@ export const makeSimulacoesService = (
       return detalhe(await simulacao(id), perfil);
     },
 
-    async gravar(id: string, perfil: string, comoCenario = false) {
+    // Prévia do custo de pessoal de uma contratação (spec 039): o mesmo resultado da simulação com e sem a vaga, sem gravar
+    // nada. Só o dono recebe o número (depende de salário); os outros perfis recebem um objeto vazio.
+    async efeitoContratacao(id: string, perfil: string, b: { funcao: string; cargaH: number }) {
+      if (perfil !== 'TENANT_ADMIN') return {};
+      const s = await simulacao(id);
+      const l = await loja(s.lojaId);
+      exigirVagasIntegrais(
+        [{ funcao: b.funcao, cargaH: b.cargaH }],
+        regraPara(s.regra as RegraId, l.convencao8h24, tabela),
+      );
+      const base = await lojas.baseAtiva(s.lojaId);
+      const vendas = base?.vendas ?? [];
+      const antes = resultadoDe(s, l, vendas, true).emHoras;
+      const vaga: PessoaSim = {
+        matricula: 'VAGA-PREVIA',
+        nome: 'Vaga prévia',
+        funcao: b.funcao,
+        cargaH: b.cargaH,
+        vaga: true,
+      };
+      const depois = resultadoDe({ ...s, quadro: [...s.quadro, vaga] }, l, vendas, true).emHoras;
+      const custoPct =
+        antes.custoPct == null || depois.custoPct == null
+          ? null
+          : Math.round((depois.custoPct - antes.custoPct) * 10) / 10;
+      return { custoPct, custoEstado: custoPct !== null ? 'ok' : depois.custoEstado };
+    },
+
+    async gravar(
+      id: string,
+      perfil: string,
+      comoCenario = false,
+      extras: { nome?: string; observacao?: string } = {},
+    ) {
       const s = await simulacao(id);
       if (s.status !== 'rascunho')
         throw new ConflictError('Só rascunho pode ser gravado.', 'SIMULACAO_NAO_EDITAVEL');
       const l = await loja(s.lojaId);
       const { c, avaliacao } = avaliar(s, l);
+      // Spec 056: o nome que a pessoa deu (único na loja, sem diferenciar maiúsculas) e o parecer do momento de salvar.
+      const nomeEscolhido = extras.nome?.trim() || null;
+      if (nomeEscolhido && (await repo.nomeJaUsado(s.lojaId, nomeEscolhido, id)))
+        throw new ConflictError('Já existe um cenário com esse nome nesta loja.', 'NOME_REPETIDO');
+      const base = await lojas.baseAtiva(s.lojaId);
+      const parecer: ParecerGuardado = {
+        ...montarParecer({
+          quadro: s.quadro,
+          turnos: s.turnos,
+          resultado: resultadoDe(s, l, base?.vendas ?? [], true),
+        }),
+        salvoPor: perfil,
+      };
       // A escala por turno saiu da Simulação: as regras de turno (cobertura, jornada, interjornada) não travam mais gravar nem aprovar.
       await repo.gravar(
         id,
@@ -440,11 +572,77 @@ export const makeSimulacoesService = (
         // Todo cenário salvo ganha um número da loja (1, 2, 3…); só "Salvar como cenário" troca o nome.
         await (async () => {
           const numero = await repo.proximoNumeroCenario(s.lojaId);
-          return { numero, nome: comoCenario ? `Cenário ${numero}` : s.nome };
+          return {
+            numero,
+            nome: nomeEscolhido ?? (comoCenario ? `Cenário ${numero}` : s.nome),
+          };
         })(),
+        { observacao: extras.observacao?.trim() || null, parecer },
       );
       await auditar({ acao: 'simulacao.gravada', perfil, alvoTipo: 'simulacao', alvoId: id });
       return detalhe(await simulacao(id), perfil);
+    },
+
+    // Specs 056 e 057: o parecer do cenário salvo, na versão do perfil (dono completa; gestor e consulta sem valores). Cenário salvo
+    // antes do parecer, ou com o parecer da versão 1, é montado agora no layout novo, sem observação.
+    async parecer(id: string, perfil: string) {
+      const s = await simulacao(id);
+      if (s.status === 'rascunho')
+        throw new ConflictError('Só cenário salvo tem parecer.', 'SEM_PARECER');
+      const l = await loja(s.lojaId);
+      const dono = perfil === 'TENANT_ADMIN';
+      const anterior = s.parecer as { versao?: number; salvoPor?: string } | null;
+      let guardado = anterior?.versao === 2 ? (s.parecer as ParecerGuardado) : null;
+      const montadoAgora = !guardado;
+      if (!guardado) {
+        const base = await lojas.baseAtiva(s.lojaId);
+        guardado = montarParecer({
+          quadro: s.quadro,
+          turnos: s.turnos,
+          resultado: resultadoDe(s, l, base?.vendas ?? [], true),
+        });
+      }
+      const texto = dono ? guardado.dono : guardado.publico;
+      const { c } = avaliar(s, l);
+      return {
+        id: s.id,
+        nome: s.nome,
+        loja: l.nome,
+        regra: `Regra de ${c.regra.nome.replace(/ \(regra atual\)/, '')}`,
+        numeroCenario: s.numeroCenario,
+        salvoEm: s.gravadaEm ?? s.criadaEm,
+        salvoPor: guardado.salvoPor ?? anterior?.salvoPor ?? null,
+        observacao: s.observacao,
+        ...texto,
+        // A versão do dono nem sai do servidor para os outros perfis; o PDF segue a mesma regra.
+        semValoresEmReais: !dono,
+        montadoAgora,
+      };
+    },
+
+    async parecerPdf(id: string, perfil: string) {
+      const p = await this.parecer(id, perfil);
+      const rotulo: Record<string, string> = {
+        TENANT_ADMIN: 'dono',
+        SCHEDULE_MANAGER: 'gestor',
+        SCHEDULE_VIEWER: 'consulta',
+      };
+      const buffer = await gerarPdf({
+        loja: p.loja,
+        regra: p.regra,
+        numeroCenario: p.numeroCenario,
+        salvoEm: new Date(p.salvoEm),
+        salvoPor: p.salvoPor ? (rotulo[p.salvoPor] ?? null) : null,
+        observacao: p.observacao,
+        montadoAgora: p.montadoAgora,
+        status: p.status,
+        paragrafo: p.paragrafo,
+        cartoes: p.cartoes,
+        tabela: p.tabela,
+        horarioAMais: p.horarioAMais,
+        semValoresEmReais: p.semValoresEmReais,
+      });
+      return { buffer, nome: nomeDoArquivo(p.loja, p.numeroCenario) };
     },
 
     // Compara 2 a 3 simulações da mesma loja, cada uma pelos seus próprios números.

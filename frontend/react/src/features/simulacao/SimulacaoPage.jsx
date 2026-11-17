@@ -1,18 +1,28 @@
 import { useState } from "react";
 import { api } from "../../api/client.js";
+import { registrar } from "../../analytics/servico.js";
 import { Aviso, Botao } from "../../components/ui/index.jsx";
-import CoberturaDaSimulacao from "./CoberturaDaSimulacao.jsx";
 import BarraParametros from "./BarraParametros.jsx";
+import ModalSalvarCenario from "./ModalSalvarCenario.jsx";
 import PainelResultado from "./PainelResultado.jsx";
-import PassoContratacoes from "./PassoContratacoes.jsx";
 import PassoHorario from "./PassoHorario.jsx";
+import EscalaDaSemana from "./escala/EscalaDaSemana.jsx";
+import FaixaDeDesligados from "./escala/FaixaDeDesligados.jsx";
+import { listaAposDesligar, listaAposReligar } from "./escala/desligados-regras.js";
+import EscalaPorHora from "./escala/EscalaPorHora.jsx";
+import { diasDasAbas, turnosParaGravar } from "./escala/escala-regras.js";
+import { pessoasParaFolgar, sugerirFolgas, textoDoRodizio } from "./escala/folgas-regras.js";
 import useSimulacao from "./useSimulacao.js";
 
-// Simulação de um cenário (abre em "Personalizar"): parâmetros, 3 passos e o painel de resultado.
+// Simulação de um cenário (abre pelo botão "Analisar" do cenário): parâmetros, 3 passos e o painel de resultado.
 export default function SimulacaoPage({ id, perfil, podeEscrever, aviso, onVoltar, onMudou, onAbrir }) {
   const { sim, erro, setErro, calculando, salvar } = useSimulacao(id);
   const [salvando, setSalvando] = useState(false);
+  const [irParaDia, setIrParaDia] = useState(null); // pedido da Escala da semana: abrir a Escala por hora neste dia
   const dono = perfil === "TENANT_ADMIN";
+  // Folgas sugeridas (spec 042): os turnos de antes (para desfazer), os de depois (para só desfazer enquanto nada mudou) e os avisos.
+  const [sugestao, setSugestao] = useState(null);
+  const [salvarAberto, setSalvarAberto] = useState(false); // a janela de nome e observação (spec 056)
 
   if (erro && !sim) return <Aviso>{erro}</Aviso>;
   if (!sim) return <p className="text-sm text-ink-500">Carregando simulação…</p>;
@@ -31,19 +41,60 @@ export default function SimulacaoPage({ id, perfil, podeEscrever, aviso, onVolta
   };
 
   // Salva como "Cenário N" e já abre uma cópia para continuar ajustando e comparar depois.
-  const salvarComoCenario = async () => {
+  // Spec 056: o botão abre a janela de nome e observação; só ao confirmar o cenário é gravado. Se der erro, a janela continua
+  // aberta (o erro é mostrado nela) e o que a pessoa digitou não se perde.
+  const salvarComoCenario = async (corpo) => {
     setErro(null);
     setSalvando(true);
     try {
-      const g = await api(`/simulacoes/${id}/gravar`, { method: "POST", body: { comoCenario: true } });
+      const g = await api(`/simulacoes/${id}/gravar`, { method: "POST", body: corpo });
+      registrar("cenario_salvo");
       const nova = await api(`/simulacoes/${id}/clonar`, { method: "POST" });
+      setSalvarAberto(false);
       onMudou();
       onAbrir(nova.id, `${g.nome} salvo. Você está numa cópia para continuar ajustando.`);
     } catch (e) {
-      setErro(e.details?.length ? `${e.message} ${e.details.slice(0, 3).map((d) => d.texto).join(" ")}` : e.message);
+      if (e.details?.length) e.message = `${e.message} ${e.details.slice(0, 3).map((d) => d.texto).join(" ")}`;
+      throw e;
     } finally {
       setSalvando(false);
     }
+  };
+
+  // A chave dos turnos (ordenados), para saber se a escala ainda é a da sugestão.
+  const chaveDosTurnos = (ts) => JSON.stringify(turnosParaGravar(ts).sort((a, b) => a.matricula.localeCompare(b.matricula) || a.dia - b.dia));
+  const limiteDeDias = sim.regraInfo?.dias ?? 7;
+  const podeSugerir = editavel && pessoasParaFolgar({ quadro: sim.quadro, turnos: sim.turnos, limiteDias: limiteDeDias }).length > 0;
+  const sugerirAsFolgas = () => {
+    const r = sugerirFolgas({ quadro: sim.quadro, turnos: sim.turnos, cobertura: sim.avaliacao?.cobertura, abas: diasDasAbas(sim.diasAbertos), regra: sim.regraInfo });
+    if (!r.retirados.length) return;
+    setErro(null);
+    setSugestao({ antes: sim.turnos, depois: chaveDosTurnos(r.turnos), avisos: r.avisos, rodizio: r.domingoSugerido ? textoDoRodizio() : null });
+    salvar({ turnos: turnosParaGravar(r.turnos) });
+  };
+  const desfazerSugestao = () => {
+    if (!sugestao) return;
+    setErro(null);
+    salvar({ turnos: turnosParaGravar(sugestao.antes) });
+    setSugestao(null);
+  };
+  // A sugestão só vale (e só pode ser desfeita) enquanto a escala é a que ela deixou.
+  const sugestaoViva = sugestao && chaveDosTurnos(sim.turnos) === sugestao.depois ? sugestao : null;
+
+  // Desligar e religar (spec 054): o servidor espera sempre a lista completa de desligados.
+  const desligar = (matricula) => {
+    setErro(null);
+    salvar({ desligados: listaAposDesligar(sim.quadro, matricula) });
+  };
+  const religar = (matricula) => {
+    setErro(null);
+    salvar({ desligados: listaAposReligar(sim.quadro, matricula) });
+  };
+
+  // Clicar num dia da Escala da semana: a Escala por hora mostra o dia e a tela rola até ela.
+  const abrirDia = (dia) => {
+    setIrParaDia((a) => ({ dia, n: (a?.n ?? 0) + 1 }));
+    document.getElementById("escala-por-hora")?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
   return (
@@ -64,11 +115,17 @@ export default function SimulacaoPage({ id, perfil, podeEscrever, aviso, onVolta
       <div className="sim-grade">
         <div className="sim-esq flex flex-col gap-4 min-w-0">
           <PassoHorario sim={sim} editavel={editavel} onSalvarHorarios={(horarios) => salvar({ horarios })} />
-          <CoberturaDaSimulacao cobertura={sim.cobertura} />
-          <PassoContratacoes sim={sim} editavel={editavel} dono={dono} onSalvar={salvar} />
+          {/* Os cards "Cobertura e vendas" e "Contratações por função" ficam ocultos: a Escala por hora (spec 039) os substitui. */}
         </div>
-        <PainelResultado sim={sim} calculando={calculando} dono={dono} podeEscrever={podeEscrever} salvando={salvando} onSalvar={salvarComoCenario} onClonar={clonar} />
+        <PainelResultado sim={sim} calculando={calculando} dono={dono} podeEscrever={podeEscrever} salvando={salvando} onSalvar={() => setSalvarAberto(true)} onClonar={clonar} />
+        {salvarAberto && <ModalSalvarCenario numero={sim.proximoNumeroCenario} salvando={salvando} onConfirmar={salvarComoCenario} onFechar={() => setSalvarAberto(false)} />}
       </div>
+
+      <FaixaDeDesligados quadro={sim.quadro} editavel={editavel} onReligar={religar} />
+
+      <EscalaPorHora sim={sim} editavel={editavel} dono={dono} calculando={calculando} erro={erro} onLimparErro={() => setErro(null)} onSalvar={salvar} onDesligar={desligar} onReligar={religar} irParaDia={irParaDia} />
+
+      <EscalaDaSemana sim={sim} editavel={editavel} onDia={abrirDia} onDesligar={desligar} onReligar={religar} folgas={{ podeSugerir, onSugerir: sugerirAsFolgas, calculando, desfazer: sugestaoViva ? desfazerSugestao : null, avisos: sugestaoViva?.avisos ?? [], rodizio: sugestaoViva?.rodizio ?? null }} onCadastrar={() => window.location.assign("/?tela=cadastros")} />
     </div>
   );
 }

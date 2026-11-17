@@ -75,7 +75,6 @@ export const lerData = (txt: string): string | null => {
   return null;
 };
 
-
 export type VendaComLoja = VendaLinha & { loja: string };
 
 export const interpretarBase = (aba: Aba, c: Colunas) => {

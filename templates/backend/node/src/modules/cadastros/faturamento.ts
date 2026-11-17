@@ -2,13 +2,16 @@ import { z } from 'zod';
 
 const valor = z.number().min(0).max(1_000_000_000);
 
-// Faturamento médio da loja: um valor por dia da semana (segunda … domingo), o mensal e a margem bruta média.
+// Faturamento médio da loja: um valor por dia da semana (segunda … domingo) e o mensal.
 // Tudo opcional: dia fechado ou sem informação fica nulo.
+// `cmvPct` é o CMV médio da loja (% da venda líquida que volta ao fornecedor): padrão das horas sem CMV na base comercial.
+// `margemPct` é um valor antigo, apagado pela migration da spec 034: se ainda vier num pedido, é ignorado.
 export const faturamentoSchema = z
   .object({
     dias: z.array(valor.nullable()).length(7),
     mensal: valor.nullable(),
-    margemPct: z.number().min(0).max(100).nullable(),
+    cmvPct: z.number().min(0).max(100).nullable().optional(),
+    margemPct: z.unknown().optional(),
   })
   .strict();
 export type Faturamento = z.infer<typeof faturamentoSchema>;
@@ -26,25 +29,45 @@ const numero = (texto: string) => {
   return Number.isFinite(n) && n >= 0 ? n : Number.NaN;
 };
 
-// Lê as colunas Fat_Seg…Fat_Dom, Fat_Mensal e Margem_Pct de uma linha. Nulo quando a linha não traz nada.
+// Grava o faturamento novo. O CMV médio que já estava guardado fica quando o pedido não fala dele; `null` o limpa. A
+// margem antiga nunca é gravada. `soCmv` (planilha que traz só o CMV médio) mantém os valores de faturamento já guardados.
+// Faturamento limpo (null) limpa tudo, inclusive o CMV médio (ele agora tem campo na tela).
+export type FaturamentoEntrada = Faturamento & { soCmv?: boolean };
+export const mesclarFaturamento = (
+  novo: FaturamentoEntrada | null,
+  atual: unknown,
+): Faturamento | null => {
+  const antes = atual as
+    { dias?: (number | null)[]; mensal?: number | null; cmvPct?: unknown } | null | undefined;
+  const cmvAntes = typeof antes?.cmvPct === 'number' ? antes.cmvPct : undefined;
+  if (novo === null) return null;
+  const { margemPct: _antiga, soCmv, cmvPct, ...resto } = novo;
+  const cmv = cmvPct === undefined ? cmvAntes : cmvPct;
+  const base = soCmv && antes?.dias ? { dias: antes.dias, mensal: antes.mensal ?? null } : resto;
+  return { ...base, ...(typeof cmv === 'number' ? { cmvPct: cmv } : {}) };
+};
+
+// Lê as colunas Fat_Seg…Fat_Dom, Fat_Mensal e CMV médio (%) de uma linha (a coluna de margem das planilhas antigas é
+// ignorada). Vazio quando a linha não traz nada.
 export const faturamentoDaLinha = (
   celula: (chave: string) => string,
-): { faturamento?: Faturamento; erro?: string } => {
+): { faturamento?: FaturamentoEntrada; erro?: string } => {
   const lidos = [
     ...DIAS_SIGLA.map((d) => numero(celula(`fat_${d}`))),
     numero(celula('fat_mensal')),
-    numero(celula('margem_pct')),
   ];
-  if (lidos.every((n) => n === null)) return {};
-  if (lidos.some((n) => Number.isNaN(n)))
-    return { erro: 'faturamento ou margem com valor inválido' };
-  const margem = lidos[8]!;
-  if (margem !== null && margem > 100) return { erro: 'margem acima de 100%' };
+  const cmv = numero(celula('cmv_pct'));
+  if (lidos.every((n) => n === null) && cmv === null) return {};
+  if (lidos.some((n) => Number.isNaN(n))) return { erro: 'faturamento com valor inválido' };
+  if (cmv !== null && (Number.isNaN(cmv) || cmv > 100))
+    return { erro: 'CMV médio fora de 0 a 100' };
+  const semFaturamento = lidos.every((n) => n === null);
   return {
     faturamento: {
       dias: lidos.slice(0, 7) as (number | null)[],
       mensal: lidos[7]!,
-      margemPct: margem,
+      ...(cmv !== null ? { cmvPct: cmv } : {}),
+      ...(semFaturamento ? { soCmv: true } : {}),
     },
   };
 };

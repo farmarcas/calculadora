@@ -44,17 +44,32 @@ describe('salvar tudo: PUT /lojas/:id/painel (spec 017)', () => {
   it('o dono grava dados, funcionamento, faturamento, configuração e custos numa só chamada', async () => {
     const fat = { dias: [1000, 1000, 1000, 1000, 1000, 1000, null], mensal: null };
     const r = await salvar({
-      loja: { nome: 'Centro Novo', cidade: 'Sumaré', uf: 'SP', regimeTributario: 'real', horarios: semana(), faturamento: fat },
+      loja: {
+        nome: 'Centro Novo',
+        cidade: 'Sumaré',
+        uf: 'SP',
+        regimeTributario: 'real',
+        horarios: semana(),
+        faturamento: fat,
+      },
       configuracao: {
         convencao8h24: true,
         minimos: { Atendimento: 2 },
-        turnos: [turno('Manhã', '08:00', '14:00'), turno('Tarde', '12:00', '22:00', { Atendimento: 3 })],
+        turnos: [
+          turno('Manhã', '08:00', '14:00'),
+          turno('Tarde', '12:00', '22:00', { Atendimento: 3 }),
+        ],
         modoMinimo: 'turnos',
       },
       custos: { salarioMedio: { Farmacêutico: 5000 }, encargos: { ratPct: 2 } },
     });
     expect(r.status).toBe(200);
-    expect(r.body.loja).toMatchObject({ nome: 'Centro Novo', cidade: 'Sumaré', uf: 'SP', regimeTributario: 'real' });
+    expect(r.body.loja).toMatchObject({
+      nome: 'Centro Novo',
+      cidade: 'Sumaré',
+      uf: 'SP',
+      regimeTributario: 'real',
+    });
     expect(r.body.loja.faturamento).toEqual(fat);
     expect(r.body.situacao.status).toBe('revisar'); // ainda sem farmacêutico na equipe
     const l = await doBanco();
@@ -100,7 +115,10 @@ describe('salvar tudo: PUT /lojas/:id/painel (spec 017)', () => {
     expect((await salvar({ custos: { salarioMedio: { Caixa: 2000 } } }, gestor)).status).toBe(403);
     expect((await salvar({ configuracao: { convencao8h24: true } }, operador)).status).toBe(403);
     expect((await salvar({ loja: { cidade: 'X' } }, consulta)).status).toBe(403);
-    const ok = await salvar({ loja: { cidade: 'Campinas' }, configuracao: { convencao8h24: true } }, gestor);
+    const ok = await salvar(
+      { loja: { cidade: 'Campinas' }, configuracao: { convencao8h24: true } },
+      gestor,
+    );
     expect(ok.status).toBe(200);
     // O gestor recebe a loja sem o faturamento.
     expect(ok.body.loja).not.toHaveProperty('faturamento');
@@ -128,7 +146,9 @@ describe('salvar tudo: PUT /lojas/:id/painel (spec 017)', () => {
   });
 
   it('turnos com buraco gravam e devolvem o aviso "Sem turno entre …"', async () => {
-    const r = await salvar({ configuracao: { turnos: [turno('A', '08:00', '12:00'), turno('B', '14:00', '21:00')] } });
+    const r = await salvar({
+      configuracao: { turnos: [turno('A', '08:00', '12:00'), turno('B', '14:00', '21:00')] },
+    });
     expect(r.status).toBe(200);
     expect(r.body.avisosDeTurnos.join(' ')).toContain('Sem turno entre 12:00 e 14:00');
   });
@@ -136,7 +156,10 @@ describe('salvar tudo: PUT /lojas/:id/painel (spec 017)', () => {
   it('loja de outro grupo não existe para quem chama; GET devolve o estado atual', async () => {
     const outro = await criarGe('G-PAINEL', 'Outro grupo');
     const l2 = await postLoja({ codigo: '009', nome: 'Do outro' }, outro.id);
-    const r = await reqGe().put(`/api/v1/lojas/${l2.body.id}/painel`).set(admin).send({ loja: { cidade: 'X' } });
+    const r = await reqGe()
+      .put(`/api/v1/lojas/${l2.body.id}/painel`)
+      .set(admin)
+      .send({ loja: { cidade: 'X' } });
     expect(r.status).toBe(404);
     const g = await reqGe().get(`/api/v1/lojas/${lojaId}/painel`).set(admin);
     expect(g.status).toBe(200);
@@ -148,7 +171,8 @@ describe('salvar tudo: PUT /lojas/:id/painel (spec 017)', () => {
 
 describe('faturamento por hora no painel (spec 035)', () => {
   let lojaId: string;
-  const painel = async (h: Record<string, string> = admin) => (await reqGe().get(`/api/v1/lojas/${lojaId}/painel`).set(h)).body;
+  const painel = async (h: Record<string, string> = admin) =>
+    (await reqGe().get(`/api/v1/lojas/${lojaId}/painel`).set(h)).body;
 
   beforeEach(async () => {
     await prisma.auditoria.deleteMany();
@@ -174,7 +198,10 @@ describe('faturamento por hora no painel (spec 035)', () => {
       ['08/09/2026', '9', '001', '100,00'],
       ['12/09/2026', '8', '001', '50,00'],
     ]);
-    const up = await reqGe().post('/api/v1/cargas/base').set(admin).attach('arquivo', Buffer.from(await wb.xlsx.writeBuffer()), 'b.xlsx');
+    const up = await reqGe()
+      .post('/api/v1/cargas/base')
+      .set(admin)
+      .attach('arquivo', Buffer.from(await wb.xlsx.writeBuffer()), 'b.xlsx');
     expect(up.status).toBe(201);
   };
 

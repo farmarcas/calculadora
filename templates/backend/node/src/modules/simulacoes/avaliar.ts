@@ -1,6 +1,7 @@
 import type { DiaAberto } from '../regras/capacidade.js';
 import { tetoEfetivo, type Regra } from '../regras/perfis.js';
 import { requisitos, type Minimos } from '../regras/requisitos.js';
+import { intervaloDesconta } from '../regras/intervalo.js';
 
 export type PessoaSim = {
   matricula: string;
@@ -18,6 +19,8 @@ export type TurnoSim = {
   saida: number;
   iniIntervalo: number | null;
   fimIntervalo: number | null;
+  // Spec 046: o horário do Cadastro de antes de o turno ser esticado até o limite da regra (ausente quando não foi esticado).
+  antes?: { entrada: number; saida: number };
 };
 
 export type Achado = {
@@ -27,7 +30,8 @@ export type Achado = {
   matricula?: string;
   dia?: number;
 };
-export type CelulaCobertura = { hora: number; pessoas: number; ok: boolean };
+// `exigido`: as pessoas que a função precisa ter naquela hora (o mínimo do turno, ou o mínimo único).
+export type CelulaCobertura = { hora: number; pessoas: number; ok: boolean; exigido: number };
 export type CoberturaDia = { funcao: string; minimo: number; porHora: CelulaCobertura[] }[];
 
 const NOMES_DIA = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
@@ -58,11 +62,11 @@ const faixas = (horas: number[]) => {
 const presente = (t: TurnoSim, h: number) =>
   t.entrada <= h + EPS &&
   t.saida >= h + 1 - EPS &&
+  // Spec 045: intervalo de até 2 horas não tira a pessoa da cobertura.
   !(
-    t.iniIntervalo != null &&
-    t.fimIntervalo != null &&
-    t.iniIntervalo < h + 1 - EPS &&
-    t.fimIntervalo > h + EPS
+    intervaloDesconta(t.iniIntervalo, t.fimIntervalo) &&
+    t.iniIntervalo! < h + 1 - EPS &&
+    t.fimIntervalo! > h + EPS
   );
 
 // Quem conta na simulação: tira os desligados simulados e os turnos deles.
@@ -181,7 +185,8 @@ export const avaliarSimulacao = (a: {
       const meus = doDia.filter((t) => funcaoDe.get(t.matricula) === funcao);
       const porHora = horas.map((hora) => {
         const pessoas = meus.filter((t) => presente(t, hora)).length;
-        return { hora, pessoas, ok: pessoas >= req.emHora(funcao, d.dia, hora) };
+        const exigido = req.emHora(funcao, d.dia, hora);
+        return { hora, pessoas, ok: pessoas >= exigido, exigido };
       });
       const faltas = porHora.filter((c) => !c.ok).map((c) => c.hora);
       const minimoNasFaltas = Math.max(0, ...faltas.map((h) => req.emHora(funcao, d.dia, h)));

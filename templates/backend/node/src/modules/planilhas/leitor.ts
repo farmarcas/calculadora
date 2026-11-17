@@ -34,7 +34,8 @@ const worksheetParaAba = (ws: ExcelJS.Worksheet): Aba | null => {
     if (valores.some((x) => x !== '')) todas.push(valores);
   });
   if (todas.length === 0) return null;
-  const largura = Math.max(...todas.map((l) => l.length));
+  // Soma acumulada, não `Math.max(...lista)`: espalhar mais de ~125 mil linhas estoura a pilha.
+  const largura = todas.reduce((m, l) => Math.max(m, l.length), 0);
   const cheia = todas.map((l) => Array.from({ length: largura }, (_, i) => l[i] ?? ''));
   const [cabecalhos = [], ...linhas] = cheia;
   return { nome: ws.name, cabecalhos, linhas };
@@ -44,7 +45,8 @@ export const lerPlanilha = async (buffer: Buffer, nomeArquivo: string): Promise<
   const wb = new ExcelJS.Workbook();
   try {
     if (nomeArquivo.toLowerCase().endsWith('.csv')) {
-      const ws = await wb.csv.read(Readable.from(buffer));
+      // Tudo fica como texto: o leitor de CSV, por padrão, transforma "001" em 1 e perde o zero do código da loja.
+      const ws = await wb.csv.read(Readable.from(buffer), { map: (valor: unknown) => valor });
       ws.name = 'Planilha';
     } else {
       await wb.xlsx.load(buffer as unknown as ArrayBuffer);

@@ -32,11 +32,10 @@ export type ConfiguracaoLinha = {
   convencao8h24?: boolean;
   // Pessoas por hora de cada função (só as informadas).
   minimos?: Partial<Record<string, number>>;
-  // Salários informados e os ajustes de encargos desta loja (RAT, FAP, rescisão). `encargosPct` é o formato antigo:
+  // Salários informados. `encargosPct` é o formato antigo:
   // é lido só para avisar que foi ignorado (o encargo vem do regime tributário).
   custos?: {
     salarioMedio: Partial<Record<string, number>>;
-    encargos?: { ratPct?: number; fap?: number; rescisaoLigada?: boolean };
     encargosPct?: number;
   };
 };
@@ -71,22 +70,10 @@ export const configuracaoDaLinha = (
     salarioMedio[nome] = n;
   }
   const antigo = numero(celula('encargos_pct'));
-  const rat = numero(celula('rat_pct'));
-  if (rat !== null && (Number.isNaN(rat) || rat < 0 || rat > 3))
-    return { erro: 'RAT: use um percentual de 0 a 3' };
-  const fap = numero(celula('fap'));
-  if (fap !== null && (Number.isNaN(fap) || fap < 0.5 || fap > 2))
-    return { erro: 'FAP: use um multiplicador de 0,5 a 2,0' };
-  const resc = lerSimNao(celula('rescisao'));
-  if (Number.isNaN(resc)) return { erro: 'Provisão de rescisão: use Sim ou Não' };
-  const encargos: { ratPct?: number; fap?: number; rescisaoLigada?: boolean } = {};
-  if (rat !== null) encargos.ratPct = rat;
-  if (fap !== null) encargos.fap = fap;
-  if (resc !== null) encargos.rescisaoLigada = resc as boolean;
-  if (Object.keys(salarioMedio).length || Object.keys(encargos).length || antigo !== null)
+  // RAT, FAP e provisão de rescisão por loja não valem mais (o encargo é só o do regime): as colunas antigas são ignoradas.
+  if (Object.keys(salarioMedio).length || antigo !== null)
     out.custos = {
       salarioMedio,
-      ...(Object.keys(encargos).length ? { encargos } : {}),
       ...(antigo !== null && !Number.isNaN(antigo) ? { encargosPct: antigo } : {}),
     };
 

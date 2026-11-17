@@ -68,7 +68,7 @@ export const estadoDoCard = (selecionada, regras, hoje = hojeSP()) => {
     };
   if (c.gap === 0)
     return {
-      pill: `Cobertura completa na regra de ${N}h`,
+      pill: `Cobre o horário na regra de ${N}h`,
       fundo: OK,
       titulo: "A loja cobre todo o horário com farmacêutico",
       apoio: `Na regra de ${N}h não faltam horas de farmacêutico. Confira abaixo as pendências de cadastro.`,

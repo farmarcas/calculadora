@@ -29,26 +29,29 @@ body { margin: 0; background: var(--surface-page); color: var(--ink-900); font-f
 /* Layout por LARGURA DO CONTEÚDO (container queries), não da janela: o menu lateral e as margens tiram espaço, então a janela
    pode ser larga e o conteúdo, estreito. Vale para o card do diagnóstico e para os cartões de cenários. */
 
-/* Cartões de cenários: 1 coluna até 1000 px de conteúdo; depois 3 colunas com as faixas alinhadas por subgrid. */
-.cenarios-conteiner { container-type: inline-size; container-name: cenarios; }
-.cenarios-grade { display: grid; grid-template-columns: minmax(0, 1fr); column-gap: 16px; }
-.cenarios-cartao { display: flex; flex-direction: column; gap: 16px; min-width: 0; margin-bottom: 16px; }
-.cenarios-cartao > * { min-width: 0; }
-@container cenarios (min-width: 1000px) {
-  .cenarios-grade { grid-template-columns: repeat(var(--colunas, 3), minmax(0, 1fr)); }
-  .cenarios-cartao { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: subgrid; grid-row: span var(--faixas, 11); margin-bottom: 0; }
+/* Cenários em linhas (spec 037): a partir de 920 px de conteúdo vira tabela (cenário, contratar, horário, venda, custo de
+   pessoal e botão); abaixo disso cada linha empilha as colunas, com o rótulo de cada uma. */
+.linhas-conteiner { container-type: inline-size; container-name: linhas; }
+.linha-cabecalho { display: none; }
+.linha-cenario { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; padding: 16px 16px 16px 20px; }
+.linha-cenario > * { min-width: 0; }
+.linha-rotulo { display: block; margin-bottom: 4px; font-size: 11px; line-height: 16px; font-weight: 700; color: var(--neutral-mid-300); text-transform: uppercase; }
+@container linhas (min-width: 1120px) {
+  /* Spec 050: Cenário 200px | Contratar 1fr | Horário 1,25fr | Venda 84px | Folha 200px | botão 120px, com 16px de espaço; a altura
+     da linha vem do Horário (a célula da folha não estica a linha). */
+  .linha-cabecalho, .linha-cenario { grid-template-columns: 200px minmax(0, 1fr) minmax(0, 1.25fr) 84px 200px 120px; column-gap: 16px; align-items: start; }
+  .linha-cabecalho { display: grid; padding: 14px 16px 14px 20px; }
+  .linha-rotulo { display: none; }
+  .linha-indisponivel { grid-column: 2 / 6; }
+  .linha-faixa { grid-column: 1 / -1; }
 }
 
-/* Card do diagnóstico: o texto e os números ficam lado a lado a partir de 760 px de conteúdo; abaixo de 480 px, os quatro
-   números empilham numa coluna. */
+/* Card do diagnóstico (spec 058): a coluna do aviso (400 px) e a da tabela ficam lado a lado a partir de 860 px de conteúdo; abaixo
+   disso empilham. Vale a largura do card, não a da janela (o menu lateral aberto ou fechado muda o espaço). */
 .diag-conteiner { container-type: inline-size; container-name: diag; }
-.diag-grade { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px 32px; align-items: start; }
-.diag-numeros { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-@container diag (min-width: 760px) {
-  .diag-grade { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-@container diag (max-width: 479px) {
-  .diag-numeros { grid-template-columns: minmax(0, 1fr); }
+.diag-grade { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px 36px; align-items: start; }
+@container diag (min-width: 860px) {
+  .diag-grade { grid-template-columns: 400px minmax(0, 1fr); }
 }
 
 /* Tela de simulação: 3 passos à esquerda e painel de resultado (360 px) à direita, por LARGURA DO CONTEÚDO.
@@ -140,3 +143,11 @@ body { margin: 0; background: var(--surface-page); color: var(--ink-900); font-f
 /* Campo que falta preencher (Cadastro de loja): anel com o token de atenção; o foco azul do campo continua por cima. */
 .cl-pendente { border-color: var(--func-warning-300) !important; box-shadow: 0 0 0 3px var(--func-attention-100); }
 .cl-pendente:focus { box-shadow: 0 0 0 3px var(--func-attention-100), 0 0 0 5px var(--system-500); }
+
+/* Escala por hora (spec 039): grade larga com rolagem própria; abaixo de 860 px de conteúdo (onde a grade já não cabe sem rolar para o lado) vira a lista por função. */
+.escala-conteiner { container-type: inline-size; container-name: escala; }
+.escala-mobile { display: none; }
+@container escala (max-width: 859px) {
+  .escala-desktop { display: none; }
+  .escala-mobile { display: block; }
+}

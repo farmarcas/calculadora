@@ -1,8 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import { saldoDaOperacao } from './saldo-operacao.js';
 
-const s = (custo: number | null, perdida: number | null, estimada: number | null = 0, economia = 0) =>
-  saldoDaOperacao({ economiaFolha: economia, custoFolha: custo, vendaEstimada: estimada, vendaPerdida: perdida });
+const s = (
+  custo: number | null,
+  perdida: number | null,
+  estimada: number | null = 0,
+  economia = 0,
+) =>
+  saldoDaOperacao({
+    economiaFolha: economia,
+    custoFolha: custo,
+    vendaEstimada: estimada,
+    vendaPerdida: perdida,
+  });
 
 describe('saldo da operação (contra a folha atual)', () => {
   it('Cenário 1: custo de folha e nenhuma venda perdida = −6.480', () => {
@@ -31,6 +41,8 @@ describe('saldo da operação (contra a folha atual)', () => {
     expect(s(null, 0)).toBeNull();
     expect(s(0, null)).toBeNull();
     expect(s(0, 0, null)).toBeNull();
-    expect(saldoDaOperacao({ economiaFolha: null, custoFolha: 0, vendaEstimada: 0, vendaPerdida: 0 })).toBeNull();
+    expect(
+      saldoDaOperacao({ economiaFolha: null, custoFolha: 0, vendaEstimada: 0, vendaPerdida: 0 }),
+    ).toBeNull();
   });
 });

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../../api/client.js";
+import { registrar } from "../../analytics/servico.js";
 import { Aviso, Botao, Campo, Cartao, Ficha, entrada } from "../../components/ui/index.jsx";
 
 const dataBR = (iso) => iso.split("-").reverse().join("/");
@@ -43,6 +44,7 @@ export default function EncargosPorRegime({ dono }) {
         method: "POST",
         body: { regime: edicao.regime, ...Object.fromEntries(CAMPOS.map(([k]) => [k, Number(edicao.v[k])])), rescisaoPct, vigenciaInicio: edicao.v.vigenciaInicio },
       });
+      registrar("parametros_salvos", { tipo: "encargos" });
       setEdicao(null);
       setOk("Nova versão salva. A folha e os cenários já usam os valores vigentes.");
       carregar();

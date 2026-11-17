@@ -57,9 +57,9 @@ describe('comparativo dos cenários 1, 2 e 3', () => {
 
   it('campos dos cartões (dono): folha adicional, venda perdida, economia de folha e saldo, à mão', () => {
     const r = comparar({ estenderHorario: false });
-    // Cenário 1 é a base: venda perdida 0, economia 0 e saldo 0; o custo adicional de folha é 11000.
+    // Cenário 1 é a base: venda perdida 0, economia 0 e saldo 0; o custo adicional de folha é 20000 (2 integrais de 10000, sem parcial: spec 044).
     expect(col(r, 'manter')).toMatchObject({
-      folhaAdicionalMensal: 11000,
+      folhaAdicionalMensal: 20000,
       economiaFolhaMensal: 0,
       faturamentoPerdidoMensal: 0,
       faturamentoPerdidoPct: 0,
@@ -70,16 +70,28 @@ describe('comparativo dos cenários 1, 2 e 3', () => {
       vendaPerdidaPorDia: [],
     });
     // Cenário 2 (só fim de semana, com travas): o sábado perde 5 h de 14 (619,05 por hora = 3095,24 por mês, 9,3% da venda
-    // dos seis dias); economiza os 11000 do Cenário 1; saldo = 11000 − 3095,24 = 7904,76.
+    // dos seis dias); economiza os 20000 do Cenário 1; saldo = 20000 − 3095,24 = 16904,76.
     const eco = col(r, 'economia');
-    expect(eco).toMatchObject({ folhaAdicionalMensal: 0, economiaFolhaMensal: 11000, faturamentoPerdidoPct: 9.3, semVendaHoraria: false });
+    expect(eco).toMatchObject({
+      folhaAdicionalMensal: 0,
+      economiaFolhaMensal: 20000,
+      faturamentoPerdidoPct: 9.3,
+      semVendaHoraria: false,
+    });
     expect(eco.faturamentoPerdidoMensal!).toBeCloseTo(3095.24, 0);
-    expect(eco.saldoMensal!).toBeCloseTo(7904.76, 0);
-    expect(eco.saldoAnual!).toBeCloseTo(7904.76 * 12, -1);
-    expect(eco.pesoNoFaturamentoPct!).toBeCloseTo(15.8, 1);
+    expect(eco.saldoMensal!).toBeCloseTo(16904.76, 0);
+    expect(eco.saldoAnual!).toBeCloseTo(16904.76 * 12, -1);
+    expect(eco.pesoNoFaturamentoPct!).toBeCloseTo(33.8, 1);
     expect(eco.vendaPerdidaPorDia).toMatchObject([{ dia: 5, horasFechadas: 5, ate: 17 }]);
-    // Com essa venda por hora, cortar o sábado não compensa a folha de 10000: o Cenário 3 é o próprio Cenário 1.
-    expect(col(r, 'equilibrio')).toMatchObject({ recolher: 'manter', folhaAdicionalMensal: 11000, economiaFolhaMensal: 0, saldoMensal: 0 });
+    // Spec 044: cortar o sábado até 18h evita 1 das 2 integrais (economia de 10000) e perde 2476,19 de venda: o Cenário 3 passa
+    // a ser diferente do Cenário 1.
+    const e3 = col(r, 'equilibrio');
+    expect(e3).toMatchObject({
+      recolher: null,
+      folhaAdicionalMensal: 10000,
+      economiaFolhaMensal: 10000,
+    });
+    expect(e3.saldoMensal!).toBeCloseTo(7523.81, 0);
   });
 
   it('saldo da operação (spec 024): contra a folha atual, é o saldo antigo menos o custo de folha do Cenário 1', () => {
@@ -112,14 +124,19 @@ describe('comparativo dos cenários 1, 2 e 3', () => {
 
   it('com a folha cara (40000) cortar o sábado compensa: o Cenário 3 corta 4 h, economiza folha e fica com saldo positivo', () => {
     const r = comparar({ custos: cara, estenderHorario: false });
-    // Cenário 1: 1 integral (40000) + parcial de 4 h (4000) = 44000. Cenário 3: sábado até 18h, 1 integral (40000):
-    // economia 4000, venda perdida 4 × 619,05 = 2476,19, saldo 1523,81 (3,0% de 50000).
+    // Cenário 1: 2 integrais (80000). Cenário 3: sábado até 18h, 1 integral (40000): economia 40000, venda perdida
+    // 4 × 619,05 = 2476,19, saldo 37523,81 (75% de 50000).
     const e3 = col(r, 'equilibrio');
-    expect(e3).toMatchObject({ status: 'viavel', recolher: null, folhaAdicionalMensal: 40000, economiaFolhaMensal: 4000 });
+    expect(e3).toMatchObject({
+      status: 'viavel',
+      recolher: null,
+      folhaAdicionalMensal: 40000,
+      economiaFolhaMensal: 40000,
+    });
     expect(e3.faturamentoPerdidoMensal!).toBeCloseTo(2476.19, 0);
-    expect(e3.saldoMensal!).toBeCloseTo(1523.81, 0);
+    expect(e3.saldoMensal!).toBeCloseTo(37523.81, 0);
     expect(e3.saldoMensal!).toBeGreaterThan(0);
-    expect(e3.pesoNoFaturamentoPct!).toBeCloseTo(3, 0);
+    expect(e3.pesoNoFaturamentoPct!).toBeCloseTo(75, 0);
     expect(r.destaque).toBe('equilibrio');
     expect(r.sugerido).toBe('equilibrio');
   });
@@ -146,32 +163,61 @@ describe('comparativo dos cenários 1, 2 e 3', () => {
 
   it('valores do dono conferidos à mão: 1 farmacêutico de 40h, salário de 10000, faturamento de 50000', () => {
     const r = comparar({ estenderHorario: false });
-    // Folha atual: 1 × 10000. Cenário 1: 1 integral (10000) + 1 parcial de 4 h (1000) = 11000 de custo adicional.
+    // Folha atual: 1 × 10000. Cenário 1: 2 integrais (20000) de custo adicional, sem parcial (spec 044).
     const m = col(r, 'manter');
-    expect(m).toMatchObject({ status: 'viavel', diasFechar: [], custoFolhaMensal: 21000, saldoMensal: 0 });
-    expect(m.contratacoes[0]).toMatchObject({ inteiras: 1, parcial: { turnos: 1, horas: 4 } });
+    expect(m).toMatchObject({
+      status: 'viavel',
+      diasFechar: [],
+      custoFolhaMensal: 30000,
+      saldoMensal: 0,
+    });
+    expect(m.contratacoes[0]).toMatchObject({ inteiras: 2, parcial: null });
     expect(m.horasSemana).toBe(84);
     // Cenário 2: o sábado perde 5 h (14 → 9 h); sem contratar; não cobre (1 farmacêutico de 40h para 79 h abertas: faltam
     // 39 h): "não resolve sozinho".
     const e2 = col(r, 'economia');
-    expect(e2).toMatchObject({ status: 'nao_resolve', diasFechar: [], contratacoes: [], custoFolhaMensal: 10000, faltaH: 39 });
+    expect(e2).toMatchObject({
+      status: 'nao_resolve',
+      diasFechar: [],
+      contratacoes: [],
+      custoFolhaMensal: 10000,
+      faltaH: 39,
+    });
     expect(e2.horasSemana).toBe(79);
     expect(e2.ajustes).toEqual([
-      { dia: 5, antes: { abre: '08:00', fecha: '22:00' }, depois: { abre: '08:00', fecha: '17:00' } },
+      {
+        dia: 5,
+        antes: { abre: '08:00', fecha: '22:00' },
+        depois: { abre: '08:00', fecha: '17:00' },
+      },
     ]);
     expect(e2.alertas.join(' ')).toContain('faltam 39 h');
     expect(e2.alertas.join(' ')).toContain('Equilíbrio');
-    // Cenário 3: não compensa cortar; contrata tudo e mantém o horário (igual ao 1).
+    // Cenário 3 (spec 044): cortar o sábado até 18h (4 h) deixa 1 integral só (20000 de folha, em vez de 30000) e perde 2476,19
+    // de venda: saldo 7523,81.
     const e3 = col(r, 'equilibrio');
-    expect(e3).toMatchObject({ status: 'viavel', diasFechar: [], custoFolhaMensal: 21000, saldoMensal: 0, horasSemana: 84, ajustes: [] });
+    expect(e3).toMatchObject({
+      status: 'viavel',
+      diasFechar: [],
+      custoFolhaMensal: 20000,
+      horasSemana: 80,
+    });
+    expect(e3.saldoMensal!).toBeCloseTo(7523.81, 0);
+    expect(e3.ajustes).toEqual([
+      {
+        dia: 5,
+        antes: { abre: '08:00', fecha: '22:00' },
+        depois: { abre: '08:00', fecha: '18:00' },
+      },
+    ]);
   });
 
   it('destaca o de maior saldo (o mesmo do selo) sem esconder os outros', () => {
     const r = comparar({ estenderHorario: false });
     expect(r.cenarios).toHaveLength(3);
-    // O Cenário 2 não resolve sozinho e fica de fora da escolha; manter e equilíbrio empatam em saldo 0: vence o que contrata menos
-    // e, no empate, o Cenário 1.
-    expect(r.destaque).toBe('manter');
+    // O Cenário 2 não resolve sozinho e fica de fora da escolha; o equilíbrio (corta 4 h do sábado e evita 1 integral) tem o
+    // maior saldo (spec 044).
+    expect(r.destaque).toBe('equilibrio');
     expect(col(r, 'economia').status).toBe('nao_resolve');
     const candidatos = r.cenarios.filter((c) => c.status === 'viavel');
     const maior = Math.max(...candidatos.map((c) => c.saldoMensal!));
@@ -196,7 +242,11 @@ describe('comparativo dos cenários 1, 2 e 3', () => {
     expect(e2.status).toBe('viavel');
     expect(e2.diasFechar).toEqual([]);
     expect(e2.ajustes).toEqual([
-      { dia: 6, antes: { abre: '08:00', fecha: '22:00' }, depois: { abre: '08:00', fecha: '16:00' } },
+      {
+        dia: 6,
+        antes: { abre: '08:00', fecha: '22:00' },
+        depois: { abre: '08:00', fecha: '16:00' },
+      },
     ]);
     expect(e2).toMatchObject({ faltaH: null, faturamentoPerdidoPct: 3.6 });
     expect(e2.faturamentoPerdidoMensal!).toBeCloseTo(1300, 0);
@@ -229,7 +279,11 @@ describe('comparativo dos cenários 1, 2 e 3', () => {
 
   it('sem custos: o custo e o saldo ficam nulos, o Cenário 3 fica sem status e o alerta diz o que falta', () => {
     const r = comparar({ custos: null });
-    expect(col(r, 'manter')).toMatchObject({ status: 'viavel', custoFolhaMensal: null, saldoMensal: null });
+    expect(col(r, 'manter')).toMatchObject({
+      status: 'viavel',
+      custoFolhaMensal: null,
+      saldoMensal: null,
+    });
     expect(col(r, 'manter').alertas.join(' ')).toContain('salários médios');
     const e3 = col(r, 'equilibrio');
     expect(e3.status).toBeNull();
@@ -244,26 +298,42 @@ describe('comparativo dos cenários 1, 2 e 3', () => {
   });
 
   it('sem venda hora a hora (só o faturamento mensal ou do Cadastro): aviso, nenhum valor de venda e nenhum saldo (nunca R$ 0)', () => {
-    const mensal = vendasDoCadastro({ dias: new Array(7).fill(null), mensal: 52000, margemPct: 25 }, dias)!.linhas;
+    const mensal = vendasDoCadastro(
+      { dias: new Array(7).fill(null), mensal: 52000, margemPct: 25 },
+      dias,
+    )!.linhas;
     const r = comparar({ vendas: mensal, origemVenda: 'estimativa', pessoas: farm(40, 40) });
     const e2 = col(r, 'economia');
     expect(e2.semVendaHoraria).toBe(true);
     expect(e2.alertas.join(' ')).toContain('Venda estimada');
-    expect(e2.alertas.join(' ')).toContain('Sem venda hora a hora, não é possível estimar a venda perdida');
-    expect(e2).toMatchObject({ faturamentoPerdidoMensal: null, saldoMensal: null, saldoAnual: null, vendaPerdidaPorDia: [] });
+    expect(e2.alertas.join(' ')).toContain(
+      'Sem venda hora a hora, não é possível estimar a venda perdida',
+    );
+    expect(e2).toMatchObject({
+      faturamentoPerdidoMensal: null,
+      saldoMensal: null,
+      saldoAnual: null,
+      vendaPerdidaPorDia: [],
+    });
     const e3 = col(r, 'equilibrio');
     expect(e3.semVendaHoraria).toBe(true);
     expect(e3.alertas.join(' ')).toContain('hora a hora');
     expect(e3.saldoMensal).toBeNull();
     expect(r.destaque).toBeNull();
     // só o faturamento por dia do Cadastro: o mesmo aviso
-    expect(col(comparar({ origemVenda: 'cadastro', pessoas: farm(40, 40) }), 'economia').semVendaHoraria).toBe(true);
+    expect(
+      col(comparar({ origemVenda: 'cadastro', pessoas: farm(40, 40) }), 'economia').semVendaHoraria,
+    ).toBe(true);
   });
 
   it('cenário sem mudança de horário: venda perdida zero (e não o aviso)', () => {
     const r = comparar({ pessoas: farm(40, 40, 40) });
     const eco = col(r, 'economia');
-    expect(eco).toMatchObject({ faturamentoPerdidoMensal: 0, vendaPerdidaPorDia: [], semVendaHoraria: false });
+    expect(eco).toMatchObject({
+      faturamentoPerdidoMensal: 0,
+      vendaPerdidaPorDia: [],
+      semVendaHoraria: false,
+    });
     expect(col(r, 'manter')).toMatchObject({ faturamentoPerdidoMensal: 0 });
   });
 
@@ -280,7 +350,12 @@ describe('comparativo dos cenários 1, 2 e 3', () => {
     const r = comparar({ dono: false });
     expect('destaque' in r).toBe(false);
     for (const c of r.cenarios) {
-      for (const campo of ['custoFolhaMensal', 'saldoMensal', 'economiaFolhaMensal', 'pesoNoFaturamentoPct'])
+      for (const campo of [
+        'custoFolhaMensal',
+        'saldoMensal',
+        'economiaFolhaMensal',
+        'pesoNoFaturamentoPct',
+      ])
         expect(campo in c).toBe(false);
     }
     expect(col(r, 'equilibrio')).toMatchObject({ status: 'viavel', diasFechar: [] });
@@ -297,7 +372,10 @@ describe('premissas, recolhimento e selo sugerido', () => {
       estenderHorario: false,
       regraId: 'r42',
       minimos: { Farmacêutico: 1 },
-      pessoas: [...farm(44, 44, 44), ...[44, 44].map((cargaH) => ({ funcao: 'Atendimento', cargaH }))],
+      pessoas: [
+        ...farm(44, 44, 44),
+        ...[44, 44].map((cargaH) => ({ funcao: 'Atendimento', cargaH })),
+      ],
       custos: { salarioMedio: { Farmacêutico: 10000, Atendimento: 3000 }, encargosPct: 0 },
       ...extra,
     });
@@ -306,7 +384,9 @@ describe('premissas, recolhimento e selo sugerido', () => {
     for (const r of [comparar(), semCorte()]) {
       expect(col(r, 'manter').premissa).toBe('Contratar para cobrir a escala nos horários de hoje');
       expect(col(r, 'economia').premissa).toBe('Não contratar; ajustar horários só se precisar');
-      expect(col(r, 'equilibrio').premissa).toBe('A melhor combinação entre contratar e ajustar horários');
+      expect(col(r, 'equilibrio').premissa).toBe(
+        'A melhor combinação entre contratar e ajustar horários',
+      );
       expect(r.cenarios.every((c) => c.resultado.length > 0)).toBe(true);
     }
   });
@@ -355,7 +435,11 @@ describe('premissas, recolhimento e selo sugerido', () => {
   });
 
   it('o resultado do Cenário 1 lista as funções em português corrido', () => {
-    const r = semCorte({ pessoas: farm(44, 44, 44).slice(0, 1).concat([{ funcao: 'Atendimento', cargaH: 40 }]) });
+    const r = semCorte({
+      pessoas: farm(44, 44, 44)
+        .slice(0, 1)
+        .concat([{ funcao: 'Atendimento', cargaH: 40 }]),
+    });
     expect(col(r, 'manter').resultado).toMatch(/^Contrata \d+ pessoas?: [\p{L}, ]+$/u);
     expect(col(r, 'manter').resultado).not.toMatch(/ e .* e /);
   });
@@ -367,7 +451,10 @@ describe('Cenário 3 com horário estendido (spec 020)', () => {
     entrada({
       regraId: 'r42',
       minimos: { Farmacêutico: 1 },
-      pessoas: [...farm(44, 44, 44), ...[44, 44].map((cargaH) => ({ funcao: 'Atendimento', cargaH }))],
+      pessoas: [
+        ...farm(44, 44, 44),
+        ...[44, 44].map((cargaH) => ({ funcao: 'Atendimento', cargaH })),
+      ],
       custos: { salarioMedio: { Farmacêutico: 10000, Atendimento: 3000 }, encargosPct: 0 },
       ...extra,
     });
@@ -386,11 +473,20 @@ describe('Cenário 3 com horário estendido (spec 020)', () => {
     expect(eq3.estimativaDeVenda).toBe(true);
     expect(eq3.resultado).toContain('Sábado fecha 2 h mais tarde');
     expect(eq3.alertas.join(' ')).toContain('Venda das horas novas é estimada');
-    expect(eq3.ajustes).toEqual([{ dia: 5, antes: { abre: '08:00', fecha: '22:00' }, depois: { abre: '08:00', fecha: '24:00' } }]);
+    expect(eq3.ajustes).toEqual([
+      {
+        dia: 5,
+        antes: { abre: '08:00', fecha: '22:00' },
+        depois: { abre: '08:00', fecha: '24:00' },
+      },
+    ]);
     // a venda das horas novas (50% da hora vizinha) abate a folha extra: saldo melhor que o do Cenário 1 (que é 0)
     expect(eq3.vendaAdicionalMensal!).toBeGreaterThan(0);
     expect(eq3.saldoMensal!).toBeGreaterThan(col(r, 'manter').saldoMensal!);
-    expect(eq3.saldoMensal!).toBeCloseTo(eq3.economiaFolhaMensal! - eq3.faturamentoPerdidoMensal! + eq3.vendaAdicionalMensal!, 1);
+    expect(eq3.saldoMensal!).toBeCloseTo(
+      eq3.economiaFolhaMensal! - eq3.faturamentoPerdidoMensal! + eq3.vendaAdicionalMensal!,
+      1,
+    );
   });
 
   it('o percentual de venda da hora nova é uma premissa: mudar de 50% para 100% dobra a venda adicional', () => {
@@ -403,7 +499,8 @@ describe('Cenário 3 com horário estendido (spec 020)', () => {
 
   it('segunda a sexta nunca mudam e só sábado e domingo ganham horas', () => {
     const { c } = calcular();
-    for (const d of [0, 1, 2, 3, 4]) expect(c.equilibrio.horarioSemana[d]).toMatchObject({ abre: '08:00', fecha: '22:00' });
+    for (const d of [0, 1, 2, 3, 4])
+      expect(c.equilibrio.horarioSemana[d]).toMatchObject({ abre: '08:00', fecha: '22:00' });
   });
 
   it('com a extensão desligada, o Cenário 3 volta a só cortar (igual ao 1 quando nada compensa)', () => {
@@ -437,4 +534,3 @@ describe('Cenário 3 com horário estendido (spec 020)', () => {
     expect(forcado(melhorOutro + 100).sugerido).not.toBe('equilibrio');
   });
 });
-

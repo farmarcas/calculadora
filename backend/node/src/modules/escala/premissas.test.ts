@@ -23,7 +23,13 @@ describe('premissas para simular', () => {
     const r = ler({ recaptura: '20', fatorHoraNova: '35.5', limiteParcial: '1' });
     expect(r.success).toBe(true);
     expect(premissasDe(r.data)).toEqual({
-      valores: { recaptura: 20, fatorDiaNovo: 50, fatorHoraNova: 35.5, diasProtegidos: 3, limiteParcial: 1 },
+      valores: {
+        recaptura: 20,
+        fatorDiaNovo: 50,
+        fatorHoraNova: 35.5,
+        diasProtegidos: 3,
+        limiteParcial: 1,
+      },
     });
   });
 

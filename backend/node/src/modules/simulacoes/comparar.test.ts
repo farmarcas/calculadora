@@ -15,9 +15,9 @@ const cob = {
       funcao: 'Farmacêutico',
       minimo: 1,
       porHora: [
-        { hora: 8, pessoas: 1, ok: true },
-        { hora: 9, pessoas: 0, ok: false },
-        { hora: 10, pessoas: 2, ok: true },
+        { hora: 8, pessoas: 1, ok: true, exigido: 1 },
+        { hora: 9, pessoas: 0, ok: false, exigido: 1 },
+        { hora: 10, pessoas: 2, ok: true, exigido: 1 },
       ],
     },
   ],
@@ -67,7 +67,13 @@ describe('sintese', () => {
     expect(t).not.toMatch(/em uso|aprovad|frente/);
   });
   it('avisa os erros nas regras e a falta de farmacêutico, sem falar em aprovar', () => {
-    const t = sintese('Rascunho', { ...base, erros: 2, semFarmaceutico: true, coberturaPct: 50, horasFalta: 4 });
+    const t = sintese('Rascunho', {
+      ...base,
+      erros: 2,
+      semFarmaceutico: true,
+      coberturaPct: 50,
+      horasFalta: 4,
+    });
     expect(t).toContain('tem 2 erro(s) nas regras');
     expect(t).toContain('sem farmacêutico');
     expect(t).toContain('faltam 4h-pessoa por semana');

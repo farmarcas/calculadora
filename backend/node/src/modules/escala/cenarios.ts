@@ -1,3 +1,4 @@
+import type { HorarioPessoa } from './semana-com-folgas.js';
 import { passa, verificarRegra, type DiaAberto, type LinhaFuncao } from '../regras/capacidade.js';
 import { regraPara, type Regra, type RegraId } from '../regras/perfis.js';
 import { PARAMETROS_PADRAO } from '../regras/parametros.js';
@@ -196,6 +197,8 @@ export type CenariosRegra = {
 };
 
 export type EntradaCenarios = {
+  // Horários da equipe no Cadastro (spec 043): com eles, a falta vem da cobertura real, com folgas e domingo em rodízio.
+  horarios?: HorarioPessoa[];
   regraId: Extract<RegraId, 'r42' | 'r40'>;
   convencao8h24: boolean;
   dias: DiaAberto[];
@@ -249,6 +252,7 @@ export const horasDaSemana = (dias: DiaAberto[]) =>
 // O que o motor precisa saber além do quadro: a regra de hoje (nível de hoje dos demais cargos), as horas abertas de
 // hoje (a meta acompanha o horário do cenário), os custos e o divisor da regra.
 export const opcoesDoMotor = (e: EntradaCenarios, regra: Regra) => ({
+  horarios: e.horarios,
   limiteParcial: e.limiteParcial,
   regraAtual: regraPara('atual', e.convencao8h24, e.parametros),
   horasAbertasHoje: horasDaSemana(e.dias),
@@ -418,7 +422,8 @@ const motivoDeParada = (e: EntradaCenarios, parou: MotivoParada): string =>
     horas: `a loja ficaria com menos de ${TRAVAS.horasMinPct}% das horas abertas de hoje`,
     fim_de_semana: 'não há mais o que reduzir ou fechar no fim de semana',
   })[parou];
-const limiteDePerdaDoCenario2 = (e: EntradaCenarios) => e.limitePerdaCenario2Pct ?? PERDA_MAX_CENARIO_2_PCT;
+const limiteDePerdaDoCenario2 = (e: EntradaCenarios) =>
+  e.limitePerdaCenario2Pct ?? PERDA_MAX_CENARIO_2_PCT;
 
 // Com a equipe atual e os horários do cenário: quanto cada função fica abaixo da meta e quantas horas
 // semanais o farmacêutico deixa de cobrir.
@@ -458,7 +463,9 @@ const montarEconomia = (
   const temHoraria = temVendaHoraria(e);
   const tabela = temHoraria ? vendasPorDiaEHora(e.vendas) : null;
   // A perda do impacto é medida na régua (margem ou venda); as travas e o % do faturamento seguem em venda real.
-  const tabelaRegua = temHoraria ? vendasPorDiaEHora(linhasNaRegua(e.vendas, e.regua ?? null)) : null;
+  const tabelaRegua = temHoraria
+    ? vendasPorDiaEHora(linhasNaRegua(e.vendas, e.regua ?? null))
+    : null;
   const base = {
     foco: 'Não contratar; ajustar horários só se precisar',
     resultado: 'Nenhum horário precisa mudar',

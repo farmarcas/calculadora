@@ -11,7 +11,13 @@ const turno = (matricula: string, entrada: number, saida: number, dia = 0) => ({
   iniIntervalo: null,
   fimIntervalo: null,
 });
-const pessoa = (matricula: string, funcao: string, extra = {}) => ({ matricula, nome: matricula, funcao, cargaH: 40, ...extra });
+const pessoa = (matricula: string, funcao: string, extra = {}) => ({
+  matricula,
+  nome: matricula,
+  funcao,
+  cargaH: 40,
+  ...extra,
+});
 const base = {
   horarios: null,
   minimos: { Farmacêutico: 1 },
@@ -25,8 +31,26 @@ describe('coberturaDaSimulacao', () => {
   it('é a mesma conta do Diagnóstico quando horário e quadro são os mesmos', () => {
     const dias = seg(8, 12);
     const t = [turno('A', 8, 12)];
-    const r = coberturaDaSimulacao({ ...base, dias, quadro: [pessoa('A', 'Farmacêutico')], turnos: t });
-    const d = cobertura(dias, [{ funcao: 'Farmacêutico', dias: [0], entrada: 8, saida: 12, iniIntervalo: null, fimIntervalo: null }], { Farmacêutico: 1 });
+    const r = coberturaDaSimulacao({
+      ...base,
+      dias,
+      quadro: [pessoa('A', 'Farmacêutico')],
+      turnos: t,
+    });
+    const d = cobertura(
+      dias,
+      [
+        {
+          funcao: 'Farmacêutico',
+          dias: [0],
+          entrada: 8,
+          saida: 12,
+          iniIntervalo: null,
+          fimIntervalo: null,
+        },
+      ],
+      { Farmacêutico: 1 },
+    );
     expect(r.horas).toEqual(d.horas);
     expect(r.funcoes).toEqual(d.funcoes);
   });
@@ -43,13 +67,26 @@ describe('coberturaDaSimulacao', () => {
 
   it('desligado não cobre nada', () => {
     const turnos = [turno('A', 8, 12)];
-    const r = coberturaDaSimulacao({ ...base, dias: seg(8, 12), quadro: [pessoa('A', 'Farmacêutico', { desligado: true })], turnos });
+    const r = coberturaDaSimulacao({
+      ...base,
+      dias: seg(8, 12),
+      quadro: [pessoa('A', 'Farmacêutico', { desligado: true })],
+      turnos,
+    });
     expect(celulas(r).every((c) => c.pessoas === 0 && c.ok === false)).toBe(true);
   });
 
   it('vaga com turnos cobre; vaga sem turnos não cobre e é contada à parte', () => {
-    const quadro = [pessoa('V1', 'Farmacêutico', { vaga: true }), pessoa('V2', 'Atendimento', { vaga: true })];
-    const r = coberturaDaSimulacao({ ...base, dias: seg(8, 12), quadro, turnos: [turno('V1', 8, 12)] });
+    const quadro = [
+      pessoa('V1', 'Farmacêutico', { vaga: true }),
+      pessoa('V2', 'Atendimento', { vaga: true }),
+    ];
+    const r = coberturaDaSimulacao({
+      ...base,
+      dias: seg(8, 12),
+      quadro,
+      turnos: [turno('V1', 8, 12)],
+    });
     expect(celulas(r).every((c) => c.pessoas === 1)).toBe(true);
     expect(r.vagasSemTurnos).toBe(1);
   });
@@ -64,18 +101,43 @@ describe('coberturaDaSimulacao', () => {
     { data: '2026-09-07', hora: 9, venda: 300, margem: 30, clientes: 8, unidades: 20 },
   ];
   it('o dono recebe a venda média em reais e os outros perfis só a participação', () => {
-    const dono = coberturaDaSimulacao({ ...base, dias: seg(8, 10), quadro: [], turnos: [], vendas: linhas });
+    const dono = coberturaDaSimulacao({
+      ...base,
+      dias: seg(8, 10),
+      quadro: [],
+      turnos: [],
+      vendas: linhas,
+    });
     expect(dono.vendas!.horas[0]).toHaveProperty('vendaMedia');
-    const gestor = coberturaDaSimulacao({ ...base, dias: seg(8, 10), quadro: [], turnos: [], vendas: linhas, dono: false });
+    const gestor = coberturaDaSimulacao({
+      ...base,
+      dias: seg(8, 10),
+      quadro: [],
+      turnos: [],
+      vendas: linhas,
+      dono: false,
+    });
     expect(gestor.vendas!.horas[0]).not.toHaveProperty('vendaMedia');
     expect(gestor.vendas!.horas[0]).toHaveProperty('participacao');
     expect(JSON.stringify(gestor)).not.toMatch(/vendaMedia|"venda"/);
   });
 
   it('devolve os turnos da loja e o modo do mínimo; sem turnos, nulo', () => {
-    const turnosDaLoja = { versao: 1 as const, modo: 'turnos' as const, turnos: [{ nome: 'Manhã', inicio: '08:00', fim: '12:00', minimos: { Farmacêutico: 1 } }] };
-    const r = coberturaDaSimulacao({ ...base, dias: seg(8, 12), quadro: [], turnos: [], turnosDaLoja });
+    const turnosDaLoja = {
+      versao: 1 as const,
+      modo: 'turnos' as const,
+      turnos: [{ nome: 'Manhã', inicio: '08:00', fim: '12:00', minimos: { Farmacêutico: 1 } }],
+    };
+    const r = coberturaDaSimulacao({
+      ...base,
+      dias: seg(8, 12),
+      quadro: [],
+      turnos: [],
+      turnosDaLoja,
+    });
     expect(r.turnosDaLoja).toMatchObject({ modoMinimo: 'turnos' });
-    expect(coberturaDaSimulacao({ ...base, dias: seg(8, 12), quadro: [], turnos: [] }).turnosDaLoja).toBeNull();
+    expect(
+      coberturaDaSimulacao({ ...base, dias: seg(8, 12), quadro: [], turnos: [] }).turnosDaLoja,
+    ).toBeNull();
   });
 });

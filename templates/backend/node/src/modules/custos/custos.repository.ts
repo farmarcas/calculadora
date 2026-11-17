@@ -1,6 +1,6 @@
 import type { Prisma } from '../../generated/prisma/client.js';
 import { prisma } from '../../shared/database/prisma.js';
-import type { CustosGravados } from './custos.schemas.js';
+import { manterAjustesAntigos, type CustosGravados } from './custos.schemas.js';
 
 // Presa ao GE: loja de outro GE não existe para quem chama.
 export const custosRepository = (geId: string) => ({
@@ -21,8 +21,14 @@ export const custosRepository = (geId: string) => ({
   },
   async salvar(lojaId: string, custos: CustosGravados) {
     // O percentual digitado (formato antigo) não é mais guardado: o encargo vem do regime.
-    const { encargosPct: _antigo, ...guardar } = custos;
+    const { encargosPct: _antigo, ...novo } = custos;
     void _antigo;
+    // Os ajustes antigos de RAT, FAP e rescisão que já estavam guardados continuam como estão.
+    const atual = await prisma.loja.findFirst({
+      where: { id: lojaId, geId },
+      select: { custos: true },
+    });
+    const guardar = manterAjustesAntigos(novo, atual?.custos);
     await prisma.loja.update({
       where: { id: lojaId, geId },
       data: { custos: guardar as unknown as Prisma.InputJsonValue },

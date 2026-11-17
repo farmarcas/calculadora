@@ -40,13 +40,17 @@ describe('validarTurnos', () => {
   });
 
   it('aceita turnos que se sobrepõem, que começam antes da abertura e que terminam depois do fechamento', () => {
-    expect(validarTurnos([t('A', '08:00', '15:00'), t('B', '14:00', '20:00')], dias(8, 20))).toEqual([]);
+    expect(
+      validarTurnos([t('A', '08:00', '15:00'), t('B', '14:00', '20:00')], dias(8, 20)),
+    ).toEqual([]);
     expect(validarTurnos([t('A', '07:00', '20:00')], dias(8, 20))).toEqual([]);
     expect(validarTurnos([t('A', '08:00', '22:00')], dias(8, 20))).toEqual([]);
   });
 
   it('buraco não é erro: vira faixa sem turno (informativo)', () => {
-    expect(validarTurnos([t('A', '08:00', '13:00'), t('B', '14:00', '20:00')], dias(8, 20))).toEqual([]);
+    expect(
+      validarTurnos([t('A', '08:00', '13:00'), t('B', '14:00', '20:00')], dias(8, 20)),
+    ).toEqual([]);
     expect(
       coberturaDeTurnos([t('A', '08:00', '13:00'), t('B', '14:00', '20:00')], dias(8, 20)),
     ).toEqual([{ dias: [0, 1, 2, 3, 4], de: 13, ate: 14 }]);
@@ -181,7 +185,10 @@ describe('sobreposição e modo do mínimo', () => {
   });
 
   it('turno que passa do horário da loja só conta dentro das horas abertas', () => {
-    const turnos = { versao: 1 as const, turnos: [t('Longo', '06:00', '23:00', { Atendimento: 2 })] };
+    const turnos = {
+      versao: 1 as const,
+      turnos: [t('Longo', '06:00', '23:00', { Atendimento: 2 })],
+    };
     const m = exigenciasDaLoja({ Farmacêutico: 1 }, turnos);
     const r = requisitos(m);
     // O motor só olha as horas abertas (08–20): a necessidade são 12h × 2, não 17h × 2.
@@ -212,4 +219,3 @@ describe('sobreposição e modo do mínimo', () => {
     expect(r.funcoes).not.toContain('Apoio');
   });
 });
-

@@ -73,7 +73,9 @@ describe('importação do Cadastro pelo CNPJ (spec 028)', () => {
     expect(a).toMatchObject({ nome: 'Apelido do Centro', cnpj: CNPJ_A });
     expect(a?.faturamento).toMatchObject({ dias: [1000, null, null, null, null, null, null] });
     expect((await lojaPorCodigo('071'))?.nome).toBe('Loja Setenta e Um');
-    expect((await lojaPorCodigo('072'))?.faturamento).toMatchObject({ dias: [3000, null, null, null, null, null, null] });
+    expect((await lojaPorCodigo('072'))?.faturamento).toMatchObject({
+      dias: [3000, null, null, null, null, null, null],
+    });
     // nenhuma loja foi criada nem teve o código trocado
     expect(await prisma.loja.count()).toBe(3);
   });
@@ -92,7 +94,10 @@ describe('importação do Cadastro pelo CNPJ (spec 028)', () => {
     });
     const { ok } = await importar(admin, buf);
     expect(ok.body.lojas).toEqual({ novos: 0, atualizados: 1 });
-    const motivos = ok.body.erros.map((e: { linha: number; motivo: string }) => [e.linha, e.motivo]);
+    const motivos = ok.body.erros.map((e: { linha: number; motivo: string }) => [
+      e.linha,
+      e.motivo,
+    ]);
     expect(motivos).toContainEqual([5, 'CNPJ da loja vazio']);
     expect(motivos).toContainEqual([6, 'CNPJ 11.222.333/0001-81 repetido na planilha']);
     expect(motivos).toContainEqual([3, 'CNPJ inválido']);
@@ -138,7 +143,9 @@ describe('importação do Cadastro pelo CNPJ (spec 028)', () => {
     expect((await por('F3'))?.funcaoEscala).toBe('Atendimento'); // vendedor
     expect((await por('F4'))?.funcaoEscala).toBeNull(); // gerente: fora do cálculo
     const motivos = ok.body.erros.map((e: { motivo: string }) => e.motivo);
-    expect(motivos).toContain('Funcionário F5: CNPJ 98.765.432/0001-98 não encontrado entre as lojas do grupo');
+    expect(motivos).toContain(
+      'Funcionário F5: CNPJ 98.765.432/0001-98 não encontrado entre as lojas do grupo',
+    );
     expect(motivos).toContain('CNPJ da loja vazio');
   });
 
@@ -149,7 +156,14 @@ describe('importação do Cadastro pelo CNPJ (spec 028)', () => {
         ['070', 'Loja Setenta Antiga', '9', '9', 'talvez'],
       ],
       Quadro: [
-        ['Matrícula', 'Nome', 'Código da loja de lotação', 'Cargo', 'Função de escala', 'Carga semanal (horas)'],
+        [
+          'Matrícula',
+          'Nome',
+          'Código da loja de lotação',
+          'Cargo',
+          'Função de escala',
+          'Carga semanal (horas)',
+        ],
         ['A1', 'Ana', '070', 'Balconista', 'Caixa', '44'],
       ],
     });
@@ -159,7 +173,10 @@ describe('importação do Cadastro pelo CNPJ (spec 028)', () => {
     expect(ok.body.lojas).toEqual({ novos: 0, atualizados: 1 });
     const l = await lojaPorCodigo('070');
     expect(l).toMatchObject({ nome: 'Loja Setenta Antiga', cnpj: CNPJ_A });
-    const f = await prisma.funcionario.findFirst({ where: { matricula: 'A1' }, include: { loja: true } });
+    const f = await prisma.funcionario.findFirst({
+      where: { matricula: 'A1' },
+      include: { loja: true },
+    });
     expect(f?.loja.codigo).toBe('070');
     expect(f?.funcaoEscala).toBe('Caixa'); // a coluna "Função de escala" vale; o cargo livre fica só como cargo
     expect(f?.cargo).toBe('Balconista');
@@ -198,7 +215,10 @@ describe('importação do Cadastro pelo CNPJ (spec 028)', () => {
     expect(ok.body.erros).toEqual([]);
     expect(ok.body.lojas).toEqual({ novos: 0, atualizados: 1 });
     expect(ok.body.funcionarios).toEqual({ novos: 1, atualizados: 0 });
-    const f = await prisma.funcionario.findFirst({ where: { matricula: 'M1' }, include: { loja: true } });
+    const f = await prisma.funcionario.findFirst({
+      where: { matricula: 'M1' },
+      include: { loja: true },
+    });
     expect(f).toMatchObject({ funcaoEscala: 'Atendimento' });
     expect(f?.loja.codigo).toBe('070');
   });

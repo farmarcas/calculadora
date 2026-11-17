@@ -1,8 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../../api/client.js";
+import { regraEmHoras, registrar } from "../../analytics/servico.js";
 import { Aviso, Botao, Campo, Modal, entrada } from "../../components/ui/index.jsx";
 import BarraDeComparar from "./BarraDeComparar.jsx";
 import ListaDeSimulacoes from "./ListaDeSimulacoes.jsx";
+import ModalExcluirSimulacao from "./ModalExcluirSimulacao.jsx";
+import ParecerDoCenario from "./ParecerDoCenario.jsx";
+import { avisoDeExcluida } from "./exclusao-regras.js";
 import { MENSAGEM_LIMITE, alternarSelecao, marcadasValidas, mostrarBarra } from "./selecao.js";
 import ComparacaoDeSimulacoes from "./ComparacaoDeSimulacoes.jsx";
 import SimulacaoPage from "../simulacao/SimulacaoPage.jsx";
@@ -17,7 +21,9 @@ function Nova({ lojaId, lista, onClose, onCriada }) {
     e.preventDefault();
     setErro(null);
     try {
-      onCriada(await api(`/lojas/${lojaId}/simulacoes`, { method: "POST", body: { nome, regra, origem } }));
+      const nova = await api(`/lojas/${lojaId}/simulacoes`, { method: "POST", body: { nome, regra, origem } });
+      registrar("simulacao_criada", { regra_horas: regraEmHoras(regra), origem });
+      onCriada(nova);
     } catch (err) {
       setErro(err.message);
     }
@@ -56,6 +62,8 @@ export default function GradeTab({ lojaId, perfil, podeEscrever, abrirId, avisoI
   const [descartadas, setDescartadas] = useState(false);
   const [aberta, setAberta] = useState(null);
   const [nova, setNova] = useState(false);
+  const [excluir, setExcluir] = useState(null); // { s, abridor }: a simulação que a pessoa quer excluir e o ícone da lixeira
+  const [parecer, setParecer] = useState(null); // { id, abridor }: o parecer aberto e o botão que o abriu (o foco volta a ele)
   const [erro, setErro] = useState(null);
   const [marcadas, setMarcadas] = useState([]);
   const [comparando, setComparando] = useState(false);
@@ -95,14 +103,21 @@ export default function GradeTab({ lojaId, perfil, podeEscrever, abrirId, avisoI
     }
   }, [abrirId]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Spec 056: o parecer do cenário salvo abre numa janela, a partir da lista ou da comparação.
+  const janelaDoParecer = parecer ? <ParecerDoCenario id={parecer.id} abridor={parecer.abridor} onFechar={() => setParecer(null)} /> : null;
+
   if (comparando)
     return (
+      <>
       <ComparacaoDeSimulacoes
         lojaId={lojaId}
         ids={marcadas}
         lista={lista}
+        onParecer={(id, abridor) => setParecer({ id, abridor })}
         onVoltar={(mensagem) => { setComparando(false); setMarcadas(mensagem ? [] : marcadas); setAvisoLista(mensagem ?? null); carregar(); }}
       />
+      {janelaDoParecer}
+      </>
     );
 
   if (aberta)
@@ -128,6 +143,8 @@ export default function GradeTab({ lojaId, perfil, podeEscrever, abrirId, avisoI
           marcadas={marcadas}
           onAlternar={alternar}
           onAbrir={setAberta}
+          onParecer={(id, abridor) => setParecer({ id, abridor })}
+          onExcluir={(s, abridor) => setExcluir({ s, abridor })}
           podeEscrever={podeEscrever}
           onNova={() => setNova(true)}
           descartadas={descartadas}
@@ -136,6 +153,21 @@ export default function GradeTab({ lojaId, perfil, podeEscrever, abrirId, avisoI
         {mostrarBarra(marcadas) && <BarraDeComparar quantidade={marcadas.length} onLimpar={() => { setMarcadas([]); setLimite(false); }} onComparar={() => setComparando(true)} />}
         <p role="status" className="m-0 mt-2 text-sm text-[var(--text-secondary)]">{limite ? MENSAGEM_LIMITE : ""}</p>
       </div>
+      {janelaDoParecer}
+      {excluir && (
+        <ModalExcluirSimulacao
+          nome={excluir.s.nome}
+          abridor={excluir.abridor}
+          onFechar={() => setExcluir(null)}
+          onConfirmar={async () => {
+            await api(`/simulacoes/${excluir.s.id}/descartar`, { method: "POST" });
+            setMarcadas((m) => m.filter((x) => x !== excluir.s.id));
+            setAvisoLista(avisoDeExcluida(excluir.s.nome));
+            setExcluir(null);
+            carregar();
+          }}
+        />
+      )}
       {nova && <Nova lojaId={lojaId} lista={lista} onClose={() => setNova(false)} onCriada={(s) => { setNova(false); setAberta(s.id); carregar(); }} />}
     </div>
   );

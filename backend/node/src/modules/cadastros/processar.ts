@@ -178,7 +178,9 @@ export const processarLinhas = (abas: Aba[], mapa: Mapeamento): Processado => {
       const chave = cnpj ?? `codigo:${codigo}`;
       if (vistosLoja.has(chave))
         return erro(
-          cnpj ? `CNPJ ${formatarCnpj(cnpj)} repetido na planilha` : `Código ${codigo} repetido na planilha`,
+          cnpj
+            ? `CNPJ ${formatarCnpj(cnpj)} repetido na planilha`
+            : `Código ${codigo} repetido na planilha`,
         );
       const h = interpretarHorarioLoja((chave) => celula(l, mapa.lojas!, chave));
       if (h.erro) return erro(h.erro);

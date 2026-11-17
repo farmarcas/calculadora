@@ -1,5 +1,6 @@
 import type { DiaAberto } from '../regras/capacidade.js';
 import { requisitos, type Minimos } from '../regras/requisitos.js';
+import { intervaloDesconta } from '../regras/intervalo.js';
 
 export type TurnoPessoa = {
   funcao: string;
@@ -24,11 +25,11 @@ const cobre = (t: TurnoPessoa, dia: number, h: number) =>
   t.dias.includes(dia) &&
   t.entrada <= h &&
   t.saida >= h + 1 &&
+  // Spec 045: intervalo de até 2 horas não tira a pessoa da cobertura.
   !(
-    t.iniIntervalo != null &&
-    t.fimIntervalo != null &&
-    t.iniIntervalo < h + 1 &&
-    t.fimIntervalo > h
+    intervaloDesconta(t.iniIntervalo, t.fimIntervalo) &&
+    t.iniIntervalo! < h + 1 &&
+    t.fimIntervalo! > h
   );
 
 // Pessoas presentes no pior dia de cada hora, já descontado o intervalo.

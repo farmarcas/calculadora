@@ -102,6 +102,11 @@ export async function baixarArquivo(caminho, nome) {
     irParaLogin();
     throw new ApiError("Faça login no Radar", "NAO_AUTENTICADO");
   }
+  // Resposta de erro não é arquivo: avisa em vez de baixar o texto do erro com o nome do arquivo (spec 057).
+  if (!res.ok) {
+    const data = await res.json().catch(() => null);
+    throw new ApiError(data?.error?.message || "Não foi possível baixar o arquivo.", data?.error?.code, data?.error?.details);
+  }
   const blob = await res.blob();
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);

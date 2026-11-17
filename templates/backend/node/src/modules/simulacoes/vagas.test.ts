@@ -67,26 +67,101 @@ describe('aplicarVagasEDesligados', () => {
   });
 });
 
+describe('vaga nova com turnos (spec 039)', () => {
+  it('os turnos da vaga nova ganham a matrícula que o servidor atribuiu', () => {
+    const a = aplicarVagasEDesligados(
+      quadro,
+      [t('A')],
+      [
+        {
+          funcao: 'Farmacêutico',
+          cargaH: 12,
+          turnos: [
+            { dia: 4, entrada: 16, saida: 22 },
+            { dia: 5, entrada: 16, saida: 22, iniIntervalo: null, fimIntervalo: null },
+          ],
+        },
+      ],
+    );
+    const novos = a.turnos.filter((x) => x.matricula === 'VAGA-1');
+    expect(novos).toEqual([
+      {
+        matricula: 'VAGA-1',
+        dia: 4,
+        entrada: 16,
+        saida: 22,
+        iniIntervalo: null,
+        fimIntervalo: null,
+      },
+      {
+        matricula: 'VAGA-1',
+        dia: 5,
+        entrada: 16,
+        saida: 22,
+        iniIntervalo: null,
+        fimIntervalo: null,
+      },
+    ]);
+    expect(a.turnos.some((x) => x.matricula === 'A')).toBe(true);
+  });
+  it('vaga que já existe ignora `turnos` e mantém os dela; vaga nova seguinte recebe o próximo número', () => {
+    const a = aplicarVagasEDesligados(
+      quadro,
+      [t('A')],
+      [{ funcao: 'Caixa', cargaH: 20, turnos: [{ dia: 1, entrada: 9, saida: 13 }] }],
+    );
+    const b = aplicarVagasEDesligados(
+      a.quadro,
+      [...a.turnos, t('VAGA-1', 2)],
+      [
+        {
+          matricula: 'VAGA-1',
+          funcao: 'Caixa',
+          cargaH: 20,
+          turnos: [{ dia: 6, entrada: 8, saida: 12 }],
+        },
+        { funcao: 'Atendimento', cargaH: 8, turnos: [{ dia: 3, entrada: 10, saida: 14 }] },
+      ],
+    );
+    expect(
+      b.turnos
+        .filter((x) => x.matricula === 'VAGA-1')
+        .map((x) => x.dia)
+        .sort(),
+    ).toEqual([1, 2]);
+    expect(b.turnos.filter((x) => x.matricula === 'VAGA-2')).toHaveLength(1);
+  });
+  it('remover a vaga apaga os turnos dela', () => {
+    const a = aplicarVagasEDesligados(
+      quadro,
+      [],
+      [{ funcao: 'Caixa', cargaH: 12, turnos: [{ dia: 1, entrada: 9, saida: 13 }] }],
+    );
+    const b = aplicarVagasEDesligados(a.quadro, a.turnos, []);
+    expect(b.turnos.some((x) => x.matricula === 'VAGA-1')).toBe(false);
+  });
+});
+
 describe('vagasSugeridas', () => {
   const dias = [0, 1, 2, 3, 4, 5].map((dia) => ({ dia, abre: 8, fecha: 22 }));
-  it('sugere uma vaga parcial quando falta pouco', () => {
+  it('sugere uma vaga integral quando falta pouco', () => {
     const q: PessoaSim[] = [
       { matricula: 'A', nome: 'Ana', funcao: 'Farmacêutico', cargaH: 44 },
       { matricula: 'B', nome: 'Bia', funcao: 'Farmacêutico', cargaH: 44 },
     ];
     expect(vagasSugeridas(regraPara('r40', false), dias, { Farmacêutico: 1 }, q)).toEqual([
-      { funcao: 'Farmacêutico', cargaH: 4 },
+      { funcao: 'Farmacêutico', cargaH: 40 },
     ]);
   });
-  it('falta muito: 84 h sem ninguém = 2 vagas inteiras e 1 parcial de 4 h, para o farmacêutico e para a meta do dono', () => {
+  it('falta muito: 84 h sem ninguém = 3 vagas integrais (spec 044), para o farmacêutico e para a meta do dono', () => {
     const v = vagasSugeridas(regraPara('r40', false), dias, { Caixa: 1 }, []);
     expect(v).toEqual([
       { funcao: 'Farmacêutico', cargaH: 40 },
       { funcao: 'Farmacêutico', cargaH: 40 },
-      { funcao: 'Farmacêutico', cargaH: 4 },
+      { funcao: 'Farmacêutico', cargaH: 40 },
       { funcao: 'Caixa', cargaH: 40 },
       { funcao: 'Caixa', cargaH: 40 },
-      { funcao: 'Caixa', cargaH: 4 },
+      { funcao: 'Caixa', cargaH: 40 },
     ]);
   });
 });

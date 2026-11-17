@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, esquecerConta, getGe, setGe, usarSessao } from "../api/client.js";
+import { limpar as limparMedicao, registrar } from "../analytics/servico.js";
 import { Botao } from "../components/ui/index.jsx";
 import { confirmarSaida } from "../features/cadastro-loja/guardaSaida.js";
 import { CAMINHO_DE_RETORNO, CAMINHO_INICIAL, faseDaFalha, grupoInicial } from "./sessao.js";
@@ -54,6 +55,7 @@ export default function PortaoDeLogin({ children }) {
   const [sessao, setSessao] = useState(null);
 
   const perderSessao = useCallback(() => {
+    limparMedicao();
     setSessao(null);
     setFase("sem-sessao");
   }, []);
@@ -84,6 +86,7 @@ export default function PortaoDeLogin({ children }) {
     }
     try {
       entrar(await api("/auth/sso/exchange", { method: "POST", body: { code } }));
+      registrar("login_concluido");
     } catch (e) {
       setFase(faseDaFalha(e.code));
     }
@@ -104,6 +107,7 @@ export default function PortaoDeLogin({ children }) {
     try {
       await api("/auth/sair", { method: "POST" });
       esquecerConta();
+      limparMedicao();
       setSessao(null);
       setFase("saiu");
     } catch {

@@ -1,8 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { saldoDaSimulacao } from './saldo-simulacao.js';
 
-const s = (folhaExtra: number | null, horaExtra: number | null, vendaEstimada: number | null, vendaQueSai: number | null) =>
-  saldoDaSimulacao({ folhaExtra, horaExtra, vendaEstimada, vendaQueSai });
+const s = (
+  folhaExtra: number | null,
+  horaExtra: number | null,
+  vendaEstimada: number | null,
+  vendaQueSai: number | null,
+) => saldoDaSimulacao({ folhaExtra, horaExtra, vendaEstimada, vendaQueSai });
 
 describe('saldo da simulação (contra a folha atual)', () => {
   it('reduzindo: folha extra 0 e venda que deixa de entrar 41.916 = −41.916', () => {

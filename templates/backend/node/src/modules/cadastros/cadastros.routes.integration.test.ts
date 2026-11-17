@@ -159,6 +159,19 @@ describe('cadastros (rotas)', () => {
     ).toBe(400);
   });
 
+  it('loja nova nasce com a convenção coletiva (8h24 por dia) permitida; dá para desligar por loja', async () => {
+    const c = await postLoja({ codigo: '014', nome: 'Loja Catorze' });
+    expect(c.status).toBe(201);
+    const nasceu = await prisma.loja.findUnique({ where: { id: c.body.id } });
+    expect(nasceu?.convencao8h24).toBe(true);
+    const off = await reqGe()
+      .put(`/api/v1/lojas/${c.body.id}/configuracao`)
+      .set({ 'X-Perfil': 'TENANT_ADMIN', 'X-GE': GE_INICIAL_ID })
+      .send({ convencao8h24: false });
+    expect(off.status).toBe(200);
+    expect((await prisma.loja.findUnique({ where: { id: c.body.id } }))?.convencao8h24).toBe(false);
+  });
+
   describe('horário da loja por dia da semana', () => {
     const dia = (abre: string, fecha: string) => ({ aberta: true, abre, fecha });
     const semanaCompleta = {
@@ -432,7 +445,6 @@ describe('cadastros (rotas)', () => {
     const fat = {
       dias: [12000, 12000, 12000, 12000, 15000, 18000, null],
       mensal: 420000,
-      margemPct: 28,
     };
 
     it('o dono grava e lê; gestor e consulta nem recebem o campo', async () => {
@@ -486,8 +498,9 @@ describe('cadastros (rotas)', () => {
       expect(up.body.mapeamento.lojas.colunas).toMatchObject({
         fat_seg: 2,
         fat_mensal: 3,
-        margem_pct: 4,
       });
+      // A coluna de margem de planilhas antigas é reconhecida (não cai em outra coluna) e ignorada.
+      expect(up.body.mapeamento.lojas.colunas).toMatchObject({ margem_pct: 4 });
       const ok = await reqGe()
         .post(`/api/v1/importacoes/cadastro/${up.body.id}/confirmar`)
         .set(operador)
@@ -496,7 +509,7 @@ describe('cadastros (rotas)', () => {
       expect(ok.body.lojas).toEqual({ novos: 1, atualizados: 0 });
       expect(ok.body.avisos.join(' ')).toContain('só o dono do grupo grava');
       expect((await prisma.loja.findFirst({ where: { codigo: '050' } }))?.faturamento).toBeNull();
-      // O dono, na mesma loja que já existe, grava o faturamento e a margem.
+      // O dono, na mesma loja que já existe, grava o faturamento (a margem da planilha é ignorada).
       const up2 = await reqGe()
         .post('/api/v1/importacoes/cadastro')
         .set(admin)
@@ -507,9 +520,78 @@ describe('cadastros (rotas)', () => {
         .set(admin)
         .send({ mapeamento: up2.body.mapeamento });
       expect(ok2.body.lojas).toEqual({ novos: 0, atualizados: 1 });
-      expect(
-        (await prisma.loja.findFirst({ where: { codigo: '050' } }))?.faturamento,
-      ).toMatchObject({ mensal: 300000, margemPct: 25 });
+      expect((await prisma.loja.findFirst({ where: { codigo: '050' } }))?.faturamento).toEqual({
+        dias: [10000, null, null, null, null, null, null],
+        mensal: 300000,
+      });
+    });
+
+    it('CMV médio: o dono grava e reabre; fora de 0 a 100 é recusado; a margem antiga nunca é gravada (spec 034)', async () => {
+      const c = await postLoja({ codigo: '060', nome: 'Loja M' });
+      expect(c.status).toBe(201);
+      const lerFat = async () =>
+        (await prisma.loja.findFirst({ where: { codigo: '060' } }))?.faturamento;
+      const salvar = (corpo: object) =>
+        reqGe().patch(`/api/v1/lojas/${c.body.id}`).set(admin).send({ faturamento: corpo });
+      // loja nova nasce sem CMV médio; a margem enviada é ignorada
+      expect((await salvar({ ...fat, margemPct: 28 })).status).toBe(200);
+      expect(await lerFat()).not.toHaveProperty('margemPct');
+      expect(await lerFat()).not.toHaveProperty('cmvPct');
+      // o dono grava o CMV médio e ele volta igual
+      expect((await salvar({ ...fat, cmvPct: 65 })).status).toBe(200);
+      expect(await lerFat()).toMatchObject({ cmvPct: 65 });
+      // salvar o faturamento sem falar do CMV não o apaga; null o limpa
+      await salvar({ dias: [1, 1, 1, 1, 1, 1, 1], mensal: 5 });
+      expect(await lerFat()).toMatchObject({ mensal: 5, cmvPct: 65 });
+      await salvar({ dias: [1, 1, 1, 1, 1, 1, 1], mensal: 5, cmvPct: null });
+      expect(await lerFat()).not.toHaveProperty('cmvPct');
+      // fora da faixa
+      expect((await salvar({ ...fat, cmvPct: 120 })).status).toBe(400);
+      expect((await salvar({ ...fat, cmvPct: -5 })).status).toBe(400);
+      // gestor não grava faturamento (nem CMV)
+      const g = await reqGe()
+        .patch(`/api/v1/lojas/${c.body.id}`)
+        .set(gestor)
+        .send({ faturamento: { ...fat, cmvPct: 10 } });
+      expect(g.status).toBe(403);
+    });
+
+    it('planilha de Cadastro: a coluna CMV médio (%) preenche o campo e mantém o faturamento; a margem antiga é ignorada', async () => {
+      const c = await postLoja({ codigo: '061', nome: 'Loja N' });
+      await reqGe()
+        .patch(`/api/v1/lojas/${c.body.id}`)
+        .set(admin)
+        .send({ faturamento: { dias: [3, 3, 3, 3, 3, 3, 3], mensal: 90 } });
+      const importar = async (cab: string[], linha: string[]) => {
+        const up = await reqGe()
+          .post('/api/v1/importacoes/cadastro')
+          .set(admin)
+          .attach('arquivo', await planilha([linha], [], cab), 'f.xlsx');
+        const ok = await reqGe()
+          .post(`/api/v1/importacoes/cadastro/${up.body.id}/confirmar`)
+          .set(admin)
+          .send({ mapeamento: up.body.mapeamento });
+        expect(ok.status).toBe(200);
+        expect(ok.body.erros ?? []).toEqual([]);
+      };
+      const lerFat = async () =>
+        (await prisma.loja.findFirst({ where: { codigo: '061' } }))?.faturamento;
+      // só o CMV médio: o faturamento já guardado fica
+      await importar(['Cód_Loja', 'Nome_Loja', 'CMV_Medio_Pct'], ['061', 'Loja N', '65']);
+      expect(await lerFat()).toMatchObject({ dias: [3, 3, 3, 3, 3, 3, 3], mensal: 90, cmvPct: 65 });
+      // faturamento novo sem a coluna de CMV: o CMV guardado fica
+      await importar(
+        ['Cód_Loja', 'Nome_Loja', 'Fat_Seg', 'Fat_Mensal'],
+        ['061', 'Loja N', '7000', '70000'],
+      );
+      expect(await lerFat()).toMatchObject({ mensal: 70000, cmvPct: 65 });
+      // planilha antiga com a coluna de margem (até 150): importa sem erro e a margem não é gravada
+      await importar(
+        ['Cód_Loja', 'Nome_Loja', 'Fat_Seg', 'Fat_Mensal', 'Margem_Pct'],
+        ['061', 'Loja N', '8000', '80000', '150'],
+      );
+      expect(await lerFat()).toMatchObject({ mensal: 80000, cmvPct: 65 });
+      expect(await lerFat()).not.toHaveProperty('margemPct');
     });
   });
   describe('importação em massa: configuração da loja e horário fixo (spec 014)', () => {
@@ -598,7 +680,7 @@ describe('cadastros (rotas)', () => {
       expect((await loja('070'))?.custos).toEqual({ salarioMedio: { Atendimento: 2100 } });
     });
 
-    it('o dono ajusta RAT, FAP e rescisão por planilha; valor fora da faixa ignora só o ajuste e avisa', async () => {
+    it('colunas antigas de RAT, FAP e rescisão são ignoradas: a planilha importa sem erro e os ajustes guardados não mudam', async () => {
       const cab = [
         'Código da loja',
         'Nome da loja',
@@ -607,34 +689,25 @@ describe('cadastros (rotas)', () => {
         'FAP',
         'Provisão de rescisão (Sim/Não)',
       ];
-      await reqGe()
-        .patch(`/api/v1/lojas/${(await loja('070'))!.id}`)
-        .set(admin)
-        .send({ regimeTributario: 'presumido' });
+      const id = (await loja('070'))!.id;
+      await reqGe().patch(`/api/v1/lojas/${id}`).set(admin).send({ regimeTributario: 'presumido' });
+      // valores válidos, inválidos e "talvez": nenhum gera erro nem aviso de ajuste
       const { ok } = await importar(
         admin,
         await planilha([['070', 'Loja Setenta', '2100', '3', '1,5', 'Sim']], [], cab),
       );
       expect(ok.body.erros).toEqual([]);
-      expect((await loja('070'))?.custos).toEqual({
-        salarioMedio: { Atendimento: 2100 },
-        encargos: { ratPct: 3, fap: 1.5, rescisaoLigada: true },
-      });
-      // o total da loja: RAT 3% × FAP 1,5 + rescisão: 65,18552 + 5 = 70,19
-      const c = await reqGe()
-        .get(`/api/v1/lojas/${(await loja('070'))!.id}/custos`)
-        .set(admin);
-      expect(c.body.encargos.totalPct).toBe(70.19);
-      // RAT 0,5 no Presumido é fora da faixa (1 a 3): o ajuste é ignorado, o salário novo entra
+      expect((await loja('070'))?.custos).toEqual({ salarioMedio: { Atendimento: 2100 } });
       const dois = await importar(
         admin,
-        await planilha([['070', 'Loja Setenta', '2500', '0,5', '', '']], [], cab),
+        await planilha([['070', 'Loja Setenta', '2500', '0,5', '9', 'talvez']], [], cab),
       );
-      expect(dois.ok.body.avisos.join(' ')).toContain('RAT');
-      expect((await loja('070'))?.custos).toMatchObject({
-        salarioMedio: { Atendimento: 2500 },
-        encargos: { ratPct: 3, fap: 1.5, rescisaoLigada: true },
-      });
+      expect(dois.ok.body.erros).toEqual([]);
+      expect(dois.ok.body.avisos.join(' ')).not.toContain('RAT');
+      expect((await loja('070'))?.custos).toEqual({ salarioMedio: { Atendimento: 2500 } });
+      // o total da loja é só o do regime: 62,2%
+      const c = await reqGe().get(`/api/v1/lojas/${id}/custos`).set(admin);
+      expect(c.body.encargos.totalPct).toBe(62.2);
     });
 
     it('o dono não cria loja: código inexistente vira erro com a linha da planilha', async () => {
@@ -698,7 +771,8 @@ describe('cadastros (rotas)', () => {
       expect(ok.body.lojas).toEqual({ novos: 0, atualizados: 0 });
       expect(ok.body.avisos.join(' ')).toContain('A aba Lojas foi ignorada');
       const l = await loja('070');
-      expect(l?.convencao8h24).toBe(false);
+      // A loja não foi alterada: segue com o padrão (convenção permitida).
+      expect(l?.convencao8h24).toBe(true);
       expect(l?.custos).toBeNull();
       expect(l?.faturamento).toBeNull();
     });
@@ -783,6 +857,51 @@ describe('cadastros (rotas)', () => {
       expect(lista[0]).toMatchObject({ cpf: '529.982.247-25', entrada: '08:00' });
     });
 
+    it('intervalo: guarda, devolve, edita, limpa e recusa os erros em português', async () => {
+      const r = await novo({
+        entrada: '08:00',
+        saida: '17:00',
+        iniIntervalo: '12:00',
+        fimIntervalo: '13:00',
+        dias: [0, 1],
+      });
+      expect(r.status).toBe(201);
+      expect(r.body).toMatchObject({ iniIntervalo: '12:00', fimIntervalo: '13:00' });
+      const lista = (await reqGe().get(`/api/v1/funcionarios?lojaId=${lojaId}`).set(admin)).body
+        .data;
+      expect(lista[0]).toMatchObject({ iniIntervalo: '12:00', fimIntervalo: '13:00' });
+      const id = r.body.id;
+      const edita = (corpo: object) =>
+        reqGe().patch(`/api/v1/funcionarios/${id}`).set(admin).send(corpo);
+      expect((await edita({ iniIntervalo: '12:30', fimIntervalo: '13:30' })).body).toMatchObject({
+        iniIntervalo: '12:30',
+        fimIntervalo: '13:30',
+      });
+      // só um dos dois
+      const so = await edita({ fimIntervalo: null });
+      expect(so.status).toBe(400);
+      expect(so.body.error.message).toContain('início e o fim do intervalo');
+      // fim antes do início, e fora do turno (a saída que fica é a de 17:00)
+      expect(
+        (await edita({ iniIntervalo: '13:00', fimIntervalo: '12:00' })).body.error.message,
+      ).toContain('depois do início');
+      expect(
+        (await edita({ iniIntervalo: '16:30', fimIntervalo: '17:30' })).body.error.message,
+      ).toContain('dentro do horário');
+      // encurtar o turno para antes do intervalo também é recusado
+      expect((await edita({ saida: '12:15' })).status).toBe(400);
+      // limpar os dois
+      const limpo = await edita({ iniIntervalo: null, fimIntervalo: null });
+      expect(limpo.status).toBe(200);
+      expect(limpo.body.iniIntervalo).toBeUndefined();
+    });
+
+    it('intervalo sem entrada e saída é recusado', async () => {
+      const r = await novo({ iniIntervalo: '12:00', fimIntervalo: '13:00' });
+      expect(r.status).toBe(400);
+      expect(r.body.error.message).toContain('entrada e a saída');
+    });
+
     it('quem só tem carga semanal mostra a mensal equivalente', async () => {
       const r = await novo({ cargaSemanalH: 42 });
       expect(r.body.cargaMensalH).toBe(210);
@@ -861,14 +980,21 @@ describe('cadastros (rotas)', () => {
         .map(() => ({ aberta: true, abre: '08:00', fecha: '20:00' }))
         .concat([{ aberta: false } as never]),
     };
-    const fatCompleto = { dias: [1000, 1000, 1000, 1000, 1000, 1000, null], mensal: null, margemPct: 30 };
+    const fatCompleto = {
+      dias: [1000, 1000, 1000, 1000, 1000, 1000, null],
+      mensal: null,
+      margemPct: 30,
+    };
     const dadosOk = { cidade: 'Sumaré', uf: 'SP', regimeTributario: 'real', horarios: semanaToda };
 
     // Loja completa: dados, horário, faturamento dos dias abertos, margem, salário do farmacêutico e um farmacêutico.
     const completa = async (codigo: string, nome: string, extra: Record<string, unknown> = {}) => {
       const c = await postLoja({ codigo, nome, ...dadosOk, ...extra });
       expect(c.status).toBe(201);
-      await reqGe().patch(`/api/v1/lojas/${c.body.id}`).set(admin).send({ faturamento: fatCompleto });
+      await reqGe()
+        .patch(`/api/v1/lojas/${c.body.id}`)
+        .set(admin)
+        .send({ faturamento: fatCompleto });
       await reqGe()
         .put(`/api/v1/lojas/${c.body.id}/custos`)
         .set(admin)
@@ -876,7 +1002,12 @@ describe('cadastros (rotas)', () => {
       await reqGe()
         .post('/api/v1/funcionarios')
         .set(admin)
-        .send({ matricula: `F-${codigo}`, nome: `Farma ${codigo}`, lojaId: c.body.id, funcaoEscala: 'Farmacêutico' });
+        .send({
+          matricula: `F-${codigo}`,
+          nome: `Farma ${codigo}`,
+          lojaId: c.body.id,
+          funcaoEscala: 'Farmacêutico',
+        });
       return c.body as { id: string; cnpj: string };
     };
     const lista = (q = '', h: Record<string, string> = admin) =>
@@ -887,7 +1018,7 @@ describe('cadastros (rotas)', () => {
       await postLoja({ codigo: '002', nome: 'Sem nada' });
       const r = (await lista()).body;
       const por = Object.fromEntries(r.data.map((l: { codigo: string }) => [l.codigo, l]));
-      expect(por['001'].situacao).toEqual({ status: 'completo', motivo: null });
+      expect(por['001'].situacao).toEqual({ status: 'completo', motivo: null, quantidade: 0 });
       expect(por['002'].situacao.status).toBe('revisar');
       expect(por['002'].situacao.motivo).toMatch(/Faltam dados da loja/);
     });
@@ -909,23 +1040,57 @@ describe('cadastros (rotas)', () => {
       expect((await lista('?uf=XX')).body.data).toEqual([]);
     });
 
-    it('sem margem ou sem salário médio a loja fica em Revisar, e a lista nunca traz os custos', async () => {
+    it('sem salário médio a loja fica em Revisar (a margem é opcional), e a lista nunca traz os custos', async () => {
       const c = await postLoja({ codigo: '010', nome: 'Sem custos', ...dadosOk });
-      await reqGe().patch(`/api/v1/lojas/${c.body.id}`).set(admin).send({ faturamento: fatCompleto });
       await reqGe()
-        .post('/api/v1/funcionarios')
+        .patch(`/api/v1/lojas/${c.body.id}`)
         .set(admin)
-        .send({ matricula: 'F-010', nome: 'Farma 010', lojaId: c.body.id, funcaoEscala: 'Farmacêutico' });
+        .send({ faturamento: fatCompleto });
+      await reqGe().post('/api/v1/funcionarios').set(admin).send({
+        matricula: 'F-010',
+        nome: 'Farma 010',
+        lojaId: c.body.id,
+        funcaoEscala: 'Farmacêutico',
+      });
       const sem = (await lista('?busca=010')).body.data[0];
-      expect(sem.situacao).toEqual({ status: 'revisar', motivo: 'Falta o salário médio de Farmacêutico' });
-      await reqGe().patch(`/api/v1/lojas/${c.body.id}`).set(admin).send({ faturamento: { ...fatCompleto, margemPct: null } });
-      expect((await lista('?busca=010')).body.data[0].situacao.motivo).toBe('Falta a margem bruta média');
-      await reqGe().put(`/api/v1/lojas/${c.body.id}/custos`).set(admin).send({ salarioMedio: { Farmacêutico: 9000 } });
+      expect(sem.situacao).toEqual({
+        status: 'revisar',
+        motivo: 'Falta o salário médio de Farmacêutico',
+        quantidade: 1,
+      });
+      await reqGe()
+        .patch(`/api/v1/lojas/${c.body.id}`)
+        .set(admin)
+        .send({ faturamento: { ...fatCompleto, margemPct: null } });
+      expect((await lista('?busca=010')).body.data[0].situacao.motivo).toBe(
+        'Falta o salário médio de Farmacêutico',
+      );
+      await reqGe()
+        .put(`/api/v1/lojas/${c.body.id}/custos`)
+        .set(admin)
+        .send({ salarioMedio: { Farmacêutico: 9000 } });
       for (const h of [admin, gestor]) {
         const l = (await lista('?busca=010', h)).body.data[0];
         expect('custos' in l).toBe(false);
         expect(JSON.stringify(l)).not.toContain('9000');
       }
+    });
+
+    it('o painel da loja traz todas as pendências e a equipe, sem valores; a lista traz só a quantidade', async () => {
+      const c = await postLoja({ codigo: '011', nome: 'Pendências', ...dadosOk });
+      const painel = (await reqGe().get(`/api/v1/lojas/${c.body.id}/painel`).set(admin)).body;
+      const ids = painel.situacao.pendencias.map((p: { id: string }) => p.id);
+      expect(ids).toEqual(['farmaceutico', 'faturamentoDia', 'salario:Farmacêutico']);
+      expect(painel.situacao.quantidade).toBe(3);
+      expect(painel.equipe).toEqual({ farmaceuticos: 0, funcoesNaEquipe: [] });
+      expect(JSON.stringify(painel.situacao.pendencias)).not.toMatch(/R\$|\d{4}/);
+      const linha = (await lista('?busca=011')).body.data[0];
+      expect(linha.situacao).toEqual({
+        status: 'revisar',
+        motivo: 'Falta cadastrar um farmacêutico na equipe',
+        quantidade: 3,
+      });
+      expect('pendencias' in linha.situacao).toBe(false);
     });
 
     it('busca pelo CNPJ, com ou sem pontuação, e pelo código', async () => {
@@ -935,7 +1100,9 @@ describe('cadastros (rotas)', () => {
       const pontuado = `${f.slice(0, 2)}.${f.slice(2, 5)}.${f.slice(5, 8)}/${f.slice(8, 12)}-${f.slice(12)}`;
       for (const q of [f, pontuado, f.slice(0, 8)])
         expect((await lista(`?busca=${encodeURIComponent(q)}`)).body.data[0].codigo).toBe('001');
-      expect((await lista('?busca=002')).body.data.map((l: { codigo: string }) => l.codigo)).toEqual(['002']);
+      expect(
+        (await lista('?busca=002')).body.data.map((l: { codigo: string }) => l.codigo),
+      ).toEqual(['002']);
     });
 
     it('pagina em cima do resultado filtrado, na ordem do código', async () => {
@@ -955,7 +1122,9 @@ describe('cadastros (rotas)', () => {
         .set(admin)
         .send({ faturamento: { ...fatCompleto, mensal: 900000 } });
       const rev = (await lista('', gestor)).body.data[0];
-      expect(rev.situacao.motivo).toBe('O faturamento mensal informado difere mais de 10% da soma dos dias');
+      expect(rev.situacao.motivo).toBe(
+        'O faturamento mensal informado difere mais de 10% da soma dos dias',
+      );
       expect(JSON.stringify(rev)).not.toMatch(/900000/);
     });
 

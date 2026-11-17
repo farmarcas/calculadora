@@ -1,12 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  interpretarBase,
-  interpretarEscala,
-  lerDias,
-  lerHora,
-  lerNumero,
-  somarPorHora,
-} from './interpretar.js';
+import { interpretarBase, lerDias, lerHora, lerNumero, somarPorHora } from './interpretar.js';
 
 describe('leitura de valores', () => {
   it('horas em vários formatos', () => {
@@ -24,60 +17,6 @@ describe('leitura de valores', () => {
   it('números no formato brasileiro', () => {
     expect(lerNumero('1.234,56')).toBe(1234.56);
     expect(lerNumero('R$ 310,00')).toBe(310);
-  });
-});
-
-const colE = {
-  loja: 0,
-  matricula: 1,
-  nome: 2,
-  funcao: 3,
-  dias: 4,
-  folga: 5,
-  entrada: 6,
-  ini_intervalo: 7,
-  fim_intervalo: 8,
-  saida: 9,
-  carga: 10,
-};
-
-describe('interpretarEscala', () => {
-  it('aceita, deduz função, aceita dias contados com folga e rejeita turno ruim', () => {
-    const aba = {
-      nome: 'E',
-      cabecalhos: [],
-      linhas: [
-        [
-          '001',
-          'F1',
-          'Ana',
-          'Farmacêutica',
-          'Seg a Sáb',
-          '',
-          '08:00',
-          '12:00',
-          '13:00',
-          '17:00',
-          '44',
-        ],
-        ['001', 'F2', 'Bia', 'Balconista', '6', 'Dom', '09:00', '', '', '18:00', ''],
-        ['001', 'F3', 'Caio', 'Gerente', 'Seg a Sex', '', '08:00', '', '', '17:00', ''],
-        ['001', 'F4', 'Duda', 'Caixa', 'Seg a Sex', '', '18:00', '', '', '08:00', ''],
-        ['001', 'F5', 'Edu', 'Caixa', 'Seg a Sex', '', '08:00', '12:00', '', '17:00', ''],
-      ],
-    };
-    const r = interpretarEscala(aba, colE, new Map());
-    expect(r.turnos.map((t) => [t.matricula, t.funcao, t.status])).toEqual([
-      ['F1', 'Farmacêutico', 'ok'],
-      ['F2', 'Atendimento', 'ok'],
-      ['F3', null, 'fora_calculo'],
-    ]);
-    expect(r.turnos[1]!.dias).toEqual([0, 1, 2, 3, 4, 5]);
-    expect(r.turnos[0]!.cargaH).toBe(44);
-    expect(r.erros.map((e) => e.motivo)).toEqual([
-      'Saída antes da entrada',
-      'Intervalo incompleto (informe início e fim)',
-    ]);
   });
 });
 

@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { inflateSync } from 'node:zlib';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import ExcelJS from 'exceljs';
 import { GE_INICIAL_ID } from '../../shared/ge.js';
@@ -80,9 +82,38 @@ describe('simulações (rotas)', () => {
     expect(e.body.avaliacao.podeGravar).toBe(false);
     expect(e.body.avaliacao.erros[0].texto).toContain('Sem farmacêutico em Ter 14:00–16:00');
 
+    // A escala por turno saiu da Simulação: erro de turno é só informação e não trava mais o gravar.
     const g = await reqGe().post(`/api/v1/simulacoes/${sim.id}/gravar`).set(admin);
-    expect(g.status).toBe(400);
-    expect(g.body.error.message).toContain('Não dá para gravar');
+    expect(g.status).toBe(200);
+  });
+
+  it('trocar a simulação para a regra de 40h corta os turnos para 8h por dia, sem manter o dia da regra de 42h', async () => {
+    const sim = (await criar({ nome: 'Troca de regra', regra: 'r42' })).body;
+    type T = {
+      matricula: string;
+      dia: number;
+      entrada: number;
+      saida: number;
+      iniIntervalo?: number | null;
+      fimIntervalo?: number | null;
+    };
+    const longos = (sim.turnos as T[]).map((t) => ({
+      ...t,
+      entrada: 8,
+      saida: 16.4,
+      iniIntervalo: null,
+      fimIntervalo: null,
+    }));
+    const a = await reqGe().put(`/api/v1/simulacoes/${sim.id}`).set(admin).send({ turnos: longos });
+    expect(a.status).toBe(200);
+    const e = await reqGe().put(`/api/v1/simulacoes/${sim.id}`).set(admin).send({ regra: 'r40' });
+    expect(e.status).toBe(200);
+    expect(e.body.regraInfo.maxDia).toBe(8);
+    const liquida = (t: T) =>
+      t.saida -
+      t.entrada -
+      (t.iniIntervalo != null && t.fimIntervalo != null ? t.fimIntervalo - t.iniIntervalo : 0);
+    for (const t of e.body.turnos as T[]) expect(liquida(t)).toBeLessThanOrEqual(8);
   });
 
   it('grava sem erros, congela e não deixa editar; clonar abre um rascunho novo', async () => {
@@ -137,7 +168,7 @@ describe('simulações (rotas)', () => {
     ).toBe(403);
   });
 
-  it('recusa turno de quem não está na simulação e horário fora de 15 em 15 minutos', async () => {
+  it('recusa turno de quem não está na simulação e horário com fração de minuto; aceita minutos inteiros (spec 047)', async () => {
     const sim = (await criar()).body;
     const turno = { dia: 0, entrada: 8, saida: 12, iniIntervalo: null, fimIntervalo: null };
     expect(
@@ -153,14 +184,26 @@ describe('simulações (rotas)', () => {
         await reqGe()
           .put(`/api/v1/simulacoes/${sim.id}`)
           .set(admin)
-          .send({ turnos: [{ matricula: 'F1', ...turno, entrada: 8.1 }] })
+          .send({ turnos: [{ matricula: 'F1', ...turno, entrada: 8.0001 }] })
       ).status,
     ).toBe(400);
+    // 8h06 e 12h24 são minutos inteiros: valem
+    expect(
+      (
+        await reqGe()
+          .put(`/api/v1/simulacoes/${sim.id}`)
+          .set(admin)
+          .send({ turnos: [{ matricula: 'F1', ...turno, entrada: 8.1, saida: 12.4 }] })
+      ).status,
+    ).toBe(200);
   });
 
-  it('cria vazia a partir do cadastro e avisa quando falta escala atual', async () => {
-    await prisma.carga.deleteMany();
-    expect((await criar()).status).toBe(400);
+  it('cria vazia a partir do cadastro e avisa quando nenhum funcionário tem horário no Cadastro', async () => {
+    await prisma.funcionario.deleteMany();
+    const sem = await criar();
+    expect(sem.status).toBe(400);
+    expect(sem.body.error.code).toBe('SEM_HORARIO_NO_CADASTRO');
+    expect(sem.body.error.message).toContain('Cadastre o horário dos funcionários');
     await reqGe().post('/api/v1/funcionarios').set(admin).send({
       matricula: 'M1',
       nome: 'Carla',
@@ -176,7 +219,7 @@ describe('simulações (rotas)', () => {
     );
   });
 
-  describe('aprovar, comparar e exportar', () => {
+  describe('comparar, descartar e exportar', () => {
     const gravada = async (nome: string) => {
       const sim = (await criar({ nome, regra: 'r40' })).body;
       const g = await reqGe().post(`/api/v1/simulacoes/${sim.id}/gravar`).set(admin);
@@ -184,76 +227,107 @@ describe('simulações (rotas)', () => {
       return g.body;
     };
 
-    it('só o dono aprova, só gravada, e a anterior vira substituída (uma em uso por loja)', async () => {
+    it('a rota de aprovar não existe mais e qualquer simulação gravada pode ser descartada', async () => {
       const a = await gravada('Plano A');
-      const b = await gravada('Plano B');
-      const gestor = { 'X-Perfil': 'SCHEDULE_MANAGER', 'X-GE': GE_INICIAL_ID };
       expect(
-        (await reqGe().post(`/api/v1/simulacoes/${a.id}/aprovar`).set(gestor).send({})).status,
-      ).toBe(403);
-
-      const rascunho = (await criar({ nome: 'Rascunho', regra: 'r40' })).body;
-      expect(
-        (await reqGe().post(`/api/v1/simulacoes/${rascunho.id}/aprovar`).set(admin).send({}))
-          .status,
-      ).toBe(409);
-
-      const ok = await reqGe()
-        .post(`/api/v1/simulacoes/${a.id}/aprovar`)
-        .set(admin)
-        .send({ vigenciaInicio: '2026-12-15' });
-      expect(ok.status).toBe(200);
-      expect(ok.body).toMatchObject({
-        status: 'em_uso',
-        aprovadaPor: 'TENANT_ADMIN',
-        desatualizada: false,
-      });
-      expect(ok.body.vigenciaInicio).toContain('2026-12-15');
-
-      await reqGe().post(`/api/v1/simulacoes/${b.id}/aprovar`).set(admin).send({});
+        (await reqGe().post(`/api/v1/simulacoes/${a.id}/aprovar`).set(admin).send({})).status,
+      ).toBe(404);
       const lista = (await reqGe().get(`/api/v1/lojas/${lojaId}/simulacoes`)).body.data;
-      expect(lista.find((x: { id: string }) => x.id === a.id).status).toBe('substituida');
-      expect(lista.find((x: { id: string }) => x.id === b.id).status).toBe('em_uso');
-      expect(lista.find((x: { id: string }) => x.id === b.id).vigenciaInicio).toContain('20');
-      expect((await reqGe().post(`/api/v1/simulacoes/${b.id}/descartar`).set(admin)).status).toBe(
-        409,
-      );
-      expect(await prisma.auditoria.count({ where: { acao: 'simulacao.aprovada' } })).toBe(2);
+      expect(lista.find((x: { id: string }) => x.id === a.id).status).toBe('gravada');
+      const d = await reqGe().post(`/api/v1/simulacoes/${a.id}/descartar`).set(admin);
+      expect(d.status).toBe(200);
+      expect(d.body.status).toBe('descartada');
     });
 
-    it('compara 2 a 3 simulações e inclui a em uso como referência', async () => {
+    it('a migration troca em uso e substituída por gravada sem apagar nem mudar o resto', async () => {
+      const a = await gravada('Plano A');
+      const b = await gravada('Plano B');
+      const c = await gravada('Plano C');
+      await prisma.simulacao.update({
+        where: { id: a.id },
+        data: {
+          status: 'EM_USO',
+          aprovadaPor: 'TENANT_ADMIN',
+          vigenciaInicio: new Date('2026-12-15'),
+        },
+      });
+      await prisma.simulacao.update({
+        where: { id: b.id },
+        data: { status: 'SUBSTITUIDA', substituidaEm: new Date() },
+      });
+      const antes = await prisma.simulacao.findMany({ orderBy: { nome: 'asc' } });
+      const sql = readFileSync(
+        new URL(
+          '../../../prisma/migrations/20261105180000_simulacoes_sem_em_uso/migration.sql',
+          import.meta.url,
+        ),
+        'utf8',
+      );
+      await prisma.$executeRawUnsafe(sql);
+      const depois = await prisma.simulacao.findMany({ orderBy: { nome: 'asc' } });
+      expect(depois).toHaveLength(antes.length);
+      expect(depois.map((x) => x.status)).toEqual(['GRAVADA', 'GRAVADA', 'GRAVADA']);
+      // nada mais mudou: nome, quadro, premissas, resultado e os registros de aprovação continuam
+      expect(depois.map(({ status: _s, atualizadaEm: _a, ...resto }) => resto)).toEqual(
+        antes.map(({ status: _s, atualizadaEm: _a, ...resto }) => resto),
+      );
+      expect(depois.find((x) => x.id === a.id)?.aprovadaPor).toBe('TENANT_ADMIN');
+      expect(depois.find((x) => x.id === c.id)?.status).toBe('GRAVADA');
+    });
+
+    it('simulações que estavam em uso ou substituídas aparecem como gravadas e podem ser descartadas', async () => {
+      const a = await gravada('Plano A');
+      const b = await gravada('Plano B');
+      // como ficou o banco antes da migration que converteu os estados antigos
+      await prisma.simulacao.update({
+        where: { id: a.id },
+        data: { status: 'EM_USO', aprovadaPor: 'TENANT_ADMIN' },
+      });
+      await prisma.simulacao.update({ where: { id: b.id }, data: { status: 'SUBSTITUIDA' } });
+      const lista = (await reqGe().get(`/api/v1/lojas/${lojaId}/simulacoes`)).body.data;
+      expect(lista.map((x: { status: string }) => x.status)).toEqual(['gravada', 'gravada']);
+      expect(JSON.stringify(lista)).not.toMatch(/vigencia|aprovad/);
+      expect((await reqGe().post(`/api/v1/simulacoes/${a.id}/descartar`).set(admin)).status).toBe(
+        200,
+      );
+    });
+
+    it('compara 2 a 3 simulações, cada uma pelos próprios números, sem referência', async () => {
       const a = await gravada('Plano A');
       const b = await gravada('Plano B');
       const c = (await criar({ nome: 'Plano C', regra: 'r40' })).body;
-      await reqGe().post(`/api/v1/simulacoes/${a.id}/aprovar`).set(admin).send({});
 
       const r = await reqGe().get(
-        `/api/v1/lojas/${lojaId}/simulacoes/comparar?ids=${b.id},${c.id}`,
+        `/api/v1/lojas/${lojaId}/simulacoes/comparar?ids=${a.id},${b.id}`,
       );
       expect(r.status).toBe(200);
-      expect(r.body.simulacoes).toHaveLength(3);
-      expect(r.body.simulacoes[0]).toMatchObject({ id: a.id, referencia: true });
-      expect(r.body.simulacoes[1].sintese).toContain('simulação em uso (Plano A)');
+      expect(r.body.simulacoes.map((x: { id: string }) => x.id)).toEqual([a.id, b.id]);
+      expect(r.body).not.toHaveProperty('referenciaId');
+      expect(r.body.simulacoes[0]).not.toHaveProperty('referencia');
+      expect(r.body.simulacoes[0]).not.toHaveProperty('podeAprovar');
+      expect(r.body.simulacoes[1].sintese).toContain('Plano B cobre');
+      expect(r.body.simulacoes[1].sintese).not.toMatch(/em uso|aprovad/);
       expect(r.body.simulacoes[1].indicadores).toMatchObject({ erros: 0, coberturaPct: 100 });
-
+      // rascunho também entra, e a comparação continua exigindo ao menos duas
+      expect(
+        (await reqGe().get(`/api/v1/lojas/${lojaId}/simulacoes/comparar?ids=${b.id},${c.id}`)).body
+          .simulacoes,
+      ).toHaveLength(2);
       expect(
         (await reqGe().get(`/api/v1/lojas/${lojaId}/simulacoes/comparar?ids=${b.id}`)).status,
       ).toBe(400);
     });
 
-    it('avisa que a em uso ficou desatualizada quando o quadro muda no cadastro', async () => {
+    it('mudar o quadro no cadastro não marca nada como desatualizado (não há mais simulação em uso)', async () => {
       const a = await gravada('Plano A');
-      await reqGe().post(`/api/v1/simulacoes/${a.id}/aprovar`).set(admin).send({});
       await reqGe()
         .post('/api/v1/funcionarios')
         .set(admin)
         .send({ matricula: 'N1', nome: 'Novo', lojaId, funcaoEscala: 'Caixa', cargaSemanalH: 40 });
       const d = (await reqGe().get(`/api/v1/simulacoes/${a.id}`)).body;
-      expect(d.desatualizada).toBe(true);
-      expect(d.motivosDesatualizada[0]).toContain('Novo');
-      expect(d.status).toBe('em_uso'); // nada muda sozinho
-      const lista = (await reqGe().get(`/api/v1/lojas/${lojaId}/simulacoes`)).body.data;
-      expect(lista[0].desatualizada).toBe(true);
+      expect(d).not.toHaveProperty('desatualizada');
+      expect(d).not.toHaveProperty('motivosDesatualizada');
+      expect(d.status).toBe('gravada');
     });
 
     it('exporta o Excel da escala e registra na auditoria', async () => {
@@ -284,14 +358,14 @@ describe('simulações (rotas)', () => {
     it('adiciona vaga, avisa quando não tem turnos e não mexe no cadastro', async () => {
       const sim = (await criar()).body;
       const antes = await prisma.funcionario.count();
-      const r = await put(sim.id, { vagas: [{ funcao: 'Atendimento', cargaH: 24 }] });
+      const r = await put(sim.id, { vagas: [{ funcao: 'Atendimento', cargaH: 40 }] });
       expect(r.status).toBe(200);
       const vaga = r.body.quadro.find((p: { vaga?: boolean }) => p.vaga);
       expect(vaga).toMatchObject({
         matricula: 'VAGA-1',
         nome: 'Vaga 1',
         funcao: 'Atendimento',
-        cargaH: 24,
+        cargaH: 40,
       });
       expect(
         r.body.avaliacao.avisos.some((a: { regra: string }) => a.regra === 'vaga-sem-turnos'),
@@ -334,6 +408,61 @@ describe('simulações (rotas)', () => {
       expect(u.body.avaliacao.erros).toEqual([]);
     });
 
+    const comSalarios = () =>
+      reqGe()
+        .put(`/api/v1/lojas/${lojaId}/custos`)
+        .set(admin)
+        .send({ salarioMedio: { Farmacêutico: 8000, Atendimento: 2000 } });
+
+    it('desligar e religar (spec 054): pessoas e folha mudam; religar devolve o mesmo resultado e a mesma grade', async () => {
+      await comSalarios();
+      const sim = (await criar()).body;
+      const antes = (await reqGe().get(`/api/v1/simulacoes/${sim.id}`).set(admin)).body;
+      const d = (await put(sim.id, { desligados: ['F2'] })).body;
+      expect(d.resultado.emHoras.pessoas).toEqual({ hoje: 2, simulacao: 1 });
+      expect(d.resultado.emHoras.horasContratadas).toEqual({ hoje: 80, simulacao: 40 });
+      expect(d.resultado.emHoras.custoSentido).toBe('diminui');
+      expect(d.resultado.custoDoDono.folhaDepois).toBeLessThan(d.resultado.custoDoDono.folhaHoje);
+      // os turnos dela continuam guardados (religar traz de volta)
+      expect(d.turnos.filter((t: { matricula: string }) => t.matricula === 'F2')).toHaveLength(5);
+      const r = (await put(sim.id, { desligados: [] })).body;
+      expect(r.resultado).toEqual(antes.resultado);
+      expect(r.turnos).toEqual(antes.turnos);
+      expect(r.quadro.some((p: { desligado?: boolean }) => p.desligado)).toBe(false);
+    });
+
+    it('desligar o único farmacêutico é aceito e o resultado fica inviável; desligar todos não dá erro', async () => {
+      const sim = (await criar()).body;
+      const d = await put(sim.id, { desligados: ['F1', 'F2'] });
+      expect(d.status).toBe(200);
+      expect(d.body.resultado.emHoras.status).toBe('inviavel');
+      expect(d.body.resultado.emHoras.pessoas).toEqual({ hoje: 2, simulacao: 0 });
+    });
+
+    it('desligar: gestor vê quem saiu e o resultado sem valores em reais; gravada recusa; o Cadastro não muda', async () => {
+      const gestor = { 'X-Perfil': 'SCHEDULE_MANAGER', 'X-GE': GE_INICIAL_ID };
+      await comSalarios();
+      const sim = (await criar()).body;
+      const d = (
+        await reqGe()
+          .put(`/api/v1/simulacoes/${sim.id}`)
+          .set(gestor)
+          .send({ desligados: ['F1'] })
+      ).body;
+      expect(d.quadro.find((p: { matricula: string }) => p.matricula === 'F1').desligado).toBe(
+        true,
+      );
+      expect(d.resultado.emHoras.custoSentido).toBe('diminui');
+      expect(d.resultado).not.toHaveProperty('custoDoDono');
+      expect(JSON.stringify(d.resultado)).not.toMatch(/custoDoDono|folhaHoje|pesoHoje|saldoMensal/);
+      const antes = await prisma.funcionario.count({ where: { lojaId } });
+      expect(antes).toBe(2);
+      await reqGe().post(`/api/v1/simulacoes/${sim.id}/gravar`).set(admin);
+      expect((await put(sim.id, { desligados: [] })).status).toBe(409);
+      // o Cadastro segue com as duas pessoas ativas
+      expect(await prisma.funcionario.count({ where: { lojaId } })).toBe(2);
+    });
+
     it('recusa vaga com carga inválida, vaga inexistente e desligar uma vaga', async () => {
       const sim = (await criar()).body;
       expect((await put(sim.id, { vagas: [{ funcao: 'Caixa', cargaH: 2 }] })).status).toBe(400);
@@ -341,13 +470,13 @@ describe('simulações (rotas)', () => {
         (await put(sim.id, { vagas: [{ matricula: 'VAGA-7', funcao: 'Caixa', cargaH: 20 }] }))
           .status,
       ).toBe(400);
-      await put(sim.id, { vagas: [{ funcao: 'Caixa', cargaH: 20 }] });
+      await put(sim.id, { vagas: [{ funcao: 'Caixa', cargaH: 40 }] });
       expect((await put(sim.id, { desligados: ['VAGA-1'] })).status).toBe(400);
     });
 
     it('vagas ficam congeladas na gravada e vêm junto no clone', async () => {
       const sim = (await criar()).body;
-      await put(sim.id, { vagas: [{ funcao: 'Caixa', cargaH: 16 }] });
+      await put(sim.id, { vagas: [{ funcao: 'Caixa', cargaH: 40 }] });
       await reqGe().post(`/api/v1/simulacoes/${sim.id}/gravar`).set(admin);
       expect((await put(sim.id, { vagas: [] })).status).toBe(409);
       const c = (await reqGe().post(`/api/v1/simulacoes/${sim.id}/clonar`).set(admin)).body;
@@ -364,6 +493,181 @@ describe('simulações (rotas)', () => {
       const vagas = r.body.quadro.filter((p: { vaga?: boolean }) => p.vaga);
       expect(vagas).toHaveLength(2);
       expect(vagas.every((v: { funcao: string }) => v.funcao === 'Caixa')).toBe(true);
+    });
+
+    it('Personalizar abre com as folgas aplicadas e as contratações cobrindo, sem erro de regra (spec 043)', async () => {
+      // Equipe do Cadastro com 7 dias por semana (como nas lojas reais) e a loja aberta todos os dias.
+      await prisma.funcionario.updateMany({
+        where: { lojaId },
+        data: { dias: [0, 1, 2, 3, 4, 5, 6] },
+      });
+      await prisma.loja.update({
+        where: { id: lojaId },
+        data: {
+          horarios: {
+            versao: 2,
+            dias: Array.from({ length: 7 }, () => ({
+              aberta: true,
+              abre: '08:00',
+              fecha: '20:00',
+            })),
+          },
+        },
+      });
+      for (const [regra, limite] of [
+        ['r42', 5],
+        ['r40', 5],
+      ] as const) {
+        const sim = (await criar({ nome: `Folgas ${regra}`, regra, comVagasSugeridas: true })).body;
+        const turnos = sim.turnos as { matricula: string; dia: number }[];
+        for (const p of sim.quadro as { matricula: string }[]) {
+          const dias = new Set(turnos.filter((t) => t.matricula === p.matricula).map((t) => t.dia));
+          expect(dias.size).toBeLessThanOrEqual(limite);
+        }
+        // As vagas já vêm com turnos.
+        const vagas = (sim.quadro as { matricula: string; vaga?: boolean }[]).filter((p) => p.vaga);
+        for (const v of vagas) expect(turnos.some((t) => t.matricula === v.matricula)).toBe(true);
+        // Nada de aviso de dias a mais, jornada, intervalo ou descanso entre turnos.
+        const regrasDeTurno = [
+          'folgas',
+          'jornada-diaria',
+          'jornada-semanal',
+          'intervalo',
+          'interjornada',
+        ];
+        const achados = [...sim.avaliacao.erros, ...sim.avaliacao.avisos] as {
+          regra: string;
+          texto: string;
+        }[];
+        expect(achados.filter((a) => regrasDeTurno.includes(a.regra))).toEqual([]);
+      }
+    });
+
+    it('horário do Cadastro com minutos (14h38): a simulação abre com o horário como está e aceita mover qualquer turno', async () => {
+      await prisma.funcionario.updateMany({
+        where: { matricula: 'F1' },
+        data: { saida: 14 + 38 / 60 },
+      });
+      const sim = (await criar()).body;
+      // Spec 047: o horário do Cadastro (14h38) fica como está, em minutos inteiros
+      const f1 = (sim.turnos as { matricula: string; saida: number }[]).filter(
+        (t) => t.matricula === 'F1',
+      );
+      for (const t of f1) expect(t.saida).toBeCloseTo(14 + 38 / 60, 6);
+      for (const t of sim.turnos as { entrada: number; saida: number }[]) {
+        expect(Math.abs(t.entrada * 60 - Math.round(t.entrada * 60))).toBeLessThan(1e-6);
+        expect(Math.abs(t.saida * 60 - Math.round(t.saida * 60))).toBeLessThan(1e-6);
+      }
+      // Devolver os turnos como estão (o que a tela faz a cada mudança) não é recusado.
+      const r = await reqGe()
+        .put(`/api/v1/simulacoes/${sim.id}`)
+        .set(admin)
+        .send({ turnos: sim.turnos });
+      expect(r.status).toBe(200);
+    });
+
+    it('intervalo de até 2 horas não abre falta (spec 045); de 3 horas abre; Personalizar não contrata por causa do almoço', async () => {
+      const farm11h = (
+        cobertura: { funcao: string; porHora: { hora: number; pessoas: number; ok: boolean }[] }[],
+      ) => cobertura.find((c) => c.funcao === 'Farmacêutico')!.porHora.find((c) => c.hora === 11)!;
+      // Ana (08h–14h) é a única farmacêutica às 11h; almoço de 1 h (11h–12h)
+      await prisma.funcionario.updateMany({
+        where: { matricula: 'F1' },
+        data: { iniIntervalo: 11, fimIntervalo: 12 },
+      });
+      const curto = (await criar()).body;
+      expect(farm11h(curto.avaliacao.cobertura[0])).toMatchObject({ pessoas: 1, ok: true });
+      // O mesmo almoço não faz o Personalizar contratar nada
+      const comVagas = (await criar({ nome: 'Almoço', regra: 'r40', comVagasSugeridas: true }))
+        .body;
+      expect((comVagas.quadro as { vaga?: boolean }[]).filter((p) => p.vaga)).toHaveLength(0);
+      // Intervalo de 3 h (09h–12h): volta a descontar
+      await prisma.funcionario.updateMany({
+        where: { matricula: 'F1' },
+        data: { iniIntervalo: 9, fimIntervalo: 12 },
+      });
+      const longo = (await criar({ nome: 'Intervalo longo', regra: 'r40' })).body;
+      expect(farm11h(longo.avaliacao.cobertura[0])).toMatchObject({ pessoas: 0, ok: false });
+    });
+
+    it('só se contrata integral (spec 044): vaga nova parcial é recusada; vaga parcial de simulação antiga continua abrindo', async () => {
+      const sim = (await criar()).body;
+      // Parcial novo: recusado com a frase em português
+      const r = await put(sim.id, { vagas: [{ funcao: 'Caixa', cargaH: 20 }] });
+      expect(r.status).toBe(400);
+      expect(JSON.stringify(r.body)).toContain(
+        'A contratação é integral: 40 horas por semana nesta regra.',
+      );
+      // Integral: aceito
+      expect((await put(sim.id, { vagas: [{ funcao: 'Caixa', cargaH: 40 }] })).status).toBe(200);
+      // Uma simulação salva antes tinha uma vaga de 20h: segue abrindo e aceitando a vaga como estava
+      const velha = (await reqGe().get(`/api/v1/simulacoes/${sim.id}`).set(admin)).body.quadro.map(
+        (p: { vaga?: boolean }) => (p.vaga ? { ...p, cargaH: 20 } : p),
+      );
+      await prisma.simulacao.update({ where: { id: sim.id }, data: { quadro: velha } });
+      const aberta = await reqGe().get(`/api/v1/simulacoes/${sim.id}`).set(admin);
+      expect(aberta.status).toBe(200);
+      expect(aberta.body.quadro.find((p: { vaga?: boolean }) => p.vaga).cargaH).toBe(20);
+      const mantida = await put(sim.id, {
+        vagas: [{ matricula: 'VAGA-1', funcao: 'Caixa', cargaH: 20 }],
+      });
+      expect(mantida.status).toBe(200);
+    });
+
+    it('Personalizar estica os turnos de quem trabalha menos que o limite onde falta cobertura (spec 046), sem passar do limite', async () => {
+      // A loja passa a abrir até as 22h (segunda a sexta): Bia (14h–20h, 6 h) cobre até as 20h e faltam 2 horas no fim do dia
+      await prisma.loja.update({
+        where: { id: lojaId },
+        data: {
+          horarios: {
+            versao: 2,
+            dias: [0, 1, 2, 3, 4, 5, 6].map((d) =>
+              d < 5 ? { aberta: true, abre: '08:00', fecha: '22:00' } : { aberta: false },
+            ),
+          },
+        },
+      });
+      const sim = (await criar({ nome: 'Estica', regra: 'r40', comVagasSugeridas: true })).body;
+      const turnos = sim.turnos as {
+        matricula: string;
+        dia: number;
+        entrada: number;
+        saida: number;
+        iniIntervalo: number | null;
+        fimIntervalo: number | null;
+        antes?: { entrada: number; saida: number };
+      }[];
+      const bia = turnos.filter((t) => t.matricula === 'F2');
+      expect(bia).toHaveLength(5);
+      for (const t of bia) {
+        expect(t.antes).toEqual({ entrada: 14, saida: 20 });
+        expect(t.saida).toBe(22);
+      }
+      // Ninguém passa do limite de horas por semana (40 h) nem do máximo por dia (8 h)
+      for (const m of ['F1', 'F2']) {
+        const meus = turnos.filter((t) => t.matricula === m);
+        const liq = (t: (typeof turnos)[number]) =>
+          t.saida -
+          t.entrada -
+          (t.iniIntervalo != null ? (t.fimIntervalo ?? 0) - t.iniIntervalo : 0);
+        expect(meus.reduce((s, t) => s + liq(t), 0)).toBeLessThanOrEqual(40);
+        for (const t of meus) expect(liq(t)).toBeLessThanOrEqual(8);
+      }
+      // Spec 047: a jornada cheia (8 h por dia, 5 dias = 40 h na regra de 40h) vale para todos, mesmo sem falta
+      for (const m of ['F1', 'F2']) {
+        const meus = turnos.filter((t) => t.matricula === m);
+        const liq = (t: (typeof turnos)[number]) =>
+          t.saida -
+          t.entrada -
+          (t.iniIntervalo != null ? (t.fimIntervalo ?? 0) - t.iniIntervalo : 0);
+        for (const t of meus) expect(liq(t)).toBeCloseTo(8, 6);
+        expect(meus.reduce((s, t) => s + liq(t), 0)).toBeCloseTo(40, 6);
+      }
+      // O esticamento cobre a falta: nenhuma vaga
+      expect((sim.quadro as { vaga?: boolean }[]).filter((p) => p.vaga)).toHaveLength(0);
+      // Os turnos esticados voltam no PUT sem erro (o campo `antes` é aceito)
+      const r = await reqGe().put(`/api/v1/simulacoes/${sim.id}`).set(admin).send({ turnos });
+      expect(r.status).toBe(200);
     });
 
     it('o mesmo número de contratações no quadro central, no Cenário 1 e nas vagas sugeridas', async () => {
@@ -402,13 +706,12 @@ describe('simulações (rotas)', () => {
         .get(`/api/v1/lojas/${lojaId}/simulacoes/comparar?ids=${ids.join(',')}`)
         .set(h);
 
-    it('o dono vê custo mensal, anual e a diferença frente à em uso; a síntese cita custo e vaga', async () => {
+    it('o dono vê custo mensal e anual de cada simulação; a síntese cita a vaga', async () => {
       await salvarCustos();
       const a = await gravada('Plano A');
       const b = await gravada('Plano B com vaga', {
-        vagas: [{ funcao: 'Farmacêutico', cargaH: 24 }],
+        vagas: [{ funcao: 'Farmacêutico', cargaH: 40 }],
       });
-      await reqGe().post(`/api/v1/simulacoes/${a.id}/aprovar`).set(admin).send({});
 
       const r = await comparar([a.id, b.id]);
       expect(r.status).toBe(200);
@@ -418,15 +721,14 @@ describe('simulações (rotas)', () => {
         informado: true,
         mensal: 25952,
         anual: 311424,
-        diferencaMensalFrenteEmUso: null,
       });
-      // B: + vaga de 24h = 8.000 × 24 × 5 ÷ 200 × 1,622 = 7.785,60
+      expect(ra.custo).not.toHaveProperty('diferencaMensalFrenteEmUso');
+      // B: + vaga integral de 40h (spec 044) = 8.000 × 40 × 5 ÷ 200 × 1,622 = 12.976
       expect(rb.custo).toMatchObject({
-        mensal: 33737.6,
-        anual: 404851.2,
-        diferencaMensalFrenteEmUso: 7785.6,
+        mensal: 38928,
+        anual: 467136,
       });
-      expect(rb.sintese).toContain('a mais por mês');
+      expect(rb.sintese).not.toContain('por mês');
       expect(rb.sintese).toContain('exige contratar 1 vaga(s)');
       expect(rb.custo.memoria.some((m: string) => m.includes('Vaga 1'))).toBe(true);
     });
@@ -458,10 +760,7 @@ describe('simulações (rotas)', () => {
       const a = await gravada('Plano A');
       const b = await gravada('Plano B');
       const r = await comparar([a.id, b.id]);
-      expect(r.body.simulacoes[0].custo).toEqual({
-        informado: false,
-        diferencaMensalFrenteEmUso: null,
-      });
+      expect(r.body.simulacoes[0].custo).toEqual({ informado: false });
     });
 
     it('função sem salário informado: avisa qual falta e não soma parcial', async () => {
@@ -485,6 +784,214 @@ describe('simulações (rotas)', () => {
       expect(d.custo.mensal).toBe(25952); // o retrato do momento de gravar: 2 × 8.000 × 1,622
       const novo = (await criar({ nome: 'Rascunho novo', regra: 'r40' })).body;
       expect(novo.custo.mensal).toBe(64880); // rascunho usa os custos de hoje: 2 × 20.000 × 1,622
+    });
+  });
+
+  describe('lista e comparação com resultado (spec 031)', () => {
+    const gestor = { 'X-Perfil': 'SCHEDULE_MANAGER', 'X-GE': GE_INICIAL_ID };
+    const consulta = { 'X-Perfil': 'SCHEDULE_VIEWER', 'X-GE': GE_INICIAL_ID };
+    const semana = (fecha: string) => ({
+      versao: 2,
+      dias: [0, 1, 2, 3, 4]
+        .map(() => ({ aberta: true, abre: '08:00', fecha }))
+        .concat([{ aberta: false } as never, { aberta: false } as never]),
+    });
+    const gravada = async (nome: string, corpo: object = {}) => {
+      const sim = (await criar({ nome, regra: 'r40' })).body;
+      if (Object.keys(corpo).length)
+        await reqGe().put(`/api/v1/simulacoes/${sim.id}`).set(admin).send(corpo);
+      const g = await reqGe().post(`/api/v1/simulacoes/${sim.id}/gravar`).set(admin);
+      expect(g.status).toBe(200);
+      return g.body;
+    };
+    const lista = async (h: Record<string, string> = admin, q = '') =>
+      (await reqGe().get(`/api/v1/lojas/${lojaId}/simulacoes${q}`).set(h)).body.data as (Record<
+        string,
+        unknown
+      > & { horasAbertas: number })[];
+    const comparar = (ids: string[], h: Record<string, string> = admin) =>
+      reqGe()
+        .get(`/api/v1/lojas/${lojaId}/simulacoes/comparar?ids=${ids.join(',')}`)
+        .set(h);
+
+    // Custos e venda por hora: sem eles o saldo não existe (nunca zero por engano).
+    const comCustosEVendas = async () => {
+      await reqGe()
+        .put(`/api/v1/lojas/${lojaId}/custos`)
+        .set(admin)
+        .send({ salarioMedio: { Farmacêutico: 8000, Atendimento: 2000 } });
+      const wb = new ExcelJS.Workbook();
+      const linhas = [['Data', 'Hora', 'Código da loja', 'Venda líquida (R$)']];
+      for (const d of ['07/09/2026', '08/09/2026', '09/09/2026', '10/09/2026', '11/09/2026'])
+        for (let h = 8; h < 20; h++) linhas.push([d, String(h), '001', '500,00']);
+      wb.addWorksheet('Base').addRows(linhas);
+      const up = await reqGe()
+        .post('/api/v1/cargas/base')
+        .set(admin)
+        .attach('arquivo', Buffer.from(await wb.xlsx.writeBuffer()), 'b.xlsx');
+      expect(up.status).toBe(201);
+    };
+
+    it('a lista traz o resumo de cada simulação e não traz o resultado bruto', async () => {
+      await gravada('Plano A');
+      await criar({ nome: 'Rascunho B', regra: 'r40' });
+      const l = await lista();
+      expect(l).toHaveLength(2);
+      for (const x of l) {
+        expect(x).toMatchObject({
+          tipo: 'mantem',
+          criadaPor: 'Administrador da conta',
+          desatualizada: false,
+        });
+        expect(typeof x.horasAbertas).toBe('number');
+        expect(x).not.toHaveProperty('resultado');
+        expect(x.criadaPor).not.toMatch(/_/);
+      }
+      expect(l.map((x) => x.status).sort()).toEqual(['gravada', 'rascunho']);
+      expect(l[0]!.nome).toBe('Rascunho B'); // mais recente primeiro
+    });
+
+    it('o saldo da lista é o do painel e o da comparação; sem salário ou sem venda por hora vem nulo', async () => {
+      const a = await gravada('Plano A');
+      expect((await lista())[0]!.saldoMensal).toBeNull(); // sem custos nem venda por hora
+      await comCustosEVendas();
+      const b = await gravada('Plano B com vaga', {
+        vagas: [{ funcao: 'Farmacêutico', cargaH: 40 }],
+      });
+      const l = await lista();
+      const painelA = (await reqGe().get(`/api/v1/simulacoes/${a.id}`).set(admin)).body.resultado;
+      const painelB = (await reqGe().get(`/api/v1/simulacoes/${b.id}`).set(admin)).body.resultado;
+      const da = l.find((x) => x.id === a.id)!;
+      const db = l.find((x) => x.id === b.id)!;
+      expect(typeof da.saldoMensal).toBe('number');
+      expect(da.saldoMensal).toBe(painelA.saldoMensal);
+      expect(db.saldoMensal).toBe(painelB.saldoMensal);
+      expect(db.folhaExtra).toBe(painelB.folhaExtra);
+      expect(db.folhaExtra).toBeGreaterThan(0);
+      const c = (await comparar([a.id, b.id])).body.simulacoes;
+      expect(c.map((x: { id: string }) => x.id)).toEqual([a.id, b.id]);
+      expect(c[0].saldoMensal).toBe(painelA.saldoMensal);
+      expect(c[1]).toMatchObject({
+        saldoMensal: painelB.saldoMensal,
+        folhaExtra: painelB.folhaExtra,
+        vendaEstimada: painelB.vendaEstimada,
+        vendaQueSai: painelB.vendaQueSai,
+      });
+    });
+
+    it('valores em reais só para o dono: nos outros perfis os campos nem existem', async () => {
+      await comCustosEVendas();
+      const a = await gravada('Plano A');
+      const b = await gravada('Plano B');
+      for (const h of [gestor, consulta]) {
+        const l = await lista(h);
+        for (const x of l)
+          for (const k of ['saldoMensal', 'folhaExtra', 'vendaEstimada', 'vendaQueSai'])
+            expect(x).not.toHaveProperty(k);
+        expect(l[0]).toHaveProperty('horasAbertas');
+        const c = (await comparar([a.id, b.id], h)).body.simulacoes;
+        for (const x of c)
+          for (const k of ['saldoMensal', 'folhaExtra', 'vendaEstimada', 'vendaQueSai'])
+            expect(x).not.toHaveProperty(k);
+        expect(c[0]).toHaveProperty('horasAbertas');
+        expect(c[0]).toHaveProperty('tipo');
+      }
+    });
+
+    it('o tipo do cenário: reduz, amplia ou mantém as horas abertas da loja', async () => {
+      await reqGe()
+        .patch(`/api/v1/lojas/${lojaId}`)
+        .set(admin)
+        .send({ horarios: semana('20:00') });
+      const mantem = await gravada('Mantém');
+      const reduz = await gravada('Reduz', { horarios: semana('18:00') });
+      const amplia = await gravada('Amplia', { horarios: semana('22:00') });
+      const l = await lista();
+      const tipo = (id: string) => l.find((x) => x.id === id)!.tipo;
+      expect(tipo(mantem.id)).toBe('mantem');
+      expect(tipo(reduz.id)).toBe('reduz');
+      expect(tipo(amplia.id)).toBe('amplia');
+      const reduzida = l.find((x) => x.id === reduz.id)!.horasAbertas;
+      expect(reduzida).toBeLessThan(l.find((x) => x.id === mantem.id)!.horasAbertas);
+    });
+
+    it('gravada fica desatualizada quando a loja muda depois; rascunho e descartada nunca', async () => {
+      await reqGe()
+        .patch(`/api/v1/lojas/${lojaId}`)
+        .set(admin)
+        .send({ horarios: semana('20:00') });
+      const g = await gravada('Gravada');
+      const r = (await criar({ nome: 'Rascunho', regra: 'r40' })).body;
+      const d = await gravada('Vai descartar');
+      await reqGe().post(`/api/v1/simulacoes/${d.id}/descartar`).set(admin);
+      expect((await lista()).every((x) => x.desatualizada === false)).toBe(true);
+      await reqGe()
+        .patch(`/api/v1/lojas/${lojaId}`)
+        .set(admin)
+        .send({ horarios: semana('21:00') });
+      const l = await lista(admin, '?descartadas=1');
+      expect(l.find((x) => x.id === g.id)!.desatualizada).toBe(true);
+      expect(l.find((x) => x.id === r.id)!.desatualizada).toBe(false);
+      expect(l.find((x) => x.id === d.id)!.desatualizada).toBe(false);
+      const c = (await comparar([g.id, (await gravada('Outra')).id])).body.simulacoes;
+      expect(c[0].desatualizada).toBe(true);
+    });
+
+    it('simulação que amplia horários não fica desatualizada sozinha; mudar o horário da loja depois sim', async () => {
+      await reqGe()
+        .patch(`/api/v1/lojas/${lojaId}`)
+        .set(admin)
+        .send({ horarios: semana('20:00') });
+      const amplia = await gravada('Amplia', { horarios: semana('22:00') });
+      const mantem = await gravada('Mantém');
+      let l = await lista();
+      expect(l.find((x) => x.id === amplia.id)).toMatchObject({
+        tipo: 'amplia',
+        desatualizada: false,
+      });
+      expect(l.find((x) => x.id === mantem.id)!.desatualizada).toBe(false);
+      await reqGe()
+        .patch(`/api/v1/lojas/${lojaId}`)
+        .set(admin)
+        .send({ horarios: semana('21:00') });
+      l = await lista();
+      expect(l.find((x) => x.id === amplia.id)!.desatualizada).toBe(true);
+      expect(l.find((x) => x.id === mantem.id)!.desatualizada).toBe(true);
+    });
+
+    it('a cópia leva o horário simulado junto (clonar e "Clonar" ao criar)', async () => {
+      await reqGe()
+        .patch(`/api/v1/lojas/${lojaId}`)
+        .set(admin)
+        .send({ horarios: semana('20:00') });
+      const amplia = await gravada('Amplia', { horarios: semana('22:00') });
+      const horasOriginal = (await lista()).find((x) => x.id === amplia.id)!.horasAbertas;
+      const copia = await reqGe().post(`/api/v1/simulacoes/${amplia.id}/clonar`).set(admin);
+      expect(copia.status).toBe(201);
+      const nova = await criar({ nome: 'Clonada pela origem', regra: 'r40', origem: amplia.id });
+      expect(nova.status).toBe(201);
+      const l = await lista();
+      for (const id of [copia.body.id, nova.body.id]) {
+        expect(l.find((x) => x.id === id)).toMatchObject({
+          tipo: 'amplia',
+          horasAbertas: horasOriginal,
+        });
+      }
+      // uma cópia de simulação sem horário simulado continua com o da loja
+      const mantem = await gravada('Mantém');
+      const copiaMantem = await reqGe().post(`/api/v1/simulacoes/${mantem.id}/clonar`).set(admin);
+      expect((await lista()).find((x) => x.id === copiaMantem.body.id)).toMatchObject({
+        tipo: 'mantem',
+      });
+    });
+
+    it('compara de 2 a 4 simulações na ordem recebida; 1 ou 5 são recusadas', async () => {
+      const ids = [];
+      for (const n of ['A', 'B', 'C', 'D', 'E']) ids.push((await gravada(`Plano ${n}`)).id);
+      const quatro = (await comparar([ids[3]!, ids[0]!, ids[2]!, ids[1]!])).body.simulacoes;
+      expect(quatro.map((x: { id: string }) => x.id)).toEqual([ids[3], ids[0], ids[2], ids[1]]);
+      expect((await comparar(ids)).status).toBe(400);
+      expect((await comparar([ids[0]!])).status).toBe(400);
     });
   });
 
@@ -535,31 +1042,6 @@ describe('simulações (rotas)', () => {
       const depois = (await reqGe().get(`/api/v1/simulacoes/${g.id}`).set(admin)).body;
       expect(depois.diasAbertos.map((d: { dia: number }) => d.dia)).toEqual([0, 1, 2, 3, 4]);
       expect(depois.avaliacao.erros).toEqual([]);
-    });
-
-    it('"desatualizada": só mudar o formato não dispara; mudar o horário da loja dispara', async () => {
-      const g = (await criar()).body;
-      await reqGe().post(`/api/v1/simulacoes/${g.id}/gravar`).set(admin);
-      await reqGe().post(`/api/v1/simulacoes/${g.id}/aprovar`).set(admin).send({});
-      // simulação aprovada antes da mudança: horário congelado no formato antigo
-      const sim = await prisma.simulacao.findUniqueOrThrow({ where: { id: g.id } });
-      const premissas = sim.premissas as { horarios: unknown };
-      await prisma.simulacao.update({
-        where: { id: g.id },
-        data: {
-          premissas: { ...premissas, horarios: { semana: { abre: '08:00', fecha: '20:00' } } },
-        },
-      });
-      const mesmaCoisa = (await reqGe().get(`/api/v1/simulacoes/${g.id}`).set(admin)).body;
-      expect(mesmaCoisa.motivosDesatualizada.join(' ')).not.toContain('horário');
-
-      await patchHorarios(dias({ aberta: true, abre: '09:00', fecha: '13:00' }));
-      const mudou = (await reqGe().get(`/api/v1/simulacoes/${g.id}`).set(admin)).body;
-      expect(mudou.desatualizada).toBe(true);
-      expect(mudou.motivosDesatualizada.join(' ')).toContain(
-        'O horário de funcionamento da loja mudou.',
-      );
-      expect(mudou.status).toBe('em_uso'); // nada muda sozinho
     });
   });
   describe('horário simulado (spec 016)', () => {
@@ -627,11 +1109,168 @@ describe('simulações (rotas)', () => {
       const viewer = { 'X-Perfil': 'SCHEDULE_VIEWER', 'X-GE': GE_INICIAL_ID };
       const g = await editar(sim.id, { horarios: semana('18:00') }, gestor);
       expect(g.status).toBe(200);
-      expect(g.body.resultado).not.toHaveProperty('impactoMensal');
+      expect(g.body.resultado).not.toHaveProperty('saldoMensal');
       expect(g.body.resultado).not.toHaveProperty('vendaQueSai');
       expect((await editar(sim.id, { horarios: semana('17:00') }, viewer)).status).toBe(403);
       const dono = await reqGe().get(`/api/v1/simulacoes/${sim.id}`).set(admin);
-      expect(dono.body.resultado).toHaveProperty('impactoMensal');
+      expect(dono.body.resultado).toHaveProperty('saldoMensal');
+    });
+  });
+  describe('resultado em horas e porcentagem (spec 038)', () => {
+    const gestor = { 'X-Perfil': 'SCHEDULE_MANAGER', 'X-GE': GE_INICIAL_ID };
+    const consulta = { 'X-Perfil': 'SCHEDULE_VIEWER', 'X-GE': GE_INICIAL_ID };
+    const detalhe = async (id: string, h: Record<string, string>) =>
+      (await reqGe().get(`/api/v1/simulacoes/${id}`).set(h)).body.resultado;
+
+    it('gestor e consulta iguais entre si; o dono só tem a mais o % do custo e o peso da folha (spec 052)', async () => {
+      const sim = (await criar()).body;
+      const [dono, ges, con] = await Promise.all([
+        detalhe(sim.id, admin),
+        detalhe(sim.id, gestor),
+        detalhe(sim.id, consulta),
+      ]);
+      expect(dono.emHoras).toBeDefined();
+      const { custoPct: _p, ...doDonoSemCusto } = dono.emHoras;
+      expect(ges.emHoras).toEqual(doDonoSemCusto);
+      expect(con.emHoras).toEqual(doDonoSemCusto);
+      expect(dono.emHoras).toHaveProperty('custoPct');
+      expect(ges.emHoras).not.toHaveProperty('custoPct');
+      // o peso da folha no faturamento e a folha por mês são só do dono; gestor e consulta recebem só o sentido
+      expect(dono).toHaveProperty('custoDoDono');
+      for (const outro of [ges, con]) {
+        expect(outro).not.toHaveProperty('custoDoDono');
+        expect(['aumenta', 'igual', 'diminui', null]).toContain(outro.emHoras.custoSentido);
+        expect(JSON.stringify(outro)).not.toMatch(/custoDoDono|folhaHoje|folhaDepois|pesoHoje/);
+      }
+      expect(Object.keys(dono.emHoras).sort()).toEqual(
+        [
+          'causa',
+          'contratar',
+          'custoEstado',
+          'custoPct',
+          'custoSentido',
+          'horaExtraH',
+          'horasAbertas',
+          'horasContratadas',
+          'pessoas',
+          'status',
+          'vendaEstado',
+          'vendaPct',
+        ].sort(),
+      );
+      // nenhuma chave de valor em reais (o estado "sem_salarios" é só um texto de estado)
+      expect(JSON.stringify(ges.emHoras)).not.toMatch(
+        /"(saldo|folha|salario|margem|cmv|[a-zA-Z]*Mensal)[a-zA-Z]*":/,
+      );
+      // os campos em reais continuam só para o dono
+      expect(dono).toHaveProperty('saldoMensal');
+      expect(ges).not.toHaveProperty('saldoMensal');
+    });
+
+    it('uma vaga simulada aparece em pessoas, horas contratadas e contratar', async () => {
+      const sim = (await criar()).body;
+      const antes = await detalhe(sim.id, gestor);
+      expect(antes.emHoras.pessoas).toEqual({ hoje: 2, simulacao: 2 });
+      await reqGe()
+        .put(`/api/v1/simulacoes/${sim.id}`)
+        .set(admin)
+        .send({ vagas: [{ funcao: 'Atendimento', cargaH: 40 }] });
+      const depois = await detalhe(sim.id, gestor);
+      expect(depois.emHoras.pessoas).toEqual({ hoje: 2, simulacao: 3 });
+      expect(depois.emHoras.horasContratadas.simulacao - depois.emHoras.horasContratadas.hoje).toBe(
+        40,
+      );
+      expect(depois.emHoras.contratar).toEqual([
+        { funcao: 'Atendimento', inteiras: 1, parciaisHoras: [] },
+      ]);
+      expect(depois.emHoras.horasAbertas.hoje).toBe(antes.emHoras.horasAbertas.hoje);
+    });
+  });
+  describe('escala por hora (spec 039)', () => {
+    const gestor = { 'X-Perfil': 'SCHEDULE_MANAGER', 'X-GE': GE_INICIAL_ID };
+    const consulta = { 'X-Perfil': 'SCHEDULE_VIEWER', 'X-GE': GE_INICIAL_ID };
+    const obter = async (id: string, h: Record<string, string> = admin) =>
+      (await reqGe().get(`/api/v1/simulacoes/${id}`).set(h)).body;
+    type Cobertura = Record<
+      number,
+      { funcao: string; porHora: { hora: number; pessoas: number }[] }[]
+    >;
+    const pessoasFarmaceuticoNaHora = (
+      sim: { avaliacao: { cobertura: Cobertura } },
+      dia: number,
+      hora: number,
+    ) =>
+      sim.avaliacao.cobertura[dia]!.find((f) => f.funcao === 'Farmacêutico')!.porHora.find(
+        (c) => c.hora === hora,
+      )!;
+
+    it('a cobertura de cada hora traz o mínimo exigido, para todos os perfis', async () => {
+      const sim = (await criar()).body;
+      for (const h of [admin, gestor, consulta]) {
+        const d = await obter(sim.id, h);
+        const cel = pessoasFarmaceuticoNaHora(d, d.diasAbertos[0].dia, d.diasAbertos[0].abre);
+        expect(cel).toMatchObject({ exigido: 1 });
+        expect(typeof cel.pessoas).toBe('number');
+      }
+    });
+
+    it('vaga nova com turnos soma uma pessoa na hora e os turnos ficam na vaga', async () => {
+      const sim = (await criar()).body;
+      const d0 = (sim.diasAbertos as { dia: number; abre: number }[])[0]!;
+      const antes = pessoasFarmaceuticoNaHora(sim, d0.dia, d0.abre).pessoas;
+      const vaga = {
+        funcao: 'Farmacêutico',
+        cargaH: 40,
+        turnos: [{ dia: d0.dia, entrada: d0.abre, saida: d0.abre + 6 }],
+      };
+      const r = await reqGe()
+        .put(`/api/v1/simulacoes/${sim.id}`)
+        .set(admin)
+        .send({ vagas: [vaga] });
+      expect(r.status).toBe(200);
+      expect(r.body.quadro.filter((p: { vaga?: boolean }) => p.vaga)).toHaveLength(1);
+      expect(
+        r.body.turnos.filter((t: { matricula: string }) => t.matricula === 'VAGA-1'),
+      ).toHaveLength(1);
+      expect(pessoasFarmaceuticoNaHora(r.body, d0.dia, d0.abre).pessoas).toBe(antes + 1);
+      // quem só consulta não contrata
+      expect(
+        (
+          await reqGe()
+            .put(`/api/v1/simulacoes/${sim.id}`)
+            .set(consulta)
+            .send({ vagas: [vaga] })
+        ).status,
+      ).toBe(403);
+    });
+
+    it('a prévia do custo só devolve o número ao dono e não grava nada', async () => {
+      const sim = (await criar()).body;
+      const corpo = { funcao: 'Atendimento', cargaH: 40 };
+      const dono = await reqGe()
+        .post(`/api/v1/simulacoes/${sim.id}/efeito-contratacao`)
+        .set(admin)
+        .send(corpo);
+      expect(dono.status).toBe(200);
+      expect(dono.body).toHaveProperty('custoEstado');
+      const ges = await reqGe()
+        .post(`/api/v1/simulacoes/${sim.id}/efeito-contratacao`)
+        .set(gestor)
+        .send(corpo);
+      expect(ges.body).toEqual({});
+      expect(JSON.stringify(ges.body)).not.toMatch(/custo/);
+      const depois = await obter(sim.id);
+      expect(depois.quadro).toHaveLength(2);
+      expect(depois.turnos).toHaveLength(10);
+    });
+
+    it('a prévia recusa vaga inválida', async () => {
+      const sim = (await criar()).body;
+      const r = await reqGe()
+        .post(`/api/v1/simulacoes/${sim.id}/efeito-contratacao`)
+        .set(admin)
+        .send({ funcao: 'Atendimento', cargaH: 2 });
+      expect(r.status).toBe(400);
     });
   });
   describe('número do cenário (spec 016)', () => {
@@ -660,20 +1299,22 @@ describe('simulações (rotas)', () => {
     it('a numeração é por loja', async () => {
       const a = (await criar({ nome: 'Base A', regra: 'r40' })).body;
       await gravarComo(a.id);
-      const outra = await postLoja({ codigo: '002', nome: 'Outra', horarios: { semana: { abre: '08:00', fecha: '20:00' } } });
+      const outra = await postLoja({
+        codigo: '002',
+        nome: 'Outra',
+        horarios: { semana: { abre: '08:00', fecha: '20:00' } },
+      });
       expect(outra.status).toBe(201);
       const r = await reqGe().get(`/api/v1/lojas/${outra.body.id}/simulacoes`).set(admin);
       expect(r.body.data).toEqual([]);
     });
 
-    it('só o dono marca como em uso; gestor salva o cenário', async () => {
+    it('o gestor salva o cenário (grava e recebe o número)', async () => {
       const gestor = { 'X-Perfil': 'SCHEDULE_MANAGER', 'X-GE': GE_INICIAL_ID };
       const a = (await criar({ nome: 'Base A', regra: 'r40' })).body;
       const g = await gravarComo(a.id, gestor);
       expect(g.status).toBe(200);
-      expect((await reqGe().post(`/api/v1/simulacoes/${a.id}/aprovar`).set(gestor).send({})).status).toBe(403);
-      const ok = await reqGe().post(`/api/v1/simulacoes/${a.id}/aprovar`).set(admin).send({});
-      expect(ok.body).toMatchObject({ status: 'em_uso', numeroCenario: 1 });
+      expect(g.body).toMatchObject({ status: 'gravada', numeroCenario: 1 });
     });
 
     it('a lista traz o número do cenário', async () => {
@@ -681,6 +1322,461 @@ describe('simulações (rotas)', () => {
       await gravarComo(a.id);
       const l = await reqGe().get(`/api/v1/lojas/${lojaId}/simulacoes`).set(admin);
       expect(l.body.data[0]).toMatchObject({ numeroCenario: 1 });
+    });
+  });
+  describe('cobertura na simulação (spec 032)', () => {
+    const gestor = { 'X-Perfil': 'SCHEDULE_MANAGER', 'X-GE': GE_INICIAL_ID };
+    const semana = (fecha: string) => ({
+      versao: 2,
+      dias: [0, 1, 2, 3, 4]
+        .map(() => ({ aberta: true, abre: '08:00', fecha }))
+        .concat([{ aberta: false } as never, { aberta: false } as never]),
+    });
+    const put = (id: string, body: object) =>
+      reqGe().put(`/api/v1/simulacoes/${id}`).set(admin).send(body);
+    const farma = (c: {
+      funcoes: {
+        funcao: string;
+        porHora: { hora: number; pessoas: number | null; ok: boolean | null }[];
+      }[];
+    }) => c.funcoes.find((f) => f.funcao === 'Farmacêutico')!.porHora;
+    const baseDeVendas = async () => {
+      const wb = new ExcelJS.Workbook();
+      const linhas = [['Data', 'Hora', 'Código da loja', 'Venda líquida (R$)']];
+      for (const d of ['07/09/2026', '08/09/2026', '09/09/2026', '10/09/2026', '11/09/2026'])
+        for (let h = 8; h < 20; h++) linhas.push([d, String(h), '001', '500,00']);
+      wb.addWorksheet('Base').addRows(linhas);
+      const up = await reqGe()
+        .post('/api/v1/cargas/base')
+        .set(admin)
+        .attach('arquivo', Buffer.from(await wb.xlsx.writeBuffer()), 'b.xlsx');
+      expect(up.status).toBe(201);
+    };
+
+    it('o detalhe traz a cobertura hora a hora com o quadro e o horário da simulação', async () => {
+      const sim = (await criar()).body;
+      expect(sim.cobertura.horas).toEqual([8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]);
+      expect(farma(sim.cobertura).every((c) => c.pessoas === 1 && c.ok === true)).toBe(true);
+      expect(sim.cobertura.vagasSemTurnos).toBe(0);
+      expect(sim.cobertura.vendas).toBeNull();
+    });
+
+    it('reduzir o horário tira as horas do fim da grade sem mexer no Cadastro nem nos números do resultado', async () => {
+      const sim = (await criar()).body;
+      const antes = sim.resultado;
+      const e = await put(sim.id, { horarios: semana('18:00') });
+      expect(e.body.cobertura.horas).toEqual([8, 9, 10, 11, 12, 13, 14, 15, 16, 17]);
+      expect(e.body.resultado.horasAbertas).toBe(50);
+      expect(antes.horasAbertas).toBe(60);
+      expect(e.body.resultado).not.toHaveProperty('cobertura');
+    });
+
+    it('desligar a farmacêutica da manhã derruba a cobertura nessas horas', async () => {
+      const sim = (await criar()).body;
+      const d = await put(sim.id, { desligados: ['F1'] });
+      const horas = farma(d.body.cobertura);
+      expect(horas.filter((c) => c.hora < 14).every((c) => c.pessoas === 0 && c.ok === false)).toBe(
+        true,
+      );
+      expect(horas.filter((c) => c.hora >= 14).every((c) => c.pessoas === 1 && c.ok === true)).toBe(
+        true,
+      );
+    });
+
+    it('vaga sem turnos não cobre e é contada à parte; com turnos passa a cobrir', async () => {
+      const sim = (await criar()).body;
+      const v = await put(sim.id, { vagas: [{ funcao: 'Atendimento', cargaH: 40 }] });
+      expect(v.body.cobertura.vagasSemTurnos).toBe(1);
+      const turnos = [
+        ...v.body.turnos,
+        {
+          matricula: 'VAGA-1',
+          dia: 0,
+          entrada: 8,
+          saida: 14,
+          iniIntervalo: null,
+          fimIntervalo: null,
+        },
+      ];
+      const c = await put(sim.id, { turnos });
+      expect(c.body.cobertura.vagasSemTurnos).toBe(0);
+    });
+
+    it('valores em reais só para o dono: o gestor recebe a participação e nenhum valor', async () => {
+      await baseDeVendas();
+      const sim = (await criar()).body;
+      const dono = await reqGe().get(`/api/v1/simulacoes/${sim.id}`).set(admin);
+      expect(dono.body.cobertura.vendas.horas[0]).toHaveProperty('vendaMedia');
+      const g = await reqGe().get(`/api/v1/simulacoes/${sim.id}`).set(gestor);
+      expect(g.body.cobertura.vendas.horas[0]).toHaveProperty('participacao');
+      expect(JSON.stringify(g.body.cobertura)).not.toMatch(/vendaMedia/);
+    });
+
+    it('a lista e a comparação não trazem a cobertura', async () => {
+      const a = (await criar()).body;
+      const b = (await criar({ nome: 'Outra', regra: 'r40' })).body;
+      const lista = (await reqGe().get(`/api/v1/lojas/${lojaId}/simulacoes`).set(admin)).body
+        .data as object[];
+      expect(lista.every((x) => !('cobertura' in x))).toBe(true);
+      await reqGe().post(`/api/v1/simulacoes/${a.id}/gravar`).set(admin);
+      await reqGe().post(`/api/v1/simulacoes/${b.id}/gravar`).set(admin);
+      const cmp = await reqGe()
+        .get(`/api/v1/lojas/${lojaId}/simulacoes/comparar?ids=${a.id},${b.id}`)
+        .set(admin);
+      expect(JSON.stringify(cmp.body)).not.toContain('"cobertura":{"horas"');
+    });
+  });
+  describe('régua da simulação: margem ou venda (spec 033)', () => {
+    const gestor = { 'X-Perfil': 'SCHEDULE_MANAGER', 'X-GE': GE_INICIAL_ID };
+    const semana = (fecha: string) => ({
+      versao: 2,
+      dias: [0, 1, 2, 3, 4]
+        .map(() => ({ aberta: true, abre: '08:00', fecha }))
+        .concat([{ aberta: false } as never, { aberta: false } as never]),
+    });
+    // `cmv`: CMV por hora em reais (a venda de cada hora é 500); null = base sem a coluna de CMV.
+    const baseComMargem = async (cmv: string | null) => {
+      await reqGe()
+        .put(`/api/v1/lojas/${lojaId}/custos`)
+        .set(admin)
+        .send({ salarioMedio: { Farmacêutico: 8000, Atendimento: 2000 } });
+      const wb = new ExcelJS.Workbook();
+      const linhas = [
+        ['Data', 'Hora', 'Código da loja', 'Venda líquida (R$)', ...(cmv ? ['CMV (R$)'] : [])],
+      ];
+      for (const d of ['07/09/2026', '08/09/2026', '09/09/2026', '10/09/2026', '11/09/2026'])
+        for (let h = 8; h < 20; h++)
+          linhas.push([d, String(h), '001', '500,00', ...(cmv ? [cmv] : [])]);
+      wb.addWorksheet('Base').addRows(linhas);
+      const up = await reqGe()
+        .post('/api/v1/cargas/base')
+        .set(admin)
+        .attach('arquivo', Buffer.from(await wb.xlsx.writeBuffer()), 'b.xlsx');
+      expect(up.status).toBe(201);
+    };
+    const comHorarioReduzido = async () => {
+      const sim = (
+        await reqGe()
+          .post(`/api/v1/lojas/${lojaId}/simulacoes`)
+          .set(admin)
+          .send({ nome: 'Reduz', regra: 'r40' })
+      ).body;
+      await reqGe()
+        .put(`/api/v1/simulacoes/${sim.id}`)
+        .set(admin)
+        .send({ horarios: semana('18:00') });
+      return sim.id as string;
+    };
+
+    it('horário estendido (spec 049): venda adicional, CMV, lucro bruto, folha e resultado só para o dono, só com horas a mais', async () => {
+      await baseComMargem('350,00');
+      const sim = (
+        await reqGe()
+          .post(`/api/v1/lojas/${lojaId}/simulacoes`)
+          .set(admin)
+          .send({ nome: 'Estende', regra: 'r40' })
+      ).body;
+      // Sem horas a mais: o bloco não existe
+      expect(
+        (await reqGe().get(`/api/v1/simulacoes/${sim.id}`).set(admin)).body.resultado,
+      ).not.toHaveProperty('horarioEstendido');
+      // Abre até as 22h (2 horas a mais, 5 dias): 10 horas novas por semana, sem venda registrada (50% da hora vizinha)
+      await reqGe()
+        .put(`/api/v1/simulacoes/${sim.id}`)
+        .set(admin)
+        .send({ horarios: semana('22:00') });
+      const dono = (await reqGe().get(`/api/v1/simulacoes/${sim.id}`).set(admin)).body.resultado;
+      const h = dono.horarioEstendido;
+      expect(h.horasNovasSemana).toBe(10);
+      expect(h.estado).toBe('ok');
+      expect(h.origemCmv).toBe('hora');
+      // venda: 250 por hora nova × 10 × 52 ÷ 12; lucro bruto: 75 (50% de 150) × 10 × 52 ÷ 12; CMV = a diferença
+      expect(h.vendaAdicionalMensal).toBeCloseTo((250 * 10 * 52) / 12, 1);
+      expect(h.lucroBrutoMensal).toBeCloseTo((75 * 10 * 52) / 12, 1);
+      expect(h.cmvMensal).toBeCloseTo(h.vendaAdicionalMensal - h.lucroBrutoMensal, 1);
+      expect(h.resultadoMensal).toBeCloseTo(h.lucroBrutoMensal - h.aumentoFolhaMensal, 1);
+      expect(h.recomendado).toBe(h.resultadoMensal >= 0);
+      // Gestor e consulta nunca recebem o bloco
+      for (const perfil of [gestor, { 'X-Perfil': 'SCHEDULE_VIEWER', 'X-GE': GE_INICIAL_ID }]) {
+        const r = (await reqGe().get(`/api/v1/simulacoes/${sim.id}`).set(perfil)).body.resultado;
+        expect(r).not.toHaveProperty('horarioEstendido');
+        expect(JSON.stringify(r)).not.toContain('cmvMensal');
+      }
+    });
+
+    it('base com CMV: o painel mede a venda que sai em lucro bruto (venda − CMV); a lista e a comparação mostram o mesmo saldo', async () => {
+      await baseComMargem('350,00');
+      const id = await comHorarioReduzido();
+      const painel = (await reqGe().get(`/api/v1/simulacoes/${id}`).set(admin)).body.resultado;
+      expect(painel.regua).toEqual({ tipo: 'margem' });
+      // Fechar 2 horas por dia, de segunda a sexta: 10 horas × 150 de margem por semana × 52 ÷ 12.
+      expect(painel.vendaQueSai).toBeCloseTo((10 * 150 * 52) / 12, 1);
+      const lista = (await reqGe().get(`/api/v1/lojas/${lojaId}/simulacoes`).set(admin)).body
+        .data as Record<string, unknown>[];
+      const item = lista.find((x) => x.id === id)!;
+      expect(item.regua).toEqual({ tipo: 'margem' });
+      expect(item.saldoMensal).toBe(painel.saldoMensal);
+      const outro = (
+        await reqGe()
+          .post(`/api/v1/lojas/${lojaId}/simulacoes`)
+          .set(admin)
+          .send({ nome: 'Outra', regra: 'r40' })
+      ).body.id;
+      await reqGe().post(`/api/v1/simulacoes/${id}/gravar`).set(admin);
+      await reqGe().post(`/api/v1/simulacoes/${outro}/gravar`).set(admin);
+      const cmp = (
+        await reqGe()
+          .get(`/api/v1/lojas/${lojaId}/simulacoes/comparar?ids=${id},${outro}`)
+          .set(admin)
+      ).body;
+      const doComparado = cmp.simulacoes.find((x: { id: string }) => x.id === id);
+      expect(doComparado.regua).toEqual({ tipo: 'margem' });
+      expect(doComparado.saldoMensal).toBe(painel.saldoMensal);
+    });
+
+    it('base sem CMV: venda, com a venda que sai de sempre', async () => {
+      await baseComMargem(null);
+      const id = await comHorarioReduzido();
+      const painel = (await reqGe().get(`/api/v1/simulacoes/${id}`).set(admin)).body.resultado;
+      expect(painel.regua).toEqual({ tipo: 'venda', motivo: 'sem_margem' });
+      expect(painel.vendaQueSai).toBeCloseTo((10 * 500 * 52) / 12, 1);
+    });
+
+    it('base sem CMV mas com o CMV médio da loja: a venda que sai é o lucro bruto (venda × (1 − CMV médio))', async () => {
+      await baseComMargem(null);
+      await reqGe()
+        .patch(`/api/v1/lojas/${lojaId}`)
+        .set(admin)
+        .send({ faturamento: { dias: [1, 1, 1, 1, 1, 1, null], mensal: null, cmvPct: 70 } });
+      const id = await comHorarioReduzido();
+      const painel = (await reqGe().get(`/api/v1/simulacoes/${id}`).set(admin)).body.resultado;
+      expect(painel.regua).toEqual({ tipo: 'margem' });
+      // 10 horas fechadas por semana × 500 de venda × 30% de lucro bruto × 52 ÷ 12
+      expect(painel.vendaQueSai).toBeCloseTo((10 * 150 * 52) / 12, 1);
+    });
+
+    it('o gestor recebe a régua e nenhum valor em reais, nem no painel nem na lista', async () => {
+      await baseComMargem('350,00');
+      const id = await comHorarioReduzido();
+      const painel = (await reqGe().get(`/api/v1/simulacoes/${id}`).set(gestor)).body.resultado;
+      expect(painel.regua).toEqual({ tipo: 'margem' });
+      expect(painel).not.toHaveProperty('vendaQueSai');
+      expect(painel).not.toHaveProperty('saldoMensal');
+      const lista = (await reqGe().get(`/api/v1/lojas/${lojaId}/simulacoes`).set(gestor)).body
+        .data as Record<string, unknown>[];
+      expect(lista[0]).toHaveProperty('regua');
+      expect(lista[0]).not.toHaveProperty('saldoMensal');
+    });
+
+    it('simulação gravada antes é recalculada na régua atual da loja', async () => {
+      await baseComMargem(null);
+      const id = await comHorarioReduzido();
+      await reqGe().post(`/api/v1/simulacoes/${id}/gravar`).set(admin);
+      const antes = (await reqGe().get(`/api/v1/simulacoes/${id}`).set(admin)).body.resultado;
+      expect(antes.regua?.tipo).toBe('venda');
+      await baseComMargem('350,00');
+      const depois = (await reqGe().get(`/api/v1/simulacoes/${id}`).set(admin)).body.resultado;
+      expect(depois.regua).toEqual({ tipo: 'margem' });
+      expect(depois.vendaQueSai).toBeLessThan(antes.vendaQueSai);
+    });
+  });
+  describe('nome e parecer do cenário salvo (spec 056)', () => {
+    const gestor = { 'X-Perfil': 'SCHEDULE_MANAGER', 'X-GE': GE_INICIAL_ID };
+    const consulta = { 'X-Perfil': 'SCHEDULE_VIEWER', 'X-GE': GE_INICIAL_ID };
+    const salarios = () =>
+      reqGe()
+        .put(`/api/v1/lojas/${lojaId}/custos`)
+        .set(admin)
+        .send({ salarioMedio: { Farmacêutico: 8000, Atendimento: 2000 } });
+    const gravar = (id: string, corpo: object, h: Record<string, string> = admin) =>
+      reqGe().post(`/api/v1/simulacoes/${id}/gravar`).set(h).send(corpo);
+    const parecer = (id: string, h: Record<string, string> = admin) =>
+      reqGe().get(`/api/v1/simulacoes/${id}/parecer`).set(h);
+    // Um rascunho com uma contratação (muda a folha) e salvo com nome e observação.
+    const salvo = async (nome = 'Plano reforço', observacao = 'Aprovado pelo regional.') => {
+      await salarios();
+      const sim = (await criar()).body;
+      await reqGe()
+        .put(`/api/v1/simulacoes/${sim.id}`)
+        .set(admin)
+        .send({ vagas: [{ funcao: 'Atendimento', cargaH: 40 }] });
+      const g = await gravar(sim.id, { comoCenario: true, nome, observacao });
+      expect(g.status).toBe(200);
+      return { id: sim.id as string, g };
+    };
+
+    it('salva com o nome e a observação que a pessoa deu; o parecer do dono tem o layout novo (spec 057) e os valores', async () => {
+      const { id, g } = await salvo();
+      expect(g.body).toMatchObject({
+        nome: 'Plano reforço',
+        observacao: 'Aprovado pelo regional.',
+        status: 'gravada',
+      });
+      const p = await parecer(id);
+      expect(p.status).toBe(200);
+      expect(p.body).toMatchObject({
+        nome: 'Plano reforço',
+        loja: 'Centro',
+        regra: 'Regra de 40h',
+        observacao: 'Aprovado pelo regional.',
+        salvoPor: 'TENANT_ADMIN',
+        semValoresEmReais: false,
+        montadoAgora: false,
+      });
+      expect(typeof p.body.numeroCenario).toBe('number');
+      expect(p.body.status).toEqual({ texto: expect.any(String), tom: expect.any(String) });
+      expect(p.body.paragrafo).toContain('Contratando 1 atendente (desejável), 40h por semana');
+      expect(Object.keys(p.body.cartoes)).toEqual(['folha', 'equipe', 'farmaceutico']);
+      expect(p.body.cartoes.folha.titulo).toBe('Folha no faturamento');
+      expect(p.body.tabela.map((l: { rotulo: string }) => l.rotulo)).toContain('Folha por mês');
+      expect(JSON.stringify(p.body)).toContain('R$');
+      expect(JSON.stringify(p.body)).not.toMatch(/jornada cheia/);
+    });
+
+    it('gestor e consulta leem a mesma estrutura sem valores em reais nem percentual de custo', async () => {
+      const { id } = await salvo();
+      for (const h of [gestor, consulta]) {
+        const p = await parecer(id, h);
+        expect(p.status).toBe(200);
+        const json = JSON.stringify(p.body);
+        expect(json).not.toMatch(/R\$|%|custoDoDono|folhaHoje|folhaDepois/);
+        expect(p.body.semValoresEmReais).toBe(true);
+        expect(p.body.cartoes.folha).toMatchObject({
+          titulo: 'Custo de pessoal',
+          valor: '—',
+          chip: { texto: 'Aumenta' },
+          apoio: 'sem valores em reais',
+        });
+        expect(p.body.tabela.map((l: { rotulo: string }) => l.rotulo)).not.toContain(
+          'Folha por mês',
+        );
+        expect(p.body.observacao).toBe('Aprovado pelo regional.');
+      }
+    });
+
+    it('nome vazio, nome com mais de 60 e observação com mais de 1000 são recusados', async () => {
+      const sim = (await criar()).body;
+      expect((await gravar(sim.id, { comoCenario: true, nome: '   ' })).status).toBe(400);
+      expect((await gravar(sim.id, { comoCenario: true, nome: 'x'.repeat(61) })).status).toBe(400);
+      expect(
+        (await gravar(sim.id, { comoCenario: true, nome: 'Ok', observacao: 'y'.repeat(1001) }))
+          .status,
+      ).toBe(400);
+      // nada foi gravado
+      expect((await reqGe().get(`/api/v1/simulacoes/${sim.id}`).set(admin)).body.status).toBe(
+        'rascunho',
+      );
+    });
+
+    it('nome repetido na loja (sem diferenciar maiúsculas) é recusado e o rascunho segue rascunho', async () => {
+      await salvo('Plano A');
+      const outra = (await criar({ nome: 'Outra', regra: 'r40' })).body;
+      const r = await gravar(outra.id, { comoCenario: true, nome: 'plano a' });
+      expect(r.status).toBe(409);
+      expect(r.body.error.code).toBe('NOME_REPETIDO');
+      expect((await reqGe().get(`/api/v1/simulacoes/${outra.id}`).set(admin)).body.status).toBe(
+        'rascunho',
+      );
+      // um nome diferente passa
+      expect((await gravar(outra.id, { comoCenario: true, nome: 'Plano B' })).status).toBe(200);
+    });
+
+    it('salvar sem observação funciona e salvar duas vezes não cria dois cenários', async () => {
+      const sim = (await criar()).body;
+      const a = await gravar(sim.id, { comoCenario: true, nome: 'Sem observação' });
+      expect(a.status).toBe(200);
+      expect(a.body.observacao).toBeNull();
+      expect((await gravar(sim.id, { comoCenario: true, nome: 'Sem observação' })).status).toBe(
+        409,
+      );
+    });
+
+    it('o parecer fica como estava quando o Cadastro muda depois (retrato do momento de salvar)', async () => {
+      const { id } = await salvo();
+      const antes = (await parecer(id)).body;
+      await reqGe()
+        .put(`/api/v1/lojas/${lojaId}/custos`)
+        .set(admin)
+        .send({ salarioMedio: { Farmacêutico: 30000, Atendimento: 9000 } });
+      const depois = (await parecer(id)).body;
+      expect(depois.paragrafo).toEqual(antes.paragrafo);
+      expect(depois.cartoes).toEqual(antes.cartoes);
+      expect(depois.tabela).toEqual(antes.tabela);
+    });
+
+    it('cenário salvo antes do parecer, ou com o parecer da versão 1, abre no layout novo, montado agora e sem observação', async () => {
+      const { id } = await salvo();
+      await prisma.$executeRawUnsafe(
+        'update simulacoes set parecer = null, observacao = null where id = $1::uuid',
+        id,
+      );
+      const p = await parecer(id);
+      expect(p.status).toBe(200);
+      expect(p.body.montadoAgora).toBe(true);
+      expect(p.body.observacao).toBeNull();
+      expect(p.body.paragrafo.length).toBeGreaterThan(0);
+      expect(JSON.stringify((await parecer(id, gestor)).body)).not.toMatch(/R\$|%/);
+      // o parecer da versão 1 (spec 056) também é remontado
+      await prisma.$executeRawUnsafe(
+        `update simulacoes set parecer = '{"versao":1,"montadoEm":"2026-11-11T00:00:00Z","salvoPor":"TENANT_ADMIN","dono":{},"publico":{}}'::jsonb where id = $1::uuid`,
+        id,
+      );
+      const v1 = await parecer(id);
+      expect(v1.status).toBe(200);
+      expect(v1.body.montadoAgora).toBe(true);
+      expect(v1.body.salvoPor).toBe('TENANT_ADMIN');
+      expect(v1.body.cartoes.equipe.titulo).toBe('Equipe');
+    });
+
+    it('rascunho não tem parecer', async () => {
+      const sim = (await criar()).body;
+      expect((await parecer(sim.id)).status).toBe(409);
+    });
+
+    it('o PDF baixa para os três perfis, com o nome da loja e do cenário no arquivo; o do gestor não tem valores em reais', async () => {
+      const { id } = await salvo('Plano reforço');
+      const numero = (await parecer(id)).body.numeroCenario;
+      const textoDoPdf = (pdf: Buffer) =>
+        [...pdf.toString('latin1').matchAll(/stream\r?\n([\s\S]*?)\r?\nendstream/g)]
+          .flatMap((m) => {
+            try {
+              return [inflateSync(Buffer.from(m[1]!, 'latin1')).toString('latin1')];
+            } catch {
+              return [];
+            }
+          })
+          .flatMap((c) =>
+            [...c.matchAll(/\[(.*?)\]\s*TJ/gs)].map((t) =>
+              [...t[1]!.matchAll(/<([0-9a-fA-F]*)>/g)]
+                .map((h) => Buffer.from(h[1]!, 'hex').toString('latin1'))
+                .join(''),
+            ),
+          )
+          .join('\n');
+      for (const h of [admin, gestor, consulta]) {
+        const r = await reqGe()
+          .get(`/api/v1/simulacoes/${id}/parecer.pdf`)
+          .set(h)
+          .buffer(true)
+          .parse((res, cb) => {
+            const partes: Buffer[] = [];
+            res.on('data', (b: Buffer) => partes.push(b));
+            res.on('end', () => cb(null, Buffer.concat(partes)));
+          });
+        expect(r.status).toBe(200);
+        expect(r.headers['content-type']).toContain('application/pdf');
+        expect(r.headers['content-disposition']).toContain(`parecer-centro-cenario-${numero}.pdf`);
+        const pdf = r.body as Buffer;
+        expect(pdf.subarray(0, 5).toString()).toBe('%PDF-');
+        const texto = textoDoPdf(pdf);
+        expect(texto).toContain('Parecer do cenário · Centro');
+        expect(texto).toContain('Página 1 de 1');
+        if (h === admin) expect(texto).toMatch(/R\$ \d/);
+        else {
+          expect(texto).not.toMatch(/R\$ \d|%/);
+          expect(texto).toContain('Valores em reais aparecem só para o dono do grupo.');
+        }
+      }
     });
   });
 });

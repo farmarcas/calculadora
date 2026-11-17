@@ -36,7 +36,13 @@ describe('inferirMapeamento', () => {
     const antiga = inferirMapeamento([
       {
         nome: 'Lojas',
-        cabecalhos: ['Código da loja', 'Nome da loja', 'RAT (%)', 'FAP', 'Provisão de rescisão (Sim/Não)'],
+        cabecalhos: [
+          'Código da loja',
+          'Nome da loja',
+          'RAT (%)',
+          'FAP',
+          'Provisão de rescisão (Sim/Não)',
+        ],
         linhas: [['001', 'Centro', '2', '1', 'Não']],
       },
     ]).mapeamento.lojas!.colunas;

@@ -32,6 +32,14 @@ server {
     try_files $uri =404;
   }
 
+  # O retorno do Radar traz o código no endereço: não vai para o log nem para outros sites.
+  location = /sso/callback {
+    access_log off;
+    add_header Cache-Control "no-store";
+    add_header Referrer-Policy "no-referrer";
+    try_files /index.html =404;
+  }
+
   # Qualquer outro caminho volta para a tela (rotas do React).
   location / {
     add_header Cache-Control "no-cache";

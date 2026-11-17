@@ -46,7 +46,7 @@ export default function OndeVemSecao({ diag, regraId, podeEscrever, onEnviar, on
   return (
     <section aria-labelledby="titulo-onde-vem" className="flex flex-col gap-3">
       <div>
-        <h2 id="titulo-onde-vem" className="m-0 text-xl font-bold text-[var(--text-strong)]">De onde vêm esses números</h2>
+        <h2 id="titulo-onde-vem" className="m-0 text-xl font-bold text-[var(--text-strong)]">Cobertura atual da equipe</h2>
         <p className="m-0 mt-1 text-sm text-[var(--text-secondary)]">{SUBTITULO[aba]}</p>
       </div>
       <div className="rounded-card border border-[var(--border-subtle)] bg-[var(--surface-card)] shadow-card">

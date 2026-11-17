@@ -3,13 +3,23 @@ import { prisma } from '../../shared/database/prisma.js';
 const sel = { id: true, nome: true, identificacao: true, responsavel: true, ativo: true } as const;
 
 export const geRepository = {
-  // Lista curta para escolher o GE em tela (provisório até o SSO).
-  listarAtivos: () =>
+  // Lista curta para escolher o GE em tela; com ids, só esses.
+  listarAtivos: (ids?: string[]) =>
     prisma.grupoEconomico.findMany({
-      where: { ativo: true },
+      where: { ativo: true, ...(ids ? { id: { in: ids } } : {}) },
       select: { id: true, nome: true, identificacao: true },
       orderBy: { nome: 'asc' },
     }),
+
+  // Lojas ativas por grupo (para contar a quantas lojas a pessoa tem acesso).
+  async lojasPorGrupo(ids?: string[]) {
+    const linhas = await prisma.loja.groupBy({
+      by: ['geId'],
+      where: { deletedAt: null, ...(ids ? { geId: { in: ids } } : {}) },
+      _count: { _all: true },
+    });
+    return new Map(linhas.map((l) => [l.geId, l._count._all]));
+  },
 
   // Para o operador: cada GE com o número de lojas e de lojas que já têm equipe cadastrada.
   async resumo() {

@@ -8,7 +8,7 @@ import { CAMPOS_FUNCIONARIO, CAMPOS_LOJA } from '../planilhas/campos.js';
 import { inferirMapeamento, type Mapeamento } from '../planilhas/inferencia.js';
 import { lerPlanilha, type Aba } from '../planilhas/leitor.js';
 import type { FuncionarioBody, LojaBody } from './cadastros.schemas.js';
-import { formatarCnpj, normalizarCnpj, validarCnpj } from '../ge/cnpj.js';
+import { formatarCnpj, normalizarCnpj } from '../ge/cnpj.js';
 import { semanalDeMensal } from './carga.js';
 import { soDigitos } from './documentos.js';
 import { validarIntervalo } from './intervalo.js';
@@ -156,193 +156,192 @@ const executarImportacao = async (
   perfil: string,
   simular: boolean,
 ): Promise<{ resumo: ResumoImportacao; arquivo: string }> => {
-    const imp = await repo.buscarImportacao(id);
-    if (!imp) throw new NotFoundError('Importação não encontrada', 'IMPORTACAO_NAO_ENCONTRADA');
-    if (imp.status === 'confirmada')
-      throw new ConflictError('Esta importação já foi confirmada', 'IMPORTACAO_JA_CONFIRMADA');
+  const imp = await repo.buscarImportacao(id);
+  if (!imp) throw new NotFoundError('Importação não encontrada', 'IMPORTACAO_NAO_ENCONTRADA');
+  if (imp.status === 'confirmada')
+    throw new ConflictError('Esta importação já foi confirmada', 'IMPORTACAO_JA_CONFIRMADA');
 
-    for (const [chave, campos, parte] of [
-      ['lojas', CAMPOS_LOJA, mapeamento.lojas],
-      ['funcionarios', CAMPOS_FUNCIONARIO, mapeamento.funcionarios],
-    ] as const) {
-      if (!parte) continue;
-      const falta = campos
-        .filter((c) => c.obrigatorio && parte.colunas[c.chave] == null)
-        .map((c) => c.rotulo);
-      // A loja é identificada pelo CNPJ; planilha antiga, sem a coluna de CNPJ, pode usar o código.
-      const [porCnpj, porCodigo] =
-        chave === 'lojas' ? (['cnpj', 'codigo'] as const) : (['cnpj_loja', 'loja'] as const);
-      if (parte.colunas[porCnpj] == null && parte.colunas[porCodigo] == null)
-        falta.push(chave === 'lojas' ? 'CNPJ' : 'CNPJ da loja');
-      if (falta.length)
-        throw new ValidationError(
-          `Não encontramos a coluna ${falta.join(', ')}. Baixe o modelo e confira os nomes das colunas.`,
-        );
-    }
-    if (!mapeamento.lojas && !mapeamento.funcionarios)
-      throw new ValidationError('Indique ao menos uma aba (Lojas ou Funcionários).');
-    const proc = processarLinhas(imp.abas, mapeamento);
-    const operador = perfil === 'PLATFORM_OPERATOR';
-    const dono = perfil === 'TENANT_ADMIN';
-    // Quem importa lojas: o operador (cria e atualiza) e o dono (só atualiza as que existem). Os demais perfis importam só a equipe.
-    const avisos: string[] = [];
-    let lojasDaPlanilha = proc.lojas as LojaInput[];
-    if (mapeamento.lojas && !operador && !dono) {
-      lojasDaPlanilha = [];
-      avisos.push(
-        'A aba Lojas foi ignorada: só o operador e o dono do grupo importam lojas. A equipe foi importada normalmente.',
+  for (const [chave, campos, parte] of [
+    ['lojas', CAMPOS_LOJA, mapeamento.lojas],
+    ['funcionarios', CAMPOS_FUNCIONARIO, mapeamento.funcionarios],
+  ] as const) {
+    if (!parte) continue;
+    const falta = campos
+      .filter((c) => c.obrigatorio && parte.colunas[c.chave] == null)
+      .map((c) => c.rotulo);
+    // A loja é identificada pelo CNPJ; planilha antiga, sem a coluna de CNPJ, pode usar o código.
+    const [porCnpj, porCodigo] =
+      chave === 'lojas' ? (['cnpj', 'codigo'] as const) : (['cnpj_loja', 'loja'] as const);
+    if (parte.colunas[porCnpj] == null && parte.colunas[porCodigo] == null)
+      falta.push(chave === 'lojas' ? 'CNPJ' : 'CNPJ da loja');
+    if (falta.length)
+      throw new ValidationError(
+        `Não encontramos a coluna ${falta.join(', ')}. Baixe o modelo e confira os nomes das colunas.`,
       );
+  }
+  if (!mapeamento.lojas && !mapeamento.funcionarios)
+    throw new ValidationError('Indique ao menos uma aba (Lojas ou Funcionários).');
+  const proc = processarLinhas(imp.abas, mapeamento);
+  const operador = perfil === 'PLATFORM_OPERATOR';
+  const dono = perfil === 'TENANT_ADMIN';
+  // Quem importa lojas: o operador (cria e atualiza) e o dono (só atualiza as que existem). Os demais perfis importam só a equipe.
+  const avisos: string[] = [];
+  let lojasDaPlanilha = proc.lojas as LojaInput[];
+  if (mapeamento.lojas && !operador && !dono) {
+    lojasDaPlanilha = [];
+    avisos.push(
+      'A aba Lojas foi ignorada: só o operador e o dono do grupo importam lojas. A equipe foi importada normalmente.',
+    );
+  }
+  const resumo: ResumoImportacao = {
+    lojas: { novos: 0, atualizados: 0 },
+    funcionarios: { novos: 0, atualizados: 0 },
+    erros: [...proc.erros],
+    avisos,
+  };
+  const abaLojas = mapeamento.lojas?.aba ?? 'Lojas';
+  const semPermissaoDeValores = new Set<string>();
+
+  const lojaIds = new Map<string, string>();
+  for (const loja of lojasDaPlanilha) {
+    const { linha, configuracao, faturamento, ...dados } = loja;
+    const n = linha ?? 0;
+    const rotulo = dados.cnpj ? `CNPJ ${formatarCnpj(dados.cnpj)}` : `Loja ${dados.codigo}`;
+    const erro = (motivo: string) => resumo.erros.push({ aba: abaLojas, linha: n, motivo });
+    const l = { ...dados } as LojaInput;
+    // Faturamento, salário e encargos são valores em reais: só o dono grava.
+    if (dono && faturamento) l.faturamento = faturamento;
+    if (!dono && (faturamento || configuracao?.custos)) semPermissaoDeValores.add(rotulo);
+
+    // O CNPJ identifica a loja; sem loja com esse CNPJ no grupo, vale o código (planilha antiga).
+    const porCnpj = l.cnpj ? await repo.buscarLojaPorCnpj(l.cnpj) : null;
+    const porCodigo = !porCnpj && l.codigo ? await repo.buscarLojaPorCodigo(l.codigo) : null;
+    const existente = porCnpj ?? porCodigo;
+    if (!existente && l.cnpj && !l.codigo) {
+      erro('CNPJ não encontrado entre as lojas do grupo');
+      continue;
     }
-    const resumo: ResumoImportacao = {
-      lojas: { novos: 0, atualizados: 0 },
-      funcionarios: { novos: 0, atualizados: 0 },
-      erros: [...proc.erros],
-      avisos,
-    };
-    const abaLojas = mapeamento.lojas?.aba ?? 'Lojas';
-    const semPermissaoDeValores = new Set<string>();
+    if (!existente && !operador) {
+      erro(`${rotulo} não cadastrada: só o operador cria lojas`);
+      continue;
+    }
+    if (!existente && (!l.codigo || !l.nome)) {
+      erro('Para criar uma loja informe o código e o nome da loja');
+      continue;
+    }
+    // Achada pelo CNPJ: o código e o CNPJ cadastrados não mudam por aqui.
+    if (porCnpj) {
+      delete l.codigo;
+      delete l.cnpj;
+    }
+    if (porCodigo && !operador) {
+      // O CNPJ identifica a loja na carga da plataforma: o dono não muda.
+      if (l.cnpj && normalizarCnpj(l.cnpj) !== (existente?.cnpj ?? undefined))
+        avisos.push(`${rotulo}: o CNPJ da planilha foi ignorado (só o operador altera o CNPJ).`);
+      delete l.cnpj;
+    }
+    if (l.cnpj && (await repo.cnpjEmUso(l.cnpj, existente?.id))) {
+      erro(`${rotulo}: este CNPJ já está cadastrado`);
+      continue;
+    }
+    let lojaId: string;
+    if (existente) {
+      if (!simular) await repo.atualizarLoja(existente.id, l);
+      lojaId = existente.id;
+      resumo.lojas.atualizados++;
+    } else {
+      // Na revisão (simular) nada é criado: a loja nova recebe um identificador provisório.
+      lojaId = simular
+        ? `provisorio-${n}`
+        : (await repo.criarLoja({ ...l, codigo: l.codigo!, nome: l.nome! })).id;
+      resumo.lojas.novos++;
+    }
+    if (dados.codigo) lojaIds.set(`codigo:${dados.codigo}`, lojaId);
+    if (dados.cnpj) lojaIds.set(`cnpj:${dados.cnpj}`, lojaId);
+    if (existente?.cnpj) lojaIds.set(`cnpj:${existente.cnpj}`, lojaId);
 
-    const lojaIds = new Map<string, string>();
-    for (const loja of lojasDaPlanilha) {
-      const { linha, configuracao, faturamento, ...dados } = loja;
-      const n = linha ?? 0;
-      const rotulo = dados.cnpj ? `CNPJ ${formatarCnpj(dados.cnpj)}` : `Loja ${dados.codigo}`;
-      const erro = (motivo: string) => resumo.erros.push({ aba: abaLojas, linha: n, motivo });
-      const l = { ...dados } as LojaInput;
-      // Faturamento, salário e encargos são valores em reais: só o dono grava.
-      if (dono && faturamento) l.faturamento = faturamento;
-      if (!dono && (faturamento || configuracao?.custos)) semPermissaoDeValores.add(rotulo);
-
-      // O CNPJ identifica a loja; sem loja com esse CNPJ no grupo, vale o código (planilha antiga).
-      const porCnpj = l.cnpj ? await repo.buscarLojaPorCnpj(l.cnpj) : null;
-      const porCodigo = !porCnpj && l.codigo ? await repo.buscarLojaPorCodigo(l.codigo) : null;
-      const existente = porCnpj ?? porCodigo;
-      if (!existente && l.cnpj && !l.codigo) {
-        erro('CNPJ não encontrado entre as lojas do grupo');
-        continue;
-      }
-      if (!existente && !operador) {
-        erro(`${rotulo} não cadastrada: só o operador cria lojas`);
-        continue;
-      }
-      if (!existente && (!l.codigo || !l.nome)) {
-        erro('Para criar uma loja informe o código e o nome da loja');
-        continue;
-      }
-      // Achada pelo CNPJ: o código e o CNPJ cadastrados não mudam por aqui.
-      if (porCnpj) {
-        delete l.codigo;
-        delete l.cnpj;
-      }
-      if (porCodigo && !operador) {
-        // O CNPJ identifica a loja na carga da plataforma: o dono não muda.
-        if (l.cnpj && normalizarCnpj(l.cnpj) !== (existente?.cnpj ?? undefined))
-          avisos.push(`${rotulo}: o CNPJ da planilha foi ignorado (só o operador altera o CNPJ).`);
-        delete l.cnpj;
-      }
-      if (l.cnpj && (await repo.cnpjEmUso(l.cnpj, existente?.id))) {
-        erro(`${rotulo}: este CNPJ já está cadastrado`);
-        continue;
-      }
-      let lojaId: string;
-      if (existente) {
-        if (!simular) await repo.atualizarLoja(existente.id, l);
-        lojaId = existente.id;
-        resumo.lojas.atualizados++;
-      } else {
-        // Na revisão (simular) nada é criado: a loja nova recebe um identificador provisório.
-        lojaId = simular
-          ? `provisorio-${n}`
-          : (await repo.criarLoja({ ...l, codigo: l.codigo!, nome: l.nome! })).id;
-        resumo.lojas.novos++;
-      }
-      if (dados.codigo) lojaIds.set(`codigo:${dados.codigo}`, lojaId);
-      if (dados.cnpj) lojaIds.set(`cnpj:${dados.cnpj}`, lojaId);
-      if (existente?.cnpj) lojaIds.set(`cnpj:${existente.cnpj}`, lojaId);
-
-      if (configuracao && simular) {
-        if (dono && configuracao.custos?.encargosPct !== undefined)
+    if (configuracao && simular) {
+      if (dono && configuracao.custos?.encargosPct !== undefined)
+        avisos.push(
+          `${rotulo}: a coluna Encargos (%) foi ignorada, o encargo agora vem do regime tributário da loja.`,
+        );
+    } else if (configuracao) {
+      const atual = await repo.configuracaoDaLoja(lojaId);
+      const grava: Parameters<CadastrosRepository['gravarConfiguracao']>[1] = {};
+      if (configuracao.convencao8h24 !== undefined)
+        grava.convencao8h24 = configuracao.convencao8h24;
+      if (configuracao.minimos)
+        grava.minimos = { ...atual.minimos, ...(configuracao.minimos as Record<string, number>) };
+      if (dono && configuracao.custos) {
+        // O encargo vem do regime tributário da loja: a coluna "Encargos (%)" da planilha não vale mais.
+        if (configuracao.custos.encargosPct !== undefined)
           avisos.push(
             `${rotulo}: a coluna Encargos (%) foi ignorada, o encargo agora vem do regime tributário da loja.`,
           );
-      } else if (configuracao) {
-        const atual = await repo.configuracaoDaLoja(lojaId);
-        const grava: Parameters<CadastrosRepository['gravarConfiguracao']>[1] = {};
-        if (configuracao.convencao8h24 !== undefined)
-          grava.convencao8h24 = configuracao.convencao8h24;
-        if (configuracao.minimos)
-          grava.minimos = { ...atual.minimos, ...(configuracao.minimos as Record<string, number>) };
-        if (dono && configuracao.custos) {
-          // O encargo vem do regime tributário da loja: a coluna "Encargos (%)" da planilha não vale mais.
-          if (configuracao.custos.encargosPct !== undefined)
-            avisos.push(
-              `${rotulo}: a coluna Encargos (%) foi ignorada, o encargo agora vem do regime tributário da loja.`,
-            );
-          // Os ajustes antigos de RAT/FAP/rescisão que já estavam guardados seguem como estão (o `...atual.custos` os mantém).
-          const salarios = configuracao.custos.salarioMedio as Record<string, number>;
-          if (Object.keys(salarios).length)
-            grava.custos = {
-              ...(atual.custos ?? {}),
-              salarioMedio: { ...(atual.custos?.salarioMedio ?? {}), ...salarios },
-            };
-        }
-        if (Object.keys(grava).length) await repo.gravarConfiguracao(lojaId, grava);
+        // Os ajustes antigos de RAT/FAP/rescisão que já estavam guardados seguem como estão (o `...atual.custos` os mantém).
+        const salarios = configuracao.custos.salarioMedio as Record<string, number>;
+        if (Object.keys(salarios).length)
+          grava.custos = {
+            ...(atual.custos ?? {}),
+            salarioMedio: { ...(atual.custos?.salarioMedio ?? {}), ...salarios },
+          };
       }
+      if (Object.keys(grava).length) await repo.gravarConfiguracao(lojaId, grava);
     }
-    if (semPermissaoDeValores.size)
-      avisos.push(
-        `Faturamento, salário médio e encargos foram ignorados em ${semPermissaoDeValores.size} loja(s): só o dono do grupo grava esses valores.`,
-      );
+  }
+  if (semPermissaoDeValores.size)
+    avisos.push(
+      `Faturamento, salário médio e encargos foram ignorados em ${semPermissaoDeValores.size} loja(s): só o dono do grupo grava esses valores.`,
+    );
 
-    for (const f of proc.funcionarios as FuncionarioInput[]) {
-      // A loja de lotação: pelo CNPJ (modelo novo) ou, planilha antiga, pelo código.
-      const lojaId = f.lojaCnpj
-        ? (lojaIds.get(`cnpj:${f.lojaCnpj}`) ?? (await repo.buscarLojaPorCnpj(f.lojaCnpj))?.id)
-        : (lojaIds.get(`codigo:${f.lojaCodigo}`) ??
-          (await repo.buscarLojaPorCodigo(f.lojaCodigo ?? ''))?.id);
-      if (!lojaId) {
-        resumo.erros.push({
-          aba: mapeamento.funcionarios!.aba,
-          linha: f.linha ?? 0,
-          motivo: f.lojaCnpj
-            ? `Funcionário ${f.matricula}: CNPJ ${formatarCnpj(f.lojaCnpj)} não encontrado entre as lojas do grupo`
-            : `Funcionário ${f.matricula}: loja ${f.lojaCodigo} não existe`,
-        });
-        continue;
-      }
-      const { lojaCodigo: _omit, lojaCnpj: _omitCnpj, linha: _linha, ...dados } = f;
-      void _omit;
-      void _omitCnpj;
-      void _linha;
-      const corpo = { ...dados, lojaId };
-      const existente = await repo.buscarFuncionarioPorMatricula(f.matricula);
-      if (existente) {
-        if (!simular) await repo.atualizarFuncionario(existente.id, corpo);
-        resumo.funcionarios.atualizados++;
-      } else {
-        if (!simular) await repo.criarFuncionario(corpo);
-        resumo.funcionarios.novos++;
-      }
+  for (const f of proc.funcionarios as FuncionarioInput[]) {
+    // A loja de lotação: pelo CNPJ (modelo novo) ou, planilha antiga, pelo código.
+    const lojaId = f.lojaCnpj
+      ? (lojaIds.get(`cnpj:${f.lojaCnpj}`) ?? (await repo.buscarLojaPorCnpj(f.lojaCnpj))?.id)
+      : (lojaIds.get(`codigo:${f.lojaCodigo}`) ??
+        (await repo.buscarLojaPorCodigo(f.lojaCodigo ?? ''))?.id);
+    if (!lojaId) {
+      resumo.erros.push({
+        aba: mapeamento.funcionarios!.aba,
+        linha: f.linha ?? 0,
+        motivo: f.lojaCnpj
+          ? `Funcionário ${f.matricula}: CNPJ ${formatarCnpj(f.lojaCnpj)} não encontrado entre as lojas do grupo`
+          : `Funcionário ${f.matricula}: loja ${f.lojaCodigo} não existe`,
+      });
+      continue;
     }
+    const { lojaCodigo: _omit, lojaCnpj: _omitCnpj, linha: _linha, ...dados } = f;
+    void _omit;
+    void _omitCnpj;
+    void _linha;
+    const corpo = { ...dados, lojaId };
+    const existente = await repo.buscarFuncionarioPorMatricula(f.matricula);
+    if (existente) {
+      if (!simular) await repo.atualizarFuncionario(existente.id, corpo);
+      resumo.funcionarios.atualizados++;
+    } else {
+      if (!simular) await repo.criarFuncionario(corpo);
+      resumo.funcionarios.novos++;
+    }
+  }
 
-    if (simular) return { resumo, arquivo: imp.arquivo };
-    await repo.fecharImportacao(id, mapeamento, resumo);
-    await auditar({
-      acao: 'cadastro.importado',
-      perfil,
-      alvoTipo: 'importacao',
-      alvoId: id,
-      detalhe: {
-        arquivo: imp.arquivo,
-        lojas: resumo.lojas,
-        funcionarios: resumo.funcionarios,
-        erros: resumo.erros.length,
-        avisos: resumo.avisos.length,
-      },
-    });
-    return { resumo, arquivo: imp.arquivo };
+  if (simular) return { resumo, arquivo: imp.arquivo };
+  await repo.fecharImportacao(id, mapeamento, resumo);
+  await auditar({
+    acao: 'cadastro.importado',
+    perfil,
+    alvoTipo: 'importacao',
+    alvoId: id,
+    detalhe: {
+      arquivo: imp.arquivo,
+      lojas: resumo.lojas,
+      funcionarios: resumo.funcionarios,
+      erros: resumo.erros.length,
+      avisos: resumo.avisos.length,
+    },
+  });
+  return { resumo, arquivo: imp.arquivo };
 };
-
 
 export const makeCadastrosService = (repo: CadastrosRepository, auditar: Auditor) => ({
   // A situação do cadastro (Completo/Revisar) depende da equipe, do funcionamento e do faturamento: é calculada para as lojas
@@ -513,7 +512,14 @@ export const makeCadastrosService = (repo: CadastrosRepository, auditar: Auditor
 
   // Revisão antes de gravar: o mesmo caminho da gravação, sem escrever nada e sem fechar a importação.
   async revisarImportacao(id: string, mapeamento: Mapeamento, perfil: string) {
-    const { resumo, arquivo } = await executarImportacao(repo, auditar, id, mapeamento, perfil, true);
+    const { resumo, arquivo } = await executarImportacao(
+      repo,
+      auditar,
+      id,
+      mapeamento,
+      perfil,
+      true,
+    );
     const abaLojas = mapeamento.lojas?.aba;
     const abaFuncionarios = mapeamento.funcionarios?.aba;
     const comErro = (aba: string | undefined) =>

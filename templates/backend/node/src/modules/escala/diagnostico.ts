@@ -8,10 +8,12 @@ import { faixasDaSemana, normalizarHorarios, type HorariosSemana } from '../cada
 import type { Custos } from '../custos/custos.schemas.js';
 import type { ResultadoEncargos } from '../regras/encargos.js';
 import { cobertura, type TurnoPessoa } from './cobertura.js';
-import { montarCenarios } from './cenarios.js';
+import { montarCenarios, type EntradaCenarios } from './cenarios.js';
+import { montarLinhas, type LinhaDeCenario } from './linhas-cenarios.js';
 import { montarExtras, type ExtrasRegra } from './cenarios-extras.js';
 import type { TabelaParametros } from '../regras/parametros.js';
 import { montarQuadroTurnos } from './quadro-turnos.js';
+import { preencherComCmvMedio, reguaDaBase } from './regua.js';
 import { avisosDeTurnos, exigenciasDaLoja, type TurnosLoja } from '../regras/turnos.js';
 import type { Faturamento } from '../cadastros/faturamento.js';
 import { montarComparativo, type Comparativo } from './comparativo.js';
@@ -58,17 +60,19 @@ const hh = (h: number) =>
   `${String(Math.floor(h)).padStart(2, '0')}:${String(Math.round((h % 1) * 60)).padStart(2, '0')}`;
 
 // Dias abertos com a faixa de cada um (24 horas = 0 a 24). Aceita o formato novo e o antigo.
-// Valores de venda e margem que, vindos do faturamento do cadastro, só o dono pode ver.
+// Valores de venda que, vindos do faturamento do cadastro, só o dono pode ver.
 const CHAVES_DE_VENDA = new Set([
   'venda',
-  'margem',
   'vendaMes',
-  'margemMes',
   'vendaRefMes',
-  'margemRefMes',
+  'saldoMensal',
   'vendaCortadaMes',
-  'margemCortadaMes',
 ]);
+const calcularCompleto = (entrada: EntradaCenarios) => {
+  const cenarios = montarCenarios(entrada);
+  return { cenarios, comparativo: montarComparativo(entrada, cenarios) };
+};
+
 const semValoresDeVenda = (v: unknown): unknown =>
   Array.isArray(v)
     ? v.map(semValoresDeVenda)
@@ -80,7 +84,7 @@ const semValoresDeVenda = (v: unknown): unknown =>
         )
       : v;
 
-const semValorPorHora = <
+export const semValorPorHora = <
   T extends { horas: { vendaMedia: number }[]; top: { vendaMedia: number }[] },
 >(
   v: T,
@@ -127,9 +131,8 @@ export const montarDiagnostico = (a: {
   foraDaConta?: { nome: string; motivo: string }[];
   // Parâmetros legais vigentes (jornada, dias, divisor); sem eles valem os de hoje.
   parametros?: TabelaParametros;
-  // Premissas só para simular (recaptura, fator de dia novo, dias protegidos, limite do parcial) e a margem simulada do dono.
+  // Premissas só para simular (recaptura, fator de dia novo, dias protegidos, limite do parcial).
   premissas?: Premissas;
-  margemPctSimulada?: number | null;
 }) => {
   const { loja, escala, turnos, base, vendas } = a;
   const prem = a.premissas ?? PREMISSAS_PADRAO;
@@ -139,12 +142,6 @@ export const montarDiagnostico = (a: {
 
   const fontes = {
     horario: dias.length > 0,
-    escala: escala && {
-      arquivo: escala.arquivo,
-      recebidaEm: escala.recebidaEm,
-      aceitas: escala.linhasAceitas,
-      rejeitadas: escala.linhasRejeitadas,
-    },
     base: base && {
       arquivo: base.arquivo,
       recebidaEm: base.recebidaEm,
@@ -176,18 +173,36 @@ export const montarDiagnostico = (a: {
       status: 'pendente' as const,
       mensagem: !fontes.horario
         ? 'Cadastre o horário de funcionamento da loja para calcular o diagnóstico.'
-        : 'Importe a escala atual para ver o diagnóstico.',
+        : 'Cadastre o horário dos funcionários em Cadastros › Equipe para ver o diagnóstico.',
       fontes,
       config,
     };
   }
 
   const noCalculo = turnos.filter((t) => t.funcao);
-  const pessoas = noCalculo.map((t) => ({ funcao: t.funcao!, cargaH: t.cargaH }));
+  const pessoas = noCalculo.map((t) => ({
+    funcao: t.funcao!,
+    cargaH: t.cargaH,
+    matricula: t.matricula,
+  }));
+  // Os horários do Cadastro: o motor mede a cobertura real, com folgas e domingo em rodízio (spec 043).
+  const horarios = noCalculo.map((t) => ({
+    matricula: t.matricula,
+    funcao: t.funcao!,
+    cargaH: t.cargaH,
+    dias: t.dias,
+    entrada: t.entrada,
+    saida: t.saida,
+    iniIntervalo: t.iniIntervalo,
+    fimIntervalo: t.fimIntervalo,
+    // Horário fixo no Cadastro: o esticamento (spec 046) não mexe no turno.
+    fixo: a.horarioFixo?.has(t.matricula) ?? false,
+  }));
 
   const regras = REGRA_IDS.map((id: RegraId) => {
     const regra = regraPara(id, loja.convencao8h24, a.parametros);
     const brutas = verificarRegra(regra, dias, exigencias, pessoas, {
+      horarios,
       limiteParcial: prem.limiteParcial,
       regraAtual: regraPara('atual', loja.convencao8h24, a.parametros),
       // Só o dono vê o custo da sugestão.
@@ -238,11 +253,18 @@ export const montarDiagnostico = (a: {
     const com8h24 =
       id === 'r42' && !loja.convencao8h24
         ? {
-            funcoes: verificarRegra(regraPara('r42', true, a.parametros), dias, exigencias, pessoas, {
-              limiteParcial: prem.limiteParcial,
-              regraAtual: regraPara('atual', loja.convencao8h24, a.parametros),
-              divisor: (a.parametros ?? PARAMETROS_PADRAO)[id].divisor,
-            }).map((f) => ({
+            funcoes: verificarRegra(
+              regraPara('r42', true, a.parametros),
+              dias,
+              exigencias,
+              pessoas,
+              {
+                horarios,
+                limiteParcial: prem.limiteParcial,
+                regraAtual: regraPara('atual', loja.convencao8h24, a.parametros),
+                divisor: (a.parametros ?? PARAMETROS_PADRAO)[id].divisor,
+              },
+            ).map((f) => ({
               funcao: f.funcao,
               capacidadeH: f.capacidadeH,
               necessidadeH: f.necessidadeH,
@@ -297,17 +319,7 @@ export const montarDiagnostico = (a: {
   const doCadastro = vendas.length === 0 ? vendasDoCadastro(loja.faturamento, dias) : null;
   const origemVendas =
     vendas.length > 0 ? ('base' as const) : doCadastro ? ('cadastro' as const) : null;
-  // Margem simulada (só o dono): substitui a margem da base ou do cadastro em todas as horas, sem gravar nada.
-  const margemEmUso = a.margemPctSimulada ?? loja.faturamento?.margemPct ?? null;
-  const vendasBrutas = doCadastro?.linhas ?? vendas;
-  // Base comercial sem coluna de margem (tudo zero): vale a margem média cadastrada na loja, como nas vendas do cadastro.
-  const baseSemMargem = vendas.length > 0 && vendas.every((l) => !(l.margem > 0));
-  const margemAplicada =
-    a.margemPctSimulada ?? (baseSemMargem ? (loja.faturamento?.margemPct ?? null) : null);
-  const vendasUsadas =
-    margemAplicada == null
-      ? vendasBrutas
-      : vendasBrutas.map((l) => ({ ...l, margem: (l.venda * margemAplicada) / 100 }));
+  const vendasUsadas = doCadastro?.linhas ?? vendas;
   // Sem curva por hora (origem cadastro) não existe "horário de maior venda".
   const resumoVendas = origemVendas === 'base' ? resumirVendas(vendas) : null;
 
@@ -354,9 +366,8 @@ export const montarDiagnostico = (a: {
   } else if (origemVendas === 'cadastro') {
     atencao.push({
       tom: 'atencao',
-      texto: doCadastro?.comMargem
-        ? 'Venda estimada pelo faturamento do cadastro, dividido igualmente entre as horas abertas. Envie a base comercial para ver as horas de maior venda.'
-        : 'Venda estimada pelo faturamento do cadastro, dividido igualmente entre as horas abertas. Informe a margem bruta média da loja no Cadastro para estimar o ganho dos cenários.',
+      texto:
+        'Venda estimada pelo faturamento do cadastro, dividido igualmente entre as horas abertas. Envie a base comercial para ver as horas de maior venda.',
     });
   } else {
     atencao.push({
@@ -370,11 +381,6 @@ export const montarDiagnostico = (a: {
     atencao.push({
       tom: 'atencao',
       texto: `${fora.length} colaborador(es) sem função de escala, fora do cálculo: ${fora.map((t) => t.nome).join(', ')}.`,
-    });
-  if (escala.linhasRejeitadas)
-    atencao.push({
-      tom: 'atencao',
-      texto: `${escala.linhasRejeitadas} linha(s) da escala foram rejeitadas na importação.`,
     });
 
   const lacunas = cob.funcoes.some((f) => f.porHora.some((c) => c.ok === false));
@@ -409,7 +415,8 @@ export const montarDiagnostico = (a: {
         ).length
       : null,
     foraDoCalculo: turnos.filter((t) => !t.funcao).length,
-    linhasRejeitadas: escala.linhasRejeitadas,
+    // A planilha de escala foi aposentada (spec 026): não há mais linhas rejeitadas; o campo fica por compatibilidade.
+    linhasRejeitadas: 0,
   };
 
   // Origem da venda por dia: base comercial, faturamento do cadastro por dia, ou estimativa (só o mensal informado).
@@ -425,6 +432,12 @@ export const montarDiagnostico = (a: {
   // Faturamento mensal de referência (só o dono vê o que dele sai): cadastro ou base comercial.
   const faturamentoRef = faturamentoMensalDe({ faturamento: loja.faturamento, vendasBase: vendas });
 
+  // A régua da loja (margem ou venda) vale igual para todos os cenários; só a base de vendas de verdade a define.
+  // Com o CMV médio da loja, as horas sem CMV recebem o lucro bruto dele; a venda real não muda.
+  const vendasComCmv =
+    origemVendas === 'base' ? preencherComCmvMedio(vendas, loja.faturamento?.cmvPct) : vendas;
+  const regua = origemVendas === 'base' ? reguaDaBase(vendasComCmv) : null;
+
   const cenariosPorRegra = Object.fromEntries(
     (['r42', 'r40'] as const).map((regraId) => {
       const entrada = {
@@ -433,7 +446,9 @@ export const montarDiagnostico = (a: {
         dias,
         minimos: exigencias,
         pessoas,
-        vendas: vendasUsadas,
+        horarios,
+        vendas: origemVendas === 'base' ? vendasComCmv : vendasUsadas,
+        regua,
         vendasDoCadastro: origemVendas === 'cadastro',
         custos: loja.custos ?? null,
         dono: a.dono === true,
@@ -443,23 +458,32 @@ export const montarDiagnostico = (a: {
         recaptura: prem.recaptura / 100,
         diasProtegidos: prem.diasProtegidos,
         fatorDiaNovo: prem.fatorDiaNovo / 100,
+        fatorHoraNova: prem.fatorHoraNova,
         limiteParcial: prem.limiteParcial,
       };
       const cenarios = montarCenarios(entrada);
+      const comparativo = montarComparativo(entrada, cenarios);
+      // Linhas dos cenários (spec 037): iguais para todos os perfis e só com porcentagens, horas e textos. Para quem não é
+      // dono, o cálculo das linhas parte dos números completos (com os custos da loja); nada em reais sai.
+      const completo = a.dono
+        ? { cenarios, comparativo }
+        : calcularCompleto({ ...entrada, dono: true });
       return [
         regraId,
         {
           ...cenarios,
           ...montarExtras(entrada, cenarios),
-          comparativo: montarComparativo(entrada, cenarios),
+          comparativo,
+          linhas: montarLinhas(completo.comparativo, completo.cenarios, a.dono === true),
         },
       ];
     }),
   ) as Record<
     'r42' | 'r40',
-    ReturnType<typeof montarCenarios> & ExtrasRegra & { comparativo: Comparativo }
+    ReturnType<typeof montarCenarios> &
+      ExtrasRegra & { comparativo: Comparativo; linhas: LinhaDeCenario[] }
   >;
-  // Venda e margem são valores em reais: só o dono vê, venha a venda da base comercial ou do cadastro.
+  // A venda é valor em reais: só o dono vê, venha a venda da base comercial ou do cadastro.
   const cenariosSaida = (
     a.dono ? cenariosPorRegra : semValoresDeVenda(cenariosPorRegra)
   ) as typeof cenariosPorRegra;
@@ -500,17 +524,11 @@ export const montarDiagnostico = (a: {
     // Venda média por hora é valor em reais: só o dono; os demais veem a participação de cada hora no total.
     vendas: a.dono || !resumoVendas ? resumoVendas : semValorPorHora(resumoVendas),
     origemVendas,
+    regua,
     cenarios: cenariosSaida,
     etapas,
     premissas: {
       ...prem,
-      // A margem (valor em reais indireto) só o dono vê: a em uso e a do cadastro, para voltar a ela.
-      ...(a.dono
-        ? {
-            margemPct: margemEmUso,
-            margemPctCadastro: loja.faturamento?.margemPct ?? null,
-          }
-        : {}),
     },
     pontosAtencao: atencao,
     colaboradores: turnos.map((t) => ({

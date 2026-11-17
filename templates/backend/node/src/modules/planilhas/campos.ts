@@ -8,6 +8,8 @@ export type CampoDef = {
   conteudo?: (valor: string) => boolean;
   // Coluna de planilhas antigas: ainda é entendida na importação, mas não vai no modelo novo.
   legado?: boolean;
+  // Aparece com asterisco no modelo novo mesmo quando a importação aceita o formato antigo sem ele.
+  obrigatorioNoModelo?: boolean;
 };
 
 const reCnpj = /^\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2}$/;
@@ -86,11 +88,21 @@ const CAMPOS_FATURAMENTO: CampoDef[] = [
     exemplo: '420000',
     sinonimos: ['fat mensal', 'faturamento mensal', 'faturamento medio mensal'],
   },
+  // CMV médio da loja (%): parte da venda líquida que volta ao fornecedor. Padrão das horas sem CMV (spec 034).
+  {
+    chave: 'cmv_pct',
+    rotulo: 'CMV médio (%)',
+    obrigatorio: false,
+    exemplo: '65',
+    sinonimos: ['cmv medio', 'cmv medio %', 'cmv %', 'cmv pct', 'cmv', 'cmv medio pct'],
+  },
+  // Formato antigo: margem bruta média. Ainda é entendida na importação (para não cair em outra coluna), mas é ignorada.
   {
     chave: 'margem_pct',
     rotulo: 'Margem bruta média (%)',
     obrigatorio: false,
-    exemplo: '28',
+    legado: true,
+    exemplo: '',
     sinonimos: ['margem pct', 'margem bruta', 'margem bruta media', 'margem %'],
   },
 ];
@@ -110,7 +122,7 @@ const CAMPOS_CONFIGURACAO: CampoDef[] = [
     chave: 'convencao_8h24',
     rotulo: 'Convenção permite 8h24 (Sim/Não)',
     obrigatorio: false,
-    exemplo: 'Não',
+    exemplo: 'Sim',
     sinonimos: [
       'convencao 8h24',
       'convencao permite 8h24',
@@ -146,6 +158,7 @@ const CAMPOS_CONFIGURACAO: CampoDef[] = [
     chave: 'rat_pct',
     rotulo: 'RAT (%)',
     obrigatorio: false,
+    legado: true,
     exemplo: '',
     sinonimos: ['rat', 'rat pct', 'rat %', 'risco acidente trabalho', 'aliquota rat'],
     conteudo: (v: string) => /^\d{1,2}([.,]\d+)?$/.test(v.trim()),
@@ -154,6 +167,7 @@ const CAMPOS_CONFIGURACAO: CampoDef[] = [
     chave: 'fap',
     rotulo: 'FAP',
     obrigatorio: false,
+    legado: true,
     exemplo: '',
     sinonimos: ['fap', 'fator acidentario', 'fator acidentario de prevencao', 'multiplicador fap'],
     conteudo: (v: string) => /^\d([.,]\d+)?$/.test(v.trim()),
@@ -162,6 +176,7 @@ const CAMPOS_CONFIGURACAO: CampoDef[] = [
     chave: 'rescisao',
     rotulo: 'Provisão de rescisão (Sim/Não)',
     obrigatorio: false,
+    legado: true,
     exemplo: 'Não',
     sinonimos: ['rescisao', 'provisao de rescisao', 'provisao rescisao', 'provisiona rescisao'],
     conteudo: ehSimNao,
@@ -187,7 +202,8 @@ export const CAMPOS_LOJA: CampoDef[] = [
   {
     chave: 'codigo',
     rotulo: 'Código da loja',
-    obrigatorio: true,
+    obrigatorio: false,
+    legado: true,
     exemplo: '001',
     sinonimos: [
       'codigo',
@@ -202,28 +218,31 @@ export const CAMPOS_LOJA: CampoDef[] = [
     ],
   },
   {
+    chave: 'cnpj',
+    rotulo: 'CNPJ',
+    obrigatorio: false,
+    obrigatorioNoModelo: true,
+    exemplo: '00.000.000/0001-00',
+    sinonimos: ['cnpj', 'cnpj loja', 'cnpj da loja', 'documento'],
+    conteudo: (v) => reCnpj.test(v),
+  },
+  {
     chave: 'nome',
-    rotulo: 'Nome da loja',
-    obrigatorio: true,
+    rotulo: 'Nome da loja / Apelido',
+    obrigatorio: false,
     exemplo: 'Loja Exemplo',
     sinonimos: [
       'nome',
       'nome loja',
       'nome_loja',
       'nome da loja',
+      'nome da loja apelido',
+      'apelido',
       'loja',
       'razao social',
       'fantasia',
       'descricao',
     ],
-  },
-  {
-    chave: 'cnpj',
-    rotulo: 'CNPJ',
-    obrigatorio: false,
-    exemplo: '00.000.000/0001-00',
-    sinonimos: ['cnpj', 'cnpj loja', 'documento'],
-    conteudo: (v) => reCnpj.test(v),
   },
   {
     chave: 'cidade',
@@ -342,9 +361,19 @@ export const CAMPOS_FUNCIONARIO: CampoDef[] = [
     ],
   },
   {
+    chave: 'cnpj_loja',
+    rotulo: 'CNPJ da loja',
+    obrigatorio: false,
+    obrigatorioNoModelo: true,
+    exemplo: '00.000.000/0001-00',
+    sinonimos: ['cnpj da loja', 'cnpj loja', 'cnpj lotacao', 'cnpj da loja de lotacao', 'cnpj'],
+    conteudo: (v) => reCnpj.test(v),
+  },
+  {
     chave: 'loja',
     rotulo: 'Código da loja de lotação',
-    obrigatorio: true,
+    obrigatorio: false,
+    legado: true,
     exemplo: '001',
     sinonimos: [
       'loja',
@@ -359,25 +388,19 @@ export const CAMPOS_FUNCIONARIO: CampoDef[] = [
   },
   {
     chave: 'cpf',
-    rotulo: 'CPF (fictício)',
+    rotulo: 'CPF',
     obrigatorio: false,
     exemplo: '000.000.000-00',
     sinonimos: ['cpf', 'documento'],
     conteudo: (v) => reCpf.test(v),
   },
   {
-    chave: 'cargo',
-    rotulo: 'Cargo',
-    obrigatorio: false,
-    exemplo: 'Balconista',
-    sinonimos: ['cargo', 'funcao', 'ocupacao', 'posicao'],
-  },
-  {
     chave: 'funcao_escala',
-    rotulo: 'Função de escala',
+    rotulo: 'Cargo',
     obrigatorio: false,
     exemplo: 'Atendimento',
     sinonimos: [
+      'cargo',
       'funcao escala',
       'funcao de escala',
       'funcao_escala',
@@ -385,6 +408,14 @@ export const CAMPOS_FUNCIONARIO: CampoDef[] = [
       'setor',
       'departamento',
     ],
+  },
+  {
+    chave: 'cargo',
+    rotulo: 'Cargo (texto livre)',
+    obrigatorio: false,
+    legado: true,
+    exemplo: 'Balconista',
+    sinonimos: ['cargo', 'funcao', 'ocupacao', 'posicao'],
   },
   {
     chave: 'carga_semanal',
@@ -426,6 +457,36 @@ export const CAMPOS_FUNCIONARIO: CampoDef[] = [
     conteudo: (v) => /^\d{1,2}(:\d{2})?(:\d{2})?$/.test(v),
   },
   {
+    chave: 'inicio_intervalo',
+    rotulo: 'Início do intervalo',
+    obrigatorio: false,
+    exemplo: '12:00',
+    sinonimos: [
+      'inicio intervalo',
+      'inicio do intervalo',
+      'ini intervalo',
+      'saida almoco',
+      'saida para almoco',
+      'intervalo inicio',
+    ],
+    conteudo: (v) => /^\d{1,2}(:\d{2})?(:\d{2})?$/.test(v),
+  },
+  {
+    chave: 'fim_intervalo',
+    rotulo: 'Fim do intervalo',
+    obrigatorio: false,
+    exemplo: '13:00',
+    sinonimos: [
+      'fim intervalo',
+      'fim do intervalo',
+      'volta almoco',
+      'volta do almoco',
+      'retorno almoco',
+      'intervalo fim',
+    ],
+    conteudo: (v) => /^\d{1,2}(:\d{2})?(:\d{2})?$/.test(v),
+  },
+  {
     chave: 'dias',
     rotulo: 'Dias trabalhados',
     obrigatorio: false,
@@ -449,121 +510,7 @@ export const CAMPOS_FUNCIONARIO: CampoDef[] = [
   },
 ];
 
-export const FUNCOES_ESCALA = [
-  'Farmacêutico',
-  'Atendimento',
-  'Caixa',
-] as const;
-
-export const CAMPOS_ESCALA: CampoDef[] = [
-  {
-    chave: 'loja',
-    rotulo: 'Código da loja',
-    obrigatorio: true,
-    exemplo: '001',
-    sinonimos: ['cod loja', 'cod_loja', 'codigo da loja', 'codigo', 'filial', 'loja'],
-  },
-  {
-    chave: 'matricula',
-    rotulo: 'ID do colaborador',
-    obrigatorio: true,
-    exemplo: 'F0001',
-    sinonimos: [
-      'id colaborador',
-      'id_colaborador',
-      'matricula',
-      'id funcionario',
-      'chapa',
-      'registro',
-    ],
-  },
-  {
-    chave: 'nome',
-    rotulo: 'Nome do colaborador',
-    obrigatorio: false,
-    exemplo: 'Maria Exemplo',
-    sinonimos: ['nome colaborador', 'nome_colaborador', 'nome', 'colaborador', 'funcionario'],
-  },
-  {
-    chave: 'funcao',
-    rotulo: 'Função',
-    obrigatorio: false,
-    exemplo: 'Atendimento',
-    sinonimos: ['funcao', 'cargo', 'funcao escala', 'area', 'setor'],
-  },
-  {
-    chave: 'tipo_escala',
-    rotulo: 'Tipo de escala',
-    obrigatorio: false,
-    exemplo: '6x1',
-    sinonimos: ['tipo escala atual', 'tipo_escala_atual', 'tipo escala', 'escala', 'regime escala'],
-  },
-  {
-    chave: 'dias',
-    rotulo: 'Dias de trabalho',
-    obrigatorio: true,
-    exemplo: 'Seg a Sáb',
-    sinonimos: ['dias trabalho', 'dias_trabalho', 'dias de trabalho', 'dias', 'dias trabalhados'],
-  },
-  {
-    chave: 'folga',
-    rotulo: 'Folga semanal',
-    obrigatorio: false,
-    exemplo: 'Dom',
-    sinonimos: ['folga semanal', 'folga_semanal', 'folga', 'dia de folga'],
-  },
-  {
-    chave: 'entrada',
-    rotulo: 'Hora de entrada',
-    obrigatorio: true,
-    exemplo: '08:00',
-    sinonimos: ['hora entrada', 'hora_entrada', 'entrada', 'inicio'],
-    conteudo: (v) => reHora.test(v),
-  },
-  {
-    chave: 'ini_intervalo',
-    rotulo: 'Início do intervalo',
-    obrigatorio: false,
-    exemplo: '12:00',
-    sinonimos: [
-      'inicio intervalo',
-      'inicio_intervalo',
-      'ini intervalo',
-      'saida intervalo',
-      'almoco inicio',
-    ],
-    conteudo: (v) => reHora.test(v),
-  },
-  {
-    chave: 'fim_intervalo',
-    rotulo: 'Fim do intervalo',
-    obrigatorio: false,
-    exemplo: '13:00',
-    sinonimos: [
-      'fim intervalo',
-      'fim_intervalo',
-      'volta intervalo',
-      'retorno intervalo',
-      'almoco fim',
-    ],
-    conteudo: (v) => reHora.test(v),
-  },
-  {
-    chave: 'saida',
-    rotulo: 'Hora de saída',
-    obrigatorio: true,
-    exemplo: '17:00',
-    sinonimos: ['hora saida', 'hora_saida', 'saida', 'fim', 'termino'],
-    conteudo: (v) => reHora.test(v),
-  },
-  {
-    chave: 'carga',
-    rotulo: 'Carga horária semanal',
-    obrigatorio: false,
-    exemplo: '44',
-    sinonimos: ['carga horaria', 'carga_horaria', 'carga semanal', 'horas semanais', 'jornada'],
-  },
-];
+export const FUNCOES_ESCALA = ['Farmacêutico', 'Atendimento', 'Caixa'] as const;
 
 export const CAMPOS_BASE: CampoDef[] = [
   {
@@ -601,10 +548,28 @@ export const CAMPOS_BASE: CampoDef[] = [
       'valor',
     ],
   },
+  // CMV da hora, em reais: o lucro bruto é a venda menos ele. Coluna opcional (sem ela a hora fica sem CMV).
+  {
+    chave: 'cmv',
+    rotulo: 'CMV (R$)',
+    obrigatorio: false,
+    exemplo: '190,00',
+    sinonimos: [
+      'cmv rs',
+      'cmv_rs',
+      'cmv',
+      'cmv bruto',
+      'custo da mercadoria',
+      'custo mercadoria vendida',
+      'custo da mercadoria vendida',
+    ],
+  },
+  // Formato antigo: margem bruta por hora. Ainda é entendida (para não cair em outra coluna), mas é ignorada.
   {
     chave: 'margem',
     rotulo: 'Margem bruta (R$)',
     obrigatorio: false,
+    legado: true,
     exemplo: '310,00',
     sinonimos: ['margem bruta rs', 'margem_bruta_rs', 'margem bruta', 'margem', 'lucro bruto'],
   },

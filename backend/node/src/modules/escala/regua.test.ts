@@ -2,7 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { linhasNaRegua, palavraDaRegua, preencherComCmvMedio, reguaDaBase } from './regua.js';
 
 // `margem` é o lucro bruto da hora (venda − CMV); nulo quando a hora não tem CMV.
-const linha = (hora: number, venda: number, margem: number | null) => ({ data: '2026-09-07', hora, venda, margem, clientes: 5, unidades: 9 });
+const linha = (hora: number, venda: number, margem: number | null) => ({
+  data: '2026-09-07',
+  hora,
+  venda,
+  margem,
+  clientes: 5,
+  unidades: 9,
+});
 const completa = Array.from({ length: 10 }, (_, i) => linha(8 + i, 1000, 300));
 const semCmv = completa.map((l) => ({ ...l, margem: null }));
 
@@ -21,17 +28,29 @@ describe('reguaDaBase', () => {
     expect(reguaDaBase(parcial)).toEqual({ tipo: 'venda', motivo: 'margem_parcial' });
   });
   it('CMV maior que a venda numa hora (lucro bruto negativo): venda, motivo margem_incoerente', () => {
-    expect(reguaDaBase([...completa, linha(20, 100, -50)])).toEqual({ tipo: 'venda', motivo: 'margem_incoerente' });
+    expect(reguaDaBase([...completa, linha(20, 100, -50)])).toEqual({
+      tipo: 'venda',
+      motivo: 'margem_incoerente',
+    });
   });
   it('CMV negativo (lucro bruto maior que a venda): venda, motivo margem_incoerente', () => {
-    expect(reguaDaBase([...completa, linha(20, 100, 400)])).toEqual({ tipo: 'venda', motivo: 'margem_incoerente' });
+    expect(reguaDaBase([...completa, linha(20, 100, 400)])).toEqual({
+      tipo: 'venda',
+      motivo: 'margem_incoerente',
+    });
   });
   it('o limite de 90% vale quando falta CMV e não há CMV médio: 9 de 10 horas vale; 8 de 10 não vale', () => {
-    expect(reguaDaBase(completa.map((l, i) => (i === 0 ? { ...l, margem: null } : l)))).toEqual({ tipo: 'margem' });
-    expect(reguaDaBase(completa.map((l, i) => (i < 2 ? { ...l, margem: null } : l)))?.motivo).toBe('margem_parcial');
+    expect(reguaDaBase(completa.map((l, i) => (i === 0 ? { ...l, margem: null } : l)))).toEqual({
+      tipo: 'margem',
+    });
+    expect(reguaDaBase(completa.map((l, i) => (i < 2 ? { ...l, margem: null } : l)))?.motivo).toBe(
+      'margem_parcial',
+    );
   });
   it('horas sem venda não contam na cobertura', () => {
-    expect(reguaDaBase([...completa, linha(22, 0, null), linha(23, 0, null)])).toEqual({ tipo: 'margem' });
+    expect(reguaDaBase([...completa, linha(22, 0, null), linha(23, 0, null)])).toEqual({
+      tipo: 'margem',
+    });
   });
   it('lucro bruto zero em todas as horas (CMV igual à venda) é um dado válido: margem', () => {
     expect(reguaDaBase(completa.map((l) => ({ ...l, margem: 0 })))).toEqual({ tipo: 'margem' });

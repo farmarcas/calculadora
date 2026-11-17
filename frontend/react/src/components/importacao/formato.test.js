@@ -28,7 +28,7 @@ describe("erro do arquivo escolhido", () => {
   it("formato errado e arquivo acima do limite", () => {
     expect(erroDoArquivo({ name: "a.pdf", size: 10 })).toContain("não é .xlsx nem .csv");
     expect(erroDoArquivo({ name: "a.XLSX", size: 10 })).toBeNull();
-    expect(erroDoArquivo({ name: "a.csv", size: 11 * 1024 * 1024 })).toContain("mais de 10 MB");
+    expect(erroDoArquivo({ name: "a.csv", size: 21 * 1024 * 1024 })).toContain("mais de 20 MB");
     expect(erroDoArquivo(null)).toBeNull();
   });
 });

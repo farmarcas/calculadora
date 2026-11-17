@@ -9,7 +9,6 @@ import { parametrosRepository } from '../parametros/parametros.repository.js';
 import { funcaoNoCalculo } from '../cadastros/funcoes.js';
 import { normalizarHorarios } from '../cadastros/horarios.js';
 import type { CargaMeta, LojaDiag, TurnoDiag } from './diagnostico.js';
-import type { CadastroPessoa, TurnoLinha } from './interpretar.js';
 import type { VendaLinha } from './vendas.js';
 
 const dia = (s: string) => new Date(`${s}T00:00:00.000Z`);
@@ -24,79 +23,18 @@ export const escalaRepository = (geId: string) => {
       throw new NotFoundError('Loja não encontrada', 'LOJA_NAO_ENCONTRADA');
   };
   return {
+    // Envio ativo de base comercial de cada loja (só a data), para avisar o que uma nova planilha substitui.
+    async basesAtivasDasLojas(lojaIds: string[]) {
+      return prisma.carga.findMany({
+        where: { lojaId: { in: lojaIds }, loja: { geId }, tipo: 'BASE', ativa: true },
+        select: { lojaId: true, recebidaEm: true },
+      });
+    },
+
     async lojasPorCodigos(codigos: string[]) {
       return prisma.loja.findMany({
         where: { codigo: { in: codigos }, geId, ...ativo },
         select: { id: true, codigo: true, nome: true },
-      });
-    },
-
-    async cadastroPorMatriculas(matriculas: string[]): Promise<Map<string, CadastroPessoa>> {
-      const rows = await prisma.funcionario.findMany({
-        where: { matricula: { in: matriculas }, loja: { geId }, ...ativo },
-        select: { matricula: true, nome: true, funcaoEscala: true, cargaSemanalH: true },
-      });
-      return new Map(
-        rows.map((r) => [
-          r.matricula,
-          {
-            nome: r.nome,
-            funcaoEscala: funcaoNoCalculo(r.funcaoEscala),
-            cargaSemanalH: r.cargaSemanalH,
-          },
-        ]),
-      );
-    },
-
-    async matriculasCadastradas(matriculas: string[]) {
-      const rows = await prisma.funcionario.findMany({
-        where: { matricula: { in: matriculas }, loja: { geId }, ...ativo },
-        select: { matricula: true },
-      });
-      return new Set(rows.map((r) => r.matricula));
-    },
-
-    // A carga nova vira a ativa; a anterior fica no histórico.
-    async substituirEscala(
-      lojaId: string,
-      arquivo: string,
-      turnos: TurnoLinha[],
-      rejeitadas: number,
-      cadastradas: Set<string>,
-    ) {
-      return prisma.$transaction(async (tx) => {
-        await garantirLoja(tx, lojaId);
-        await tx.carga.updateMany({
-          where: { lojaId, tipo: 'ESCALA', ativa: true },
-          data: { ativa: false },
-        });
-        return tx.carga.create({
-          data: {
-            lojaId,
-            tipo: 'ESCALA',
-            arquivo,
-            linhasAceitas: turnos.length,
-            linhasRejeitadas: rejeitadas,
-            turnos: {
-              create: turnos.map((t) => ({
-                matricula: t.matricula,
-                nome: t.nome,
-                funcao: t.funcao,
-                tipoEscala: t.tipoEscala,
-                dias: t.dias,
-                entrada: t.entrada,
-                iniIntervalo: t.iniIntervalo,
-                fimIntervalo: t.fimIntervalo,
-                saida: t.saida,
-                cargaH: t.cargaH,
-                status: t.status,
-                motivo: t.motivo,
-                cadastrado: cadastradas.has(t.matricula),
-              })),
-            },
-          },
-          select: { id: true },
-        });
       });
     },
 
@@ -127,7 +65,8 @@ export const escalaRepository = (geId: string) => {
                 data: dia(v.data),
                 hora: v.hora,
                 venda: v.venda,
-                margem: v.margem,
+                // O banco guarda o CMV; o lucro bruto é venda − CMV.
+                cmv: v.margem === null ? null : v.venda - v.margem,
                 clientes: v.clientes,
                 unidades: v.unidades,
               })),
@@ -135,6 +74,68 @@ export const escalaRepository = (geId: string) => {
           },
           select: { id: true },
         });
+      });
+    },
+
+    // Lojas do GE com CNPJ e faturamento, para casar a base por CNPJ em memória (uma ida ao banco só).
+    async lojasDoGeComCnpj() {
+      return prisma.loja.findMany({
+        where: { geId, ...ativo },
+        select: { id: true, codigo: true, nome: true, cnpj: true, faturamento: true },
+      });
+    },
+
+    // Troca a base ativa da loja pela nova, em lote (a base por CNPJ tem ~100 linhas por loja). A anterior fica guardada
+    // como inativa: nada é apagado. O período declarado do arquivo vai na carga.
+    async substituirBaseEmLote(
+      lojaId: string,
+      arquivo: string,
+      vendas: VendaLinha[],
+      rejeitadas: number,
+      periodo: { inicio: string; fim: string },
+    ) {
+      return prisma.$transaction(
+        async (tx) => {
+          await garantirLoja(tx, lojaId);
+          await tx.carga.updateMany({
+            where: { lojaId, tipo: 'BASE', ativa: true },
+            data: { ativa: false },
+          });
+          const carga = await tx.carga.create({
+            data: {
+              lojaId,
+              tipo: 'BASE',
+              arquivo,
+              linhasAceitas: vendas.length,
+              linhasRejeitadas: rejeitadas,
+              periodoInicio: dia(periodo.inicio),
+              periodoFim: dia(periodo.fim),
+            },
+            select: { id: true },
+          });
+          await tx.vendaHora.createMany({
+            data: vendas.map((v) => ({
+              cargaId: carga.id,
+              data: dia(v.data),
+              hora: v.hora,
+              venda: v.venda,
+              // O banco guarda o CMV; o lucro bruto é venda − CMV.
+              cmv: v.margem === null ? null : v.venda - v.margem,
+              clientes: v.clientes,
+              unidades: v.unidades,
+            })),
+          });
+          return carga;
+        },
+        { timeout: 60_000 },
+      );
+    },
+
+    // Grava o faturamento do Cadastro já mesclado (só o que estava vazio foi preenchido, ver `mesclarCadastro`).
+    async gravarFaturamento(lojaId: string, faturamento: Prisma.InputJsonValue) {
+      await prisma.loja.updateMany({
+        where: { id: lojaId, geId, ...ativo },
+        data: { faturamento },
       });
     },
 
@@ -164,35 +165,6 @@ export const escalaRepository = (geId: string) => {
         encargos: efetivos?.encargos ?? null,
         regimeTributario: l.regimeTributario,
         faturamento: l.faturamento as unknown as LojaDiag['faturamento'],
-      };
-    },
-
-    async escalaAtiva(lojaId: string): Promise<{ meta: CargaMeta; turnos: TurnoDiag[] } | null> {
-      const c = await prisma.carga.findFirst({
-        where: { lojaId, loja: { geId }, tipo: 'ESCALA', ativa: true },
-        include: { turnos: { orderBy: { nome: 'asc' } } },
-      });
-      if (!c) return null;
-      return {
-        meta: {
-          arquivo: c.arquivo,
-          recebidaEm: c.recebidaEm,
-          linhasAceitas: c.linhasAceitas,
-          linhasRejeitadas: c.linhasRejeitadas,
-        },
-        turnos: c.turnos.map((t) => ({
-          funcao: t.funcao,
-          matricula: t.matricula,
-          nome: t.nome,
-          dias: t.dias,
-          entrada: t.entrada,
-          saida: t.saida,
-          iniIntervalo: t.iniIntervalo,
-          fimIntervalo: t.fimIntervalo,
-          cargaH: t.cargaH,
-          status: t.status,
-          motivo: t.motivo,
-        })),
       };
     },
 
@@ -244,8 +216,8 @@ export const escalaRepository = (geId: string) => {
           dias: f.dias,
           entrada: f.entrada!,
           saida: f.saida!,
-          iniIntervalo: null,
-          fimIntervalo: null,
+          iniIntervalo: f.iniIntervalo,
+          fimIntervalo: f.fimIntervalo,
           cargaH: f.cargaSemanalH ?? Math.round(f.dias.length * (f.saida! - f.entrada!)),
           status: funcaoNoCalculo(f.funcaoEscala) ? 'ok' : 'fora_calculo',
           motivo: null,
@@ -269,7 +241,7 @@ export const escalaRepository = (geId: string) => {
           data: v.data.toISOString().slice(0, 10),
           hora: v.hora,
           venda: v.venda,
-          margem: v.margem,
+          margem: v.cmv === null ? null : v.venda - v.cmv,
           clientes: v.clientes,
           unidades: v.unidades,
         })),

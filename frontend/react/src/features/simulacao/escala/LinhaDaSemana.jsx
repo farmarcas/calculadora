@@ -6,8 +6,9 @@ const CORES = {
 const NOMES_LONGOS = ["segunda", "terça", "quarta", "quinta", "sexta", "sábado", "domingo"];
 
 // Uma pessoa na semana: nome, sete células (turno, folga ou fechada) e o total. A Contratação simulada tem borda tracejada e
-// nome em azul. Clicar na célula só existe para quem pode editar: leva à Escala por hora do dia.
-export default function LinhaDaSemana({ linha, colunas, editavel, onDia, onDesligar, onReligar }) {
+// nome em azul. Clicar na célula só existe para quem pode editar: leva à Escala por hora do dia. Spec 061: ao lado, um botão pequeno
+// dá folga (no dia de trabalho) ou escala a pessoa (no dia de folga), sem trava; a cobertura e os avisos mostram o efeito.
+export default function LinhaDaSemana({ linha, colunas, editavel, onDia, onDesligar, onReligar, onAlternarFolga = null, gravando = false }) {
   const cor = CORES[linha.funcao] ?? CORES.Caixa;
   // Spec 054: quem foi desligado só desta simulação continua na lista, mais opaco e fora do cálculo, com "Religar".
   if (linha.desligada) {
@@ -50,11 +51,24 @@ export default function LinhaDaSemana({ linha, colunas, editavel, onDia, onDesli
         const base = `flex h-12 w-full flex-col items-center justify-center rounded-btn px-1 ${c.estado === "turno" ? `border ${linha.simulada ? "border-dashed border-2" : "border-solid border-opacity-30"}` : "border border-dashed border-[var(--border-default)] bg-[var(--surface-subtle)]"}`;
         const rotuloCompleto = `${linha.nome}, ${NOMES_LONGOS[c.dia]}: ${rotulo}`;
         return (
-          <div key={c.dia} role="cell">
+          <div key={c.dia} role="cell" className="relative">
             {editavel ? (
               <button type="button" onClick={() => onDia(c.dia)} aria-label={`${rotuloCompleto}. Abrir a Escala por hora desse dia`} className={`${base} cursor-pointer`} style={estilo}>{miolo}</button>
             ) : (
               <div aria-label={rotuloCompleto} role="img" className={base} style={estilo}>{miolo}</div>
+            )}
+            {editavel && onAlternarFolga && (
+              <button
+                type="button"
+                disabled={gravando}
+                onClick={() => onAlternarFolga(c.dia, c.estado)}
+                aria-label={`${linha.nome ?? linha.funcao}, ${NOMES_LONGOS[c.dia]}: ${c.estado === "turno" ? "dar folga" : "escalar neste dia"}`}
+                title={c.estado === "turno" ? "Dar folga neste dia" : "Escalar neste dia"}
+                data-testid={c.estado === "turno" ? "dar-folga" : "escalar-no-dia"}
+                className="absolute right-0.5 bottom-0.5 flex h-4 w-4 cursor-pointer items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--surface-card)] p-0 text-[11px] leading-none font-bold text-[var(--text-secondary)] hover:bg-[var(--surface-subtle)] hover:text-[var(--text-strong)] disabled:cursor-default disabled:opacity-50"
+              >
+                <span aria-hidden="true">{c.estado === "turno" ? "×" : "+"}</span>
+              </button>
             )}
           </div>
         );

@@ -11,6 +11,7 @@ import FaixaDeDesligados from "./escala/FaixaDeDesligados.jsx";
 import { listaAposDesligar, listaAposReligar } from "./escala/desligados-regras.js";
 import EscalaPorHora from "./escala/EscalaPorHora.jsx";
 import { diasDasAbas, turnosParaGravar } from "./escala/escala-regras.js";
+import { darFolga, escalarNoDia } from "./escala/folga-livre-regras.js";
 import { pessoasParaFolgar, sugerirFolgas, textoDoRodizio } from "./escala/folgas-regras.js";
 import useSimulacao from "./useSimulacao.js";
 
@@ -91,6 +92,15 @@ export default function SimulacaoPage({ id, perfil, podeEscrever, aviso, onVolta
     salvar({ desligados: listaAposReligar(sim.quadro, matricula) });
   };
 
+  // Folga livre (spec 061): dar folga a quem trabalha no dia ou escalar quem está de folga, sem trava; os avisos mostram o efeito.
+  const alternarFolga = (matricula, dia, estado) => {
+    const aba = diasDasAbas(sim.diasAbertos).find((a) => a.dia === dia);
+    const novos = estado === "turno" ? darFolga(sim.turnos, matricula, dia) : escalarNoDia({ turnos: sim.turnos, matricula, dia, aba, regra: sim.regraInfo });
+    if (novos === sim.turnos) return;
+    setErro(null);
+    salvar({ turnos: turnosParaGravar(novos) });
+  };
+
   // Clicar num dia da Escala da semana: a Escala por hora mostra o dia e a tela rola até ela.
   const abrirDia = (dia) => {
     setIrParaDia((a) => ({ dia, n: (a?.n ?? 0) + 1 }));
@@ -125,7 +135,7 @@ export default function SimulacaoPage({ id, perfil, podeEscrever, aviso, onVolta
 
       <EscalaPorHora sim={sim} editavel={editavel} dono={dono} calculando={calculando} erro={erro} onLimparErro={() => setErro(null)} onSalvar={salvar} onDesligar={desligar} onReligar={religar} irParaDia={irParaDia} />
 
-      <EscalaDaSemana sim={sim} editavel={editavel} onDia={abrirDia} onDesligar={desligar} onReligar={religar} folgas={{ podeSugerir, onSugerir: sugerirAsFolgas, calculando, desfazer: sugestaoViva ? desfazerSugestao : null, avisos: sugestaoViva?.avisos ?? [], rodizio: sugestaoViva?.rodizio ?? null }} onCadastrar={() => window.location.assign("/?tela=cadastros")} />
+      <EscalaDaSemana sim={sim} editavel={editavel} onDia={abrirDia} onAlternarFolga={alternarFolga} onDesligar={desligar} onReligar={religar} folgas={{ podeSugerir, onSugerir: sugerirAsFolgas, calculando, desfazer: sugestaoViva ? desfazerSugestao : null, avisos: sugestaoViva?.avisos ?? [], rodizio: sugestaoViva?.rodizio ?? null }} onCadastrar={() => window.location.assign("/?tela=cadastros")} />
     </div>
   );
 }

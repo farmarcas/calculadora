@@ -426,9 +426,9 @@ describe('aplicarFolgas: folgas intercaladas (spec 055)', () => {
     expect(Object.fromEntries(folgasPorPessoa(r.retirados))).toEqual({
       A: [2, 6],
       B: [3, 6],
-      C: [2, 5],
-      D: [0, 3],
-      E: [1, 4],
+      C: [3, 5],
+      D: [1, 4],
+      E: [2, 5],
     });
   });
 
@@ -500,5 +500,136 @@ describe('aplicarFolgas: folgas intercaladas (spec 055)', () => {
       minimos: {},
     });
     expect(r.retirados).toHaveLength(1);
+  });
+});
+
+describe('aplicarFolgas: evitar a segunda e espalhar o mesmo cargo (spec 061)', () => {
+  const r40 = regraPara('r40', false);
+  const equipe = (n: number, funcao = 'Caixa', primeira = 65) =>
+    Array.from({ length: n }, (_, i) =>
+      h(String.fromCharCode(primeira + i), funcao, todos, {
+        nome: `Pessoa ${String.fromCharCode(primeira + i)}`,
+      }),
+    );
+  const diasDaPessoa = (retirados: { matricula: string; dia: number }[], m: string) =>
+    retirados
+      .filter((r) => r.matricula === m)
+      .map((r) => r.dia)
+      .sort((a, b) => a - b);
+  const contagemPorDia = (retirados: { dia: number }[]) => {
+    const c = new Map<number, number>();
+    for (const r of retirados) c.set(r.dia, (c.get(r.dia) ?? 0) + 1);
+    return c;
+  };
+
+  it('com sobra de cobertura, nenhuma folga cai na segunda', () => {
+    const r = aplicarFolgas({ horarios: equipe(5), dias: dias(), regra: r40, minimos });
+    expect(r.retirados).toHaveLength(10);
+    expect(r.retirados.filter((x) => x.dia === 0)).toEqual([]);
+    expect(r.avisos.filter((a) => a.includes('segunda'))).toEqual([]);
+  });
+
+  it('só a segunda mantém a cobertura: a folga cai nela e o aviso diz de quem foi', () => {
+    // Bruno só trabalha na segunda; nos outros dias a Cristina é a única e não pode folgar sem faltar gente.
+    const a = h('A', 'Caixa', todos, { nome: 'Cristina' });
+    const b = h('B', 'Caixa', [0], { nome: 'Bruno' });
+    const r = aplicarFolgas({ horarios: [a, b], dias: dias(), regra: r40, minimos });
+    expect(diasDaPessoa(r.retirados, 'A')).toContain(0);
+    expect(r.avisos).toContain('Cristina: só deu para folgar na segunda sem faltar gente.');
+  });
+
+  it('loja fechada na segunda: a regra da segunda não interfere (nem avisa)', () => {
+    const semSegunda = [1, 2, 3, 4, 5, 6].map((dia) => ({ dia, abre: 8, fecha: 18 }));
+    const r = aplicarFolgas({
+      horarios: equipe(5).map((p) => ({ ...p, dias: [1, 2, 3, 4, 5, 6] })),
+      dias: semSegunda,
+      regra: r40,
+      minimos,
+    });
+    expect(r.retirados.length).toBeGreaterThan(0);
+    expect(r.avisos.filter((a) => a.includes('segunda'))).toEqual([]);
+  });
+
+  it('o rodízio de domingo continua valendo', () => {
+    const r = aplicarFolgas({ horarios: equipe(3), dias: dias(), regra: r44, minimos });
+    expect(r.domingoSugerido).toBe(true);
+    expect(r.retirados.some((x) => x.dia === 6)).toBe(true);
+    expect(r.retirados.filter((x) => x.dia === 0)).toEqual([]);
+  });
+
+  it('pessoas do mesmo cargo folgam em dias diferentes', () => {
+    const r = aplicarFolgas({ horarios: equipe(3), dias: dias(), regra: r44, minimos });
+    const ds = r.retirados.map((x) => x.dia);
+    expect(ds).toHaveLength(3);
+    expect(new Set(ds).size).toBe(3);
+    expect(ds).not.toContain(0);
+  });
+
+  it('cargos diferentes não atrapalham um ao outro: cada cargo espalha as suas', () => {
+    const horarios = [...equipe(3, 'Farmacêutico', 65), ...equipe(3, 'Atendimento', 70)];
+    const r = aplicarFolgas({
+      horarios,
+      dias: dias(),
+      regra: r44,
+      minimos: { Farmacêutico: 1, Atendimento: 1 },
+    });
+    for (const cargo of [
+      ['A', 'B', 'C'],
+      ['F', 'G', 'H'],
+    ]) {
+      const ds = r.retirados.filter((x) => cargo.includes(x.matricula)).map((x) => x.dia);
+      expect(new Set(ds).size).toBe(ds.length);
+    }
+  });
+
+  it('conta as folgas que o colega já tem: ninguém folga no dia em que o colega já está de folga', () => {
+    // B já folga na quarta (trabalha 6 dias, no limite da regra de 44h) e não recebe folga nova.
+    const b = h('B', 'Caixa', [0, 1, 3, 4, 5, 6], { nome: 'Bruno' });
+    const r = aplicarFolgas({
+      horarios: [
+        h('A', 'Caixa', todos, { nome: 'Ana' }),
+        b,
+        h('C', 'Caixa', todos, { nome: 'Carla' }),
+      ],
+      dias: dias(),
+      regra: r44,
+      minimos,
+    });
+    const ds = r.retirados.map((x) => x.dia);
+    expect(ds).toHaveLength(2);
+    expect(ds).not.toContain(2);
+    expect(ds).not.toContain(0);
+    expect(new Set(ds).size).toBe(2);
+  });
+
+  it('mais folgas do que dias: a diferença entre os dias do cargo é no máximo 1', () => {
+    const r = aplicarFolgas({ horarios: equipe(5), dias: dias(), regra: r40, minimos });
+    const c = contagemPorDia(r.retirados);
+    const de1a6 = [1, 2, 3, 4, 5, 6].map((d) => c.get(d) ?? 0);
+    expect(Math.max(...de1a6) - Math.min(...de1a6)).toBeLessThanOrEqual(1);
+  });
+
+  it('só um dia mantém a cobertura: as folgas coincidem e o aviso do cargo aparece', () => {
+    // Mínimo 2: nos dias em que só Ana e Bia trabalham, qualquer folga abre falta; na quinta há mais duas pessoas.
+    const ana = h('A', 'Caixa', todos, { nome: 'Ana' });
+    const bia = h('B', 'Caixa', todos, { nome: 'Bia' });
+    const c = h('C', 'Caixa', [3]);
+    const d = h('D', 'Caixa', [3]);
+    const r = aplicarFolgas({
+      horarios: [ana, bia, c, d],
+      dias: dias(),
+      regra: r44,
+      minimos: { Caixa: 2 },
+    });
+    expect(diasDaPessoa(r.retirados, 'A')).toEqual([3]);
+    expect(diasDaPessoa(r.retirados, 'B')).toEqual([3]);
+    expect(r.avisos).toContain('Caixa: não deu para folgar em dias diferentes sem faltar gente.');
+  });
+
+  it('a mesma entrada dá sempre a mesma sugestão', () => {
+    const a = aplicarFolgas({ horarios: equipe(5), dias: dias(), regra: r40, minimos });
+    const b = aplicarFolgas({ horarios: equipe(5), dias: dias(), regra: r40, minimos });
+    expect(b.retirados).toEqual(a.retirados);
+    expect(b.avisos).toEqual(a.avisos);
   });
 });

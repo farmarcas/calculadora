@@ -87,6 +87,30 @@ describe('simulações (rotas)', () => {
     expect(g.status).toBe(200);
   });
 
+  it('folga livre (spec 061): dar folga a qualquer pessoa em qualquer dia é aceito, sem trava, e a avaliação mostra o efeito', async () => {
+    const sim = (await criar()).body;
+    type T = { matricula: string; dia: number };
+    // Um dia de folga a quem trabalha (o servidor não impede).
+    const umDia = sim.turnos.filter((t: T) => !(t.matricula === 'F1' && t.dia === 2));
+    const a = await reqGe().put(`/api/v1/simulacoes/${sim.id}`).set(admin).send({ turnos: umDia });
+    expect(a.status).toBe(200);
+    expect(a.body.turnos).toHaveLength(sim.turnos.length - 1);
+    expect(a.body.turnos.some((t: T) => t.matricula === 'F1' && t.dia === 2)).toBe(false);
+    // Todos os dias de uma pessoa: aceito, a pessoa fica sem turnos na semana e o farmacêutico aparece sem cobertura.
+    const semana = sim.turnos.filter((t: T) => t.matricula !== 'F1');
+    const b = await reqGe().put(`/api/v1/simulacoes/${sim.id}`).set(admin).send({ turnos: semana });
+    expect(b.status).toBe(200);
+    expect(b.body.turnos.some((t: T) => t.matricula === 'F1')).toBe(false);
+    expect(b.body.avaliacao.erros.length + b.body.avaliacao.avisos.length).toBeGreaterThan(0);
+    // Voltar a escalar: o turno volta pelo mesmo caminho.
+    const c = await reqGe()
+      .put(`/api/v1/simulacoes/${sim.id}`)
+      .set(admin)
+      .send({ turnos: sim.turnos });
+    expect(c.status).toBe(200);
+    expect(c.body.turnos).toHaveLength(sim.turnos.length);
+  });
+
   it('trocar a simulação para a regra de 40h corta os turnos para 8h por dia, sem manter o dia da regra de 42h', async () => {
     const sim = (await criar({ nome: 'Troca de regra', regra: 'r42' })).body;
     type T = {

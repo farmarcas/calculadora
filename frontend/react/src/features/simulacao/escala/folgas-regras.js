@@ -3,6 +3,7 @@
 import { faltasDaFuncao, recalcularCobertura } from "./escala-regras.js";
 
 const DOMINGO = 6;
+const SEGUNDA = 0;
 const NOMES_DO_DIA = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"];
 const horaCurta = (h) => `${h}h`;
 const faixaTxt = (f) => (f.de === f.ate ? `às ${horaCurta(f.de)}` : `das ${horaCurta(f.de)} às ${horaCurta(f.ate)}`);
@@ -174,11 +175,6 @@ export const sugerirFolgas = ({ quadro = [], turnos = [], cobertura = {}, abas =
   let domingoSugerido = false;
   const funcaoDe = new Map(quadro.map((p) => [p.matricula, p.funcao]));
 
-  // A folga de cada função em cada dia, para espalhar (quantas pessoas já folgam ali).
-  const folgasNoDia = new Map();
-  const chave = (f, d) => `${f}|${d}`;
-  const contar = (f, d) => folgasNoDia.get(chave(f, d)) ?? 0;
-
   // Quanto sobra de cobertura (no pior momento do dia) se a pessoa sair deste dia: negativo = abre falta.
   const sobraSem = (funcao, matricula, dia) => {
     const base = cobertura?.[dia]?.find((c) => c.funcao === funcao);
@@ -198,7 +194,6 @@ export const sugerirFolgas = ({ quadro = [], turnos = [], cobertura = {}, abas =
   const retirar = (p, dia) => {
     atuais = atuais.filter((t) => !(t.matricula === p.matricula && t.dia === dia));
     retirados.push({ matricula: p.matricula, dia });
-    folgasNoDia.set(chave(p.funcao, dia), contar(p.funcao, dia) + 1);
   };
 
   const falta = new Map(pessoasParaFolgar({ quadro, turnos, limiteDias: limite }).map((x) => [x.matricula, x.folgas]));
@@ -244,14 +239,19 @@ export const sugerirFolgas = ({ quadro = [], turnos = [], cobertura = {}, abas =
       while ((falta.get(p.matricula) ?? 0) > 0) {
         const dias = [...diasDe(atuais, p.matricula)].filter((d) => diasAbertos.has(d));
         if (!dias.length) break;
-        // Cobertura primeiro (menos falta nova); depois afasta da própria folga, espalha a equipe, prefere mais sobra e, no
-        // empate, gira o dia pela posição da pessoa (nunca "o menor dia" para todos). Sem sorteio: a mesma entrada dá o mesmo.
+        // Spec 061: colegas do mesmo cargo que já estão de folga no dia (as do Cadastro, as folgas livres e as de agora).
+        const colegasDeFolga = (d) => doGrupo.filter((x) => x.matricula !== p.matricula && !diasDe(atuais, x.matricula).has(d)).length;
+        // Cobertura primeiro (menos falta nova); depois evita a segunda, evita o dia em que um colega do cargo já folga, afasta da
+        // própria folga (spec 055), prefere mais sobra e, no empate, gira o dia pela posição da pessoa começando na terça (nunca
+        // "o menor dia" para todos). Sem sorteio: a mesma entrada dá o mesmo. Mesma ordem do servidor (escala/semana-com-folgas.ts).
         const opcoes = dias
-          .map((d) => ({ d, novaFalta: faltaNova(funcao, p.matricula, d), perto: proximidade(d), sobra: sobraSem(funcao, p.matricula, d), junto: contar(funcao, d), giro: (((d - posicao) % 7) + 7) % 7 }))
-          .sort((a, b) => a.novaFalta - b.novaFalta || a.perto - b.perto || a.junto - b.junto || b.sobra - a.sobra || a.giro - b.giro || a.d - b.d);
+          .map((d) => ({ d, novaFalta: faltaNova(funcao, p.matricula, d), segunda: d === SEGUNDA ? 1 : 0, junto: colegasDeFolga(d), perto: proximidade(d), sobra: sobraSem(funcao, p.matricula, d), giro: (((d - 1 - posicao) % 7) + 7) % 7 }))
+          .sort((a, b) => a.novaFalta - b.novaFalta || a.segunda - b.segunda || a.junto - b.junto || a.perto - b.perto || b.sobra - a.sobra || a.giro - b.giro || a.d - b.d);
         retirar(p, opcoes[0].d);
         falta.set(p.matricula, falta.get(p.matricula) - 1);
       }
+      // Spec 061: folga nova na segunda (a cobertura veio primeiro): a sugestão diz de quem é.
+      if (retirados.some((r) => r.matricula === p.matricula && r.dia === SEGUNDA)) avisos.push(`${p.nome ?? p.funcao}: só deu para folgar na segunda sem faltar gente.`);
       // Folga nova colada em outra folga dela: a cobertura veio primeiro, e a sugestão diz de quem é.
       const novas = retirados.filter((r) => r.matricula === p.matricula).map((r) => r.dia);
       if (novas.length) {
@@ -259,6 +259,15 @@ export const sugerirFolgas = ({ quadro = [], turnos = [], cobertura = {}, abas =
         if (novas.some((d) => todas.some((o) => o !== d && distancia(o, d) === 1))) avisos.push(`${p.nome ?? p.funcao}: não deu para afastar as folgas sem faltar gente.`);
       }
     }
+    // Spec 061: dois colegas do mesmo cargo folgam no mesmo dia mesmo havendo um dia aberto (fora a segunda) sem nenhuma folga do
+    // cargo: a cobertura não deixou espalhar. O domingo do rodízio (1 em cada 3 pessoas) não conta como coincidência.
+    const doCargo = retirados.filter((r) => funcaoDe.get(r.matricula) === funcao);
+    const porDia = new Map();
+    for (const r of doCargo) porDia.set(r.dia, (porDia.get(r.dia) ?? 0) + 1);
+    const rodizio = Math.ceil(doGrupo.length / 3);
+    const coincidiu = [...porDia].some(([d, n]) => n >= 2 && !(d === DOMINGO && n <= rodizio));
+    const diaLivre = [...diasAbertos].some((d) => d !== SEGUNDA && !porDia.has(d));
+    if (coincidiu && diaLivre) avisos.push(`${funcao}: não deu para folgar em dias diferentes sem faltar gente.`);
   }
 
   // Avisos: horas que passam a ficar abaixo do mínimo por causa das folgas.

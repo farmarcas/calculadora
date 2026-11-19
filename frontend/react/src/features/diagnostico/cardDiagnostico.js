@@ -35,12 +35,15 @@ export const calculoDaRegra = (regra) => {
   const farm = regra?.funcoes?.find((f) => f.funcao === "Farmacêutico");
   if (!farm) return null;
   return {
-    gap: farm.gapH,
+    // A falta bruta (sem hora extra): é o que o card chama de "falta". `gapH` já desconta a hora extra e serve às contratações.
+    gap: farm.faltaH ?? farm.gapH,
     turnosAcobrir: Math.max(0, -farm.saldoT),
     saldoHoras: regra.resumo.saldoHoras,
     contratacoes: regra.resumo.contratar,
     // Quem contratar, por função (só as que têm contratação), para os chips do card.
     contratarPorFuncao: (regra.funcoes ?? []).filter((f) => f.contratar > 0).map((f) => ({ funcao: f.funcao, pessoas: f.contratar })),
+    // Spec 063: a falta que a hora extra de quem já está escalado cobre antes de contratar (horas por semana, por função).
+    horaExtra: (regra.funcoes ?? []).filter((f) => f.horaExtraH > 0).map((f) => ({ funcao: f.funcao, horasSemana: f.horaExtraH })),
   };
 };
 

@@ -207,7 +207,7 @@ const main = async () => {
         data: new Date(Date.UTC(2026, 8, d)),
         hora: Number(hora),
         venda: peso * 600,
-        margem: peso * 150,
+        cmv: peso * 450,
         clientes: Math.round(peso * 20),
         unidades: Math.round(peso * 45),
       });

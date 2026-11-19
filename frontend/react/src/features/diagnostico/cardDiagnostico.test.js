@@ -21,3 +21,18 @@ describe("calculoDaRegra · contratar por função", () => {
     expect(calculoDaRegra(regra([f("Atendimento", 1)], 1))).toBeNull();
   });
 });
+
+describe("calculoDaRegra · hora extra (spec 063)", () => {
+  it("a falta do card é a bruta; a hora extra que cobre vem à parte e a contratação some", () => {
+    // 1 h faltando, a hora extra de quem já está escalado cobre tudo: `gapH` (o que sobra para contratar) fica em 0.
+    const c = calculoDaRegra(regra([f("Farmacêutico", 0, { faltaH: 1, gapH: 0, horaExtraH: 1 }), f("Atendimento", 0)], 0));
+    expect(c.gap).toBe(1);
+    expect(c.contratacoes).toBe(0);
+    expect(c.horaExtra).toEqual([{ funcao: "Farmacêutico", horasSemana: 1 }]);
+  });
+  it("sem hora extra a lista fica vazia e o gap segue o de sempre", () => {
+    const c = calculoDaRegra(regra([f("Farmacêutico", 1, { gapH: 5 })], 1));
+    expect(c.gap).toBe(5);
+    expect(c.horaExtra).toEqual([]);
+  });
+});

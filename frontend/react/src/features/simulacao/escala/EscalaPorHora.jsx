@@ -4,6 +4,7 @@ import FormularioContratar from "./FormularioContratar.jsx";
 import GradeDeHoras from "./GradeDeHoras.jsx";
 import LinhaDaFuncao from "./LinhaDaFuncao.jsx";
 import LinhaDaPessoa from "./LinhaDaPessoa.jsx";
+import ModalHorarioDoTurno from "./ModalHorarioDoTurno.jsx";
 import { avisosDaPessoa, contratacoesSimuladas, erroDoFormulario, sugerirContratacao, turnosDoFormulario, diasDasAbas, faixaDeAviso, horasDoDia, horasReforcadas, novoTurnoNaFolga, quemEstaEmIntervalo, recalcularCobertura, semTurnoNoDia, sugerirTurnosDasVagas, textoDoTurno, totalDaSemana, turnosParaGravar } from "./escala-regras.js";
 
 const ORDEM = ["Farmacêutico", "Atendimento", "Caixa"];
@@ -25,6 +26,9 @@ export default function EscalaPorHora({ sim, editavel, dono, calculando = false,
   // O rascunho do formulário aberto (um por vez): { funcao, tipo, dias, entra, sai }. A barra de prévia da grade nasce dele.
   const [rascunho, setRascunho] = useState(null);
   const [ajuste, setAjuste] = useState(null);
+  // Spec 062: a janela do lápis (o horário exato de uma pessoa neste dia): { matricula, nome, el } com o lápis que a abriu.
+  const [editandoHorario, setEditandoHorario] = useState(null);
+  useEffect(() => setEditandoHorario(null), [dia]);
   useEffect(() => setAjuste(null), [sim]);
   // Se a gravação terminou (ou falhou), o turno volta a ser o do servidor.
   useEffect(() => {
@@ -204,14 +208,14 @@ export default function EscalaPorHora({ sim, editavel, dono, calculando = false,
                 {!recolhidas.has(f) && (
                   <>
                     {pessoas.map((p) => (
-                      <LinhaDaPessoa key={p.matricula} limiteH={Math.min(p.cargaH, sim.regraInfo.teto, sim.regraInfo.dias * sim.regraInfo.maxDia)} pessoa={p} turno={turnoDoDiaDe(turnos, p.matricula, dia)} turnosDaPessoa={turnos.filter((t) => t.matricula === p.matricula)} ini={ini} fim={fim} colunas={colunas} selecionado={selecionado === p.matricula} onSelecionar={() => setSelecionado(p.matricula)} editavel={editavel} onMudar={(t, fim2) => mudarTurno(p.matricula, t, fim2)} onCriarTurno={() => criarTurno(p.matricula)} onDesligar={editavel && onDesligar ? () => onDesligar(p.matricula) : undefined} />
+                      <LinhaDaPessoa key={p.matricula} limiteH={Math.min(p.cargaH, sim.regraInfo.teto, sim.regraInfo.dias * sim.regraInfo.maxDia)} pessoa={p} turno={turnoDoDiaDe(turnos, p.matricula, dia)} turnosDaPessoa={turnos.filter((t) => t.matricula === p.matricula)} ini={ini} fim={fim} colunas={colunas} selecionado={selecionado === p.matricula} onSelecionar={() => setSelecionado(p.matricula)} editavel={editavel} onMudar={(t, fim2) => mudarTurno(p.matricula, t, fim2)} onCriarTurno={() => criarTurno(p.matricula)} onEditarHorario={(el) => setEditandoHorario({ matricula: p.matricula, nome: p.nome, el })} diaPorExtenso={NOMES_LONGOS[dia]} onDesligar={editavel && onDesligar ? () => onDesligar(p.matricula) : undefined} />
                     ))}
                     {foraDaSimulacao.map((p) => (
                       <LinhaDaPessoa key={p.matricula} pessoa={p} ini={ini} fim={fim} colunas={colunas} desligada onReligar={editavel && onReligar ? () => onReligar(p.matricula) : undefined} />
                     ))}
                     {simuladas.map((s) => {
                       const p = quadro.find((x) => x.matricula === s.matricula);
-                      return <LinhaDaPessoa key={s.matricula} pessoa={p} turno={turnoDoDiaDe(turnos, s.matricula, dia)} turnosDaPessoa={s.turnos} ini={ini} fim={fim} colunas={colunas} simulada selecionado={selecionado === s.matricula} onSelecionar={() => setSelecionado(s.matricula)} rotuloSimulada={s.texto} onRemover={editavel ? () => remover(s.matricula) : undefined} editavel={editavel} onMudar={(t, fim2) => mudarTurno(s.matricula, t, fim2)} onCriarTurno={() => criarTurno(s.matricula)} onSugerir={() => sugerirTurno(s.matricula)} />;
+                      return <LinhaDaPessoa key={s.matricula} pessoa={p} turno={turnoDoDiaDe(turnos, s.matricula, dia)} turnosDaPessoa={s.turnos} ini={ini} fim={fim} colunas={colunas} simulada selecionado={selecionado === s.matricula} onSelecionar={() => setSelecionado(s.matricula)} rotuloSimulada={s.texto} onRemover={editavel ? () => remover(s.matricula) : undefined} editavel={editavel} onMudar={(t, fim2) => mudarTurno(s.matricula, t, fim2)} onCriarTurno={() => criarTurno(s.matricula)} onEditarHorario={(el) => setEditandoHorario({ matricula: s.matricula, nome: "Contratação simulada", el })} diaPorExtenso={NOMES_LONGOS[dia]} onSugerir={() => sugerirTurno(s.matricula)} />;
                     })}
                   </>
                 )}
@@ -219,7 +223,7 @@ export default function EscalaPorHora({ sim, editavel, dono, calculando = false,
             ))}
           </div>
         </div>
-        <EscalaMobile horas={horas} dono={dono} vendaDia={vendaPorHora?.venda?.[dia]} clientesDia={vendaPorHora?.clientes?.[dia]} temBase={!!sim.resultado?.temBase} blocos={blocos} turnos={turnos} dia={dia} editavel={editavel} recolhidas={recolhidas} onAlternar={alternar} onContratar={abrirContratar} formulario={formularioDe} onRemover={remover} onDesligar={onDesligar} onReligar={onReligar} />
+        <EscalaMobile onEditarHorario={(matricula, nome, el) => setEditandoHorario({ matricula, nome, el })} diaPorExtenso={NOMES_LONGOS[dia]} horas={horas} dono={dono} vendaDia={vendaPorHora?.venda?.[dia]} clientesDia={vendaPorHora?.clientes?.[dia]} temBase={!!sim.resultado?.temBase} blocos={blocos} turnos={turnos} dia={dia} editavel={editavel} recolhidas={recolhidas} onAlternar={alternar} onContratar={abrirContratar} formulario={formularioDe} onRemover={remover} onDesligar={onDesligar} onReligar={onReligar} />
       </div>
       {regrasDeTurno.length > 0 && (
         <div className="mx-6 mb-6 rounded-btn bg-[var(--surface-subtle)] px-4 py-3 text-xs leading-4 text-[var(--text-secondary)]" data-testid="avisos-de-regra">
@@ -227,6 +231,20 @@ export default function EscalaPorHora({ sim, editavel, dono, calculando = false,
           <ul className="m-0 mt-1 list-disc pl-5">{regrasDeTurno.slice(0, 5).map((a, i) => <li key={i}>{a.texto}</li>)}</ul>
           {regrasDeTurno.length > 5 && <div className="mt-1">E mais {regrasDeTurno.length - 5}.</div>}
         </div>
+      )}
+      {editandoHorario && turnoDoDiaDe(turnos, editandoHorario.matricula, dia) && (
+        <ModalHorarioDoTurno
+          nome={editandoHorario.nome}
+          diaPorExtenso={NOMES_LONGOS[dia].replace(/^./, (c) => c.toUpperCase())}
+          janela={{ abre: aba.abre, fecha: aba.fecha }}
+          turno={turnoDoDiaDe(turnos, editandoHorario.matricula, dia)}
+          devolverFocoPara={editandoHorario.el}
+          onFechar={() => setEditandoHorario(null)}
+          onSalvar={(novo) => {
+            setEditandoHorario(null);
+            mudarTurno(editandoHorario.matricula, novo, true);
+          }}
+        />
       )}
     </section>
   );

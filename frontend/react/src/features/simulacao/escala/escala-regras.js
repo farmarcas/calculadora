@@ -82,6 +82,22 @@ export const recalcularCobertura = (cobFuncao, turnosDaFuncaoNoDia) => ({
   }),
 });
 
+// As horas cheias que o turno cobre, em texto ("08h a 16h", ou "08h a 12h e 14h a 16h" com um intervalo de mais de 2 h). É a mesma
+// regra da cobertura por hora (`presente`): a pessoa só conta nas horas inteiras em que está; sem nenhuma, "—" (spec 062).
+export const horasCobertas = (t) => {
+  if (!t) return "—";
+  const horas = [];
+  for (let h = Math.floor(t.entrada + EPS); h < Math.ceil(t.saida - EPS); h++) if (presente(t, h)) horas.push(h);
+  if (!horas.length) return "—";
+  const faixas = [];
+  for (const h of horas) {
+    const u = faixas[faixas.length - 1];
+    if (u && h === u.ate) u.ate = h + 1;
+    else faixas.push({ de: h, ate: h + 1 });
+  }
+  return faixas.map((f) => `${rotuloHora(f.de)} a ${rotuloHora(f.ate)}`).join(" e ");
+};
+
 // As células da linha-resumo: o número de pessoas e, abaixo do mínimo, "N !". `reforcadas` são as horas em que a contratação
 // simulada está presente (borda tracejada azul).
 export const celulasDaFuncao = (cobFuncao, reforcadas = new Set()) =>
@@ -456,9 +472,9 @@ export const avisosDaPessoa = (avaliacao, matricula) =>
     .filter((a) => a.matricula === matricula && !["cobertura", "farmaceutico"].includes(a.regra))
     .map((a) => a.texto);
 
-// Os turnos no formato que o servidor aceita ao gravar (só os campos conhecidos, intervalo nulo quando não há). O servidor só
-// aceita horas de 15 em 15 minutos; um horário do Cadastro como 14h38 vira o quarto de hora mais perto (14h45), para a mudança
-// de qualquer turno não ser recusada por causa de outro.
+// Os turnos no formato que o servidor aceita ao gravar (só os campos conhecidos, intervalo nulo quando não há). O servidor aceita
+// minutos inteiros (spec 047: 07h32, 14h38); aqui só some a fração de minuto que o ponto flutuante deixa. Os 15 minutos valem só
+// para o arrastar e o teclado, não para o que se grava.
 const emQuarto = (h) => Math.round(h * 60) / 60; // minutos inteiros (spec 047)
 export const turnosParaGravar = (turnos) =>
   turnos.map(({ matricula, dia, entrada, saida, iniIntervalo, fimIntervalo, antes }) => {

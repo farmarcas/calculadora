@@ -33,7 +33,7 @@ const FaixaDaMetrica = ({ rotulo, sub, valores, horas }) => {
 
 // A escala no celular (spec 039): uma lista por função com o turno de cada pessoa em texto, a cobertura por hora numa faixa
 // com rolagem e "+ Contratar" por função. Nesta versão não se arrasta: o ajuste fino dos turnos é no computador.
-export default function EscalaMobile({ horas, dono, vendaDia, clientesDia, temBase, blocos, turnos, dia, editavel, recolhidas, onAlternar, onContratar, formulario, onRemover, onDesligar, onReligar }) {
+export default function EscalaMobile({ horas, dono, vendaDia, clientesDia, temBase, blocos, turnos, dia, editavel, recolhidas, onAlternar, onContratar, formulario, onRemover, onDesligar, onReligar, onEditarHorario = null, diaPorExtenso = "" }) {
   const pegar = (m) => horas.map((h) => m?.[h] ?? 0);
   return (
     <div className="escala-mobile px-4 pb-4">
@@ -90,11 +90,19 @@ export default function EscalaMobile({ horas, dono, vendaDia, clientesDia, temBa
                         {!simulada && editavel && onDesligar && <button type="button" onClick={() => onDesligar(p.matricula)} aria-label={`Desligar ${p.nome}`} className="cursor-pointer border-0 bg-transparent p-0 text-[11px] leading-4 font-bold text-[var(--text-danger)]">Desligar</button>}
                         {simulada && editavel && <button type="button" onClick={() => onRemover(p.matricula)} className="cursor-pointer border-0 bg-transparent p-0 text-[11px] leading-4 font-bold text-[var(--text-danger)]">Remover</button>}
                       </div>
-                      <div className="shrink-0 text-right text-xs leading-4">
+                      <div className="flex shrink-0 items-center gap-1">
+                      <div className="text-right text-xs leading-4">
                         <div className="font-bold text-[var(--text-strong)]">{t ? textoDoTurno(t) : simulada && total.dias === 0 ? "Sem turnos" : "Folga"}</div>
                         <div className="text-[var(--text-secondary)]">{total.texto}</div>
                         {t && textoDoIntervalo(t) && <div className="text-[var(--text-secondary)]">intervalo {textoDoIntervalo(t)}</div>}
                         {t && turnoEsticado(t) && <div className="font-bold text-[var(--color-primary)]" data-testid="turno-ajustado">ajustado (antes {textoDoTurno(t.antes)})</div>}
+                      </div>
+                      {editavel && t && onEditarHorario && (
+                        // Spec 062: o lápis do celular, com área de toque de 44 × 44 px (aqui não se arrasta).
+                        <button type="button" onClick={(e) => onEditarHorario(p.matricula, p.nome, e.currentTarget)} aria-label={`Editar horário de ${p.nome}${diaPorExtenso ? ` na ${diaPorExtenso}` : ""}`} data-testid="lapis-horario-celular" className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-btn border-0 bg-transparent p-0 text-[var(--text-secondary)] active:bg-[var(--surface-subtle)]">
+                          <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>
+                        </button>
+                      )}
                       </div>
                     </li>
                   );

@@ -5,7 +5,7 @@ import { aplicarMovimento, movimentoPorTecla } from "./movimento-regras.js";
 
 // Uma pessoa no dia: o turno em barra sobre as colunas das horas, "Função · 44h" e o total da semana. Folga mostra a barra
 // tracejada. A contratação simulada é a linha azul, com "Remover" em vermelho.
-export default function LinhaDaPessoa({ pessoa, turno, turnosDaPessoa = [], ini, fim, colunas, simulada = false, selecionado = false, onSelecionar, onRemover, rotuloSimulada, editavel = false, onMudar, onCriarTurno, onSugerir, previa = false, limiteH = null, onDesligar, desligada = false, onReligar }) {
+export default function LinhaDaPessoa({ pessoa, turno, turnosDaPessoa = [], ini, fim, colunas, simulada = false, selecionado = false, onSelecionar, onRemover, rotuloSimulada, editavel = false, onMudar, onCriarTurno, onSugerir, previa = false, limiteH = null, onDesligar, desligada = false, onReligar, onEditarHorario = null, diaPorExtenso = "" }) {
   const trilha = useRef(null);
   const [emGesto, setEmGesto] = useState(false); // durante o arrasto o turno ganha destaque e mostra o horário novo
   const janela = { min: ini, max: fim };
@@ -120,7 +120,15 @@ export default function LinhaDaPessoa({ pessoa, turno, turnosDaPessoa = [], ini,
           </div>
         )}
       </div>
-      <div role="cell" className="pr-2 text-right text-xs leading-4 font-bold text-[var(--text-strong)]">{total.texto}</div>
+      <div role="cell" className="flex items-center justify-end gap-1 pr-1 text-right text-xs leading-4 font-bold text-[var(--text-strong)]">
+        <span>{total.texto}</span>
+        {editavel && turno && onEditarHorario && (
+          // Spec 062: o lápis abre a janela do horário exato (qualquer minuto); arrastar a barra continua como sempre.
+          <button type="button" onClick={(e) => onEditarHorario(e.currentTarget)} aria-label={`Editar horário de ${simulada ? "Contratação simulada" : pessoa.nome}${diaPorExtenso ? ` na ${diaPorExtenso}` : ""}`} title="Editar o horário exato" data-testid="lapis-horario" className="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-btn border-0 bg-transparent p-0 text-[var(--text-secondary)] hover:bg-[var(--surface-subtle)] hover:text-[var(--color-primary)] focus-visible:outline-2 focus-visible:outline-[var(--border-focus)]">
+            <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>
+          </button>
+        )}
+      </div>
     </div>
   );
 }

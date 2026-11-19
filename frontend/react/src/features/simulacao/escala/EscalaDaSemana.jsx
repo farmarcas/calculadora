@@ -7,7 +7,7 @@ const LEGENDA = [["Farmacêutico", "farmaceutico"], ["Atendimento", "atendimento
 
 // "Escala da semana" (spec 041), na Simulação, logo depois da "Escala por hora": a semana de cada pessoa, com folgas, intervalos
 // e a Contratação simulada. Usa a mesma escala da Escala por hora; sem R$, igual para todos os perfis.
-export default function EscalaDaSemana({ sim, editavel, onDia, onCadastrar, onDesligar = null, onReligar = null, folgas = null }) {
+export default function EscalaDaSemana({ sim, editavel, onDia, onCadastrar, onDesligar = null, onReligar = null, onAlternarFolga = null, folgas = null }) {
   const grupos = useMemo(() => montarSemana({ quadro: sim.quadro, turnos: sim.turnos, diasAbertos: sim.diasAbertos }), [sim.quadro, sim.turnos, sim.diasAbertos]);
   const [recolhidos, setRecolhidos] = useState(() => new Set(["Atendimento"]));
   const alternar = (f) => setRecolhidos((r) => { const n = new Set(r); if (n.has(f)) n.delete(f); else n.add(f); return n; });
@@ -17,7 +17,7 @@ export default function EscalaDaSemana({ sim, editavel, onDia, onCadastrar, onDe
       <div className="flex flex-wrap items-start justify-between gap-4 p-6 pb-4">
         <div className="min-w-0">
           <h2 className="m-0 text-xl leading-[26px] font-bold text-[var(--text-strong)]">Escala da semana</h2>
-          <p className="mt-1 mb-0 text-sm leading-5 text-[var(--text-secondary)]">Veja a semana de cada pessoa, com folgas e intervalos.{editavel ? " Clique em um dia para ajustar na Escala por hora." : ""}</p>
+          <p className="mt-1 mb-0 text-sm leading-5 text-[var(--text-secondary)]">Veja a semana de cada pessoa, com folgas e intervalos.{editavel ? " Clique em um dia para ajustar na Escala por hora; use o × do canto para dar folga; clicar numa folga escala a pessoa naquele dia." : ""}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {folgas?.desfazer && <button type="button" onClick={folgas.desfazer} disabled={folgas.calculando} className="cursor-pointer rounded-btn border border-[var(--border-default)] bg-transparent px-3 py-1.5 text-sm font-bold text-[var(--text-strong)] disabled:opacity-60">Desfazer sugestão</button>}
@@ -33,7 +33,7 @@ export default function EscalaDaSemana({ sim, editavel, onDia, onCadastrar, onDe
 
       {folgas?.avisos?.length > 0 && (
         <div role="status" className="mx-6 mb-3 rounded-btn bg-[var(--func-attention-100)] px-4 py-2.5 text-sm leading-5 text-[var(--neutral-dark-900)]" data-testid="avisos-das-folgas">
-          <strong>As folgas sugeridas deixam horas sem cobertura.</strong>
+          <strong>Atenção nas folgas sugeridas.</strong>
           <ul className="m-0 mt-1 list-disc pl-5">{folgas.avisos.slice(0, 6).map((a, i) => <li key={i}>{a}</li>)}</ul>
           {folgas.avisos.length > 6 && <div className="mt-1">E mais {folgas.avisos.length - 6}.</div>}
         </div>
@@ -60,7 +60,7 @@ export default function EscalaDaSemana({ sim, editavel, onDia, onCadastrar, onDe
                   <span className="text-sm font-bold text-[var(--text-strong)]">{g.funcao}</span>
                   <span className="text-xs text-[var(--text-secondary)]">{g.pessoas} {g.pessoas === 1 ? "pessoa" : "pessoas"}</span>
                 </button>
-                {!recolhidos.has(g.funcao) && g.linhas.map((l) => <LinhaDaSemana key={l.matricula} linha={l} colunas={COLUNAS} editavel={editavel} onDia={onDia} onDesligar={editavel && onDesligar ? () => onDesligar(l.matricula) : undefined} onReligar={editavel && onReligar ? () => onReligar(l.matricula) : undefined} />)}
+                {!recolhidos.has(g.funcao) && g.linhas.map((l) => <LinhaDaSemana key={l.matricula} linha={l} colunas={COLUNAS} editavel={editavel} onDia={onDia} onAlternarFolga={editavel && onAlternarFolga ? (dia, estado) => onAlternarFolga(l.matricula, dia, estado) : undefined} gravando={!!folgas?.calculando} onDesligar={editavel && onDesligar ? () => onDesligar(l.matricula) : undefined} onReligar={editavel && onReligar ? () => onReligar(l.matricula) : undefined} />)}
               </div>
             ))}
           </div>

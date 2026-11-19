@@ -87,6 +87,80 @@ describe('simulações (rotas)', () => {
     expect(g.status).toBe(200);
   });
 
+  it('horário com minutos quebrados (spec 062): 07:32, intervalo 12:17–13:17 e saída 16:24 são guardados exatamente e voltam iguais', async () => {
+    const sim = (await criar()).body;
+    type T = {
+      matricula: string;
+      dia: number;
+      entrada: number;
+      saida: number;
+      iniIntervalo: number | null;
+      fimIntervalo: number | null;
+    };
+    const novo = {
+      entrada: (7 * 60 + 32) / 60,
+      iniIntervalo: (12 * 60 + 17) / 60,
+      fimIntervalo: (13 * 60 + 17) / 60,
+      saida: (16 * 60 + 24) / 60,
+    };
+    const turnos = sim.turnos.map((t: T) =>
+      t.matricula === 'F1' && t.dia === 2 ? { ...t, ...novo } : t,
+    );
+    const a = await reqGe().put(`/api/v1/simulacoes/${sim.id}`).set(admin).send({ turnos });
+    expect(a.status).toBe(200);
+    const minutos = (h: number | null) => (h == null ? null : Math.round(h * 60));
+    const volta = (corpo: { turnos: T[] }) => {
+      const t = corpo.turnos.find((x) => x.matricula === 'F1' && x.dia === 2)!;
+      return [t.entrada, t.iniIntervalo, t.fimIntervalo, t.saida].map(minutos);
+    };
+    const esperado = [7 * 60 + 32, 12 * 60 + 17, 13 * 60 + 17, 16 * 60 + 24];
+    expect(volta(a.body)).toEqual(esperado);
+    // E continua assim ao ler de novo (não foi arredondado para quarto de hora ao gravar).
+    const b = await reqGe().get(`/api/v1/simulacoes/${sim.id}`).set(admin);
+    expect(volta(b.body)).toEqual(esperado);
+    // Sem intervalo também vale, e fração de minuto continua recusada.
+    const semIntervalo = sim.turnos.map((t: T) =>
+      t.matricula === 'F1' && t.dia === 2
+        ? { ...t, ...novo, iniIntervalo: null, fimIntervalo: null }
+        : t,
+    );
+    expect(
+      (await reqGe().put(`/api/v1/simulacoes/${sim.id}`).set(admin).send({ turnos: semIntervalo }))
+        .status,
+    ).toBe(200);
+    const quebrado = sim.turnos.map((t: T) =>
+      t.matricula === 'F1' && t.dia === 2 ? { ...t, entrada: 7.5333 } : t,
+    );
+    expect(
+      (await reqGe().put(`/api/v1/simulacoes/${sim.id}`).set(admin).send({ turnos: quebrado }))
+        .status,
+    ).toBe(400);
+  });
+
+  it('folga livre (spec 061): dar folga a qualquer pessoa em qualquer dia é aceito, sem trava, e a avaliação mostra o efeito', async () => {
+    const sim = (await criar()).body;
+    type T = { matricula: string; dia: number };
+    // Um dia de folga a quem trabalha (o servidor não impede).
+    const umDia = sim.turnos.filter((t: T) => !(t.matricula === 'F1' && t.dia === 2));
+    const a = await reqGe().put(`/api/v1/simulacoes/${sim.id}`).set(admin).send({ turnos: umDia });
+    expect(a.status).toBe(200);
+    expect(a.body.turnos).toHaveLength(sim.turnos.length - 1);
+    expect(a.body.turnos.some((t: T) => t.matricula === 'F1' && t.dia === 2)).toBe(false);
+    // Todos os dias de uma pessoa: aceito, a pessoa fica sem turnos na semana e o farmacêutico aparece sem cobertura.
+    const semana = sim.turnos.filter((t: T) => t.matricula !== 'F1');
+    const b = await reqGe().put(`/api/v1/simulacoes/${sim.id}`).set(admin).send({ turnos: semana });
+    expect(b.status).toBe(200);
+    expect(b.body.turnos.some((t: T) => t.matricula === 'F1')).toBe(false);
+    expect(b.body.avaliacao.erros.length + b.body.avaliacao.avisos.length).toBeGreaterThan(0);
+    // Voltar a escalar: o turno volta pelo mesmo caminho.
+    const c = await reqGe()
+      .put(`/api/v1/simulacoes/${sim.id}`)
+      .set(admin)
+      .send({ turnos: sim.turnos });
+    expect(c.status).toBe(200);
+    expect(c.body.turnos).toHaveLength(sim.turnos.length);
+  });
+
   it('trocar a simulação para a regra de 40h corta os turnos para 8h por dia, sem manter o dia da regra de 42h', async () => {
     const sim = (await criar({ nome: 'Troca de regra', regra: 'r42' })).body;
     type T = {

@@ -87,6 +87,13 @@ export default function ResultadoEmHoras({ r, calculando, dono }) {
         <div className="rounded-btn bg-[var(--func-attention-100)] px-3 py-2 text-xs leading-4 font-bold text-[var(--neutral-dark-900)]" data-testid="causa">{e.causa}</div>
       )}
 
+      {!calculando && (r.alertasHoraExtra ?? []).length > 0 && (
+        // Spec 063: hora extra demais (contratar sairia mais barato, ou o teto por pessoa); sem valores para gestor e consulta.
+        <ul className="m-0 list-disc rounded-btn bg-[var(--func-attention-100)] py-2 pr-3 pl-7 text-xs leading-4 text-[var(--neutral-dark-900)]" data-testid="alertas-hora-extra">
+          {r.alertasHoraExtra.map((a, i) => <li key={i}>{a}</li>)}
+        </ul>
+      )}
+
       <div>
         <div className="text-sm leading-5 text-[var(--text-secondary)]">
           Horário · <strong className="text-[var(--text-strong)]">{total.principal}</strong>{" "}

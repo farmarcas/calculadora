@@ -569,6 +569,66 @@ describe('simulações (rotas)', () => {
       expect(vagas.every((v: { funcao: string }) => v.funcao === 'Caixa')).toBe(true);
     });
 
+    it('hora extra (spec 063): o cartão do cenário e a Simulação aberta por Personalizar dão o mesmo número', async () => {
+      // Equipe de segunda a sexta e loja aberta de segunda a sexta até as 21h: sobra 1 h por dia (5 h por semana) sem
+      // farmacêutico, que cabe na hora extra de Ana e Bia (sem folgas a dar: 5 dias por semana).
+      // Ana (08h–16h) e Bia (12h–20h) já trabalham 8 h por dia, 40 h por semana: o limite da regra, sem como esticar o turno.
+      await prisma.funcionario.updateMany({
+        where: { lojaId, matricula: 'F1' },
+        data: { entrada: 8, saida: 16, cargaSemanalH: 40 },
+      });
+      await prisma.funcionario.updateMany({
+        where: { lojaId, matricula: 'F2' },
+        data: { entrada: 12, saida: 20, cargaSemanalH: 40 },
+      });
+      await prisma.loja.update({
+        where: { id: lojaId },
+        data: {
+          horarios: {
+            versao: 2,
+            dias: Array.from({ length: 7 }, (_, d) =>
+              d < 5 ? { aberta: true, abre: '08:00', fecha: '21:00' } : { aberta: false },
+            ),
+          },
+        },
+      });
+      await reqGe()
+        .put(`/api/v1/lojas/${lojaId}/custos`)
+        .set(admin)
+        .send({ salarioMedio: { Farmacêutico: 8000 }, encargosPct: 40 });
+
+      const diag = (await reqGe().get(`/api/v1/lojas/${lojaId}/diagnostico`).set(admin)).body;
+      const cartao = diag.cenarios.r40.manter;
+      const linha = (diag.cenarios.r40.linhas as { id: string }[]).find(
+        (l) => l.id === 'manter',
+      ) as {
+        custoPctFaturamento?: { depois: number; aumentoMensal: number } | null;
+      };
+      const horasDoCartao = (cartao.horaExtra as { horasSemana: number }[]).reduce(
+        (s, h) => s + h.horasSemana,
+        0,
+      );
+
+      const sim = (await criar({ nome: 'Igual ao cartão', regra: 'r40', comVagasSugeridas: true }))
+        .body;
+      const resultado = sim.resultado;
+
+      // O caso precisa usar hora extra para o teste valer.
+      expect(horasDoCartao).toBeGreaterThan(0);
+      // As mesmas horas de hora extra, o mesmo custo adicional e o mesmo peso da folha no faturamento.
+      expect(resultado.emHoras.horaExtraH).toBe(horasDoCartao);
+      expect(resultado.custoAdicional).toBe(cartao.custoAdicionalMensal);
+      expect(resultado.custoDoDono.peso?.depois ?? null).toBe(
+        linha.custoPctFaturamento?.depois ?? null,
+      );
+      expect(resultado.custoDoDono.peso?.aumentoMensal ?? null).toBe(
+        linha.custoPctFaturamento?.aumentoMensal ?? null,
+      );
+      // E as contratações do cartão são as vagas da Simulação.
+      const vagas = (sim.quadro as { vaga?: boolean }[]).filter((p) => p.vaga).length;
+      expect(vagas).toBe(cartao.pessoasContratar);
+    });
+
     it('Personalizar abre com as folgas aplicadas e as contratações cobrindo, sem erro de regra (spec 043)', async () => {
       // Equipe do Cadastro com 7 dias por semana (como nas lojas reais) e a loja aberta todos os dias.
       await prisma.funcionario.updateMany({

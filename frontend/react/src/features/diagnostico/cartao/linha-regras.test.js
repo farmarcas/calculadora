@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { estadoVisual, faixaDosDias, rotuloDoStatus, ROTULOS_DE_STATUS, textoContratar, textoDaVariacao, textoDaFolha, cabecalhoDaFolha, textoDoTotal, textoIndisponivel, partesDaExplicacao } from "./linha-regras.js";
+import { alertasDaHoraExtra, estadoVisual, faixaDosDias, rotuloDaLinha, rotuloDoStatus, textoHoraExtra, ROTULOS_DE_STATUS, textoContratar, textoDaVariacao, textoDaFolha, cabecalhoDaFolha, textoDoTotal, textoIndisponivel, partesDaExplicacao } from "./linha-regras.js";
 
 const dia = (d, abre, fecha) => ({ dia: d, aberto: !!abre, abre: abre ?? null, fecha: fecha ?? null });
 const semana = (...faixas) => faixas.map((f, i) => dia(i, ...(f ?? [])));
@@ -152,5 +152,27 @@ describe("partesDaExplicacao (spec 051)", () => {
   it("a frase não usa p.p., pontos nem Personalizar", () => {
     const r = partesDaExplicacao({ explicacao: { partes: [{ texto: "Entre em Analisar para escolher quais." }] } });
     expect(r.texto).not.toMatch(/p\.p\.|pontos|Personalizar/);
+  });
+});
+
+describe("hora extra no cartão (spec 063)", () => {
+  const farmaceutico = [{ funcao: "Farmacêutico", horasSemana: 2 }];
+  it("a coluna Contratar mostra a hora extra, em horas, antes das contratações que sobraram", () => {
+    expect(textoHoraExtra(farmaceutico)).toEqual(["Hora extra: 2 h por semana de farmacêutico"]);
+    expect(textoContratar([], farmaceutico)).toEqual(["Hora extra: 2 h por semana de farmacêutico", "Nenhuma contratação"]);
+    expect(textoContratar([{ funcao: "Farmacêutico", inteiras: 1, parcialHoras: 0 }], [{ funcao: "Farmacêutico", horasSemana: 4.5 }])).toEqual(["Hora extra: 4,5 h por semana de farmacêutico", "1 farmacêutico"]);
+    expect(textoContratar([], [])).toEqual(["Nenhuma contratação"]);
+    expect(textoHoraExtra([{ funcao: "Atendimento", horasSemana: 0 }])).toEqual([]);
+  });
+  it("cobre sem contratar tem rótulo próprio; sem hora extra vale o de sempre", () => {
+    expect(rotuloDaLinha({ status: "cobre", semContratar: true })).toEqual({ texto: "Cobre sem contratar", tom: "sucesso", icone: "ok" });
+    expect(rotuloDaLinha({ status: "cobre", semContratar: false })).toEqual(rotuloDoStatus("cobre"));
+    expect(rotuloDaLinha({ status: "equipe_menor", semContratar: true })).toEqual(rotuloDoStatus("equipe_menor"));
+    expect(rotuloDaLinha(null)).toBeNull();
+  });
+  it("os alertas vêm prontos do servidor (sem valores para gestor e consulta)", () => {
+    expect(alertasDaHoraExtra({ alertasHoraExtra: ["Contratar farmacêutico sairia mais barato que a hora extra."] })).toEqual(["Contratar farmacêutico sairia mais barato que a hora extra."]);
+    expect(alertasDaHoraExtra({})).toEqual([]);
+    expect(alertasDaHoraExtra(null)).toEqual([]);
   });
 });

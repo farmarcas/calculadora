@@ -18,7 +18,7 @@ export type EmHoras = {
   pessoas: { hoje: number; simulacao: number };
   horasContratadas: { hoje: number; simulacao: number };
   horasAbertas: { hoje: number; simulacao: number };
-  // Horas por semana que ainda faltam cobrir com hora extra depois das contratações.
+  // Horas por semana cobertas com hora extra depois das contratações (em rascunho; nas simulações gravadas, a falta que sobra).
   horaExtraH: number;
   contratar: { funcao: string; inteiras: number; parciaisHoras: number[] }[];
 };
@@ -43,6 +43,8 @@ export type EntradaEmHoras = {
   horasAbertas: { hoje: number; simulacao: number };
   // O que ainda falta depois das contratações, por função, em horas por semana.
   faltas: { funcao: string; horas: number }[];
+  // Spec 063: horas por semana cobertas por hora extra (a Simulação com teto); sem isto vale a soma de `faltas`, como antes.
+  horaExtraH?: number;
   vagas: { funcao: string; cargaH: number; tipo: 'integral' | 'parcial' }[];
 };
 
@@ -139,7 +141,7 @@ export const montarEmHoras = (e: EntradaEmHoras): EmHoras => {
       simulacao: arred2(e.horasContratadas.simulacao),
     },
     horasAbertas: e.horasAbertas,
-    horaExtraH: arred2(e.faltas.reduce((s, f) => s + f.horas, 0)),
+    horaExtraH: arred2(e.horaExtraH ?? e.faltas.reduce((s, f) => s + f.horas, 0)),
     contratar: contratarDe(e.vagas),
   };
 };

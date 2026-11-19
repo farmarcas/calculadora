@@ -28,6 +28,7 @@ import {
   type MotivoParada,
   type Passo,
 } from './ajustes-fim-de-semana.js';
+import { alertasDeHoraExtra } from '../regras/hora-extra.js';
 import { linhasNaRegua, palavraDaRegua, type Regua } from './regua.js';
 import { vendasPorDiaEHora, type VendaLinha } from './vendas.js';
 
@@ -54,9 +55,16 @@ export type Contratacao = {
   ajustado: boolean; // a conferência final por horas acrescentou contratação
 };
 
+// Spec 063: a hora extra de quem já está escalado que o cenário usa antes de contratar. O custo em reais só vai para o dono.
+export type HoraExtraCenario = { funcao: string; horasSemana: number; custoMensal?: number | null };
+
 export type CenarioManter = {
   // Só para o dono: custo adicional de folha, por mês (nulo se faltar dado).
   impactoMensal?: number | null;
+  // Spec 063: a falta que a hora extra cobre, o cenário cobrir sem contratar ninguém, e os alertas de hora extra demais.
+  horaExtra: HoraExtraCenario[];
+  semContratar: boolean;
+  alertasHoraExtra: string[];
   // Premissa fixa do cenário e o que acontece nesta loja ("Contrata 1 atendente e 1 apoio").
   foco: string;
   resultado: string;
@@ -151,6 +159,10 @@ export type CenarioEquilibrio = {
   horarioSemana: DiaCenario[];
   diasFechar: DiaFechar[];
   contratacoes: Contratacao[];
+  // Spec 063: a hora extra usada antes de contratar (como em `CenarioManter`).
+  horaExtra: HoraExtraCenario[];
+  semContratar: boolean;
+  alertasHoraExtra: string[];
   pessoasContratar: number;
   ociosidadePct: number;
   vendaCortadaPorDia: VendaPerdidaDiaCenario[];
@@ -228,6 +240,9 @@ export type EntradaCenarios = {
   limiteParcial?: number;
   // O Cenário 3 também testa estender sábado e domingo (padrão: sim); `false` volta a só cortar, como antes da spec 020.
   estenderHorario?: boolean;
+  // Spec 063: cobrir a falta com hora extra de quem já está escalado antes de contratar. Ligada (o padrão) nos Cenários; `false`
+  // volta à conta antiga, só de contratação.
+  horaExtra?: boolean;
   custos: Custos | null;
   dono: boolean;
 };
@@ -258,6 +273,8 @@ export const opcoesDoMotor = (e: EntradaCenarios, regra: Regra) => ({
   horasAbertasHoje: horasDaSemana(e.dias),
   custos: e.custos,
   divisor: (e.parametros ?? PARAMETROS_PADRAO)[regra.id].divisor,
+  // Spec 063: os Cenários cobrem com hora extra de quem já está escalado antes de contratar (mesma regra da Simulação).
+  horaExtra: e.horaExtra !== false,
 });
 
 // Contratações por função a partir da verificação da regra (inteiras e, quando sobra pouco, 1 parcial).
@@ -333,6 +350,87 @@ export const folhaAtual = (
   return r.informado ? r.mensal : null;
 };
 
+// Spec 063: a hora extra de cada função (as horas e, só para o dono, o custo mensal).
+export const horaExtraDasLinhas = (linhas: LinhaFuncao[], dono: boolean): HoraExtraCenario[] =>
+  linhas
+    .filter((l) => l.horaExtraH > 0)
+    .map((l) => ({
+      funcao: l.funcao,
+      horasSemana: arred(l.horaExtraH),
+      ...(dono ? { custoMensal: l.horaExtraCustoMensal } : {}),
+    }));
+
+// Custo mensal da hora extra de todas as funções; nulo se faltar o salário de quem tem hora extra (nunca parcial).
+export const custoDaHoraExtra = (linhas: LinhaFuncao[]): number | null => {
+  let soma = 0;
+  for (const l of linhas) {
+    if (l.horaExtraH <= 0) continue;
+    if (l.horaExtraCustoMensal === null) return null;
+    soma += l.horaExtraCustoMensal;
+  }
+  return arred(soma);
+};
+
+// O custo adicional do cenário: as vagas mais a hora extra (a mesma conta da Simulação). Nulo se faltar salário.
+export const custoComHoraExtra = (
+  regraId: RegraId,
+  cs: Contratacao[],
+  linhas: LinhaFuncao[],
+  custos: Custos | null,
+  parametros?: TabelaParametros,
+): number | null => {
+  const vagas = custoDasVagas(regraId, cs, linhas, custos, parametros);
+  const horaExtra = custoDaHoraExtra(linhas);
+  return vagas === null || horaExtra === null ? null : arred(vagas + horaExtra);
+};
+
+// Custo mensal de uma contratação integral de um cargo (a base do alerta "contratar sairia mais barato").
+const custoDeUmaIntegral = (
+  regraId: RegraId,
+  funcao: string,
+  cargaCheiaH: number,
+  custos: Custos | null,
+  parametros?: TabelaParametros,
+): number | null => {
+  if (!custos) return null;
+  const r = calcularCusto({
+    regra: regraId,
+    quadro: [{ matricula: 'VAGA', nome: 'Vaga', funcao, cargaH: cargaCheiaH, vaga: true }],
+    custos,
+    parametros,
+  });
+  return r.informado ? r.mensal : null;
+};
+
+// Os alertas de hora extra demais de todas as funções (só o dono recebe os valores em reais).
+export const alertasDaHoraExtra = (e: EntradaCenarios, linhas: LinhaFuncao[]): string[] =>
+  linhas.flatMap((l) =>
+    alertasDeHoraExtra({
+      funcao: l.funcao,
+      horaExtraH: l.horaExtraH,
+      horaExtraCustoMensal: l.horaExtraCustoMensal,
+      contratarCustoMensal: custoDeUmaIntegral(
+        e.regraId,
+        l.funcao,
+        l.cargaCheiaH,
+        e.custos,
+        e.parametros,
+      ),
+      restanteH: l.faltaAposHoraExtraH,
+      comValores: e.dono,
+    }),
+  );
+
+// "2 h por semana de farmacêutico" · "2 h por semana de farmacêutico e 6 h por semana de atendimento".
+const textoDaHoraExtra = (he: HoraExtraCenario[]) =>
+  he
+    .map(
+      (h) => `${String(h.horasSemana).replace('.', ',')} h por semana de ${h.funcao.toLowerCase()}`,
+    )
+    .join(' e ');
+const totalDaHoraExtra = (he: HoraExtraCenario[]) =>
+  arred(he.reduce((s, h) => s + h.horasSemana, 0));
+
 const listaContratacoes = (cs: Contratacao[]) =>
   cs
     .map((c) => {
@@ -352,24 +450,36 @@ const montarManter = (e: EntradaCenarios, linhas: LinhaFuncao[], folha: number |
   const nomeRegra = regraPara(e.regraId, e.convencao8h24, e.parametros).nome;
   const cs = contratacoesDe(linhas);
   const pessoasContratar = cs.reduce((s, c) => s + c.pessoas, 0);
+  const horaExtra = horaExtraDasLinhas(linhas, e.dono);
+  const semContratar = horaExtra.length > 0 && cs.length === 0;
+  const contrata = `Contrata ${pessoasContratar} pessoa${pessoasContratar === 1 ? '' : 's'}: ${listaDeFuncoes(cs.map((c) => c.funcao.toLowerCase()))}`;
   const manter: CenarioManter = {
     foco: 'Contratar para cobrir a escala nos horários de hoje',
     resultado:
       cs.length === 0
-        ? 'Nada a contratar'
-        : `Contrata ${pessoasContratar} pessoa${pessoasContratar === 1 ? '' : 's'}: ${listaDeFuncoes(cs.map((c) => c.funcao.toLowerCase()))}`,
+        ? horaExtra.length
+          ? `Sem contratar: cobre com ${String(totalDaHoraExtra(horaExtra)).replace('.', ',')} h de hora extra por semana`
+          : 'Nada a contratar'
+        : horaExtra.length
+          ? `${contrata}; cobre ${String(totalDaHoraExtra(horaExtra)).replace('.', ',')} h por semana com hora extra`
+          : contrata,
     direcionamento:
       cs.length === 0
-        ? `O quadro atual já cobre todos os horários na regra de ${nomeRegra}: não há nada a contratar para manter a loja aberta como hoje.`
-        : `Contrate ${listaContratacoes(cs)} e mantenha todos os horários. Faz sentido quando a loja vende ao longo de todo o horário e perder atendimento custa mais que a folha a mais.`,
+        ? horaExtra.length
+          ? `Não é preciso contratar: a hora extra de quem já está escalado cobre a falta (${textoDaHoraExtra(horaExtra)}). Cada pessoa faz até 2 h por dia e 10 h por semana de hora extra (referência da CLT; o jurídico confirma). Mantenha todos os horários.`
+          : `O quadro atual já cobre todos os horários na regra de ${nomeRegra}: não há nada a contratar para manter a loja aberta como hoje.`
+        : `Contrate ${listaContratacoes(cs)}${horaExtra.length ? ` e cubra o resto com hora extra (${textoDaHoraExtra(horaExtra)})` : ''} e mantenha todos os horários. Faz sentido quando a loja vende ao longo de todo o horário e perder atendimento custa mais que a folha a mais.`,
     horarioSemana: horarioDaSemana(e.dias),
     horasSemana: horasDaSemana(e.dias),
     contratacoes: cs,
+    horaExtra,
+    semContratar,
+    alertasHoraExtra: alertasDaHoraExtra(e, linhas),
     pessoasContratar,
     ociosidadePct: ociosidadeTotal(linhas, cs),
   };
   if (e.dono) {
-    const custo = custoDasVagas(e.regraId, cs, linhas, e.custos, e.parametros);
+    const custo = custoComHoraExtra(e.regraId, cs, linhas, e.custos, e.parametros);
     manter.custoAdicionalMensal = custo;
     manter.acrescimoPct =
       custo !== null && folha !== null && folha > 0 ? pct((custo / folha) * 100) : null;
@@ -635,6 +745,9 @@ const montarEquilibrio = (
     horarioSemana: horarioDaSemana(e.dias),
     diasFechar: [] as DiaFechar[],
     contratacoes: [] as Contratacao[],
+    horaExtra: [] as HoraExtraCenario[],
+    semContratar: false,
+    alertasHoraExtra: [] as string[],
     pessoasContratar: 0,
     ociosidadePct: 0,
     vendaCortadaMes: null,
@@ -703,7 +816,7 @@ const montarEquilibrio = (
         linhas,
         cs,
         pessoas: cs.reduce((s, c) => s + c.pessoas, 0),
-        custo: custoDasVagas(e.regraId, cs, linhas, e.custos, e.parametros) ?? 0,
+        custo: custoComHoraExtra(e.regraId, cs, linhas, e.custos, e.parametros) ?? 0,
       };
     },
   });
@@ -746,6 +859,9 @@ const montarEquilibrio = (
       ...(e.dono ? { vendaMes: vendaPorDia.find((p) => p.dia === dia)?.vendaMes ?? 0 } : {}),
     })),
     contratacoes: cs,
+    horaExtra: horaExtraDasLinhas(linhas, e.dono),
+    semContratar: horaExtraDasLinhas(linhas, false).length > 0 && cs.length === 0,
+    alertasHoraExtra: alertasDaHoraExtra(e, linhas),
     pessoasContratar: melhor.avaliacao.pessoas,
     ociosidadePct: ociosidadeTotal(linhas, cs),
     vendaCortadaMes: vendaPerdida,
@@ -775,6 +891,10 @@ const montarEquilibrio = (
   }
   const lista = listaContratacoes(cs);
   const acoes = passos.map(fraseDoPasso).join('; ');
+  // Spec 063: a hora extra que cobre a falta antes de contratar entra na frase ("cobrindo com 2 h por semana de hora extra").
+  const comHoraExtra = resultado.horaExtra.length
+    ? `, cobrindo ${String(totalDaHoraExtra(resultado.horaExtra)).replace('.', ',')} h por semana com hora extra`
+    : '';
   const economiaNaFolha =
     e.dono && custoManter !== null && custoManter - custo > 0.005
       ? ` você economiza ${brl(custoManter - custo)} por mês de folha frente a manter tudo e perde ${brl(vendaPerdida)} de ${palavraDaRegua(e.regua ?? null)}`
@@ -783,10 +903,10 @@ const montarEquilibrio = (
   resultado.resumo = resultado.coincideComManter
     ? 'O equilíbrio para esta loja é contratar tudo e manter o horário de hoje.'
     : estende
-      ? `${acoes}${cs.length ? `, contratando ${lista}` : ', sem contratar ninguém'}. A ${palavraDaRegua(e.regua ?? null)} das horas novas é uma estimativa${e.dono ? `: cerca de ${brl(ganhoHoras.vendaMes)} de ${palavraDaRegua(e.regua ?? null)} por mês` : ''}.`
+      ? `${acoes}${cs.length ? `, contratando ${lista}` : ', sem contratar ninguém'}${comHoraExtra}. A ${palavraDaRegua(e.regua ?? null)} das horas novas é uma estimativa${e.dono ? `: cerca de ${brl(ganhoHoras.vendaMes)} de ${palavraDaRegua(e.regua ?? null)} por mês` : ''}.`
       : igualEconomia
         ? `O equilíbrio para esta loja é: ${acoes}. A equipe atual cobre o resto e você não contrata ninguém.`
-        : `${acoes}, ${cs.length ? `contratando ${lista}` : 'sem contratar ninguém'}${economiaNaFolha ? `,${economiaNaFolha}` : ''}.`;
+        : `${acoes}, ${cs.length ? `contratando ${lista}` : 'sem contratar ninguém'}${comHoraExtra}${economiaNaFolha ? `,${economiaNaFolha}` : ''}.`;
   resultado.resultado = resultado.coincideComManter
     ? 'Igual a Manter horários'
     : igualEconomia
@@ -795,7 +915,7 @@ const montarEquilibrio = (
           cs.length
             ? `contrata ${melhor.avaliacao.pessoas} pessoa${melhor.avaliacao.pessoas === 1 ? '' : 's'}: ${listaDeFuncoes(cs.map((c) => c.funcao.toLowerCase()))}`
             : 'sem contratar ninguém'
-        }`;
+        }${comHoraExtra}`;
   resultado.direcionamento = resultado.coincideComManter
     ? 'Nenhuma redução do fim de semana compensa o custo de cobrir o horário: o equilíbrio é o mesmo de Manter horários, mantendo o horário de hoje.'
     : igualEconomia
@@ -811,7 +931,7 @@ export const montarCenarios = (e: EntradaCenarios): CenariosRegra => {
   const porDia = vendasPorDia(e.vendas, e.dias, e.diasProtegidos ?? DIAS_PROTEGIDOS_PADRAO);
   const folha = e.dono ? folhaAtual(e.pessoas, e.custos, e.parametros) : null;
   const manter = montarManter(e, linhas, folha);
-  const custoManter = custoDasVagas(
+  const custoManter = custoComHoraExtra(
     e.regraId,
     contratacoesDe(linhas),
     linhas,

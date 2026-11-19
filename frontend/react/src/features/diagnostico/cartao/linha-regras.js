@@ -117,12 +117,20 @@ export const ehDesejavel = (funcao) => funcao !== "Farmacêutico";
 export const ROTULO_DESEJAVEL = "desejável";
 const marca = (funcao) => (ehDesejavel(funcao) ? ` · ${ROTULO_DESEJAVEL}` : "");
 
-export const textoContratar = (contratar = []) => {
+const horasBr = (h) => `${String(Math.round(h * 10) / 10).replace(".", ",")} h`;
+
+// Spec 063: "Hora extra: 2 h por semana de farmacêutico" (uma por cargo), antes das contratações que sobraram. Só horas, nunca reais.
+export const textoHoraExtra = (horaExtra = []) =>
+  horaExtra.filter((h) => h.horasSemana > 0).map((h) => `Hora extra: ${horasBr(h.horasSemana)} por semana de ${nomeDaFuncao(h.funcao)}`);
+
+export const textoContratar = (contratar = [], horaExtra = []) => {
   const linhas = contratar.flatMap((c) => [
     ...(c.inteiras > 0 ? [`${c.inteiras} ${nomeDaFuncao(c.funcao)}${c.inteiras > 1 ? "s" : ""}${marca(c.funcao)}`] : []),
     ...(c.parcialHoras > 0 ? [`1 ${nomeDaFuncao(c.funcao)} · parcial${marca(c.funcao)}`] : []),
   ]);
-  return linhas.length ? linhas : ["Nenhuma contratação"];
+  const extras = textoHoraExtra(horaExtra);
+  if (!linhas.length && extras.length) return [...extras, "Nenhuma contratação"];
+  return linhas.length || extras.length ? [...extras, ...linhas] : ["Nenhuma contratação"];
 };
 
 // ---- Status e estado visual ------------------------------------------------------------------------------------
@@ -138,6 +146,13 @@ export const ROTULOS_DE_STATUS = {
   cobre: { texto: "Cobre o horário", tom: "sucesso", icone: "ok" },
 };
 export const rotuloDoStatus = (status) => ROTULOS_DE_STATUS[status] ?? null;
+
+// Spec 063: o cenário que cobre só com hora extra, sem contratar ninguém, ganha um texto claro no lugar de "Cobre o horário".
+export const ROTULO_COBRE_SEM_CONTRATAR = { texto: "Cobre sem contratar", tom: "sucesso", icone: "ok" };
+export const rotuloDaLinha = (linha) => (linha?.semContratar && linha.status === "cobre" ? ROTULO_COBRE_SEM_CONTRATAR : rotuloDoStatus(linha?.status));
+
+// Spec 063: os avisos de hora extra demais do cenário (o servidor já os manda sem valores para gestor e consulta).
+export const alertasDaHoraExtra = (linha) => (linha?.alertasHoraExtra ?? []).filter(Boolean);
 
 const REBAIXADOS = new Set(["inviavel", "nao_resolve", "nao_recomendado"]);
 

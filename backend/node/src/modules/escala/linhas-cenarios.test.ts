@@ -17,6 +17,9 @@ const col = (p: Partial<ColunaComparativo> & Pick<ColunaComparativo, 'id'>): Col
   premissa: '',
   resultado: '',
   contratacoes: [],
+  horaExtra: [],
+  semContratar: false,
+  alertasHoraExtra: [],
   diasFechar: [],
   horasSemana: 98,
   ajustes: [],
@@ -517,5 +520,40 @@ describe('explicacaoDaLinha (spec 051)', () => {
       true,
     );
     expect(ind[0]!.explicacao).toBeNull();
+  });
+});
+
+describe('hora extra nas linhas (spec 063)', () => {
+  const manterComHoraExtra = col({
+    id: 'manter',
+    horaExtra: [{ funcao: 'Farmacêutico', horasSemana: 2, custoMensal: 1500 }],
+    semContratar: true,
+    folhaAdicionalMensal: 1500,
+  });
+  const montar = (dono: boolean) =>
+    montarLinhas(
+      comp([manterComHoraExtra, col({ id: 'economia' }), col({ id: 'equilibrio' })]),
+      cen(),
+      dono,
+    ).find((l) => l.id === 'manter')!;
+
+  it('leva a hora extra (só horas) e o cenário que cobre sem contratar', () => {
+    const l = montar(true);
+    expect(l.horaExtra).toEqual([{ funcao: 'Farmacêutico', horasSemana: 2 }]);
+    expect(l.semContratar).toBe(true);
+    expect(l.contratar).toEqual([]);
+    expect(JSON.stringify(l.horaExtra)).not.toMatch(/custo|R\$|1500/);
+  });
+  it('gestor e consulta recebem as mesmas horas, sem nenhum valor', () => {
+    const l = montar(false);
+    expect(l.horaExtra).toEqual([{ funcao: 'Farmacêutico', horasSemana: 2 }]);
+    expect(l.semContratar).toBe(true);
+  });
+  it('a frase de Manter horários diz que cobre sem contratar, com hora extra', () => {
+    const texto =
+      montar(false)
+        .explicacao?.partes.map((p) => p.texto)
+        .join('') ?? '';
+    expect(texto).toContain('Cobre sem contratar, com hora extra.');
   });
 });

@@ -143,14 +143,27 @@ const contratacoesDe = (r: ResultadoSimulacao, quadro: PessoaSim[]): Contratacao
     }),
   );
 
-const frasesDeContratacao = (cs: Contratacao[]) => {
-  if (!cs.length) return 'Sem contratar ninguém,';
+// Spec 063: a hora extra de quem já está escalado que cobre parte (ou toda) a falta, por função.
+const horaExtraDe = (r: ResultadoSimulacao) =>
+  r.funcoes
+    .filter((f) => (f.horaExtraH ?? 0) > 0)
+    .map((f) => ({ funcao: f.funcao, horas: f.horaExtraH! }));
+const totalDaHoraExtra = (he: { horas: number }[]) =>
+  Math.round(he.reduce((s, h) => s + h.horas, 0) * 100) / 100;
+
+const frasesDeContratacao = (cs: Contratacao[], he: { horas: number }[] = []) => {
+  const comHoraExtra = he.length
+    ? `cobrindo ${horasCol(totalDaHoraExtra(he))} por semana com hora extra`
+    : '';
+  if (!cs.length)
+    return comHoraExtra ? `Sem contratar ninguém, ${comHoraExtra},` : 'Sem contratar ninguém,';
   const mesma = cs.every((c) => c.cargaH === cs[0]!.cargaH);
   const nomes = cs.map(
     (c) =>
       `1 ${singular(c.funcao)}${c.desejavel ? ' (desejável)' : ''}${mesma ? '' : `, ${horasCol(c.cargaH)} por semana`}`,
   );
-  return `Contratando ${lista(nomes)}${mesma ? `, ${horasCol(cs[0]!.cargaH)} por semana ${cs.length > 1 ? 'cada' : ''}`.trimEnd() : ''},`;
+  const contratando = `Contratando ${lista(nomes)}${mesma ? `, ${horasCol(cs[0]!.cargaH)} por semana ${cs.length > 1 ? 'cada' : ''}`.trimEnd() : ''}`;
+  return comHoraExtra ? `${contratando} e ${comHoraExtra},` : `${contratando},`;
 };
 
 export const montarParecer = (e: EntradaParecer): ParecerGuardado => {
@@ -158,6 +171,7 @@ export const montarParecer = (e: EntradaParecer): ParecerGuardado => {
   const h = r.emHoras;
   const c = r.custoDoDono;
   const contratacoes = contratacoesDe(r, quadro);
+  const horaExtra = horaExtraDe(r);
   const desligados = quadro.filter((p) => p.desligado && !p.vaga);
   const farm = r.funcoes.find((f) => f.funcao === 'Farmacêutico');
   const farmHoje = farm?.faltaHoje ?? 0;
@@ -181,13 +195,13 @@ export const montarParecer = (e: EntradaParecer): ParecerGuardado => {
   })();
 
   // ---- Parágrafo: o que foi decidido e o que isso faz, em frases que se encaixam ----
-  const abertura = frasesDeContratacao(contratacoes);
+  const abertura = frasesDeContratacao(contratacoes, horaExtra);
   const cobertura =
     h.status === 'inviavel'
       ? 'a loja fica sem farmacêutico e não pode funcionar assim.'
       : faltaTotal > 0.005
         ? `ainda faltam ${horasCol(faltaTotal)} de cobertura por semana.`
-        : contratacoes.length
+        : contratacoes.length || horaExtra.length
           ? 'a loja passa a cobrir todo o horário de funcionamento.'
           : 'a loja segue cobrindo todo o horário de funcionamento.';
   const desliga = desligados.length

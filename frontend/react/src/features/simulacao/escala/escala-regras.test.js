@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  intervaloSemCobertura, posicaoDoIntervalo, quemEstaEmIntervalo, textoDoIntervalo, turnosParaGravar, avisosDaPessoa, novoTurnoNaFolga, semTurnoNoDia, sugerirTurnosDasVagas, turnoHabitual, turnosParaVaga, vagaSemTurnos,
+  barraDoTurno, intervaloSemCobertura, posicaoDoIntervalo, quemEstaEmIntervalo, textoDoIntervalo, turnosParaGravar, avisosDaPessoa, novoTurnoNaFolga, semTurnoNoDia, sugerirTurnosDasVagas, turnoHabitual, turnosParaVaga, vagaSemTurnos,
   cargaDaContratacao, celulasDaFuncao, contratacoesSimuladas, diasDasAbas, efeitoDaContratacao, erroDoFormulario, faixaDeAviso,
   faltasDaFuncao, horasDoDia, horasReforcadas, mediaDoDia, minimoDaFuncao, quartis, recalcularCobertura, sugerirContratacao,
   diasPorExtenso, faixaDasFaltas, horaTxt, jornadaBrutaDoDia, opcoesDeEntrada, opcoesDeHora, opcoesDeSaida, textoDaSugestao, textoDoEfeito, textoDoTurno, tomDoQuartil, totalDaSemana, turnosDoFormulario,
@@ -422,5 +422,44 @@ describe("entrada e saída da contratação com a jornada cheia", () => {
   it("a sugestão escreve a saída com os minutos (12h às 21h24, e não 21h)", () => {
     const sugestao = { entra: 12, sai: 21.4, dias: [0, 1, 2, 5, 6], semFalta: false };
     expect(textoDaSugestao({ sugestao, funcao: "Atendimento", coberturaPorDia: {} })).toContain("12h–21h24");
+  });
+});
+
+describe("barraDoTurno (a barra não passa da grade)", () => {
+  const t = { matricula: "A", dia: 0, entrada: 12.85, saida: 22.25, iniIntervalo: 15, fimIntervalo: 16 };
+
+  it("turno dentro do dia: ocupa o que ocupa, sem aviso", () => {
+    const b = barraDoTurno({ entrada: 8, saida: 16, iniIntervalo: 12, fimIntervalo: 13 }, 7, 22);
+    expect(b.esq).toBeCloseTo((1 / 15) * 100, 6);
+    expect(b.larg).toBeCloseTo((8 / 15) * 100, 6);
+    expect(b.antes).toBe(false);
+    expect(b.depois).toBe(false);
+    expect(b.intervalo.esq).toBeCloseTo(50, 6);
+    expect(b.intervalo.larg).toBeCloseTo(12.5, 6);
+  });
+  it("turno que termina depois de fechar (22h15 numa loja que fecha às 22h) é cortado na borda da grade e avisa", () => {
+    const b = barraDoTurno(t, 7, 22);
+    expect(b.esq + b.larg).toBeCloseTo(100, 6); // nunca passa de 100%
+    expect(b.depois).toBe(true);
+    expect(b.antes).toBe(false);
+  });
+  it("turno que começa antes de abrir é cortado na borda esquerda e avisa", () => {
+    const b = barraDoTurno({ entrada: 6.5, saida: 14, iniIntervalo: null, fimIntervalo: null }, 7, 22);
+    expect(b.esq).toBe(0);
+    expect(b.antes).toBe(true);
+    expect(b.larg).toBeCloseTo((7 / 15) * 100, 6);
+  });
+  it("o intervalo fica na posição certa dentro da barra cortada", () => {
+    const b = barraDoTurno(t, 7, 22);
+    const comprimento = 22 - 12.85;
+    expect(b.intervalo.esq).toBeCloseTo(((15 - 12.85) / comprimento) * 100, 6);
+    expect(b.intervalo.larg).toBeCloseTo((1 / comprimento) * 100, 6);
+  });
+  it("sem turno ou sem intervalo, devolve o que dá", () => {
+    expect(barraDoTurno(null, 7, 22)).toBeNull();
+    expect(barraDoTurno({ entrada: 8, saida: 12, iniIntervalo: null, fimIntervalo: null }, 7, 22).intervalo).toBeNull();
+  });
+  it("turno todo fora do dia não desenha barra", () => {
+    expect(barraDoTurno({ entrada: 23, saida: 24, iniIntervalo: null, fimIntervalo: null }, 7, 22).larg).toBe(0);
   });
 });

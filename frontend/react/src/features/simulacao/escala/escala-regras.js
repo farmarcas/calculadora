@@ -503,6 +503,26 @@ export const posicaoDoIntervalo = (t) => {
   return esq < 0 || esq + larg > 100 + EPS ? null : { esq, larg };
 };
 
+// A barra do turno na grade: onde ela começa e quanto ocupa, em % da largura das horas do dia [ini, fim]. Um turno que começa antes
+// de abrir ou termina depois de fechar (o "ajustado" que estica a jornada, 22h15 numa loja que fecha às 22h) é cortado na borda da
+// grade para não cobrir as colunas vizinhas (o total da semana); `antes` e `depois` avisam que o horário real passa do limite.
+// `intervalo` é a posição do intervalo dentro da barra já cortada.
+export const barraDoTurno = (t, ini, fim) => {
+  if (!t || !(fim > ini)) return null;
+  const entrada = Math.max(t.entrada, ini);
+  const saida = Math.min(t.saida, fim);
+  if (!(saida > entrada)) return { esq: 0, larg: 0, antes: t.entrada < ini - EPS, depois: t.saida > fim + EPS, intervalo: null };
+  const dia = fim - ini;
+  const comprimento = saida - entrada;
+  let intervalo = null;
+  if (t.iniIntervalo != null && t.fimIntervalo != null) {
+    const de = Math.max(t.iniIntervalo, entrada);
+    const ate = Math.min(t.fimIntervalo, saida);
+    if (ate > de) intervalo = { esq: ((de - entrada) / comprimento) * 100, larg: ((ate - de) / comprimento) * 100 };
+  }
+  return { esq: ((entrada - ini) / dia) * 100, larg: (comprimento / dia) * 100, antes: t.entrada < ini - EPS, depois: t.saida > fim + EPS, intervalo };
+};
+
 // "10h–11h" do intervalo de um turno.
 export const textoDoIntervalo = (t) => (t && t.iniIntervalo != null && t.fimIntervalo != null ? `${hhTexto(t.iniIntervalo)}–${hhTexto(t.fimIntervalo)}` : "");
 

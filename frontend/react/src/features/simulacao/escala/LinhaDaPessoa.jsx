@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { COR_DA_FUNCAO } from "./LinhaDaFuncao.jsx";
-import { intervaloSemCobertura, posicaoDoIntervalo, textoDoEsticamento, textoDoIntervalo, textoDoTurno, totalDaSemana, turnoEsticado } from "./escala-regras.js";
+import { barraDoTurno, intervaloSemCobertura, textoDoEsticamento, textoDoIntervalo, textoDoTurno, totalDaSemana, turnoEsticado } from "./escala-regras.js";
 import { aplicarMovimento, movimentoPorTecla } from "./movimento-regras.js";
 
 // Uma pessoa no dia: o turno em barra sobre as colunas das horas, "Função · 44h" e o total da semana. Folga mostra a barra
@@ -52,10 +52,14 @@ export default function LinhaDaPessoa({ pessoa, turno, turnosDaPessoa = [], ini,
     onMudar(aplicarMovimento(turno, m.modo, m.delta, janela), true);
   };
   const total = totalDaSemana(turnosDaPessoa, pessoa.matricula);
-  const intervalo = posicaoDoIntervalo(turno);
   const largura = fim - ini;
-  const esq = turno ? ((turno.entrada - ini) / largura) * 100 : 0;
-  const larg = turno ? ((turno.saida - turno.entrada) / largura) * 100 : 0;
+  // A barra nunca passa das colunas das horas (senão cobre o total da semana ao lado); o horário real segue no texto.
+  const barra = barraDoTurno(turno, ini, fim);
+  const intervalo = barra?.intervalo ?? null;
+  const esq = barra?.esq ?? 0;
+  const larg = barra?.larg ?? 0;
+  const passaDoDia = !!barra && (barra.antes || barra.depois);
+  const avisoDoDia = passaDoDia ? `Passa do horário da loja: ${barra.antes ? "começa antes de abrir" : "termina depois de fechar"}` : null;
   const cor = COR_DA_FUNCAO[pessoa.funcao] ?? "var(--escala-caixa)";
   const escuro = pessoa.funcao === "Farmacêutico";
 
@@ -91,10 +95,10 @@ export default function LinhaDaPessoa({ pessoa, turno, turnosDaPessoa = [], ini,
             onClick={onSelecionar}
             onPointerDown={(e) => comecar(e, "mover")}
             onKeyDown={tecla}
-            title={[turnoEsticado(turno) ? textoDoEsticamento(turno, limiteH) : null, intervalo ? `Intervalo ${textoDoIntervalo(turno)}: ${intervaloSemCobertura(turno) ? "não precisa de cobertura (até 2 horas)" : "a pessoa não conta na cobertura nessa hora"}` : null].filter(Boolean).join(". ") || undefined}
-            aria-label={`${pessoa.nome}: turno ${textoDoTurno(turno)}${intervalo ? `, intervalo ${textoDoIntervalo(turno)}` : ""}${turnoEsticado(turno) ? ", ajustado" : ""}${editavel ? ". Setas movem 15 minutos; com Shift, mudam a saída" : ""}`}
+            title={[avisoDoDia, turnoEsticado(turno) ? textoDoEsticamento(turno, limiteH) : null, intervalo ? `Intervalo ${textoDoIntervalo(turno)}: ${intervaloSemCobertura(turno) ? "não precisa de cobertura (até 2 horas)" : "a pessoa não conta na cobertura nessa hora"}` : null].filter(Boolean).join(". ") || undefined}
+            aria-label={`${pessoa.nome}: turno ${textoDoTurno(turno)}${intervalo ? `, intervalo ${textoDoIntervalo(turno)}` : ""}${turnoEsticado(turno) ? ", ajustado" : ""}${avisoDoDia ? `, ${avisoDoDia.toLowerCase()}` : ""}${editavel ? ". Setas movem 15 minutos; com Shift, mudam a saída" : ""}`}
             aria-pressed={selecionado}
-            className={`absolute top-0 flex h-7 min-w-0 items-center overflow-hidden rounded-btn px-2 text-left text-xs font-bold ${simulada ? `border-2 border-dashed border-[var(--system-500)] bg-[var(--color-primary-soft)] text-[var(--color-primary)] ${previa ? "opacity-90" : ""}` : escuro ? "border-0 text-white" : "border-0 text-[var(--system-900)]"} ${selecionado ? "outline outline-2 outline-[var(--system-500)]" : ""} ${editavel ? "cursor-grab touch-none" : ""} ${emGesto ? "z-10 cursor-grabbing shadow-card outline outline-2 outline-[var(--system-500)]" : ""}`}
+            className={`absolute top-0 flex h-7 min-w-0 items-center overflow-hidden rounded-btn px-2 text-left text-xs font-bold ${simulada ? `border-2 border-dashed border-[var(--system-500)] bg-[var(--color-primary-soft)] text-[var(--color-primary)] ${previa ? "opacity-90" : ""}` : escuro ? "border-0 text-white" : "border-0 text-[var(--system-900)]"} ${selecionado ? "outline outline-2 outline-[var(--system-500)]" : ""} ${barra?.depois ? "rounded-r-none shadow-[inset_-3px_0_0_var(--text-danger)]" : ""} ${barra?.antes ? "rounded-l-none shadow-[inset_3px_0_0_var(--text-danger)]" : ""} ${editavel ? "cursor-grab touch-none" : ""} ${emGesto ? "z-10 cursor-grabbing shadow-card outline outline-2 outline-[var(--system-500)]" : ""}`}
             style={{ left: `${esq}%`, width: `${larg}%`, ...(simulada ? {} : { background: cor }) }}
           >
             {intervalo && (

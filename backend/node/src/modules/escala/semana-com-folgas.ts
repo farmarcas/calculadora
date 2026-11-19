@@ -8,6 +8,7 @@ import { tetoEfetivo, type Regra } from '../regras/perfis.js';
 import { requisitos, type Minimos } from '../regras/requisitos.js';
 import type { TurnoSim } from '../simulacoes/avaliar.js';
 import { intervaloDesconta } from '../regras/intervalo.js';
+import { coberturaComHoraExtra } from '../regras/hora-extra.js';
 
 export type HorarioPessoa = {
   matricula: string;
@@ -37,6 +38,10 @@ export type ResultadoFuncao = {
   vagas: VagaComTurnos[];
   // Mesmo com as contratações, ainda falta cobertura (o cenário não resolve sozinho).
   resolve: boolean;
+  // Spec 063 (só com `horaExtra` ligada): as horas por semana que a hora extra de quem já está escalado cobre, e o que a hora extra
+  // não alcança (o teto de 2 h por dia e 10 h por semana por pessoa).
+  horaExtraH: number;
+  faltaAposHoraExtraH: number;
 };
 export type SemanaComFolgas = {
   turnos: TurnoSim[];
@@ -696,6 +701,8 @@ export const semanaComFolgas = (a: {
   dias: DiaAberto[];
   minimos: Minimos;
   horarios: HorarioPessoa[];
+  // Spec 063: cobrir a falta com hora extra de quem já está escalado antes de contratar. Desligada, tudo como era antes.
+  horaExtra?: boolean;
 }): SemanaComFolgas => {
   const folgasBase = aplicarFolgas(a);
   // Spec 046: depois das folgas, os turnos de quem trabalha menos que o limite crescem onde falta cobertura.
@@ -725,15 +732,54 @@ export const semanaComFolgas = (a: {
       gapParaSugestaoH: 0,
       vagas: [],
       resolve: true,
+      horaExtraH: 0,
+      faltaAposHoraExtraH: 0,
     };
     if (faltaH <= EPS) {
       funcoes[funcao] = base;
       continue;
     }
+    // Spec 063: quanto a hora extra de quem já está escalado fecha da falta que sobra, dia a dia (2 h por dia, 10 h por semana).
+    const nDaEquipe = a.horarios.filter((h) => h.funcao === funcao).length;
+    const comHoraExtra = (turnos: TurnoSim[], pessoas: number) => {
+      const cob = coberturaDaFuncao(funcao, turnos, a.dias, a.minimos);
+      const faltaPorDiaH = Array.from({ length: 7 }, (_, d) =>
+        arred((cob[d] ?? []).reduce((s, c) => s + Math.max(0, c.exigido - c.pessoas), 0)),
+      );
+      const pessoasPorDia = Array.from(
+        { length: 7 },
+        (_, d) => new Set(turnos.filter((t) => t.dia === d).map((t) => t.matricula)).size,
+      );
+      return coberturaComHoraExtra({
+        faltaH: faltaDaFuncao(cob),
+        pessoas,
+        faltaPorDiaH,
+        pessoasPorDia,
+      });
+    };
+    if (a.horaExtra) {
+      const so = comHoraExtra(daFuncao, nDaEquipe);
+      if (so.restanteH <= EPS) {
+        // A hora extra fecha tudo: ninguém para contratar.
+        funcoes[funcao] = { ...base, horaExtraH: so.horaExtraH, faltaAposHoraExtraH: 0 };
+        continue;
+      }
+    }
     // Soma 1 h (parcial) ou 1 turno (integral) até a cobertura fechar. Se por várias voltas seguidas nada melhora (a falta
     // que sobra não cabe em mais horas de contrato, como duas faixas no mesmo dia), fica com a melhor e diz que não fecha.
     let gap = Math.ceil(faltaH - EPS);
-    let melhor: { restante: number; gap: number; vagas: VagaComTurnos[] } | null = null;
+    if (a.horaExtra) {
+      // Parte da falta que a hora extra da equipe já cobre: a contratação começa pelo que passa disso.
+      const cap = comHoraExtra(daFuncao, nDaEquipe).horaExtraH;
+      gap = Math.max(1, Math.ceil(faltaH - cap - EPS));
+    }
+    let melhor: {
+      restante: number;
+      gap: number;
+      vagas: VagaComTurnos[];
+      he: number;
+      resta: number;
+    } | null = null;
     let semMelhora = 0;
     let resolve = false;
     let vagas: VagaComTurnos[] = [];
@@ -758,11 +804,22 @@ export const semanaComFolgas = (a: {
         turnos = [...turnos, ...ts.map((t) => ({ matricula: `V${i}`, ...t }))];
       });
       const restante = faltaDaFuncao(coberturaDaFuncao(funcao, turnos, a.dias, a.minimos));
-      if (!melhor || restante < melhor.restante - EPS) {
-        melhor = { restante, gap, vagas: tentativa };
+      // Com hora extra, o que sobra das vagas só precisa caber na hora extra de quem está escalado (equipe e vagas).
+      const he = a.horaExtra
+        ? comHoraExtra(turnos, nDaEquipe + tentativa.length)
+        : { horaExtraH: 0, restanteH: restante };
+      const aindaFalta = a.horaExtra ? he.restanteH : restante;
+      if (!melhor || aindaFalta < melhor.restante - EPS) {
+        melhor = {
+          restante: aindaFalta,
+          gap,
+          vagas: tentativa,
+          he: he.horaExtraH,
+          resta: he.restanteH,
+        };
         semMelhora = 0;
       } else semMelhora += 1;
-      if (restante <= EPS) {
+      if (aindaFalta <= EPS) {
         resolve = true;
         break;
       }
@@ -773,7 +830,14 @@ export const semanaComFolgas = (a: {
       gap = melhor.gap;
       vagas = melhor.vagas;
     }
-    funcoes[funcao] = { ...base, gapParaSugestaoH: gap, vagas, resolve };
+    funcoes[funcao] = {
+      ...base,
+      gapParaSugestaoH: gap,
+      vagas,
+      resolve,
+      horaExtraH: a.horaExtra && melhor ? melhor.he : 0,
+      faltaAposHoraExtraH: a.horaExtra && melhor ? melhor.resta : 0,
+    };
   }
   return {
     turnos: folgas.turnos,

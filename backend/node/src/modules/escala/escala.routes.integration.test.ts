@@ -248,9 +248,10 @@ describe('escala (rotas)', () => {
     ]);
     expect(dono.r40.manter.horasSemana).toBe(66);
     expect(dono.r40.manter.horarioSemana[6].aberto).toBe(false);
-    // 1 integral de 40h: 8000 × 40 × 5 ÷ 200 × 1,622 = 12976; folha atual 8000 × 1,622 = 12976 → acréscimo de 100%
-    expect(dono.r40.manter.custoAdicionalMensal).toBe(12976);
-    expect(dono.r40.manter.acrescimoPct).toBe(100);
+    // 1 integral de 40h: 8000 × 40 × 5 ÷ 200 × 1,622 = 12976, mais 2 h por semana de hora extra que a contratação não alcança
+    // (spec 063): 2 × 5 × 8000 ÷ 200 × 1,5 × 1,622 = 973,2. Folha atual 8000 × 1,622 = 12976 → acréscimo de 107,5%.
+    expect(dono.r40.manter.custoAdicionalMensal).toBe(13949.2);
+    expect(dono.r40.manter.acrescimoPct).toBe(107.5);
     expect(dono.r40.atual).toMatchObject({ horasSemana: 66, pessoas: 1, folhaMensal: 12976 });
     expect(dono.r40.vendasBase).toBeNull();
 
@@ -538,7 +539,7 @@ describe('escala (rotas)', () => {
     expect(e.diasFechar).toEqual([]);
     // O Cenário 1 é a base (folha de 8000 × 1,622 por 1 integral = 12976); os outros cenários valem pelo saldo
     // = economia de folha − venda perdida + venda adicional das horas novas.
-    expect(dono.manter.impactoMensal).toBe(12976);
+    expect(dono.manter.impactoMensal).toBe(13949.2);
     expect(dono.comparativo.cenarios.map((c: { id: string }) => c.id)).toEqual([
       'manter',
       'economia',
@@ -547,8 +548,9 @@ describe('escala (rotas)', () => {
     const por = Object.fromEntries(dono.comparativo.cenarios.map((c: { id: string }) => [c.id, c]));
     expect(por.manter).toMatchObject({
       status: 'viavel',
-      custoFolhaMensal: 25952,
-      folhaAdicionalMensal: 12976,
+      // Spec 063: 1 integral (12976) + 2 h de hora extra (973,2) que a contratação não alcança.
+      custoFolhaMensal: 26925.2,
+      folhaAdicionalMensal: 13949.2,
       economiaFolhaMensal: 0,
       saldoMensal: 0,
       saldoAnual: 0,
@@ -559,10 +561,10 @@ describe('escala (rotas)', () => {
       status: 'nao_resolve',
       diasFechar: [],
       custoFolhaMensal: 12976,
-      economiaFolhaMensal: 12976,
+      economiaFolhaMensal: 13949.2,
     });
     expect(por.economia.faturamentoPerdidoMensal).toBeCloseTo(577.78, 0);
-    expect(por.economia.saldoMensal).toBeCloseTo(12976 - 577.78, 0);
+    expect(por.economia.saldoMensal).toBeCloseTo(13949.2 - 577.78, 0);
     expect(por.economia.vendaPerdidaPorDia).toMatchObject([{ dia: 5, horasFechadas: 1, ate: 13 }]);
     // Cenário 3: o saldo fecha com a conta aberta
     const eq3 = por.equilibrio;
@@ -1026,7 +1028,7 @@ describe('escala (rotas)', () => {
       inteiras: 1,
       parcialH: null,
     });
-    expect(semParcial.cenarios.r40.manter.custoAdicionalMensal).toBe(12976);
+    expect(semParcial.cenarios.r40.manter.custoAdicionalMensal).toBe(13949.2);
     expect(semParcial.regras.find((r: { id: string }) => r.id === 'r40').resumo.contratar).toBe(1);
 
     // Dias protegidos 0: nenhum dia é protegido; o Cenário 2 não fecha dia útil de qualquer jeito e segue sem resolver
@@ -1571,12 +1573,14 @@ describe('escala (rotas)', () => {
           expect(Object.keys(l).sort()).toEqual(
             [
               'ajustes',
+              'alertasHoraExtra',
               'causa',
               'contratacoes',
               'contratar',
               'custoEstado',
               'custoSentido',
               'diasFechar',
+              'horaExtra',
               'horarioSemana',
               'horasDiferenca',
               'horasSemana',
@@ -1584,6 +1588,7 @@ describe('escala (rotas)', () => {
               'igualA',
               'indisponivel',
               'nome',
+              'semContratar',
               'status',
               'vendaEstado',
               'vendaPct',

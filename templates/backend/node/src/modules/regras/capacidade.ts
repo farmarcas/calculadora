@@ -2,6 +2,7 @@ import { PARAMETROS_PADRAO } from './parametros.js';
 import { duracaoTurno, regraPara, tetoEfetivo, type Regra } from './perfis.js';
 import { camadasDoDia, requisitos, type Minimos } from './requisitos.js';
 import { sugerirContratacao, type Sugestao } from './contratacao-horas.js';
+import { HORA_EXTRA, custoMensalDaHoraExtra, decidirPorHoras } from './hora-extra.js';
 import { FARMACEUTICO, metaNivelDeHoje } from './gap-horas.js';
 import {
   semanaComFolgas,
@@ -42,6 +43,11 @@ export type LinhaFuncao = {
   sugestao: Sugestao | null;
   // Variante de 26 h com horas extras, só quando reduz a ociosidade.
   alternativa: Sugestao | null;
+  // Spec 063 (só com `horaExtra` ligada): horas por semana cobertas por hora extra de quem já está escalado, o custo mensal dela
+  // (nulo sem salário ou sem `custos`) e o que a hora extra não alcança (o teto por pessoa). `gapH`/`faltaH` seguem a falta bruta.
+  horaExtraH: number;
+  horaExtraCustoMensal: number | null;
+  faltaAposHoraExtraH: number;
   // Resumo da sugestão no formato antigo: total de pessoas, inteiras e horas do parcial.
   contratar: number;
   contratarInteiras: number;
@@ -64,6 +70,9 @@ export type OpcoesVerificacao = {
   // Spec 043: os horários da equipe no Cadastro. Com eles, a falta de quem tem exigência (farmacêutico e meta do dono) sai da
   // cobertura real hora a hora, já com as folgas e o rodízio de domingo, e não mais da capacidade por horas.
   horarios?: HorarioPessoa[];
+  // Spec 063: cobrir a falta com hora extra de quem já está escalado antes de contratar (2 h/dia, 10 h/semana por pessoa).
+  // Desligada (o padrão), a falta vira contratação como antes; os Cenários e a Simulação ligam.
+  horaExtra?: boolean;
 };
 export type OpcoesContratacao = OpcoesVerificacao;
 
@@ -74,11 +83,17 @@ const EPS = 1e-9;
 const arred = (n: number) => Math.round(n * 100) / 100;
 
 const cacheSemana = new Map<string, SemanaComFolgas>();
-const semanaDe = (regra: Regra, dias: DiaAberto[], minimos: Minimos, horarios: HorarioPessoa[]) => {
-  const chave = JSON.stringify([regra, dias, minimos, horarios]);
+const semanaDe = (
+  regra: Regra,
+  dias: DiaAberto[],
+  minimos: Minimos,
+  horarios: HorarioPessoa[],
+  horaExtra = false,
+) => {
+  const chave = JSON.stringify([regra, dias, minimos, horarios, horaExtra]);
   const guardada = cacheSemana.get(chave);
   if (guardada) return guardada;
-  const nova = semanaComFolgas({ regra, dias, minimos, horarios });
+  const nova = semanaComFolgas({ regra, dias, minimos, horarios, horaExtra });
   if (cacheSemana.size > 300) cacheSemana.clear();
   cacheSemana.set(chave, nova);
   return nova;
@@ -111,7 +126,9 @@ export const verificarRegra = (
   );
   const todosOsDiasTemEscala = dias.every((d) => horarios.some((h) => h.dias.includes(d.dia)));
   const semana =
-    horarios.length && todosOsDiasTemEscala ? semanaDe(regra, dias, minimos, horarios) : null;
+    horarios.length && todosOsDiasTemEscala
+      ? semanaDe(regra, dias, minimos, horarios, !!opcoes.horaExtra)
+      : null;
 
   return funcoes.map((funcao) => {
     const obrigatorio = funcao === FARMACEUTICO;
@@ -172,8 +189,32 @@ export const verificarRegra = (
       falta = real.faltaH > EPS;
     }
 
+    // Spec 063: a hora extra de quem já está escalado fecha o que puder antes de contratar. Com a cobertura real a decisão já veio de
+    // `semanaComFolgas` (o `gapH` é o que as vagas cobrem); sem ela, a conta por horas decide quantas pessoas ainda precisam entrar.
+    let horaExtraH = 0;
+    let faltaAposHoraExtraH = 0;
+    let gapParaContratar = gapH;
+    if (opcoes.horaExtra) {
+      if (real) {
+        horaExtraH = real.horaExtraH;
+        faltaAposHoraExtraH = real.faltaAposHoraExtraH;
+      } else if (gapH > EPS) {
+        const d = decidirPorHoras({ gapH, jornadaIntegralH: porPessoa, pessoas: quadro.length });
+        horaExtraH = d.horaExtraH;
+        gapParaContratar = arred(gapH - d.horaExtraH);
+      }
+    }
+    const horaExtraCustoMensal = opcoes.custos
+      ? custoMensalDaHoraExtra({
+          horasSemana: horaExtraH,
+          salarioMedio: opcoes.custos.salarioMedio[funcao] ?? null,
+          divisor,
+          encargosPct: opcoes.custos.encargosPct,
+        })
+      : null;
+
     const opcoesSug = sugerirContratacao({
-      gapH,
+      gapH: gapParaContratar,
       jornadaIntegralH: porPessoa,
       divisor,
       salarioMedio: opcoes.custos?.salarioMedio[funcao] ?? null,
@@ -198,7 +239,9 @@ export const verificarRegra = (
         'Mesmo com as contratações e as folgas, ainda falta cobertura em alguns horários.',
       );
     // Com a cobertura real, as horas usadas são as da falta de verdade; o resto da contratação é folga de horário.
-    const usadasReal = real ? arred(Math.min(parcial?.horasContratadas ?? 0, real.faltaH)) : null;
+    const usadasReal = real
+      ? arred(Math.min(parcial?.horasContratadas ?? 0, Math.max(0, real.faltaH - horaExtraH)))
+      : null;
     const sugestao = parcial
       ? {
           ...parcial,
@@ -240,6 +283,9 @@ export const verificarRegra = (
       faltaH: real ? arred(real.faltaH) : gapH,
       cargaCheiaH: arred(porPessoa),
       sugestao,
+      horaExtraH,
+      horaExtraCustoMensal,
+      faltaAposHoraExtraH,
       alternativa: opcoesSug?.alternativa
         ? { ...opcoesSug.alternativa, avisos: obrigatorio ? [AVISO_CRF] : [] }
         : null,
@@ -259,8 +305,11 @@ export const verificarRegra = (
         (real
           ? `Com as folgas e o domingo em rodízio, a equipe cobre ${arred(necessidadeH - real.faltaH)}h das ${arred(necessidadeH)}h exigidas.`
           : `Capacidade: cada pessoa até ${arred(porPessoa)}h em até ${regra.dias} dias = ${arred(capacidadeH)}h.`) +
-        (gapH > 0
-          ? ` Falta cobrir ${gapH}h${sugestao ? `: ${sugestao.tipo === 'parcial' ? `1 parcial de ${sugestao.parcialH}h` : sugestao.tipo === 'integral' ? `${sugestao.inteiras} integral(is)` : `${sugestao.inteiras} integral(is) e 1 parcial de ${sugestao.parcialH}h`}` : ''}.`
+        (horaExtraH > 0
+          ? ` A hora extra de quem já está escalado cobre ${horaExtraH}h por semana (até ${HORA_EXTRA.maxPorDiaH}h por dia e ${HORA_EXTRA.maxPorSemanaH}h por semana por pessoa).`
+          : '') +
+        (gapParaContratar > 0
+          ? ` Falta cobrir ${gapParaContratar}h${sugestao ? `: ${sugestao.tipo === 'parcial' ? `1 parcial de ${sugestao.parcialH}h` : sugestao.tipo === 'integral' ? `${sugestao.inteiras} integral(is)` : `${sugestao.inteiras} integral(is) e 1 parcial de ${sugestao.parcialH}h`}` : ''}.`
           : ''),
     };
   });

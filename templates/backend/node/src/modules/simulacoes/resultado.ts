@@ -10,6 +10,13 @@ import { linhasNaRegua, preencherComCmvMedio, reguaDaBase, type Regua } from '..
 import { diaDaSemana, vendasPorDiaEHora, type VendaLinha } from '../escala/vendas.js';
 import { contratacoesDe, custoDasVagas, folhaAtual } from '../escala/cenarios.js';
 import { FARMACEUTICO } from '../regras/gap-horas.js';
+import {
+  alertasDeHoraExtra,
+  coberturaComHoraExtra,
+  custoBrutoDaHoraExtra,
+} from '../regras/hora-extra.js';
+import { tetoEfetivo } from '../regras/perfis.js';
+import type { FaltaReal } from './falta-real.js';
 import type { PessoaSim } from './avaliar.js';
 import { pesoDaFolha, type PesoDaFolha } from '../escala/peso-folha.js';
 import { montarEmHoras, type EmHoras } from './resultado-em-horas.js';
@@ -20,9 +27,6 @@ import { calcularHorarioEstendido, type HorarioEstendido } from './resultado-hor
 const arred = (n: number) => Math.round(n * 100) / 100;
 const hhmm = (h: number) =>
   `${String(Math.floor(h)).padStart(2, '0')}:${String(Math.round((h % 1) * 60)).padStart(2, '0')}`;
-// O custo das vagas usa 5 semanas por mês (mesma conta de `calcularCusto`); a hora extra segue a mesma.
-const SEMANAS_DA_FOLHA = 5;
-const ADICIONAL_HORA_EXTRA = 1.5;
 
 export type DiaResultado = {
   dia: number;
@@ -48,7 +52,11 @@ export type FuncaoResultado = {
   diasDeTrabalho: number;
   contratacoes: ContratacaoResultado[];
   resultado: { coberto: boolean; horas: number };
+  // Spec 063 (só em rascunho): horas por semana cobertas por hora extra de quem já está escalado e o que a hora extra não alcança.
+  horaExtraH?: number;
+  faltaAposHoraExtraH?: number;
   custoMensal?: number | null;
+  custoHoraExtra?: number | null;
 };
 
 export type ResultadoSimulacao = {
@@ -56,6 +64,8 @@ export type ResultadoSimulacao = {
   // "manter horário" (contratar para cobrir o horário do Cadastro com a equipe de hoje) menos o custo desta simulação.
   folhaExtra?: number | null;
   horaExtra?: number | null;
+  // Spec 063: avisos de "hora extra demais" (contratar sairia mais barato, ou o teto por pessoa); valores só para o dono.
+  alertasHoraExtra?: string[];
   // Folha extra + hora extra desta simulação (custo adicional); nulo sem salário informado.
   custoAdicional?: number | null;
   economiaFolha?: number | null;
@@ -141,6 +151,10 @@ export const calcularResultado = (a: {
   custos: Custos | null;
   parametros?: TabelaParametros;
   dono: boolean;
+  // Spec 063 (só rascunho): a hora extra respeita o teto de 2 h/dia e 10 h/semana por pessoa e vem da falta real por hora (dos
+  // turnos). Sem isto, vale a conta antiga (sem teto), que é a das simulações já gravadas.
+  horaExtraComTeto?: boolean;
+  coberturaReal?: Record<string, FaltaReal>;
 }): ResultadoSimulacao => {
   const tabela = a.parametros ?? PARAMETROS_PADRAO;
   // Pessoa com função antiga (Apoio, Perfumaria) fica fora do cálculo, mesmo em simulação salva antes.
@@ -206,6 +220,19 @@ export const calcularResultado = (a: {
     if (!h1) return 0;
     return Math.max(0, arred((h0 ?? h1).necessidadeH - h1.capacidadeH));
   };
+  // Spec 063: o que a hora extra de quem já está escalado cobre da falta que sobra, e o que passa do teto por pessoa. A falta é a
+  // real (dos turnos) quando se tem; senão, a conta por horas.
+  const horaExtraDe = (funcao: string) => {
+    const real = a.coberturaReal?.[funcao];
+    const falta = real ? real.faltaH : faltaDepois(funcao);
+    if (!a.horaExtraComTeto) return { horaExtraH: falta, restanteH: 0 };
+    return coberturaComHoraExtra({
+      faltaH: falta,
+      pessoas: ativos.filter((p) => p.funcao === funcao).length,
+      faltaPorDiaH: real?.faltaPorDiaH ?? null,
+      pessoasPorDia: real?.pessoasPorDia ?? null,
+    });
+  };
   const funcoesNomes = [
     ...new Set([
       ...hoje.map((l) => l.funcao),
@@ -238,7 +265,8 @@ export const calcularResultado = (a: {
         ...(a.dono ? { custoMensal: custoVaga(v) } : {}),
       }));
       // Depois das contratações mede-se só as horas (a distribuição em turnos é conferida na escala).
-      const falta1 = faltaDepois(funcao);
+      const he = horaExtraDe(funcao);
+      const falta1 = a.horaExtraComTeto ? he.restanteH : faltaDepois(funcao);
       const custos = contratacoes.map((c) => c.custoMensal);
       return {
         funcao,
@@ -252,6 +280,9 @@ export const calcularResultado = (a: {
               ? falta1
               : Math.max(0, arred((h1?.capacidadeH ?? 0) - (h0 ?? h1)!.necessidadeH)),
         },
+        ...(a.horaExtraComTeto
+          ? { horaExtraH: he.horaExtraH, faltaAposHoraExtraH: he.restanteH }
+          : {}),
         ...(a.dono
           ? {
               custoMensal: custos.some((c) => c == null)
@@ -288,16 +319,36 @@ export const calcularResultado = (a: {
     ? null
     : arred(custosVagas.reduce<number>((s, c) => s + (c ?? 0), 0));
   let horaExtra: number | null = 0;
+  const alertasHoraExtra: string[] = [];
   for (const l of depois) {
-    const falta = faltaDepois(l.funcao);
-    if (falta <= 0) continue;
-    const s = sal(l.funcao);
-    if (!s) {
-      horaExtra = null;
-      break;
+    const { horaExtraH, restanteH } = horaExtraDe(l.funcao);
+    if (horaExtraH <= 0 && restanteH <= 0) continue;
+    const custo = custoBrutoDaHoraExtra({
+      horasSemana: horaExtraH,
+      salarioMedio: sal(l.funcao),
+      divisor: tabela[a.regraId].divisor,
+      encargosPct: a.custos?.encargosPct ?? 0,
+    });
+    if (custo === null) horaExtra = null;
+    else if (horaExtra !== null) horaExtra += custo;
+    if (a.horaExtraComTeto) {
+      alertasHoraExtra.push(
+        ...alertasDeHoraExtra({
+          funcao: l.funcao,
+          horaExtraH,
+          horaExtraCustoMensal: custo === null ? null : arred(custo),
+          contratarCustoMensal: custoVaga({
+            matricula: 'VAGA',
+            nome: 'Vaga',
+            funcao: l.funcao,
+            cargaH: tetoEfetivo(a.regra),
+            vaga: true,
+          }),
+          restanteH,
+          comValores: a.dono,
+        }),
+      );
     }
-    horaExtra +=
-      falta * SEMANAS_DA_FOLHA * (s / tabela[a.regraId].divisor) * ADICIONAL_HORA_EXTRA * fator;
   }
   if (horaExtra !== null) horaExtra = arred(horaExtra);
 
@@ -344,8 +395,16 @@ export const calcularResultado = (a: {
     },
     horasAbertas: { hoje: horasAbertasAntes, simulacao: horasAbertas },
     faltas: depois
-      .map((l) => ({ funcao: l.funcao, horas: faltaDepois(l.funcao) }))
+      .map((l) => ({
+        funcao: l.funcao,
+        horas: a.horaExtraComTeto ? horaExtraDe(l.funcao).restanteH : faltaDepois(l.funcao),
+      }))
       .filter((f) => f.horas > 0),
+    ...(a.horaExtraComTeto
+      ? {
+          horaExtraH: arred(depois.reduce((s2, l) => s2 + horaExtraDe(l.funcao).horaExtraH, 0)),
+        }
+      : {}),
     vagas: funcoes.flatMap((f) =>
       f.contratacoes.map((c) => ({ funcao: f.funcao, cargaH: c.cargaH, tipo: c.tipo })),
     ),
@@ -400,7 +459,7 @@ export const calcularResultado = (a: {
       ticketMedio: a.dono && totalClientes > 0 ? arred(totalVenda / totalClientes) : null,
     },
   };
-  if (!a.dono) return base;
+  if (!a.dono) return { ...base, alertasHoraExtra };
 
   // Valores em reais: só o dono (a folha extra e a hora extra já foram calculadas acima, para o bloco em horas).
   const vendaQueSai = vbRegua ? arred(venda * SEMANAS_NO_MES) : null;
@@ -464,6 +523,7 @@ export const calcularResultado = (a: {
     ...(horarioEstendido ? { horarioEstendido } : {}),
     folhaExtra,
     horaExtra,
+    alertasHoraExtra,
     custoAdicional,
     economiaFolha,
     vendaQueSai,

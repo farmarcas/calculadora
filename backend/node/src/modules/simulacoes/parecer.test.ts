@@ -252,3 +252,45 @@ describe('montarParecer v2 (specs 056 e 057)', () => {
     expect(new Date(p.montadoEm).getTime()).toBeGreaterThan(0);
   });
 });
+
+describe('parecer com hora extra (spec 063)', () => {
+  const heReal = (faltaH: number) => ({
+    minimos: { Farmacêutico: 1 },
+    horaExtraComTeto: true,
+    coberturaReal: {
+      Farmacêutico: {
+        faltaH,
+        faltaPorDiaH: [faltaH, 0, 0, 0, 0, 0, 0],
+        pessoasPorDia: [2, 2, 2, 2, 2, 2, 2],
+      },
+    },
+  });
+
+  it('cobre só com hora extra: "Sem contratar ninguém, cobrindo N h por semana com hora extra"', () => {
+    const d = parecer(heReal(2)).dono;
+    expect(d.paragrafo).toMatch(
+      /^Sem contratar ninguém, cobrindo 2h por semana com hora extra, a loja passa a cobrir todo o horário de funcionamento\./,
+    );
+  });
+
+  it('hora extra e contratação: cita as duas', () => {
+    const q = [...quadro, vaga];
+    const d = parecer({ ...heReal(3), quadro: q }).dono;
+    expect(d.paragrafo).toMatch(
+      /^Contratando 1 farmacêutico, 40h por semana e cobrindo 3h por semana com hora extra,/,
+    );
+  });
+
+  it('sem hora extra, o texto é o de sempre', () => {
+    const d = parecer().dono;
+    expect(d.paragrafo).toMatch(/^Sem contratar ninguém, a loja segue cobrindo/);
+    expect(d.paragrafo).not.toContain('hora extra');
+  });
+
+  it('gestor e consulta: a frase fala da hora extra, sem nenhum valor em reais', () => {
+    const p = parecer({ ...heReal(2), dono: false });
+    const publico = p.publico?.paragrafo ?? p.dono.paragrafo;
+    expect(publico).toContain('hora extra');
+    expect(publico).not.toMatch(/R\$/);
+  });
+});

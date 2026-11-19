@@ -2,6 +2,7 @@ import type {
   CenariosRegra,
   Contratacao,
   EntradaCenarios,
+  HoraExtraCenario,
   HorarioAjustado,
   VendaPerdidaDiaCenario,
 } from './cenarios.js';
@@ -27,6 +28,11 @@ export type ColunaComparativo = {
   // Só no Cenário 3: abre horas a mais e a venda delas é estimada (a tela avisa).
   estimativaDeVenda?: boolean;
   contratacoes: Contratacao[];
+  // Spec 063: a hora extra de quem já está escalado que o cenário usa antes de contratar, e se ele cobre sem contratar ninguém.
+  horaExtra: HoraExtraCenario[];
+  semContratar: boolean;
+  // Os alertas de "hora extra demais" (valores em reais só para o dono); a tela os mostra no cartão do cenário.
+  alertasHoraExtra: string[];
   // Dias da semana que o cenário fecha (0 = segunda); nenhum no Cenário 1.
   diasFechar: number[];
   horasSemana: number;
@@ -140,12 +146,16 @@ export const montarComparativo = (e: EntradaCenarios, c: CenariosRegra): Compara
     alertas(alertasManter, 'A contratação foi ajustada pelas horas, além dos turnos.');
   if (e.dono && manter.custoAdicionalMensal === null)
     alertas(alertasManter, 'Informe os salários médios em Custos para ver o custo.');
+  for (const a of manter.alertasHoraExtra) alertas(alertasManter, a);
   const colManter: ColunaComparativo = {
     id: 'manter',
     nome: 'Manter horários',
     premissa: manter.foco,
     resultado: manter.resultado,
     contratacoes: manter.contratacoes,
+    horaExtra: manter.horaExtra,
+    semContratar: manter.semContratar,
+    alertasHoraExtra: manter.alertasHoraExtra,
     diasFechar: [],
     horasSemana: manter.horasSemana,
     ajustes: [],
@@ -190,6 +200,9 @@ export const montarComparativo = (e: EntradaCenarios, c: CenariosRegra): Compara
     semVendaHoraria: economia.semVendaHoraria,
     vendaPerdidaPorDia: economia.vendaCortadaPorDia,
     contratacoes: [],
+    horaExtra: [],
+    semContratar: false,
+    alertasHoraExtra: [],
     diasFechar: economia.diasFechar.map((d) => d.dia),
     horasSemana: economia.horasSemana,
     ajustes: economia.horariosAjustados,
@@ -225,6 +238,7 @@ export const montarComparativo = (e: EntradaCenarios, c: CenariosRegra): Compara
         `${palavraDaRegua(c.regua)[0]!.toUpperCase()}${palavraDaRegua(c.regua).slice(1)} das horas novas é estimada: onde não há venda registrada nessa hora, vale metade da ${palavraDaRegua(c.regua)} da hora vizinha.`,
       );
   }
+  for (const a of equilibrio.alertasHoraExtra) alertas(alertasEq, a);
   const colEq: ColunaComparativo = {
     id: 'equilibrio',
     nome: 'Equilíbrio',
@@ -241,6 +255,9 @@ export const montarComparativo = (e: EntradaCenarios, c: CenariosRegra): Compara
           ? 'economia'
           : null,
     contratacoes: equilibrio.contratacoes,
+    horaExtra: equilibrio.horaExtra,
+    semContratar: equilibrio.semContratar,
+    alertasHoraExtra: equilibrio.alertasHoraExtra,
     diasFechar: equilibrio.diasFechar.map((d) => d.dia),
     horasSemana: equilibrio.horasSemana,
     ajustes: equilibrio.horariosAjustados,

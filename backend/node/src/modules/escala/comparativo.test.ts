@@ -17,6 +17,8 @@ const entrada = (extra: Partial<EntradaCenarios> = {}): EntradaCenarios => ({
   origemVenda: 'base', // os fixtures do cadastro têm venda igual em todas as horas: servem de venda hora a hora
   custos: { salarioMedio: { Farmacêutico: 10000 }, encargosPct: 0 },
   dono: true,
+  // Spec 063: estes testes são da conta de contratação; a hora extra tem testes próprios (hora-extra-cenarios.test.ts).
+  horaExtra: false,
   faturamentoMensalRef: 50000,
   // Estes testes são das contas do comparativo, escritos com o limite de 10%; o padrão de 3% tem testes próprios.
   limitePerdaCenario2Pct: 10,

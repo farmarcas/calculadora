@@ -6,6 +6,7 @@ import { ValidationError } from '../../shared/errors/validation-error.js';
 import { soNoCalculo } from '../cadastros/funcoes.js';
 import { normalizarHorarios } from '../cadastros/horarios.js';
 import { calcularResultado } from './resultado.js';
+import { faltaRealPorFuncao } from './falta-real.js';
 import { diasAbertos, type LojaDiag } from '../escala/diagnostico.js';
 import { faturamentoMensalDe } from '../escala/vendas.js';
 import type { EscalaRepository } from '../escala/escala.repository.js';
@@ -114,7 +115,21 @@ export const makeSimulacoesService = (
     dono: boolean,
   ) => {
     const c = contexto(s, l);
+    // Spec 063: o rascunho com turnos mede a falta real por hora e respeita o teto da hora extra (a mesma conta do cartão do cenário).
+    // A simulação gravada mantém a conta de quando foi gravada (sem teto), para os números dela não mudarem.
+    const comTeto = s.status === 'rascunho' && s.turnos.length > 0;
     return calcularResultado({
+      ...(comTeto
+        ? {
+            horaExtraComTeto: true,
+            coberturaReal: faltaRealPorFuncao({
+              quadro: s.quadro,
+              turnos: s.turnos,
+              dias: c.dias,
+              minimos: c.premissas.minimos,
+            }),
+          }
+        : {}),
       regraId: s.regra as RegraId,
       regra: c.regra,
       regraAtual: regraPara('atual', c.premissas.convencao8h24, tabela),
@@ -391,6 +406,9 @@ export const makeSimulacoesService = (
             dias: diasDaSimulacao,
             minimos,
             horarios: equipe,
+            // Spec 063: as contratações sugeridas cobrem só o que a hora extra de quem já está escalado não alcança (o mesmo
+            // cálculo do cartão do cenário), e a Simulação mostra a hora extra que sobra.
+            horaExtra: true,
           });
           const sugeridas: VagaEntrada[] = Object.values(semana.funcoes).flatMap((f) =>
             f.vagas.map((v) => ({ funcao: v.funcao, cargaH: v.cargaH, turnos: v.turnos })),

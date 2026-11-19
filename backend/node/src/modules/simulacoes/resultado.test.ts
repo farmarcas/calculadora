@@ -359,3 +359,56 @@ describe('calcularResultado: peso da folha (spec 052)', () => {
     expect(JSON.stringify(r)).not.toMatch(/custoDoDono|folhaHoje|pesoHoje/);
   });
 });
+
+describe('hora extra com teto na Simulação (spec 063, só rascunho)', () => {
+  const dia0 = [4, 4, 4, 4, 4, 4, 0]; // 24 h por semana sem farmacêutico, espalhadas em 6 dias
+  const comTeto = (
+    faltaH: number,
+    faltaPorDiaH: number[],
+    over: Partial<Parameters<typeof calcularResultado>[0]> = {},
+  ) =>
+    base({
+      minimos: { Farmacêutico: 1 },
+      horaExtraComTeto: true,
+      coberturaReal: {
+        Farmacêutico: { faltaH, faltaPorDiaH, pessoasPorDia: [2, 2, 2, 2, 2, 2, 0] },
+      },
+      ...over,
+    });
+
+  it('sem o teto (o padrão, igual às simulações gravadas), a conta é a de antes e não traz alertas de teto', () => {
+    const antes = base({ minimos: { Farmacêutico: 1 } });
+    expect(antes.alertasHoraExtra).toEqual([]);
+    expect(antes.funcoes.every((f) => f.horaExtraH === undefined)).toBe(true);
+  });
+
+  it('a falta cabe na hora extra: o custo é a conta única e nada fica por cobrir', () => {
+    const r = comTeto(6, [2, 2, 2, 0, 0, 0, 0]);
+    const f = r.funcoes.find((x) => x.funcao === 'Farmacêutico')!;
+    expect(f.horaExtraH).toBe(6);
+    expect(f.faltaAposHoraExtraH).toBe(0);
+    expect(r.emHoras.horaExtraH).toBe(6);
+    // 6 h × 5 semanas × (6000 ÷ divisor da regra) × 1,5 × 1,4
+    const divisor = 200;
+    expect(r.horaExtra).toBeCloseTo(6 * 5 * (6000 / divisor) * 1.5 * 1.4, 0);
+  });
+
+  it('acima do teto por pessoa (2 pessoas = 20 h), o resto aparece como falta a cobrir e como alerta', () => {
+    const r = comTeto(24, dia0);
+    const f = r.funcoes.find((x) => x.funcao === 'Farmacêutico')!;
+    expect(f.horaExtraH).toBe(20);
+    expect(f.faltaAposHoraExtraH).toBe(4);
+    expect(f.resultado.coberto).toBe(false);
+    expect(r.emHoras.horaExtraH).toBe(20);
+    expect(r.emHoras.status).toBe('equipe_menor');
+    expect(r.emHoras.causa).toContain('Faltam 4 h de farmacêutico');
+    expect(r.alertasHoraExtra?.some((a) => a.includes('não basta'))).toBe(true);
+  });
+
+  it('gestor e consulta: as horas aparecem, nenhum valor em reais', () => {
+    const r = comTeto(24, dia0, { dono: false });
+    expect(r.emHoras.horaExtraH).toBe(20);
+    expect(r).not.toHaveProperty('horaExtra');
+    expect(JSON.stringify(r.alertasHoraExtra)).not.toMatch(/R\$/);
+  });
+});

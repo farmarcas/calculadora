@@ -30,6 +30,11 @@ export type LinhaDeCenario = {
   explicacao: Explicacao | null;
   indisponivel: { motivo: 'custos' | 'vendas' } | null;
   contratar: { funcao: string; inteiras: number; parcialHoras: number }[];
+  // Spec 063: a hora extra que o cenário usa antes de contratar (só horas; nenhum valor em reais) e o cenário cobre sem contratar.
+  horaExtra: { funcao: string; horasSemana: number }[];
+  semContratar: boolean;
+  // Spec 063: avisos de hora extra demais, já sem valores em reais para gestor e consulta.
+  alertasHoraExtra: string[];
   horasSemana: number;
   horasDiferenca: number;
   horarioSemana: DiaCenario[];
@@ -153,7 +158,9 @@ export const explicacaoDaLinha = (
       frase =
         c.contratacoes.length > 0
           ? `${base}, é preciso contratar.`
-          : `${base}, a folha não precisa mudar.`;
+          : c.semContratar
+            ? `${base}, não é preciso contratar: a hora extra de quem já está escalado cobre.`
+            : `${base}, a folha não precisa mudar.`;
     else if (sentido === 'igual') frase = `${base}, a folha não muda.`;
     else if (dono && custo)
       frase =
@@ -164,7 +171,9 @@ export const explicacaoDaLinha = (
       frase =
         sentido === 'aumenta' ? `${base}, a folha precisa aumentar.` : `${base}, a folha diminui.`;
     const fim = cobre
-      ? ' Este é o caminho recomendado.'
+      ? c.semContratar
+        ? ' Cobre sem contratar, com hora extra.'
+        : ' Este é o caminho recomendado.'
       : faltaTxt
         ? ` Ainda faltariam ${faltaTxt}.`
         : c.faltaH
@@ -282,6 +291,9 @@ export const montarLinhas = (
           inteiras: x.inteiras,
           parcialHoras: x.parcial?.horas ?? 0,
         })),
+        horaExtra: c.horaExtra.map((h) => ({ funcao: h.funcao, horasSemana: h.horasSemana })),
+        semContratar: c.semContratar,
+        alertasHoraExtra: c.alertasHoraExtra,
         horasSemana: c.horasSemana,
         horasDiferenca: Math.round((c.horasSemana - horasHoje) * 100) / 100,
         horarioSemana: colunaDoCenario.horarioSemana,

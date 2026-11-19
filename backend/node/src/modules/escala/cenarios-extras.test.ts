@@ -16,6 +16,8 @@ const entrada = (extra: Partial<EntradaCenarios> = {}): EntradaCenarios => ({
   vendas: [],
   custos: { salarioMedio: { Farmacêutico: 10000 }, encargosPct: 0 },
   dono: true,
+  // Spec 063: estes testes são da conta de contratação; a hora extra tem testes próprios (hora-extra-cenarios.test.ts).
+  horaExtra: false,
   ...extra,
 });
 const estender = (e: EntradaCenarios) => montarExtras(e, montarCenarios(e)).estender;

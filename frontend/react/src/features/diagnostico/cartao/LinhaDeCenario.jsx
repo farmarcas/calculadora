@@ -2,7 +2,7 @@ import { Botao } from "../../../components/ui/index.jsx";
 import CelulaFolha from "./CelulaFolha.jsx";
 import FaixaDosDias from "./FaixaDosDias.jsx";
 import PillDeStatus from "./PillDeStatus.jsx";
-import { cabecalhoDaFolha, estadoVisual, faixaDosDias, partesDaExplicacao, rotuloDoStatus, textoContratar, textoDaVariacao, textoDoTotal, textoIndisponivel } from "./linha-regras.js";
+import { alertasDaHoraExtra, cabecalhoDaFolha, estadoVisual, faixaDosDias, partesDaExplicacao, rotuloDaLinha, textoContratar, textoDaVariacao, textoDoTotal, textoIndisponivel } from "./linha-regras.js";
 import { COR_DO_TOM } from "./tom.js";
 
 const COR_VARIACAO = { ...COR_DO_TOM, mudo: "var(--text-secondary)" };
@@ -27,7 +27,7 @@ const pctBr = (n) => `${String(n).replace(".", ",")}%`;
 
 export default function LinhaDeCenario({ linha, antes, dono, podeEscrever, ocupado, onPersonalizar }) {
   const estado = estadoVisual(linha);
-  const status = rotuloDoStatus(linha.status);
+  const status = rotuloDaLinha(linha);
   const indisponivel = estado === "indisponivel";
   const rebaixado = estado === "rebaixado";
   const idTitulo = `cenario-${linha.id}-nome`;
@@ -53,7 +53,7 @@ export default function LinhaDeCenario({ linha, antes, dono, podeEscrever, ocupa
       ) : (
         <>
           <Celula rotulo="Contratar">
-            {textoContratar(linha.contratar).map((t, i) => <div key={i} className="text-sm leading-5 font-bold text-[var(--text-strong)]">{t}</div>)}
+            {textoContratar(linha.contratar, linha.horaExtra).map((t, i) => <div key={i} className="text-sm leading-5 font-bold text-[var(--text-strong)]">{t}</div>)}
           </Celula>
           <Celula rotulo="Horário">
             <div className="text-sm leading-5 text-[var(--text-strong)]">
@@ -81,6 +81,12 @@ export default function LinhaDeCenario({ linha, antes, dono, podeEscrever, ocupa
         <p className="linha-faixa m-0 text-[13px] leading-[18px] text-[var(--text-default)]" data-testid="explicacao">
           {explicacao.partes.map((p, i) => (p.negrito ? <strong key={i} className="font-bold text-[var(--text-primary-black)]">{p.texto}</strong> : <span key={i}>{p.texto}</span>))}
         </p>
+      )}
+
+      {!indisponivel && alertasDaHoraExtra(linha).length > 0 && (
+        <ul className="linha-faixa m-0 list-disc rounded-btn bg-[var(--func-attention-100)] py-2 pr-3 pl-7 text-xs leading-4 text-[var(--neutral-dark-900)]" data-testid="alertas-hora-extra">
+          {alertasDaHoraExtra(linha).map((a, i) => <li key={i}>{a}</li>)}
+        </ul>
       )}
 
       {!explicacao && linha.causa && !indisponivel && (

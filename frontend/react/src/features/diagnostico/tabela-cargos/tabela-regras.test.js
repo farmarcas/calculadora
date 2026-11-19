@@ -24,6 +24,11 @@ describe("tabela por cargo", () => {
     expect(l[2]).toMatchObject({ status: "sem_falta", falta: { hoje: 0, depois: 0 }, sobraH: 6 });
   });
 
+  it("hora extra cobre a falta sem contratar: falta hoje 1h → 0h e a pessoa não muda (spec 063)", () => {
+    const l = linhasPorCargo(regra([f("Farmacêutico", { pessoas: 3, faltaH: 1, gapH: 0, horaExtraH: 1 })]));
+    expect(l[0]).toMatchObject({ pessoas: { hoje: 3, depois: 3 }, falta: { hoje: 1, depois: 0 } });
+  });
+
   it("cargo que não existe na loja não gera linha (o farmacêutico sempre aparece)", () => {
     const l = linhasPorCargo(regra([f("Farmacêutico"), f("Caixa", { pessoas: 0, capacidadeH: 0 })]));
     expect(l.map((x) => x.funcao)).toEqual(["Farmacêutico"]);

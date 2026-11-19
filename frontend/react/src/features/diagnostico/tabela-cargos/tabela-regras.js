@@ -16,19 +16,21 @@ export const statusDoCargo = (f) => {
 
 // Uma linha por cargo existente na loja (tem gente, falta ou contratação), na ordem de sempre, com "hoje" e "com a sugestão".
 export const linhasPorCargo = (regra) => {
-  const lista = (regra?.funcoes ?? []).filter((f) => f.funcao === "Farmacêutico" || f.pessoas > 0 || f.contratar > 0 || f.gapH > 0);
+  const lista = (regra?.funcoes ?? []).filter((f) => f.funcao === "Farmacêutico" || f.pessoas > 0 || f.contratar > 0 || (f.faltaH ?? f.gapH) > 0);
   const pos = (n) => (ORDEM.indexOf(n) === -1 ? ORDEM.length : ORDEM.indexOf(n));
   return [...lista]
     .sort((a, b) => pos(a.funcao) - pos(b.funcao))
     .map((f) => {
       const ganho = horasContratadas(f);
-      const faltaDepois = f.contratar > 0 ? arred(Math.max(0, f.gapH - ganho)) : f.gapH;
+      // Falta bruta hoje; depois, o que a contratação e a hora extra de quem já está escalado (spec 063) deixam de cobrir.
+      const faltaHoje = f.faltaH ?? f.gapH;
+      const faltaDepois = arred(Math.max(0, faltaHoje - ganho - (f.horaExtraH ?? 0)));
       return {
         funcao: f.funcao,
         status: statusDoCargo(f),
         pessoas: { hoje: f.pessoas, depois: f.pessoas + f.contratar },
         horas: { hoje: arred(f.capacidadeH), depois: arred(f.capacidadeH + ganho) },
-        falta: { hoje: f.gapH, depois: faltaDepois },
+        falta: { hoje: faltaHoje, depois: faltaDepois },
         turnosAcobrir: f.funcao === "Farmacêutico" ? Math.max(0, -f.saldoT) : 0,
         sobraH: f.gapH <= 0 && f.saldoH > 0 && f.funcao !== "Farmacêutico" ? arred(f.saldoH) : 0,
       };

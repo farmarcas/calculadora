@@ -5,6 +5,7 @@ import BarrasDeFalta from "./tabela-cargos/BarrasDeFalta.jsx";
 import TabelaPorCargo from "./tabela-cargos/TabelaPorCargo.jsx";
 import RodapeDoCard from "./tabela-cargos/RodapeDoCard.jsx";
 import { linhasPorCargo } from "./tabela-cargos/tabela-regras.js";
+import { textoHoraExtra } from "./cartao/linha-regras.js";
 
 const plural = (n, um, varios) => `${n} ${n === 1 ? um : varios}`;
 const ROTULO = "text-xs leading-4 font-bold uppercase text-[var(--neutral-mid-300)]";
@@ -91,6 +92,11 @@ export default function QuadroCentral({ diag, regraId, onRegra, podeEscrever, on
                     <span className="text-lg leading-6 font-bold text-[var(--text-strong)]">{c.contratacoes > 0 ? plural(c.contratacoes, "pessoa", "pessoas") : "Nenhuma"}</span>
                   </div>
                 )}
+                {estado.falta && textoHoraExtra(c.horaExtra).map((t) => (
+                  <p key={t} className="m-0 text-[13px] leading-5 font-bold text-[var(--text-strong)]">
+                    {t.replace("Hora extra:", "Cobre com hora extra:")}
+                  </p>
+                ))}
                 <TabelaPorCargo regra={sel.regra} linhas={linhas} horasAbertas={diag.loja?.horasAbertas ?? null} jornada={cargaH} />
               </>
             ) : (

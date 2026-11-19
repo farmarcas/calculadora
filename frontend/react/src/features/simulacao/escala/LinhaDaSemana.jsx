@@ -6,8 +6,8 @@ const CORES = {
 const NOMES_LONGOS = ["segunda", "terça", "quarta", "quinta", "sexta", "sábado", "domingo"];
 
 // Uma pessoa na semana: nome, sete células (turno, folga ou fechada) e o total. A Contratação simulada tem borda tracejada e
-// nome em azul. Clicar na célula só existe para quem pode editar: leva à Escala por hora do dia. Spec 061: ao lado, um botão pequeno
-// dá folga (no dia de trabalho) ou escala a pessoa (no dia de folga), sem trava; a cobertura e os avisos mostram o efeito.
+// nome em azul. Clicar na célula só existe para quem pode editar: no dia de trabalho leva à Escala por hora do dia e o botão pequeno
+// (×) dá folga; no dia de folga, clicar escala a pessoa na hora (spec 061). Sem trava: a cobertura e os avisos mostram o efeito.
 export default function LinhaDaSemana({ linha, colunas, editavel, onDia, onDesligar, onReligar, onAlternarFolga = null, gravando = false }) {
   const cor = CORES[linha.funcao] ?? CORES.Caixa;
   // Spec 054: quem foi desligado só desta simulação continua na lista, mais opaco e fora do cálculo, com "Religar".
@@ -53,21 +53,26 @@ export default function LinhaDaSemana({ linha, colunas, editavel, onDia, onDesli
         return (
           <div key={c.dia} role="cell" className="relative">
             {editavel ? (
-              <button type="button" onClick={() => onDia(c.dia)} aria-label={`${rotuloCompleto}. Abrir a Escala por hora desse dia`} className={`${base} cursor-pointer`} style={estilo}>{miolo}</button>
+              c.estado === "folga" && onAlternarFolga ? (
+                // Spec 061: clicar na folga escala a pessoa na hora (o turno habitual dela), sem ir para a Escala por hora.
+                <button type="button" disabled={gravando} onClick={() => onAlternarFolga(c.dia, c.estado)} aria-label={`${rotuloCompleto}. Escalar neste dia`} title="Escalar neste dia" data-testid="escalar-no-dia" className={`${base} cursor-pointer hover:bg-[var(--surface-subtle)] disabled:cursor-default disabled:opacity-60`} style={estilo}>{miolo}</button>
+              ) : (
+                <button type="button" onClick={() => onDia(c.dia)} aria-label={`${rotuloCompleto}. Abrir a Escala por hora desse dia`} className={`${base} cursor-pointer`} style={estilo}>{miolo}</button>
+              )
             ) : (
               <div aria-label={rotuloCompleto} role="img" className={base} style={estilo}>{miolo}</div>
             )}
-            {editavel && onAlternarFolga && (
+            {editavel && onAlternarFolga && c.estado === "turno" && (
               <button
                 type="button"
                 disabled={gravando}
                 onClick={() => onAlternarFolga(c.dia, c.estado)}
-                aria-label={`${linha.nome ?? linha.funcao}, ${NOMES_LONGOS[c.dia]}: ${c.estado === "turno" ? "dar folga" : "escalar neste dia"}`}
-                title={c.estado === "turno" ? "Dar folga neste dia" : "Escalar neste dia"}
-                data-testid={c.estado === "turno" ? "dar-folga" : "escalar-no-dia"}
+                aria-label={`${linha.nome ?? linha.funcao}, ${NOMES_LONGOS[c.dia]}: dar folga`}
+                title="Dar folga neste dia"
+                data-testid="dar-folga"
                 className="absolute right-0.5 bottom-0.5 flex h-4 w-4 cursor-pointer items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--surface-card)] p-0 text-[11px] leading-none font-bold text-[var(--text-secondary)] hover:bg-[var(--surface-subtle)] hover:text-[var(--text-strong)] disabled:cursor-default disabled:opacity-50"
               >
-                <span aria-hidden="true">{c.estado === "turno" ? "×" : "+"}</span>
+                <span aria-hidden="true">×</span>
               </button>
             )}
           </div>

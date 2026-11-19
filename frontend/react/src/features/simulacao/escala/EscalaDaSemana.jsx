@@ -17,7 +17,7 @@ export default function EscalaDaSemana({ sim, editavel, onDia, onCadastrar, onDe
       <div className="flex flex-wrap items-start justify-between gap-4 p-6 pb-4">
         <div className="min-w-0">
           <h2 className="m-0 text-xl leading-[26px] font-bold text-[var(--text-strong)]">Escala da semana</h2>
-          <p className="mt-1 mb-0 text-sm leading-5 text-[var(--text-secondary)]">Veja a semana de cada pessoa, com folgas e intervalos.{editavel ? " Clique em um dia para ajustar na Escala por hora; use o botão do canto para dar folga ou escalar a pessoa naquele dia." : ""}</p>
+          <p className="mt-1 mb-0 text-sm leading-5 text-[var(--text-secondary)]">Veja a semana de cada pessoa, com folgas e intervalos.{editavel ? " Clique em um dia para ajustar na Escala por hora; use o × do canto para dar folga; clicar numa folga escala a pessoa naquele dia." : ""}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {folgas?.desfazer && <button type="button" onClick={folgas.desfazer} disabled={folgas.calculando} className="cursor-pointer rounded-btn border border-[var(--border-default)] bg-transparent px-3 py-1.5 text-sm font-bold text-[var(--text-strong)] disabled:opacity-60">Desfazer sugestão</button>}

@@ -64,6 +64,8 @@ jobs:
           MIXPANEL_TOKEN: ${{ github.event_name == 'workflow_dispatch' && secrets.MIXPANEL_TOKEN || '' }}
           # Parcela de sessões gravadas (0 a 100). Variável do repositório, opcional: vazio = todas.
           MIXPANEL_REPLAY_PERCENT: ${{ vars.MIXPANEL_REPLAY_PERCENT }}
+          # Usersnap só em produção (feedback real não se mistura com teste). Vazio = desligado.
+          USERSNAP_SPACE_KEY: ${{ github.event_name == 'workflow_dispatch' && secrets.USERSNAP_SPACE_KEY || '' }}
         run: |
           docker build \
             --build-arg APP_BASE=/escala/ \
@@ -71,6 +73,7 @@ jobs:
             --build-arg VITE_RADAR_URL=${{ steps.env.outputs.radar_url }} \
             --build-arg VITE_MIXPANEL_TOKEN="$MIXPANEL_TOKEN" \
             --build-arg VITE_MIXPANEL_REPLAY_PERCENT="$MIXPANEL_REPLAY_PERCENT" \
+            --build-arg VITE_USERSNAP_SPACE_KEY="$USERSNAP_SPACE_KEY" \
             -t "$REGISTRY/calculadora-web:$TAG" \
             frontend/react
           docker push "$REGISTRY/calculadora-web:$TAG"

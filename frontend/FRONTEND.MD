@@ -37,3 +37,12 @@ O serviço de medição também grava uma parte das sessões do Mixpanel (replay
 - **Só com login do Radar:** a gravação começa depois da identificação da pessoa. Modo demonstração e a tela de entrada não gravam.
 - **Parcela gravada:** `MIXPANEL_REPLAY_PERCENT` (0 a 100). Vazio = todas as sessões; `0` desliga a gravação e o mapa de calor sem mexer em tela. No deploy de produção vem da variável do repositório `MIXPANEL_REPLAY_PERCENT`.
 - Console e rede não são gravados, e cada gravação dura no máximo 1 hora.
+
+## Feedback com Usersnap (spec 065)
+
+O Usersnap só carrega para quem entrou pelo Radar, pelo serviço `src/feedback/servico.js` (o único que importa `@usersnap/browser`). **O app não cria botão próprio:** o que aparece na tela (botão de feedback, survey), o visual, o texto e as regras de quando mostrar são cadastrados no painel do Usersnap. Sem widget ativo no painel, nada aparece.
+
+- **O que o Usersnap recebe:** `userId`, nome, e-mail, perfil e papel no Radar de quem enviou, e a loja em uso (`custom.loja`). A tela vem do endereço da página, que o Usersnap já captura. Nada de grupo econômico nem CNPJ além do que estiver visível na captura.
+- **Atenção (LGPD):** a captura de tela mostra o que está na tela (R$, nomes, CNPJs). Restrinja o acesso ao espaço no Usersnap ao time e mantenha o aviso na política de privacidade do Radar.
+- **Chave:** `USERSNAP_SPACE_KEY` (Space API key, nas configurações do espaço no Usersnap). Vazia = desligado. No `.env` local serve para testar; em produção vem do segredo do repositório `USERSNAP_SPACE_KEY`, só no build de produção (homologação fica sem Usersnap).
+- Ao sair, o widget é desmontado e a próxima pessoa não herda nada. Falha, bloqueio ou falta de chave nunca quebram telas.

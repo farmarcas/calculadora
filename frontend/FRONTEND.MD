@@ -37,3 +37,24 @@ O serviço de medição também grava uma parte das sessões do Mixpanel (replay
 - **Só com login do Radar:** a gravação começa depois da identificação da pessoa. Modo demonstração e a tela de entrada não gravam.
 - **Parcela gravada:** `MIXPANEL_REPLAY_PERCENT` (0 a 100). Vazio = todas as sessões; `0` desliga a gravação e o mapa de calor sem mexer em tela. No deploy de produção vem da variável do repositório `MIXPANEL_REPLAY_PERCENT`.
 - Console e rede não são gravados, e cada gravação dura no máximo 1 hora.
+
+### Feature flags e experimentos (spec 064)
+
+O serviço de medição já vem preparado para flags e experimentos do Mixpanel. Hoje não existe nenhuma flag: sem flag criada, tudo vale o padrão e nenhuma tela muda.
+
+**Usar numa tela** (nunca importe `mixpanel-browser` na tela):
+
+```jsx
+import { useFlag, useVariante } from "../analytics/useFlag.js";
+
+const ligada = useFlag("nome_da_flag");              // true ou false; padrão false
+const versao = useVariante("nome_do_teste", "A");    // versão recebida; padrão "A"
+```
+
+Antes de as flags chegarem, ou se o Mixpanel falhar, o gancho devolve o padrão e depois atualiza sozinho. Fora de componentes, use `flagLigada` e `variante` de `analytics/servico.js`.
+
+**Criar uma flag:** no Mixpanel (projeto Radar Escala), Feature Flags → nova flag. Use a chave exata no código. Para liberar a um grupo, use a regra por propriedade da pessoa: o serviço envia `perfil`, `papel_radar`, `operador`, `quantidade_grupos`, `quantidade_lojas` e `acesso_total` (nunca nome nem e-mail). Para desligar, desative a flag no Mixpanel: não precisa publicar.
+
+**Criar um experimento:** no Mixpanel, Experiments → novo, com a flag e as versões. O SDK registra sozinho `$experiment_started` (nome e versão) na primeira vez que a tela lê a versão; escolha como métrica de sucesso um evento do catálogo (`simulacao_criada`, `cenario_salvo` etc.).
+
+**Regras:** só consulta com pessoa logada pelo Radar (modo demonstração e tela de entrada vivem no padrão). `MIXPANEL_FLAGS=0` (ou `false`) desliga tudo sem mexer em tela; vazio liga. No deploy de produção vem da variável do repositório `MIXPANEL_FLAGS`. Mantenha o código da versão antiga enquanto o teste durar e remova a flag do código quando o teste acabar.

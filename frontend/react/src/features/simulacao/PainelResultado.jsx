@@ -17,7 +17,7 @@ export default function PainelResultado({ sim, calculando, podeEscrever, salvand
   return (
     <aside aria-label="Resultado da simulação" className="sim-painel rounded-card border border-[var(--border-subtle)] bg-[var(--surface-card)] shadow-card p-6">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="m-0 text-base font-bold text-[var(--text-strong)]">Resultado da simulação</h2>
+        <h2 data-mp-unmask className="m-0 text-base font-bold text-[var(--text-strong)]">Resultado da simulação</h2>
         <Ficha>{tipoDeSolucao(r)}</Ficha>
       </div>
 

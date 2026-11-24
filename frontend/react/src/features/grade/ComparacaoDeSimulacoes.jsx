@@ -96,7 +96,7 @@ export default function ComparacaoDeSimulacoes({ lojaId, ids, lista, onVoltar, o
       <section aria-labelledby="titulo-comparacao" className="overflow-hidden rounded-[8px] border border-[var(--border-subtle)] bg-[var(--surface-card)]">
         <header className="flex flex-wrap items-start justify-between gap-3 px-6 py-5">
           <div>
-            <h2 id="titulo-comparacao" className="m-0 text-xl font-bold text-[var(--text-strong)]">Comparação de simulações</h2>
+            <h2 data-mp-unmask id="titulo-comparacao" className="m-0 text-xl font-bold text-[var(--text-strong)]">Comparação de simulações</h2>
             <p className="m-0 mt-1 text-sm text-[var(--text-secondary)]">As diferenças são frente à base ({base.nome}). {mudaram} de {total} itens mudaram.</p>
           </div>
           <div className="flex flex-wrap items-center gap-4">

@@ -57,7 +57,7 @@ export default function NovaLoja({ onCriada, onCancelar, onVoltar }) {
     <form onSubmit={criar} className="flex min-h-full flex-col">
       <div className="px-6 pt-5">
         <button type="button" onClick={onVoltar} className="cl-voltar mb-2 border-0 bg-transparent p-0 text-sm font-bold text-[var(--text-link)] cursor-pointer">← Voltar para a lista</button>
-        <h2 className="m-0 text-lg font-bold text-[var(--text-strong)]">Nova loja</h2>
+        <h2 data-mp-unmask className="m-0 text-lg font-bold text-[var(--text-strong)]">Nova loja</h2>
         <p className="m-0 mt-1 text-xs text-[var(--text-secondary)]">Preencha os dados para cadastrar. O funcionamento, o faturamento, a equipe e as regras ficam liberados depois da primeira gravação.</p>
         <div role="tablist" aria-label="Seções da loja" className="mt-4 flex gap-4 border-b border-[var(--border-subtle)]">
           <button type="button" role="tab" aria-selected="true" className="border-0 bg-transparent px-1.5 pt-2 pb-2.5 text-base font-bold text-[var(--text-strong)]" style={{ boxShadow: "inset 0 -3px 0 var(--color-primary)" }}>Dados e funcionamento</button>

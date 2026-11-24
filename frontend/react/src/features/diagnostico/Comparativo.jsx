@@ -83,7 +83,7 @@ export default function Comparativo({ comparativo, cenarios, lojaId, podeEscreve
   return (
     <section aria-label="Cenários" className="linhas-conteiner flex flex-col gap-4">
       <div>
-        <h2 className="m-0 text-xl leading-[26px] font-bold text-[var(--text-strong)]">Cenários</h2>
+        <h2 data-mp-unmask className="m-0 text-xl leading-[26px] font-bold text-[var(--text-strong)]">Cenários</h2>
         <p className="mt-1 mb-0 text-sm leading-5 text-[var(--text-secondary)]">
           Estimativas para a regra de {cenarios?.regra?.nome ?? "referência"}, com o quadro{dono ? ", os salários" : ""} e a base comercial importados. Compare cada cenário com o horário e a folha de hoje. Nada altera o cadastro.
         </p>

@@ -33,7 +33,8 @@ Toda medição passa pelo serviço central `frontend/react/src/analytics/servico
 
 O serviço de medição também grava uma parte das sessões do Mixpanel (replay) e, junto, coleta o mapa de calor. O mapa de calor do Mixpanel só existe dentro de sessões gravadas.
 
-- **Tudo sai coberto:** texto e campos de formulário aparecem como retângulos na gravação. Isso é o padrão porque as telas mostram folha, faturamento, nomes e CNPJs. Não há trecho liberado; se um dia for preciso, a opção é `record_unmask_text_selector` no `analytics/servico.js`, com revisão de quem cuida da privacidade.
+- **Tudo sai coberto:** texto e campos de formulário aparecem como retângulos na gravação. Isso é o padrão porque as telas mostram folha, faturamento, nomes e CNPJs.
+- **Exceção só com marca:** o que leva `data-mp-unmask` fica legível (`record_unmask_text_selector` no `analytics/servico.js`). Hoje só o menu lateral, os títulos de tela e os rótulos das abas, que são texto fixo. Nunca marque nada que mostre dado (valor, nome de pessoa ou loja, CNPJ): a marca vale também para tudo que estiver dentro do elemento marcado. Texto novo continua coberto até alguém marcar.
 - **Só com login do Radar:** a gravação começa depois da identificação da pessoa. Modo demonstração e a tela de entrada não gravam.
 - **Parcela gravada:** `MIXPANEL_REPLAY_PERCENT` (0 a 100). Vazio = todas as sessões; `0` desliga a gravação e o mapa de calor sem mexer em tela. No deploy de produção vem da variável do repositório `MIXPANEL_REPLAY_PERCENT`.
 - Console e rede não são gravados, e cada gravação dura no máximo 1 hora.

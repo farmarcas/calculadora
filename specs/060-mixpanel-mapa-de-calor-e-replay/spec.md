@@ -99,3 +99,7 @@ Mapa de calor e replay só funcionam com **login do Radar** (a mesma regra da me
 - Depende de o plano do Mixpanel do projeto Radar Escala incluir mapa de calor e replay; isso é verificado na implementação e, se faltar, a pessoa é avisada.
 - O mapa de calor do Mixpanel é montado a partir das sessões gravadas: sem gravar, não há mapa. Por isso a parcela gravada vale para os dois.
 - Fora do escopo: dashboards, alertas, testes A/B e medição no servidor.
+
+## Ajuste (2026-11-24): menu, títulos e abas legíveis
+
+Pedido da pessoa depois de ligar o replay em produção: todo texto, inclusive o nome do menu, vinha coberto e dificultava entender a navegação. Decisão: **menu lateral, títulos de tela e rótulos de abas** (texto fixo, nunca dado) ficam legíveis, marcados um a um com `data-mp-unmask`. Todo o resto segue coberto, e texto novo continua coberto por padrão. Isso ajusta FR-003: nenhum valor em R$, dado de pessoa, CNPJ ou nome de loja é legível; os textos fixos de navegação podem ser.

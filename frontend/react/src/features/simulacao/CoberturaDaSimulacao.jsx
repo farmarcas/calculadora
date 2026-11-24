@@ -19,7 +19,7 @@ export default function CoberturaDaSimulacao({ cobertura }) {
   return (
     <section aria-labelledby="sim-cobertura" className="rounded-card border border-[var(--border-subtle)] bg-[var(--surface-card)] shadow-card">
       <header className="px-6 pt-5 pb-4">
-        <h2 id="sim-cobertura" className="m-0 text-lg font-bold text-[var(--text-strong)]">Cobertura e vendas</h2>
+        <h2 data-mp-unmask id="sim-cobertura" className="m-0 text-lg font-bold text-[var(--text-strong)]">Cobertura e vendas</h2>
         <p className="m-0 mt-0.5 text-sm text-[var(--text-secondary)]">Quantas pessoas de cada função há em cada hora, com o horário e o quadro desta simulação.</p>
       </header>
       <div className="flex flex-col gap-4 px-6 pb-6">

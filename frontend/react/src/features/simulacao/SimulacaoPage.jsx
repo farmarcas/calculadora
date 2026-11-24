@@ -112,7 +112,7 @@ export default function SimulacaoPage({ id, perfil, podeEscrever, aviso, onVolta
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
           <Botao tipo="texto" onClick={onVoltar}>← Voltar</Botao>
-          <h1 className="m-0 text-[28px] font-bold leading-9 text-[var(--text-strong)]">Simulação</h1>
+          <h1 data-mp-unmask className="m-0 text-[28px] font-bold leading-9 text-[var(--text-strong)]">Simulação</h1>
           <span className="text-base text-[var(--text-secondary)]">{sim.loja.nome}</span>
         </div>
       </div>

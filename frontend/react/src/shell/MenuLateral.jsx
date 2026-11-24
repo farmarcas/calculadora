@@ -47,7 +47,7 @@ export default function MenuLateral({ perfil, folha, aberto, onNavegar, id }) {
   const ir = (f) => { setPainel(null); onNavegar(f); };
 
   return (
-    <nav id={id} aria-label="Menu principal" ref={raiz} className="flex flex-col">
+    <nav id={id} data-mp-unmask aria-label="Menu principal" ref={raiz} className="flex flex-col">
       {itens.map((item) => {
         const Icone = ICONES[item.icone];
         const temFilhos = !!item.filhos?.length;
@@ -105,7 +105,7 @@ export default function MenuLateral({ perfil, folha, aberto, onNavegar, id }) {
             </button>
             {!aberto_ && <Dica texto={item.rotulo} />}
             {temFilhos && aberto_ && (
-              <div role="menu" aria-label={item.rotulo} className="absolute top-0 left-full z-50 ml-1 min-w-52 overflow-hidden rounded-card border border-[var(--border-subtle)] bg-[var(--surface-card)] shadow-[var(--shadow-2)]">
+              <div role="menu" data-mp-unmask aria-label={item.rotulo} className="absolute top-0 left-full z-50 ml-1 min-w-52 overflow-hidden rounded-card border border-[var(--border-subtle)] bg-[var(--surface-card)] shadow-[var(--shadow-2)]">
                 {item.filhos.map((f, i) => {
                   const IconeF = ICONES[f.icone];
                   const ativo = folha.id === f.id;

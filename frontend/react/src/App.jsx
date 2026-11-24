@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, getGe, getPerfil, GE_INICIAL, setGe, setPerfil, irParaLogin } from "./api/client.js";
 import { identificar, registrar } from "./analytics/servico.js";
+import { identificar as identificarFeedback } from "./feedback/servico.js";
 import { acessoTotalNoGrupo, perfilNoGrupo } from "./auth/sessao.js";
 import { ehOperador, cuidaDoGrupo } from "./api/perfis.js";
 import CadastrosPage from "./features/cadastros/CadastrosPage.jsx";
@@ -165,6 +166,18 @@ export default function App({ sessao, onSair }) {
 
   const geAtual = ges.find((g) => g.id === ge);
   const lojaAtual = lojas?.find((l) => l.id === lojaId);
+  // Usersnap (spec 065): só com login do Radar; leva quem enviou e a loja em uso.
+  useEffect(() => {
+    if (!sso || !usuario) return;
+    identificarFeedback({
+      id: usuario.id,
+      nome: usuario.nome,
+      email: usuario.email,
+      perfil,
+      papel_radar: usuario.papelRadar ? String(usuario.papelRadar).trim().toLowerCase() : undefined,
+      loja: lojaAtual ? `${lojaAtual.codigo} · ${lojaAtual.nome}` : undefined,
+    });
+  }, [sso, usuario, perfil, lojaAtual?.codigo, lojaAtual?.nome]);
   const podeEscrever = cuidaDoGrupo(perfil);
 
   const comFiltroDeGrupo = telaTemFiltroDeGrupo(folha, sso);

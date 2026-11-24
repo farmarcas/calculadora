@@ -1,11 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("mixpanel-browser", () => ({
-  default: { init: vi.fn(), identify: vi.fn(), track: vi.fn(), reset: vi.fn(), start_session_recording: vi.fn(), stop_session_recording: vi.fn(), people: { set: vi.fn() } },
+  default: { init: vi.fn(), identify: vi.fn(), track: vi.fn(), reset: vi.fn(), start_session_recording: vi.fn(), stop_session_recording: vi.fn(), set_config: vi.fn(), people: { set: vi.fn() },
+    flags: { load_flags: vi.fn(() => Promise.resolve()), update_context: vi.fn(() => Promise.resolve()), is_enabled_sync: vi.fn(), get_variant_value_sync: vi.fn() } },
 }));
 import mixpanel from "mixpanel-browser";
 import { propriedadesPermitidas } from "./catalogo.js";
-import { identificar, iniciar, limpar, percentualDeGravacao, registrar } from "./servico.js";
+import { aoMudarFlags, flagLigada, flagsLigadas, identificar, iniciar, limpar, percentualDeGravacao, registrar, variante, versaoDasFlags } from "./servico.js";
 
 const PESSOA = { id: 7, nome: "Ana", email: "ana@x.com", perfil: "TENANT_ADMIN" };
 const ligar = (extra = {}) => iniciar({ token: "tok", ambiente: "producao", replayPercent: "0", ...extra });
@@ -240,5 +241,129 @@ describe("percentualDeGravacao", () => {
     ["abc", 0],
   ])("%j vira %i", (entrada, esperado) => {
     expect(percentualDeGravacao(entrada)).toBe(esperado);
+  });
+});
+
+describe("feature flags e experimentos", () => {
+  const ligarComFlags = (extra = {}) => ligar(extra);
+
+  it("sobe com as flags desligadas e não busca nada antes de identificar", () => {
+    ligarComFlags();
+    expect(mixpanel.init).toHaveBeenCalledWith("tok", expect.objectContaining({ flags: false }));
+    expect(mixpanel.set_config).not.toHaveBeenCalled();
+    expect(mixpanel.flags.load_flags).not.toHaveBeenCalled();
+  });
+
+  it("sem token, nem consulta nem erro, e devolve o padrão", () => {
+    iniciar({ token: "" });
+    identificar(PESSOA);
+    expect(mixpanel.set_config).not.toHaveBeenCalled();
+    expect(flagLigada("nova")).toBe(false);
+    expect(variante("nova", "A")).toBe("A");
+  });
+
+  it("liga as flags ao identificar, com as propriedades da pessoa como contexto, antes do identify", () => {
+    ligarComFlags();
+    identificar({ ...PESSOA, operador: true, quantidade_lojas: 3 });
+    expect(mixpanel.set_config).toHaveBeenCalledWith({ flags: { context: { custom_properties: expect.objectContaining({ perfil: "TENANT_ADMIN", operador: true, quantidade_lojas: 3 }) } } });
+    expect(mixpanel.set_config.mock.invocationCallOrder[0]).toBeLessThan(mixpanel.identify.mock.invocationCallOrder[0]);
+    expect(mixpanel.flags.load_flags).toHaveBeenCalledTimes(1);
+  });
+
+  it("não leva nome nem e-mail para o contexto das flags", () => {
+    ligarComFlags();
+    identificar(PESSOA);
+    const contexto = JSON.stringify(mixpanel.set_config.mock.calls[0][0]);
+    expect(contexto).not.toContain("Ana");
+    expect(contexto).not.toContain("ana@x.com");
+  });
+
+  it("mudança só de propriedades da mesma pessoa atualiza o contexto, sem novo identify", () => {
+    ligarComFlags();
+    identificar(PESSOA);
+    identificar({ ...PESSOA, perfil: "SCHEDULE_VIEWER" });
+    expect(mixpanel.identify).toHaveBeenCalledTimes(1);
+    expect(mixpanel.flags.update_context).toHaveBeenCalledWith({ custom_properties: expect.objectContaining({ perfil: "SCHEDULE_VIEWER" }) });
+  });
+
+  it("flagLigada e variante leem do Mixpanel depois de identificar", () => {
+    ligarComFlags();
+    identificar(PESSOA);
+    mixpanel.flags.is_enabled_sync.mockReturnValue(true);
+    mixpanel.flags.get_variant_value_sync.mockReturnValue("B");
+    expect(flagLigada("nova")).toBe(true);
+    expect(variante("tela", "A")).toBe("B");
+    expect(mixpanel.flags.get_variant_value_sync).toHaveBeenCalledWith("tela", "A");
+  });
+
+  it("antes de identificar devolve o padrão, sem perguntar ao Mixpanel", () => {
+    ligarComFlags();
+    expect(flagLigada("nova")).toBe(false);
+    expect(variante("tela", "A")).toBe("A");
+    expect(mixpanel.flags.is_enabled_sync).not.toHaveBeenCalled();
+  });
+
+  it("flag que não existe ou valor que não é verdadeiro vale desligada", () => {
+    ligarComFlags();
+    identificar(PESSOA);
+    mixpanel.flags.is_enabled_sync.mockReturnValue(undefined);
+    expect(flagLigada("nao-existe")).toBe(false);
+  });
+
+  it("erro do SDK nunca lança e vale o padrão", () => {
+    ligarComFlags();
+    identificar(PESSOA);
+    mixpanel.flags.is_enabled_sync.mockImplementation(() => { throw new Error("falha"); });
+    mixpanel.flags.get_variant_value_sync.mockImplementation(() => { throw new Error("falha"); });
+    expect(flagLigada("x")).toBe(false);
+    expect(variante("x", "A")).toBe("A");
+    mixpanel.flags.load_flags.mockReturnValueOnce(Promise.reject(new Error("rede")));
+    expect(() => identificar({ ...PESSOA, id: 9 })).not.toThrow();
+  });
+
+  it("limpar desliga as flags antes do reset e volta ao padrão", () => {
+    ligarComFlags();
+    identificar(PESSOA);
+    limpar();
+    expect(mixpanel.set_config).toHaveBeenLastCalledWith({ flags: false });
+    expect(mixpanel.set_config.mock.invocationCallOrder.at(-1)).toBeLessThan(mixpanel.reset.mock.invocationCallOrder[0]);
+    mixpanel.flags.is_enabled_sync.mockReturnValue(true);
+    expect(flagLigada("nova")).toBe(false);
+  });
+
+  it("com a chave desligada (0 ou false) nunca liga nem consulta", () => {
+    for (const valor of ["0", "false", "FALSE"]) {
+      vi.clearAllMocks();
+      ligarComFlags({ flags: valor });
+      identificar(PESSOA);
+      expect(mixpanel.set_config).not.toHaveBeenCalled();
+      expect(mixpanel.flags.load_flags).not.toHaveBeenCalled();
+      expect(flagLigada("nova")).toBe(false);
+    }
+  });
+
+  it("avisa os ouvintes quando as flags chegam e quando saem", async () => {
+    ligarComFlags();
+    const ouvinte = vi.fn();
+    const parar = aoMudarFlags(ouvinte);
+    const antes = versaoDasFlags();
+    identificar(PESSOA);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(ouvinte).toHaveBeenCalledTimes(1);
+    expect(versaoDasFlags()).toBeGreaterThan(antes);
+    limpar();
+    expect(ouvinte).toHaveBeenCalledTimes(2);
+    parar();
+  });
+});
+
+describe("flagsLigadas", () => {
+  it("vazio liga; 0 e false desligam", () => {
+    expect(flagsLigadas("")).toBe(true);
+    expect(flagsLigadas(undefined)).toBe(true);
+    expect(flagsLigadas("1")).toBe(true);
+    expect(flagsLigadas("0")).toBe(false);
+    expect(flagsLigadas(" False ")).toBe(false);
   });
 });

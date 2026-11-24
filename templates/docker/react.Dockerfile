@@ -20,6 +20,7 @@ ARG VITE_MIXPANEL_TOKEN=
 ARG VITE_MIXPANEL_API_HOST=
 ARG VITE_MIXPANEL_REPLAY_PERCENT=
 ARG VITE_USERSNAP_SPACE_KEY=
+ARG VITE_MIXPANEL_FLAGS=
 RUN npm run build -- --base="$APP_BASE"
 
 # NGINX_RUNTIME: 'docker' (padrão, Coolify) ou 'k8s' (cluster do Radar, serve sob /escala).

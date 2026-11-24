@@ -46,3 +46,23 @@ O Usersnap só carrega para quem entrou pelo Radar, pelo serviço `src/feedback/
 - **Atenção (LGPD):** a captura de tela mostra o que está na tela (R$, nomes, CNPJs). Restrinja o acesso ao espaço no Usersnap ao time e mantenha o aviso na política de privacidade do Radar.
 - **Chave:** `USERSNAP_SPACE_KEY` (Space API key, nas configurações do espaço no Usersnap). Vazia = desligado. No `.env` local serve para testar; em produção vem do segredo do repositório `USERSNAP_SPACE_KEY`, só no build de produção (homologação fica sem Usersnap).
 - Ao sair, o widget é desmontado e a próxima pessoa não herda nada. Falha, bloqueio ou falta de chave nunca quebram telas.
+### Feature flags e experimentos (spec 064)
+
+O serviço de medição já vem preparado para flags e experimentos do Mixpanel. Hoje não existe nenhuma flag: sem flag criada, tudo vale o padrão e nenhuma tela muda.
+
+**Usar numa tela** (nunca importe `mixpanel-browser` na tela):
+
+```jsx
+import { useFlag, useVariante } from "../analytics/useFlag.js";
+
+const ligada = useFlag("nome_da_flag");              // true ou false; padrão false
+const versao = useVariante("nome_do_teste", "A");    // versão recebida; padrão "A"
+```
+
+Antes de as flags chegarem, ou se o Mixpanel falhar, o gancho devolve o padrão e depois atualiza sozinho. Fora de componentes, use `flagLigada` e `variante` de `analytics/servico.js`.
+
+**Criar uma flag:** no Mixpanel (projeto Radar Escala), Feature Flags → nova flag. Use a chave exata no código. Para liberar a um grupo, use a regra por propriedade da pessoa: o serviço envia `perfil`, `papel_radar`, `operador`, `quantidade_grupos`, `quantidade_lojas` e `acesso_total` (nunca nome nem e-mail). Para desligar, desative a flag no Mixpanel: não precisa publicar.
+
+**Criar um experimento:** no Mixpanel, Experiments → novo, com a flag e as versões. O SDK registra sozinho `$experiment_started` (nome e versão) na primeira vez que a tela lê a versão; escolha como métrica de sucesso um evento do catálogo (`simulacao_criada`, `cenario_salvo` etc.).
+
+**Regras:** só consulta com pessoa logada pelo Radar (modo demonstração e tela de entrada vivem no padrão). `MIXPANEL_FLAGS=0` (ou `false`) desliga tudo sem mexer em tela; vazio liga. No deploy de produção vem da variável do repositório `MIXPANEL_FLAGS`. Mantenha o código da versão antiga enquanto o teste durar e remova a flag do código quando o teste acabar.

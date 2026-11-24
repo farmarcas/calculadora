@@ -66,6 +66,8 @@ export const iniciar = (config = {}) =>
       // Tudo coberto na gravação: texto e campos. O console e a rede podem carregar dados, então ficam de fora.
       record_mask_all_text: true,
       record_mask_inputs: true,
+      // Exceção explícita: só o que leva `data-mp-unmask` (menu, títulos e abas de texto fixo) fica legível. Texto novo sai coberto.
+      record_unmask_text_selector: "[data-mp-unmask]",
       record_console: false,
       record_network: false,
       record_canvas: false,

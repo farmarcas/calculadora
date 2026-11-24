@@ -58,7 +58,7 @@ export default function EncargosPorRegime({ dono }) {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h2 className="m-0 text-xl font-bold">Encargos por regime</h2>
+        <h2 data-mp-unmask className="m-0 text-xl font-bold">Encargos por regime</h2>
         <p className="mt-1 mb-0 text-sm text-ink-500">
           Os encargos da folha vêm do regime tributário da loja. Cada regime guarda os componentes; o total é calculado: diretos (INSS + RAT × FAP + terceiros + FGTS), mais as provisões de 13º e férias + 1/3, mais os encargos sobre as provisões.
           Alterar um valor cria uma nova versão com data de início. Percentuais de referência: confirme com seu contador.

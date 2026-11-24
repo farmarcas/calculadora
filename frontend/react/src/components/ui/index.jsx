@@ -100,7 +100,7 @@ export function Abas({ opcoes = [], valor, onChange, rotulo, className = "" }) {
             className={`bg-transparent border-0 px-1.5 pt-2 pb-2.5 text-base cursor-pointer ${ativa ? "font-bold text-ink-900" : "font-normal text-ink-700"}`}
             style={{ boxShadow: ativa ? "inset 0 -3px 0 var(--color-primary)" : "none" }}
           >
-            {texto}
+            <span data-mp-unmask>{texto}</span>
             {pendentes > 0 && (
               <span className="ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 align-middle text-xs font-bold text-[var(--text-strong)]" style={{ background: "var(--func-attention-100)" }}>
                 <span aria-hidden="true">{pendentes}</span>

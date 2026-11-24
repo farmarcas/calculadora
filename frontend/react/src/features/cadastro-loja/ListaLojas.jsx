@@ -61,7 +61,7 @@ export default function ListaLojas({ lojaId, versao, podeCriar, onSelecionar, on
     <div className="flex flex-1 flex-col">
       <div className="sticky top-0 z-20 flex flex-col gap-3 bg-[var(--surface-card)] px-6 pt-5 pb-4 rounded-t-card">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="m-0 text-xl font-bold text-[var(--text-strong)]">Lojas ({dados.total})</h2>
+          <h2 data-mp-unmask className="m-0 text-xl font-bold text-[var(--text-strong)]">Lojas ({dados.total})</h2>
           {podeCriar && <Botao tamanho="pequeno" onClick={onNova}>Cadastrar loja</Botao>}
         </div>
         <input aria-label="Buscar loja" placeholder="Buscar por nome, código ou CNPJ" value={busca} onChange={(e) => { setBusca(e.target.value); setPaginas(1); }} className={`${SEL} w-full`} />

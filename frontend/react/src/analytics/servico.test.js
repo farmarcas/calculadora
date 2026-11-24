@@ -162,6 +162,7 @@ describe("mapa de calor e replay", () => {
       record_heatmap_data: true,
       record_mask_all_text: true,
       record_mask_inputs: true,
+      record_unmask_text_selector: "[data-mp-unmask]",
       record_console: false,
       record_network: false,
       record_canvas: false,

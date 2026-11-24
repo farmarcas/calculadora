@@ -159,7 +159,7 @@ export default function EscalaPorHora({ sim, editavel, dono, calculando = false,
     <section id="escala-por-hora" aria-label="Escala por hora" className="rounded-card border border-[var(--border-subtle)] bg-[var(--surface-card)] shadow-card">
       <div className="flex flex-wrap items-start justify-between gap-4 p-6 pb-4">
         <div className="min-w-0 max-w-[560px]">
-          <h2 className="m-0 text-xl leading-[26px] font-bold text-[var(--text-strong)]">Escala por hora</h2>
+          <h2 data-mp-unmask className="m-0 text-xl leading-[26px] font-bold text-[var(--text-strong)]">Escala por hora</h2>
           <p className="mt-1 mb-0 text-sm leading-5 text-[var(--text-secondary)]">
             {editavel ? "Arraste um turno para mover; puxe as bordas para mudar início e fim. Em cada função, use “+ Contratar” para simular uma pessoa a mais. Cada mudança é revalidada contra a regra-alvo." : "A escala desta simulação, hora a hora. Para ajustar, clone a simulação ou peça a quem tem permissão de edição."}
           </p>

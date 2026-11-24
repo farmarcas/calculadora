@@ -68,7 +68,7 @@ export default function QuadroCentral({ diag, regraId, onRegra, podeEscrever, on
   return (
     <section aria-label="Diagnóstico da escala" className="diag-conteiner flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-        <h2 className="m-0 text-xl leading-[26px] font-bold text-[var(--text-strong)]">Diagnóstico da escala</h2>
+        <h2 data-mp-unmask className="m-0 text-xl leading-[26px] font-bold text-[var(--text-strong)]">Diagnóstico da escala</h2>
         <Abas regras={regras} valor={sel.id} onChange={onRegra} />
       </div>
 

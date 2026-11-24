@@ -17,7 +17,7 @@ export default function CadastrosPage({ perfil, acessoTotal = true, secao = "loj
     <>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="m-0 text-2xl font-bold">Cadastro de loja</h1>
+          <h1 data-mp-unmask className="m-0 text-2xl font-bold">Cadastro de loja</h1>
           <p className="mt-1 mb-0 text-sm text-ink-500">As lojas vêm da plataforma. Corrija o que precisar e cadastre a equipe de cada uma.</p>
         </div>
         {secao === "lojas" && <MenuImportar itens={itensDoMenuImportar(perfil, acessoTotal)} onEscolher={onImportar} />}

@@ -50,7 +50,7 @@ export default function ListaDeSimulacoes({ lista, marcadas, onAlternar, onAbrir
     <section aria-labelledby="titulo-lista" className="overflow-hidden rounded-[8px] border border-[var(--border-subtle)] bg-[var(--surface-card)]">
       <header className="flex flex-wrap items-start justify-between gap-3 px-6 py-5">
         <div>
-          <h2 id="titulo-lista" className="m-0 text-xl font-bold text-[var(--text-strong)]">Simulações da loja</h2>
+          <h2 data-mp-unmask id="titulo-lista" className="m-0 text-xl font-bold text-[var(--text-strong)]">Simulações da loja</h2>
           <p className="m-0 mt-1 text-sm text-[var(--text-secondary)]">Cenários que você salvou. Rascunho pode ser ajustado. Simulação gravada só pode ser copiada.</p>
           {comReais && fraseDaRegua(lista[0]?.regua) && <p className="m-0 mt-1 text-xs text-[var(--text-secondary)]" data-testid="frase-regua">{fraseDaRegua(lista[0]?.regua)}</p>}
         </div>

@@ -43,7 +43,7 @@ export default function EscalaPage({ perfil, lojaId, semLojas, secao, versaoDado
   return (
     <>
       <div>
-        <h1 className="m-0 text-2xl font-bold">Escala</h1>
+        <h1 data-mp-unmask className="m-0 text-2xl font-bold">Escala</h1>
         <p className="mt-1 mb-0 text-sm text-ink-500">Diagnóstico da escala atual frente às regras de 42h e 40h (EC 141/2026).</p>
       </div>
 

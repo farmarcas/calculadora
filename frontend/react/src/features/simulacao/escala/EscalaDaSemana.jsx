@@ -16,7 +16,7 @@ export default function EscalaDaSemana({ sim, editavel, onDia, onCadastrar, onDe
     <section aria-label="Escala da semana" className="rounded-card border border-[var(--border-subtle)] bg-[var(--surface-card)] shadow-card">
       <div className="flex flex-wrap items-start justify-between gap-4 p-6 pb-4">
         <div className="min-w-0">
-          <h2 className="m-0 text-xl leading-[26px] font-bold text-[var(--text-strong)]">Escala da semana</h2>
+          <h2 data-mp-unmask className="m-0 text-xl leading-[26px] font-bold text-[var(--text-strong)]">Escala da semana</h2>
           <p className="mt-1 mb-0 text-sm leading-5 text-[var(--text-secondary)]">Veja a semana de cada pessoa, com folgas e intervalos.{editavel ? " Clique em um dia para ajustar na Escala por hora; use o × do canto para dar folga; clicar numa folga escala a pessoa naquele dia." : ""}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">

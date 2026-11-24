@@ -47,7 +47,7 @@ export default function GruposPage({ geAtual, onAbrir, onMudou }) {
     <>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="m-0 text-2xl font-bold">Grupos econômicos</h1>
+          <h1 data-mp-unmask className="m-0 text-2xl font-bold">Grupos econômicos</h1>
           <p className="mt-1 mb-0 text-sm text-ink-500">Um grupo por empresário. Você carrega as lojas por Excel; o empresário cadastra só a equipe.</p>
         </div>
         <div className="flex flex-wrap gap-2">

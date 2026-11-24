@@ -63,7 +63,7 @@ export default function ParametrosLegais({ perfil }) {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="m-0 text-2xl font-bold">Parâmetros legais</h1>
+        <h1 data-mp-unmask className="m-0 text-2xl font-bold">Parâmetros legais</h1>
         <p className="mt-1 mb-0 text-sm text-ink-500">
           As regras da EC 141/2026 usadas no cálculo. Alterar um valor cria uma nova versão com data de início; as versões antigas ficam no histórico.
           Vale a versão mais recente que já começou. Se todas ainda começam no futuro, vale a mais antiga.

@@ -28,3 +28,12 @@ Toda medição passa pelo serviço central `frontend/react/src/analytics/servico
 - Para medir uma ação nova: acrescente o evento (e as propriedades permitidas) em `analytics/catalogo.js` e em `specs/059-mixpanel-servico-central/contracts/catalogo-eventos.md`, e chame `registrar("nome_do_evento", { ... })`.
 - Nunca envie valores em dinheiro, folha, CNPJ, nome de loja ou texto digitado. O serviço descarta o que não está no catálogo.
 - Sem `MIXPANEL_TOKEN` a medição fica desligada. Em modo demonstração (sem login do Radar) ela também não mede.
+
+### Mapa de calor e replay (spec 060)
+
+O serviço de medição também grava uma parte das sessões do Mixpanel (replay) e, junto, coleta o mapa de calor. O mapa de calor do Mixpanel só existe dentro de sessões gravadas.
+
+- **Tudo sai coberto:** texto e campos de formulário aparecem como retângulos na gravação. Isso é o padrão porque as telas mostram folha, faturamento, nomes e CNPJs. Não há trecho liberado; se um dia for preciso, a opção é `record_unmask_text_selector` no `analytics/servico.js`, com revisão de quem cuida da privacidade.
+- **Só com login do Radar:** a gravação começa depois da identificação da pessoa. Modo demonstração e a tela de entrada não gravam.
+- **Parcela gravada:** `MIXPANEL_REPLAY_PERCENT` (0 a 100). Vazio = todas as sessões; `0` desliga a gravação e o mapa de calor sem mexer em tela. No deploy de produção vem da variável do repositório `MIXPANEL_REPLAY_PERCENT`.
+- Console e rede não são gravados, e cada gravação dura no máximo 1 hora.

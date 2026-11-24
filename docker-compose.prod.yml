@@ -51,6 +51,7 @@ services:
         VITE_RADAR_URL: ${RADAR_URL:-https://radar.farmarcas.com.br}
         VITE_MIXPANEL_TOKEN: ${MIXPANEL_TOKEN:-}
         VITE_MIXPANEL_API_HOST: ${MIXPANEL_API_HOST:-}
+        VITE_MIXPANEL_REPLAY_PERCENT: ${MIXPANEL_REPLAY_PERCENT:-}
     restart: unless-stopped
     environment:
       API_UPSTREAM: http://api:4000

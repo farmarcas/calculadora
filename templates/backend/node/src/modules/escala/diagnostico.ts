@@ -208,6 +208,9 @@ export const montarDiagnostico = (a: {
       // Só o dono vê o custo da sugestão.
       custos: a.dono ? (loja.custos ?? null) : null,
       divisor: (a.parametros ?? PARAMETROS_PADRAO)[id].divisor,
+      // Spec 063: a falta se cobre primeiro com hora extra de quem já está escalado; só o que sobra vira contratação sugerida
+      // (a mesma decisão dos Cenários e da Simulação).
+      horaExtra: true,
     });
     // Redistribuição: monta a escala semanal de quem cobre os cargos com exigência (farmacêutico e metas do dono),
     // dentro da regra, e deixa o descoberto por faixa. Quem tem horário fixo mantém o horário de hoje.

@@ -62,12 +62,15 @@ jobs:
           # Medição (Mixpanel, projeto Radar Escala): só no build de produção (disparo manual).
           # No stg o token fica vazio e a medição fica desligada, para não misturar dados de teste.
           MIXPANEL_TOKEN: ${{ github.event_name == 'workflow_dispatch' && secrets.MIXPANEL_TOKEN || '' }}
+          # Parcela de sessões gravadas (0 a 100). Variável do repositório, opcional: vazio = todas.
+          MIXPANEL_REPLAY_PERCENT: ${{ vars.MIXPANEL_REPLAY_PERCENT }}
         run: |
           docker build \
             --build-arg APP_BASE=/escala/ \
             --build-arg NGINX_RUNTIME=k8s \
             --build-arg VITE_RADAR_URL=${{ steps.env.outputs.radar_url }} \
             --build-arg VITE_MIXPANEL_TOKEN="$MIXPANEL_TOKEN" \
+            --build-arg VITE_MIXPANEL_REPLAY_PERCENT="$MIXPANEL_REPLAY_PERCENT" \
             -t "$REGISTRY/calculadora-web:$TAG" \
             frontend/react
           docker push "$REGISTRY/calculadora-web:$TAG"

@@ -59,6 +59,7 @@ services:
       VITE_RADAR_URL: ${RADAR_URL:-https://dev.radar.farmarcas.com.br}
       VITE_MIXPANEL_TOKEN: ${MIXPANEL_TOKEN:-}
       VITE_MIXPANEL_API_HOST: ${MIXPANEL_API_HOST:-}
+      VITE_MIXPANEL_REPLAY_PERCENT: ${MIXPANEL_REPLAY_PERCENT:-}
     ports:
       - "127.0.0.1:${WEB_PORT:-3000}:3000"
     volumes:

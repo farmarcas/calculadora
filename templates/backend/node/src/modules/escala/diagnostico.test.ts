@@ -141,6 +141,24 @@ describe('montarDiagnostico', () => {
     expect('margemCortadaMes' in eco(diag(30))).toBe(false);
   });
 
+  it('hora extra antes de contratar (spec 063): a falta que a hora extra cobre não vira contratação sugerida', () => {
+    const turnos = [
+      farm('F1', 8, 14, [0, 1, 2, 3, 4, 5], 42),
+      farm('F2', 14, 20, [0, 1, 2, 3, 4], 42),
+      farm('F3', 10, 18, [1, 2, 3], 24),
+    ];
+    const r = montarDiagnostico({ loja, escala: meta, turnos, base: null, vendas: [] });
+    if (r.status === 'pendente') throw new Error('esperava diagnóstico');
+    const r42 = r.regras.find((x) => x.id === 'r42')!;
+    const f = r42.funcoes.find((x) => x.funcao === 'Farmacêutico')!;
+    // Ainda falta cobertura, mas a hora extra de quem já está escalado fecha tudo: nada a contratar, igual ao cenário "Manter horários".
+    expect(f.falta).toBe(true);
+    expect(f.contratar).toBe(0);
+    expect(r42.resumo.contratar).toBe(0);
+    expect(r.cenarios.r42.manter.pessoasContratar).toBe(0);
+    expect(r.cenarios.r42.manter.semContratar).toBe(true);
+  });
+
   describe('horário por dia da semana', () => {
     const aberta = (abre: string, fecha: string) => ({ aberta: true, abre, fecha });
     const semana = (dom: object) => ({
@@ -193,7 +211,8 @@ describe('montarDiagnostico', () => {
         saldoT: -2,
         falta: true,
         contratar: 1,
-        gapH: 12,
+        // Spec 063: a hora extra de quem já está escalado cobre 4 h dessa falta antes de contratar; o `gapH` é o que sobra.
+        gapH: 8,
         // Spec 044: só integral, sem parcial
         parcialTurnos: 0,
         parcialH: null,

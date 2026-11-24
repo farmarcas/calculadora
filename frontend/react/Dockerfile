@@ -18,6 +18,7 @@ COPY . .
 ARG VITE_RADAR_URL=https://radar.farmarcas.com.br
 ARG VITE_MIXPANEL_TOKEN=
 ARG VITE_MIXPANEL_API_HOST=
+ARG VITE_MIXPANEL_REPLAY_PERCENT=
 RUN npm run build -- --base="$APP_BASE"
 
 # NGINX_RUNTIME: 'docker' (padrão, Coolify) ou 'k8s' (cluster do Radar, serve sob /escala).

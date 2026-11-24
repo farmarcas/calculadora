@@ -1,14 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("mixpanel-browser", () => ({
-  default: { init: vi.fn(), identify: vi.fn(), track: vi.fn(), reset: vi.fn(), people: { set: vi.fn() } },
+  default: { init: vi.fn(), identify: vi.fn(), track: vi.fn(), reset: vi.fn(), start_session_recording: vi.fn(), stop_session_recording: vi.fn(), people: { set: vi.fn() } },
 }));
 import mixpanel from "mixpanel-browser";
 import { propriedadesPermitidas } from "./catalogo.js";
-import { identificar, iniciar, limpar, registrar } from "./servico.js";
+import { identificar, iniciar, limpar, percentualDeGravacao, registrar } from "./servico.js";
 
 const PESSOA = { id: 7, nome: "Ana", email: "ana@x.com", perfil: "TENANT_ADMIN" };
-const ligar = () => iniciar({ token: "tok", ambiente: "producao" });
+const ligar = (extra = {}) => iniciar({ token: "tok", ambiente: "producao", replayPercent: "0", ...extra });
 const ligarComPessoa = () => {
   ligar();
   identificar(PESSOA);
@@ -150,5 +150,95 @@ describe("catálogo", () => {
   it("evento sem propriedades aceita objeto vazio ou ausente", () => {
     expect(propriedadesPermitidas("loja_trocada")).toEqual({});
     expect(propriedadesPermitidas("login_concluido", undefined)).toEqual({});
+  });
+});
+
+describe("mapa de calor e replay", () => {
+  it("inicia com tudo coberto, sem console nem rede, e sem gravar no init", () => {
+    ligar();
+    expect(mixpanel.init).toHaveBeenCalledWith("tok", expect.objectContaining({
+      record_sessions_percent: 0,
+      record_heatmap_data: true,
+      record_mask_all_text: true,
+      record_mask_inputs: true,
+      record_console: false,
+      record_network: false,
+      record_canvas: false,
+      record_max_ms: 3_600_000,
+    }));
+    expect(mixpanel.start_session_recording).not.toHaveBeenCalled();
+  });
+
+  it("não grava antes de identificar a pessoa", () => {
+    ligar({ replayPercent: "100" });
+    registrar("login_concluido");
+    expect(mixpanel.start_session_recording).not.toHaveBeenCalled();
+  });
+
+  it("grava depois de identificar, uma vez só, mesmo se o perfil mudar", () => {
+    ligar({ replayPercent: "100" });
+    identificar({ id: 7, nome: "Ana", email: "a@x.com", perfil: "SCHEDULE_VIEWER" });
+    identificar({ id: 7, nome: "Ana", email: "a@x.com", perfil: "TENANT_ADMIN" });
+    expect(mixpanel.start_session_recording).toHaveBeenCalledTimes(1);
+  });
+
+  it("com percentual 0 nunca grava", () => {
+    ligar({ replayPercent: "0" });
+    identificar(PESSOA);
+    expect(mixpanel.start_session_recording).not.toHaveBeenCalled();
+  });
+
+  it("respeita o sorteio: sessão fora da parcela não grava", () => {
+    ligar({ replayPercent: "25", sorteio: () => 0.5 });
+    identificar(PESSOA);
+    expect(mixpanel.start_session_recording).not.toHaveBeenCalled();
+    limpar();
+    iniciar({ token: "tok", replayPercent: "25", sorteio: () => 0.1 });
+    identificar(PESSOA);
+    expect(mixpanel.start_session_recording).toHaveBeenCalledTimes(1);
+  });
+
+  it("limpar para a gravação", () => {
+    ligar({ replayPercent: "100" });
+    identificar(PESSOA);
+    limpar();
+    expect(mixpanel.stop_session_recording).toHaveBeenCalledTimes(1);
+  });
+
+  it("limpar sem gravação não tenta parar", () => {
+    ligar({ replayPercent: "0" });
+    identificar(PESSOA);
+    limpar();
+    expect(mixpanel.stop_session_recording).not.toHaveBeenCalled();
+  });
+
+  it("falha ao começar a gravar não vaza para a tela", () => {
+    ligar({ replayPercent: "100" });
+    mixpanel.start_session_recording.mockImplementationOnce(() => {
+      throw new Error("falhou");
+    });
+    expect(() => identificar(PESSOA)).not.toThrow();
+  });
+
+  it("sem token não grava", () => {
+    iniciar({ token: "", replayPercent: "100" });
+    identificar(PESSOA);
+    expect(mixpanel.start_session_recording).not.toHaveBeenCalled();
+  });
+});
+
+describe("percentualDeGravacao", () => {
+  it.each([
+    [undefined, 100],
+    ["", 100],
+    ["  ", 100],
+    ["0", 0],
+    ["25", 25],
+    ["100", 100],
+    ["101", 0],
+    ["-5", 0],
+    ["abc", 0],
+  ])("%j vira %i", (entrada, esperado) => {
+    expect(percentualDeGravacao(entrada)).toBe(esperado);
   });
 });
